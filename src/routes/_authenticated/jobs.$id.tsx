@@ -73,7 +73,7 @@ function JobDetail() {
     qc.invalidateQueries({ queryKey: ["job", id] });
   };
 
-  const updateStatus = async (status: string) => {
+  const updateStatus = async (status: "in_progress") => {
     const { error } = await supabase.from("jobs").update({ status }).eq("id", id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["job", id] });

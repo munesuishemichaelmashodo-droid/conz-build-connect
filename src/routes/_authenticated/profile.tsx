@@ -120,7 +120,8 @@ function DocUpload({ field, label, userId, current, refresh }: { field: "nationa
     const path = `${userId}/${field}-${Date.now()}-${file.name.replace(/[^a-z0-9.]/gi, "_")}`;
     const { error: uerr } = await supabase.storage.from("driver-docs").upload(path, file, { upsert: true });
     if (uerr) { setUploading(false); return toast.error(uerr.message); }
-    const { error } = await supabase.from("driver_profiles").update({ [field]: path, verification_status: "pending" }).eq("user_id", userId);
+    const patch = { [field]: path, verification_status: "pending" as const };
+    const { error } = await supabase.from("driver_profiles").update(patch as never).eq("user_id", userId);
     setUploading(false);
     if (error) return toast.error(error.message);
     toast.success(`${label} uploaded`);
