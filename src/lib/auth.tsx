@@ -1,0 +1,99 @@
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import type { AppRole } from "@/lib/domain";
+
+export type Profile = {
+  id: string;
+  full_name: string;
+  phone: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  status: "active" | "suspended" | "banned";
+};
+
+type AuthState = {
+  loading: boolean;
+  userId: string | null;
+  email: string | null;
+  profile: Profile | null;
+  roles: AppRole[];
+  is: (r: AppRole) => boolean;
+  refresh: () => Promise<void>;
+};
+
+const Ctx = createContext<AuthState>({
+  loading: true,
+  userId: null,
+  email: null,
+  profile: null,
+  roles: [],
+  is: () => false,
+  refresh: async () => {},
+});
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [roles, setRoles] = useState<AppRole[]>([]);
+  const qc = useQueryClient();
+
+  const load = async (uid: string | null) => {
+    if (!uid) {
+      setProfile(null);
+      setRoles([]);
+      return;
+    }
+    const [{ data: p }, { data: r }] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", uid).maybeSingle(),
+      supabase.from("user_roles").select("role").eq("user_id", uid),
+    ]);
+    setProfile((p as Profile) ?? null);
+    setRoles(((r ?? []) as { role: AppRole }[]).map((x) => x.role));
+  };
+
+  useEffect(() => {
+    // 1) subscribe first
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const uid = session?.user?.id ?? null;
+      setUserId(uid);
+      setEmail(session?.user?.email ?? null);
+      // defer DB read to avoid deadlock
+      setTimeout(() => {
+        void load(uid);
+      }, 0);
+      if (event === "SIGNED_OUT") {
+        qc.clear();
+      } else if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+        qc.invalidateQueries();
+      }
+    });
+
+    // 2) then check existing
+    supabase.auth.getSession().then(({ data }) => {
+      const uid = data.session?.user?.id ?? null;
+      setUserId(uid);
+      setEmail(data.session?.user?.email ?? null);
+      void load(uid).finally(() => setLoading(false));
+    });
+
+    return () => sub.subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const value: AuthState = {
+    loading,
+    userId,
+    email,
+    profile,
+    roles,
+    is: (r) => roles.includes(r),
+    refresh: () => load(userId),
+  };
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+export const useAuth = () => useContext(Ctx);
