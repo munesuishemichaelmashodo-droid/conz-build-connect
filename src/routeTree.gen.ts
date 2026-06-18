@@ -20,6 +20,7 @@ import { Route as AuthenticatedJobsIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedJobsNewRouteImport } from './routes/_authenticated/jobs.new'
 import { Route as AuthenticatedJobsIdRouteImport } from './routes/_authenticated/jobs.$id'
+import { Route as AuthenticatedAdminVerificationsRouteImport } from './routes/_authenticated/admin.verifications'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 
 const AuthRoute = AuthRouteImport.update({
@@ -76,6 +77,12 @@ const AuthenticatedJobsIdRoute = AuthenticatedJobsIdRouteImport.update({
   path: '/jobs/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminVerificationsRoute =
+  AuthenticatedAdminVerificationsRouteImport.update({
+    id: '/verifications',
+    path: '/verifications',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -90,6 +97,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof AuthenticatedProfileRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/admin/verifications': typeof AuthenticatedAdminVerificationsRoute
   '/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/jobs/new': typeof AuthenticatedJobsNewRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
@@ -102,6 +110,7 @@ export interface FileRoutesByTo {
   '/profile': typeof AuthenticatedProfileRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/admin/verifications': typeof AuthenticatedAdminVerificationsRoute
   '/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/jobs/new': typeof AuthenticatedJobsNewRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
@@ -117,6 +126,7 @@ export interface FileRoutesById {
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/_authenticated/admin/verifications': typeof AuthenticatedAdminVerificationsRoute
   '/_authenticated/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/_authenticated/jobs/new': typeof AuthenticatedJobsNewRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/wallet'
     | '/admin/users'
+    | '/admin/verifications'
     | '/jobs/$id'
     | '/jobs/new'
     | '/admin/'
@@ -144,6 +155,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/wallet'
     | '/admin/users'
+    | '/admin/verifications'
     | '/jobs/$id'
     | '/jobs/new'
     | '/admin'
@@ -158,6 +170,7 @@ export interface FileRouteTypes {
     | '/_authenticated/profile'
     | '/_authenticated/wallet'
     | '/_authenticated/admin/users'
+    | '/_authenticated/admin/verifications'
     | '/_authenticated/jobs/$id'
     | '/_authenticated/jobs/new'
     | '/_authenticated/admin/'
@@ -249,6 +262,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedJobsIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/verifications': {
+      id: '/_authenticated/admin/verifications'
+      path: '/verifications'
+      fullPath: '/admin/verifications'
+      preLoaderRoute: typeof AuthenticatedAdminVerificationsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/users': {
       id: '/_authenticated/admin/users'
       path: '/users'
@@ -261,11 +281,13 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
+  AuthenticatedAdminVerificationsRoute: typeof AuthenticatedAdminVerificationsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
+  AuthenticatedAdminVerificationsRoute: AuthenticatedAdminVerificationsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 
