@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/admin/disputes")({
-  component: AdminDisputes;
+  component: AdminDisputes,
 });
 
 type Filter = "open" | "investigating" | "resolved" | "rejected";
