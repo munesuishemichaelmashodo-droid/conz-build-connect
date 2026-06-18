@@ -485,6 +485,59 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      admin_credit_wallet: {
+        Args: { _amount: number; _note: string; _user_id: string }
+        Returns: {
+          balance: number
+          limited: boolean
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wallets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_grant_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: undefined
+      }
+      admin_revoke_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: undefined
+      }
+      admin_set_commission: { Args: { _rate: number }; Returns: Json }
+      admin_set_user_status: {
+        Args: {
+          _status: Database["public"]["Enums"]["account_status"]
+          _user_id: string
+        }
+        Returns: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          phone: string | null
+          status: Database["public"]["Enums"]["account_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      claim_super_admin: { Args: never; Returns: undefined }
       complete_job: {
         Args: { _job_id: string }
         Returns: {
