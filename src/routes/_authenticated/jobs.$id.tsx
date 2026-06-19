@@ -112,6 +112,14 @@ function JobDetail() {
           <Button onClick={() => updateStatus("in_progress")} variant="outline" className="w-full">Mark as en route</Button>
         )}
 
+        {isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && (
+          <DriverShareLocation jobId={id} driverId={userId!} />
+        )}
+
+        {isOwner && (job.status === "accepted" || job.status === "in_progress") && (
+          <CustomerTrackMap jobId={id} />
+        )}
+
         {is("driver") && !isOwner && job.status === "open" && (
           <BidForm jobId={id} existing={myBid} onSaved={() => qc.invalidateQueries({ queryKey: ["bids", id] })} />
         )}
