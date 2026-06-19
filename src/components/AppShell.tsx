@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
+import { NotificationsBell } from "@/components/NotificationsBell";
 
 export function AppShell({ title, children, action }: { title?: string; children: ReactNode; action?: ReactNode }) {
   const { is, profile } = useAuth();
