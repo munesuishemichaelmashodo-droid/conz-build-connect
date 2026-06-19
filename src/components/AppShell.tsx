@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
+import { NotificationsBell } from "@/components/NotificationsBell";
 
 export function AppShell({ title, children, action }: { title?: string; children: ReactNode; action?: ReactNode }) {
   const { is, profile } = useAuth();
@@ -42,6 +43,7 @@ export function AppShell({ title, children, action }: { title?: string; children
           </div>
           <div className="flex items-center gap-1">
             {action}
+            <NotificationsBell />
             <button onClick={signOut} className="p-2 rounded-md hover:bg-muted text-muted-foreground" aria-label="Sign out">
               <LogOut className="w-4 h-4" />
             </button>
