@@ -12,6 +12,7 @@ import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { useState } from "react";
 import { toast } from "sonner";
+import { DriverShareLocation, CustomerTrackMap } from "@/components/JobTracker";
 
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
   component: JobDetail,
@@ -109,6 +110,14 @@ function JobDetail() {
 
         {isAssignedDriver && job.status === "accepted" && (
           <Button onClick={() => updateStatus("in_progress")} variant="outline" className="w-full">Mark as en route</Button>
+        )}
+
+        {isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && (
+          <DriverShareLocation jobId={id} driverId={userId!} />
+        )}
+
+        {isOwner && (job.status === "accepted" || job.status === "in_progress") && (
+          <CustomerTrackMap jobId={id} />
         )}
 
         {is("driver") && !isOwner && job.status === "open" && (

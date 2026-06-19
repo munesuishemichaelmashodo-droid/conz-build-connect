@@ -102,6 +102,44 @@ export type Database = {
           },
         ]
       }
+      driver_locations: {
+        Row: {
+          accuracy: number | null
+          driver_id: string
+          heading: number | null
+          job_id: string
+          lat: number
+          lng: number
+          updated_at: string
+        }
+        Insert: {
+          accuracy?: number | null
+          driver_id: string
+          heading?: number | null
+          job_id: string
+          lat: number
+          lng: number
+          updated_at?: string
+        }
+        Update: {
+          accuracy?: number | null
+          driver_id?: string
+          heading?: number | null
+          job_id?: string
+          lat?: number
+          lng?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_locations_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_profiles: {
         Row: {
           created_at: string
@@ -201,6 +239,39 @@ export type Database = {
           quantity_m3?: number
           status?: Database["public"]["Enums"]["job_status"]
           updated_at?: string
+        }
+        Relationships: []
+      }
+      material_prices: {
+        Row: {
+          enforced: boolean
+          label: string
+          material: Database["public"]["Enums"]["material_category"]
+          max_price: number
+          min_price: number
+          unit: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enforced?: boolean
+          label: string
+          material: Database["public"]["Enums"]["material_category"]
+          max_price: number
+          min_price: number
+          unit?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enforced?: boolean
+          label?: string
+          material?: Database["public"]["Enums"]["material_category"]
+          max_price?: number
+          min_price?: number
+          unit?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
