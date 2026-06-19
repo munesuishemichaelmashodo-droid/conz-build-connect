@@ -12,6 +12,7 @@ import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { useState } from "react";
 import { toast } from "sonner";
+import { DriverShareLocation, CustomerTrackMap } from "@/components/JobTracker";
 
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
   component: JobDetail,
