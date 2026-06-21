@@ -143,6 +143,7 @@ export type Database = {
       driver_profiles: {
         Row: {
           created_at: string
+          first_job_free_used: boolean
           jobs_completed: number
           level: Database["public"]["Enums"]["driver_level"]
           national_id: string | null
@@ -157,6 +158,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          first_job_free_used?: boolean
           jobs_completed?: number
           level?: Database["public"]["Enums"]["driver_level"]
           national_id?: string | null
@@ -171,6 +173,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          first_job_free_used?: boolean
           jobs_completed?: number
           level?: Database["public"]["Enums"]["driver_level"]
           national_id?: string | null
