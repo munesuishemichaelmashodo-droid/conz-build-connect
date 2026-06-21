@@ -1,8 +1,9 @@
 import { createFileRoute, Outlet, Link, useRouterState, redirect } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { LayoutDashboard, Users, ShieldCheck, Gavel, Settings as SettingsIcon } from "lucide-react";
+import { LayoutDashboard, Users, ShieldCheck, Gavel, Settings as SettingsIcon, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: async () => {
@@ -20,8 +21,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminLayout,
 });
 
-const TABS: { to: string; label: string; icon: typeof Users; exact?: boolean }[] = [
+const TABS: { to: string; label: string; icon: typeof Users; exact?: boolean; superOnly?: boolean }[] = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { to: "/admin/revenue", label: "Revenue", icon: TrendingUp, superOnly: true },
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/verifications", label: "Verify", icon: ShieldCheck },
   { to: "/admin/disputes", label: "Disputes", icon: Gavel },
@@ -30,11 +32,14 @@ const TABS: { to: string; label: string; icon: typeof Users; exact?: boolean }[]
 
 function AdminLayout() {
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const { is } = useAuth();
+  const isSuper = is("super_admin");
+  const visibleTabs = TABS.filter((t) => !t.superOnly || isSuper);
   return (
     <AppShell title="Con Z Control">
       <div className="-mx-4 px-4 overflow-x-auto mb-4">
         <div className="flex gap-2 min-w-max pb-1">
-          {TABS.map((t) => {
+          {visibleTabs.map((t) => {
             const active = t.exact ? path === t.to : path.startsWith(t.to);
             const Icon = t.icon;
             return (
