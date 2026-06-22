@@ -38,9 +38,7 @@ export function AppShell({ title, children, action }: { title?: string; children
           <div className="flex items-center gap-1">
             {action}
             <NotificationsBell />
-            <button onClick={signOut} className="p-2 rounded-md hover:bg-muted text-muted-foreground" aria-label="Sign out">
-              <LogOut className="w-4 h-4" />
-            </button>
+            <SidePanel />
           </div>
         </div>
       </header>
