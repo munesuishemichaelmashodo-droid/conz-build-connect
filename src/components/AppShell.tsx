@@ -1,29 +1,23 @@
-import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { Home, Briefcase, Wallet, User, Shield, LogOut } from "lucide-react";
+import { Link, useRouterState } from "@tanstack/react-router";
+import { Home, Briefcase, Wallet, User, Shield } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
+import { useViewMode } from "@/lib/view-mode";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import { NotificationsBell } from "@/components/NotificationsBell";
+import { SidePanel } from "@/components/SidePanel";
 
 export function AppShell({ title, children, action }: { title?: string; children: ReactNode; action?: ReactNode }) {
   const { is, profile } = useAuth();
+  const { activeRole } = useViewMode();
   const isAdmin = is("admin") || is("super_admin");
-  const isDriver = is("driver");
+  const isDriver = activeRole === "driver";
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const nav = useNavigate();
-  const qc = useQueryClient();
 
-  const signOut = async () => {
-    await qc.cancelQueries();
-    qc.clear();
-    await supabase.auth.signOut();
-    nav({ to: "/auth", replace: true });
-  };
+  const homeTo = activeRole === "driver" ? "/driver" : activeRole === "customer" ? "/customer" : "/home";
 
   const tabs = [
-    { to: "/home", icon: Home, label: "Home" },
+    { to: homeTo, icon: Home, label: "Home" },
     { to: "/jobs", icon: Briefcase, label: "Jobs" },
     ...(isDriver ? [{ to: "/wallet", icon: Wallet, label: "Wallet" }] : []),
     ...(isAdmin ? [{ to: "/admin", icon: Shield, label: "Admin" }] : []),
@@ -44,9 +38,7 @@ export function AppShell({ title, children, action }: { title?: string; children
           <div className="flex items-center gap-1">
             {action}
             <NotificationsBell />
-            <button onClick={signOut} className="p-2 rounded-md hover:bg-muted text-muted-foreground" aria-label="Sign out">
-              <LogOut className="w-4 h-4" />
-            </button>
+            <SidePanel />
           </div>
         </div>
       </header>
