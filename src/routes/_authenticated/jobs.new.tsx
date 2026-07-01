@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { AddressPicker } from "@/components/AddressPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -140,10 +141,7 @@ function NewJob() {
             )}
           </div>
         </div>
-        <div>
-          <Label htmlFor="addr">Delivery address</Label>
-          <Input id="addr" value={address} onChange={(e) => setAddress(e.target.value)} maxLength={200} required placeholder="e.g. 12 Sam Levy Dr, Borrowdale" />
-        </div>
+        <AddressPicker value={address} onChange={(a) => setAddress(a)} />
         <div>
           <Label htmlFor="date">Preferred delivery date</Label>
           <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
+import { useViewMode } from "@/lib/view-mode";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ export const Route = createFileRoute("/_authenticated/profile")({
 
 function ProfilePage() {
   const { userId, profile, roles, is, refresh } = useAuth();
+  const { activeRole } = useViewMode();
   const qc = useQueryClient();
   const [name, setName] = useState(profile?.full_name ?? "");
   const [phone, setPhone] = useState(profile?.phone ?? "");
@@ -75,14 +77,14 @@ function ProfilePage() {
           </div>
         </section>
 
-        {!is("driver") && (
+        {activeRole === "driver" && !is("driver") && (
           <Button onClick={becomeDriver} variant="outline" className="w-full h-12"><Truck className="w-4 h-4 mr-2" />Become a driver too</Button>
         )}
-        {!is("customer") && (
+        {activeRole === "customer" && !is("customer") && (
           <Button onClick={becomeCustomer} variant="outline" className="w-full h-12">Enable customer account</Button>
         )}
 
-        {is("driver") && (
+        {activeRole === "driver" && is("driver") && (
           <section className="rounded-2xl bg-card border p-4 shadow-soft space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold uppercase tracking-wide">Driver verification</h2>
@@ -102,11 +104,18 @@ function ProfilePage() {
           </section>
         )}
 
-        {is("driver") && driver?.verification_status === "verified" && (
+        {activeRole === "driver" && is("driver") && driver?.verification_status === "verified" && (
           <div className="rounded-xl bg-success/10 border border-success/30 p-3 flex items-center gap-3">
             <ShieldCheck className="w-5 h-5 text-success" />
             <div className="text-sm"><div className="font-semibold">You're verified</div><div className="text-muted-foreground text-xs">You can bid on any open job.</div></div>
           </div>
+        )}
+
+        {activeRole === "customer" && is("customer") && (
+          <section className="rounded-2xl bg-card border p-4 shadow-soft space-y-2">
+            <h2 className="font-display font-bold uppercase tracking-wide">Customer account</h2>
+            <p className="text-sm text-muted-foreground">Post jobs, review bids, and track deliveries live on the map.</p>
+          </section>
         )}
       </div>
     </AppShell>
