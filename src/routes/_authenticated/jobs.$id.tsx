@@ -167,6 +167,7 @@ function JobDetail() {
         )}
 
         {isOwner && job.status === "completed" && <RateForm jobId={id} driverId={job.driver_id!} onSaved={() => nav({ to: "/jobs" })} />}
+        {isAssignedDriver && job.status === "completed" && <RateCustomerForm jobId={id} customerId={job.customer_id} onSaved={() => nav({ to: "/jobs" })} />}
       </div>
     </AppShell>
   );
