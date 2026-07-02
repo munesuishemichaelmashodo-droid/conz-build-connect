@@ -82,10 +82,10 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
 
         <div className="grid grid-cols-2 gap-3">
           {isCustomer && (
-            <Link to="/jobs/new" className="rounded-xl bg-gradient-primary text-primary-foreground p-4 shadow-lift">
+            <Link to="/customer/book" className="rounded-xl bg-gradient-primary text-primary-foreground p-4 shadow-lift">
               <Plus className="w-6 h-6" />
-              <div className="font-display font-bold mt-2 uppercase">Post a job</div>
-              <div className="text-xs opacity-80">Get bids in minutes</div>
+              <div className="font-display font-bold mt-2 uppercase">Book delivery</div>
+              <div className="text-xs opacity-80">AI-priced in seconds</div>
             </Link>
           )}
           <Link to="/jobs" className="rounded-xl bg-card border p-4 shadow-soft">

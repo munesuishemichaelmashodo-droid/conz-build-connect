@@ -70,7 +70,7 @@ function JobDetail() {
   const completeJob = async () => {
     const { error } = await supabase.rpc("complete_job", { _job_id: id });
     if (error) return toast.error(error.message);
-    toast.success("Job completed — commission deducted from driver wallet.");
+    toast.success("Delivery confirmed.");
     qc.invalidateQueries({ queryKey: ["job", id] });
   };
 
