@@ -63,6 +63,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { httpEquiv: "Permissions-Policy", content: "geolocation=(self)" },
       { title: "Con Z — Construction Made Easy" },
       { name: "description", content: "Zimbabwe's construction marketplace. Post jobs. Get tipper trucks. Build." },
       { name: "theme-color", content: "#ee6c1a" },
