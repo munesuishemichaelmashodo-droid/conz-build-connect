@@ -1,6 +1,5 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { RoleDashboard } from "@/components/RoleDashboard";
 
 export const Route = createFileRoute("/_authenticated/customer")({
   beforeLoad: async () => {
@@ -10,5 +9,5 @@ export const Route = createFileRoute("/_authenticated/customer")({
     const list = (roles ?? []).map((r: { role: string }) => r.role);
     if (!list.includes("customer")) throw redirect({ to: "/home" });
   },
-  component: () => <RoleDashboard role="customer" />,
+  component: () => <Outlet />,
 });
