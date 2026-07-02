@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
-import { computeOffer, type OfferResult } from "@/lib/booking.functions";
+import { computeOffer, explainOffer, type OfferResult } from "@/lib/booking.functions";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -50,12 +50,13 @@ function BookDelivery() {
     );
   }
 
+  const runExplain = useServerFn(explainOffer);
+
   const goToOffer = async () => {
     if (!address.trim()) return toast.error("Enter the delivery address");
     if (!quantity || quantity < 1) return toast.error("Enter quantity");
     setComputing(true);
     try {
-      // Rough distance from Harare CBD if we have coords; else default.
       const distanceKm = coords
         ? haversineKm({ lat: -17.8252, lng: 31.0335 }, coords)
         : 15;
@@ -63,6 +64,12 @@ function BookDelivery() {
       setOfferData(result);
       setOffer(result.offer);
       setStep(3);
+      // Fire AI explanation in background — never blocks the UI.
+      runExplain({ data: { material, quantity, distanceKm } })
+        .then(({ explanation }) => {
+          setOfferData((prev) => (prev ? { ...prev, explanation } : prev));
+        })
+        .catch(() => { /* keep fallback */ });
     } catch (e: any) {
       toast.error(e?.message ?? "Could not calculate offer");
     } finally {
