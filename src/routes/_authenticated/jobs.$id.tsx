@@ -167,6 +167,7 @@ function JobDetail() {
         )}
 
         {isOwner && job.status === "completed" && <RateForm jobId={id} driverId={job.driver_id!} onSaved={() => nav({ to: "/jobs" })} />}
+        {isAssignedDriver && job.status === "completed" && <RateCustomerForm jobId={id} customerId={job.customer_id} onSaved={() => nav({ to: "/jobs" })} />}
       </div>
     </AppShell>
   );
@@ -239,6 +240,54 @@ function RateForm({ jobId, driverId, onSaved }: { jobId: string; driverId: strin
       <Stars value={c} onChange={setC} label="Communication" />
       <Stars value={r} onChange={setR} label="Reliability" />
       <Stars value={d} onChange={setD} label="Delivery time" />
+      <Textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} maxLength={300} placeholder="Optional comment" />
+      <Button onClick={submit} disabled={loading} className="w-full">{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit rating"}</Button>
+    </div>
+  );
+}
+
+function RateCustomerForm({ jobId, customerId, onSaved }: { jobId: string; customerId: string; onSaved: () => void }) {
+  const { userId } = useAuth();
+  const [punctuality, setP] = useState(5);
+  const [communication, setC] = useState(5);
+  const [payment, setPay] = useState(5);
+  const [overall, setO] = useState(5);
+  const [comment, setComment] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const submit = async () => {
+    setLoading(true);
+    const { error } = await (supabase.from("customer_ratings") as any).insert({
+      job_id: jobId, driver_id: userId!, customer_id: customerId,
+      punctuality, communication, payment, overall,
+      comment: comment.trim() || null,
+    });
+    setLoading(false);
+    if (error) return toast.error(error.message);
+    toast.success("Thanks for rating the customer!");
+    setDone(true);
+    onSaved();
+  };
+
+  const Stars = ({ value, onChange, label }: { value: number; onChange: (n: number) => void; label: string }) => (
+    <div className="flex items-center justify-between"><span className="text-sm">{label}</span>
+      <div className="flex gap-1">{[1, 2, 3, 4, 5].map((n) => (
+        <button type="button" key={n} onClick={() => onChange(n)}><Star className={`w-5 h-5 ${n <= value ? "fill-warning text-warning" : "text-muted-foreground"}`} /></button>
+      ))}</div>
+    </div>
+  );
+
+  if (done) return null;
+
+  return (
+    <div className="rounded-2xl bg-card border p-4 space-y-3">
+      <div className="font-display font-bold uppercase text-sm tracking-wide">Rate this customer (optional)</div>
+      <p className="text-xs text-muted-foreground">Help other drivers by sharing your experience.</p>
+      <Stars value={punctuality} onChange={setP} label="Punctuality" />
+      <Stars value={communication} onChange={setC} label="Communication" />
+      <Stars value={payment} onChange={setPay} label="Payment" />
+      <Stars value={overall} onChange={setO} label="Overall" />
       <Textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} maxLength={300} placeholder="Optional comment" />
       <Button onClick={submit} disabled={loading} className="w-full">{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit rating"}</Button>
     </div>

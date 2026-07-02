@@ -55,6 +55,53 @@ export type Database = {
           },
         ]
       }
+      customer_ratings: {
+        Row: {
+          comment: string | null
+          communication: number
+          created_at: string
+          customer_id: string
+          driver_id: string
+          id: string
+          job_id: string
+          overall: number
+          payment: number
+          punctuality: number
+        }
+        Insert: {
+          comment?: string | null
+          communication: number
+          created_at?: string
+          customer_id: string
+          driver_id: string
+          id?: string
+          job_id: string
+          overall: number
+          payment: number
+          punctuality: number
+        }
+        Update: {
+          comment?: string | null
+          communication?: number
+          created_at?: string
+          customer_id?: string
+          driver_id?: string
+          id?: string
+          job_id?: string
+          overall?: number
+          payment?: number
+          punctuality?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_ratings_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       disputes: {
         Row: {
           against: string | null
