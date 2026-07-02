@@ -13,6 +13,7 @@ import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { useState } from "react";
 import { toast } from "sonner";
 import { DriverShareLocation, CustomerTrackMap } from "@/components/JobTracker";
+import { RadarSearch } from "@/components/RadarSearch";
 
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
   component: JobDetail,
@@ -70,7 +71,7 @@ function JobDetail() {
   const completeJob = async () => {
     const { error } = await supabase.rpc("complete_job", { _job_id: id });
     if (error) return toast.error(error.message);
-    toast.success("Job completed — commission deducted from driver wallet.");
+    toast.success("Delivery confirmed.");
     qc.invalidateQueries({ queryKey: ["job", id] });
   };
 
@@ -85,6 +86,9 @@ function JobDetail() {
       <Link to="/jobs" className="inline-flex items-center gap-1 text-sm text-muted-foreground mb-4"><ArrowLeft className="w-4 h-4" /> Back</Link>
 
       <div className="space-y-4">
+        {isOwner && job.status === "open" && (bids?.length ?? 0) === 0 && (
+          <RadarSearch etaMinutes={5} />
+        )}
         <div className="rounded-2xl bg-card border p-5 shadow-soft">
           <div className="flex items-start justify-between gap-3">
             <h1 className="font-display font-bold text-2xl">{materialLabel(job.material as any, job.custom_material)}</h1>
@@ -92,7 +96,7 @@ function JobDetail() {
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
             <div><div className="text-[11px] uppercase text-muted-foreground tracking-widest">Quantity</div><div className="font-semibold">{Number(job.quantity_m3)} m³</div></div>
-            <div><div className="text-[11px] uppercase text-muted-foreground tracking-widest">Budget</div><div className="font-display font-bold text-primary text-lg">{money(Number(job.budget))}</div></div>
+            <div><div className="text-[11px] uppercase text-muted-foreground tracking-widest">{isOwner ? "Your offer" : "Offer"}</div><div className="font-display font-bold text-primary text-lg">{money(Number(job.budget))}</div></div>
           </div>
           <div className="mt-3 flex items-start gap-2 text-sm"><MapPin className="w-4 h-4 text-muted-foreground mt-0.5" /><span>{job.delivery_address}</span></div>
           {job.preferred_date && <div className="mt-2 flex items-center gap-2 text-sm"><Calendar className="w-4 h-4 text-muted-foreground" /><span>{job.preferred_date}</span></div>}

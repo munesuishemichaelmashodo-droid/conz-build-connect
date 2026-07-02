@@ -41,7 +41,7 @@ function Welcome() {
           {[
             { icon: Truck, label: "Real drivers" },
             { icon: ShieldCheck, label: "Verified" },
-            { icon: Wallet, label: "7% fair fee" },
+            { icon: Wallet, label: "AI-priced" },
           ].map(({ icon: I, label }) => (
             <div key={label} className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
               <I className="w-5 h-5 text-primary mx-auto" />
