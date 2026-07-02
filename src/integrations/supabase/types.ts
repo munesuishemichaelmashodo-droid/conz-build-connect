@@ -247,6 +247,7 @@ export type Database = {
       }
       material_prices: {
         Row: {
+          demand_multiplier: number
           enforced: boolean
           label: string
           material: Database["public"]["Enums"]["material_category"]
@@ -257,6 +258,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          demand_multiplier?: number
           enforced?: boolean
           label: string
           material: Database["public"]["Enums"]["material_category"]
@@ -267,6 +269,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          demand_multiplier?: number
           enforced?: boolean
           label?: string
           material?: Database["public"]["Enums"]["material_category"]
@@ -679,6 +682,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      compute_material_offer: {
+        Args: {
+          _distance_km: number
+          _material: Database["public"]["Enums"]["material_category"]
+          _quantity: number
+        }
+        Returns: Json
       }
       has_role: {
         Args: {
