@@ -118,6 +118,8 @@ function ProfilePage() {
             <p className="text-sm text-muted-foreground">Post jobs, review bids, and track deliveries live on the map.</p>
           </section>
         )}
+
+        <LocationPrivacyCard />
       </div>
     </AppShell>
   );
