@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Briefcase, Plus, Truck, Wallet as WalletIcon, ShieldAlert, Star } from "lucide-react";
 import { money, levelInfo } from "@/lib/domain";
 import { JobCard } from "@/routes/_authenticated/home";
+import { LocalLocator } from "@/components/LocalLocator";
 
 export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
   const { userId, profile } = useAuth();
@@ -79,6 +80,8 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
             </div>
           </Link>
         )}
+
+        <LocalLocator />
 
         <div className="grid grid-cols-2 gap-3">
           {isCustomer && (
