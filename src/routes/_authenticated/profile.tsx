@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/ui-bits";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Loader2, ShieldCheck, Truck } from "lucide-react";
+import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
@@ -117,6 +118,8 @@ function ProfilePage() {
             <p className="text-sm text-muted-foreground">Post jobs, review bids, and track deliveries live on the map.</p>
           </section>
         )}
+
+        <LocationPrivacyCard />
       </div>
     </AppShell>
   );

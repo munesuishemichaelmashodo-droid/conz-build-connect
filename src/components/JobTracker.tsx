@@ -4,8 +4,10 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { MapPin, Navigation2, Square, Loader2 } from "lucide-react";
+import { MapPin, Navigation2, Square, Loader2, ShieldOff } from "lucide-react";
 import { toast } from "sonner";
+import { Link } from "@tanstack/react-router";
+import { useLocationSharingEnabled } from "@/lib/location-privacy";
 
 // Fix default marker icons (Vite breaks Leaflet's default path resolution)
 const truckIcon = L.divIcon({
@@ -21,8 +23,26 @@ export function DriverShareLocation({ jobId, driverId }: { jobId: string; driver
   const [sharing, setSharing] = useState(false);
   const [busy, setBusy] = useState(false);
   const watchRef = useRef<number | null>(null);
+  const [privacyOn] = useLocationSharingEnabled();
 
-  useEffect(() => () => { if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current); }, []);
+  const stopWatch = () => {
+    if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current);
+    watchRef.current = null;
+  };
+
+  useEffect(() => () => stopWatch(), []);
+
+  // If the user turns off location sharing globally, tear down any active share.
+  useEffect(() => {
+    if (!privacyOn && (sharing || watchRef.current !== null)) {
+      stopWatch();
+      setSharing(false);
+      (supabase.from("driver_locations") as any).delete().eq("job_id", jobId).then(() => {
+        toast.message("Live location sharing paused", { description: "You turned it off in privacy settings." });
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [privacyOn]);
 
   const push = async (pos: GeolocationPosition) => {
     await (supabase.from("driver_locations") as any).upsert({
@@ -37,6 +57,7 @@ export function DriverShareLocation({ jobId, driverId }: { jobId: string; driver
   };
 
   const start = () => {
+    if (!privacyOn) return toast.error("Location sharing is off in privacy settings");
     if (!("geolocation" in navigator)) return toast.error("Geolocation not supported");
     setBusy(true);
     navigator.geolocation.getCurrentPosition(
@@ -54,8 +75,7 @@ export function DriverShareLocation({ jobId, driverId }: { jobId: string; driver
   };
 
   const stop = async () => {
-    if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current);
-    watchRef.current = null;
+    stopWatch();
     setSharing(false);
     await (supabase.from("driver_locations") as any).delete().eq("job_id", jobId);
     toast.success("Stopped sharing");
@@ -67,7 +87,18 @@ export function DriverShareLocation({ jobId, driverId }: { jobId: string; driver
         <Navigation2 className="w-4 h-4 text-primary" /> Live GPS
       </div>
       <p className="text-xs text-muted-foreground">Share your live location with the customer while you deliver.</p>
-      {!sharing ? (
+      {!privacyOn ? (
+        <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs space-y-2">
+          <div className="flex items-center gap-2 font-semibold text-warning">
+            <ShieldOff className="w-4 h-4" /> Location sharing is turned off
+          </div>
+          <p className="text-muted-foreground">
+            Turn it back on in{" "}
+            <Link to="/profile" className="underline font-semibold">privacy settings</Link>{" "}
+            to share your live GPS with customers.
+          </p>
+        </div>
+      ) : !sharing ? (
         <Button onClick={start} disabled={busy} className="w-full">
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Start sharing location"}
         </Button>
