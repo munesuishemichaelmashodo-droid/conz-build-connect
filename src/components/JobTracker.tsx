@@ -4,8 +4,10 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { MapPin, Navigation2, Square, Loader2 } from "lucide-react";
+import { MapPin, Navigation2, Square, Loader2, ShieldOff } from "lucide-react";
 import { toast } from "sonner";
+import { Link } from "@tanstack/react-router";
+import { useLocationSharingEnabled } from "@/lib/location-privacy";
 
 // Fix default marker icons (Vite breaks Leaflet's default path resolution)
 const truckIcon = L.divIcon({
