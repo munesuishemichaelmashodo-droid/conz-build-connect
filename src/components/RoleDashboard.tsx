@@ -81,6 +81,8 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
           </Link>
         )}
 
+        <LocalLocator />
+
         <div className="grid grid-cols-2 gap-3">
           {isCustomer && (
             <Link to="/customer/book" className="rounded-xl bg-gradient-primary text-primary-foreground p-4 shadow-lift">
