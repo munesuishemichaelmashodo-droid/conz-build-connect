@@ -171,6 +171,7 @@ export function LocalLocator() {
                   Open in Maps
                 </a>
               </div>
+            )}
             {denied && (
               <div className="mt-2 text-[11px] text-muted-foreground">
                 Blocked? In your browser: tap the lock icon in the address bar → Site settings → Location → Allow, then reload.
