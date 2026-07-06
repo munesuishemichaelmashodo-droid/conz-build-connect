@@ -171,6 +171,25 @@ export function LocalLocator() {
                   Open in Maps
                 </a>
               </div>
+            {denied && (
+              <div className="mt-2 text-[11px] text-muted-foreground">
+                Blocked? In your browser: tap the lock icon in the address bar → Site settings → Location → Allow, then reload.
+                {isIframedWithoutPermission() && (
+                  <>
+                    {" "}
+                    Or{" "}
+                    <a
+                      href={typeof window !== "undefined" ? window.location.href : "#"}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary underline"
+                    >
+                      open in a new tab
+                    </a>
+                    .
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>
