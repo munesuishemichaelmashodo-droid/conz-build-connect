@@ -49,6 +49,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
   return (
     <AppShell title={isDriver ? "Driver" : "Customer"}>
       <div className="space-y-6">
+        {isDriver && <JobOfferListener />}
         <div className="rounded-2xl bg-gradient-dark text-white p-5 shadow-lift">
           <div className="text-xs uppercase tracking-widest text-white/60">Welcome back</div>
           <div className="font-display font-bold text-2xl mt-1">{profile?.full_name?.split(" ")[0] ?? "Builder"}</div>
