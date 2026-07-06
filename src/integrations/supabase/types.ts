@@ -235,6 +235,50 @@ export type Database = {
         }
         Relationships: []
       }
+      job_dispatch_offers: {
+        Row: {
+          created_at: string
+          driver_id: string
+          expires_at: string
+          id: string
+          job_id: string
+          offered_at: string
+          responded_at: string | null
+          status: Database["public"]["Enums"]["dispatch_offer_status"]
+          wave: number
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          expires_at?: string
+          id?: string
+          job_id: string
+          offered_at?: string
+          responded_at?: string | null
+          status?: Database["public"]["Enums"]["dispatch_offer_status"]
+          wave?: number
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          expires_at?: string
+          id?: string
+          job_id?: string
+          offered_at?: string
+          responded_at?: string | null
+          status?: Database["public"]["Enums"]["dispatch_offer_status"]
+          wave?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_dispatch_offers_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jobs: {
         Row: {
           accepted_bid_id: string | null
@@ -650,6 +694,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      accept_dispatch_offer: { Args: { _offer_id: string }; Returns: string }
       admin_credit_wallet: {
         Args: { _amount: number; _note: string; _user_id: string }
         Returns: {
@@ -738,6 +783,14 @@ export type Database = {
         }
         Returns: Json
       }
+      create_dispatch_wave: {
+        Args: { _job_id: string; _limit?: number }
+        Returns: number
+      }
+      expire_stale_dispatch_offers: {
+        Args: { _job_id: string }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -750,6 +803,12 @@ export type Database = {
       account_status: "active" | "suspended" | "banned"
       app_role: "customer" | "driver" | "admin" | "super_admin"
       bid_status: "pending" | "accepted" | "rejected" | "withdrawn"
+      dispatch_offer_status:
+        | "pending"
+        | "accepted"
+        | "expired"
+        | "superseded"
+        | "rejected"
       dispute_status: "open" | "investigating" | "resolved" | "rejected"
       driver_level: "bronze" | "silver" | "gold" | "platinum"
       job_status:
@@ -900,6 +959,13 @@ export const Constants = {
       account_status: ["active", "suspended", "banned"],
       app_role: ["customer", "driver", "admin", "super_admin"],
       bid_status: ["pending", "accepted", "rejected", "withdrawn"],
+      dispatch_offer_status: [
+        "pending",
+        "accepted",
+        "expired",
+        "superseded",
+        "rejected",
+      ],
       dispute_status: ["open", "investigating", "resolved", "rejected"],
       driver_level: ["bronze", "silver", "gold", "platinum"],
       job_status: ["open", "accepted", "in_progress", "completed", "cancelled"],
