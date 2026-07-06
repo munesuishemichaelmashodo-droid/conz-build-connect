@@ -53,86 +53,46 @@ async function reverseGeocode(lat: number, lng: number): Promise<string | null> 
   }
 }
 
-function isInsecureContext() {
-  return typeof window !== "undefined" && !window.isSecureContext;
-}
-
-function isIframedWithoutPermission() {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.self !== window.top;
-  } catch {
-    return true;
-  }
-}
-
 export function LocalLocator() {
   const [loading, setLoading] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number; acc?: number } | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [denied, setDenied] = useState(false);
 
   const locate = () => {
     if (!("geolocation" in navigator)) {
-      setError("Geolocation is not supported on this device.");
+      setError("Geolocation not supported on this device");
       toast.error("Geolocation not supported");
       return;
     }
-    if (isInsecureContext()) {
-      setError("Location requires a secure (HTTPS) connection.");
-      toast.error("Insecure connection — HTTPS required");
-      return;
-    }
-
     setLoading(true);
     setError(null);
-    setDenied(false);
-
-    // Call synchronously inside the click handler to preserve the user gesture.
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
         setCoords({ lat, lng, acc: pos.coords.accuracy });
-        try {
-          const addr = await reverseGeocode(lat, lng);
-          setAddress(addr);
-        } catch {
-          /* keep coords even if reverse geocode fails */
-        }
+        const addr = await reverseGeocode(lat, lng);
+        setAddress(addr);
         setLoading(false);
         toast.success("Location captured");
       },
       (err) => {
         setLoading(false);
-        let msg = err.message || "Could not get your location";
-        if (err.code === err.PERMISSION_DENIED) {
-          setDenied(true);
-          msg = isIframedWithoutPermission()
-            ? "Location blocked in this embedded preview. Open the app in a new tab or enable location in your browser site settings."
-            : "Location permission denied. Enable it in your browser site settings and tap Locate again.";
-        } else if (err.code === err.POSITION_UNAVAILABLE) {
-          msg = "Location unavailable right now. Try again in a moment or move to an open area.";
-        } else if (err.code === err.TIMEOUT) {
-          msg = "Location request timed out. Tap Locate to try again.";
-        }
-        setError(msg);
-        toast.error(msg);
+        setError(err.message);
+        toast.error(err.message);
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
     );
   };
 
-  // Auto-locate once on mount ONLY if permission is already granted
-  // (avoids triggering a prompt without user gesture, which some browsers auto-deny).
+  // Auto-locate once on mount if permission already granted
   useEffect(() => {
     if (typeof navigator === "undefined" || !("permissions" in navigator)) return;
     (navigator as any).permissions
       ?.query({ name: "geolocation" })
       .then((res: PermissionStatus) => {
         if (res.state === "granted") locate();
-        if (res.state === "denied") setDenied(true);
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,26 +130,6 @@ export function LocalLocator() {
                 <a href={mapHref} target="_blank" rel="noreferrer" className="text-primary underline">
                   Open in Maps
                 </a>
-              </div>
-            )}
-            {denied && (
-              <div className="mt-2 text-[11px] text-muted-foreground">
-                Blocked? In your browser: tap the lock icon in the address bar → Site settings → Location → Allow, then reload.
-                {isIframedWithoutPermission() && (
-                  <>
-                    {" "}
-                    Or{" "}
-                    <a
-                      href={typeof window !== "undefined" ? window.location.href : "#"}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-primary underline"
-                    >
-                      open in a new tab
-                    </a>
-                    .
-                  </>
-                )}
               </div>
             )}
           </div>
