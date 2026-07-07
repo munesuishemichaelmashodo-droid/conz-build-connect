@@ -3,9 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { money } from "@/lib/domain";
 import { useAuth } from "@/lib/auth";
-import { DollarSign, Download, Percent, Save, TrendingUp, Calendar, Users as UsersIcon } from "lucide-react";
+import { DollarSign, Download, Percent, Save, TrendingUp, Calendar, Users as UsersIcon, Check, X, Clock, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin/revenue")({
   beforeLoad: async () => {
