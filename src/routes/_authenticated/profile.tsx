@@ -119,6 +119,8 @@ function ProfilePage() {
           </section>
         )}
 
+        {activeRole === "driver" && is("driver") && <WithdrawalPinCard />}
+
         <LocationPrivacyCard />
       </div>
     </AppShell>
