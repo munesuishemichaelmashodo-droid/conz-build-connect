@@ -238,7 +238,11 @@ function RevenueDashboard() {
         </div>
         <div className="text-xs text-muted-foreground">
           {filtered.length} events · {money(filtered.reduce((a, t) => a + Math.abs(Number(t.amount)), 0))} collected
-        </div>
+      </div>
+
+      <ApprovalsSection profiles={profiles} />
+
+
       </div>
 
       {/* Top drivers by commission */}
