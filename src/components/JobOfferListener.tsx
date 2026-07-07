@@ -205,7 +205,14 @@ function OfferModal({
     });
     setAccepting(false);
     if (error) {
-      toast.error(error.message ?? "Could not accept");
+      const msg = error.message ?? "Could not accept";
+      if (/insufficient wallet balance/i.test(msg)) {
+        toast.error("Wallet too low to accept — top up first");
+        onClose();
+        nav({ to: "/wallet" });
+        return;
+      }
+      toast.error(msg);
       onClose();
       return;
     }
@@ -213,6 +220,7 @@ function OfferModal({
     onClose();
     if (data) nav({ to: "/jobs/$id", params: { id: String(data) } });
   };
+
 
   const R = 70;
   const C = 2 * Math.PI * R;

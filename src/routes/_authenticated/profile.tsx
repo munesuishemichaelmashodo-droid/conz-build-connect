@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui-bits";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2, ShieldCheck, Truck } from "lucide-react";
+import { Loader2, ShieldCheck, Truck, KeyRound } from "lucide-react";
 import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
 
 export const Route = createFileRoute("/_authenticated/profile")({
@@ -119,6 +119,8 @@ function ProfilePage() {
           </section>
         )}
 
+        {activeRole === "driver" && is("driver") && <WithdrawalPinCard />}
+
         <LocationPrivacyCard />
       </div>
     </AppShell>
@@ -171,3 +173,55 @@ function AddTruckForm({ userId, onSaved }: { userId: string; onSaved: () => void
     </form>
   );
 }
+
+function WithdrawalPinCard() {
+  const { userId } = useAuth();
+  const qc = useQueryClient();
+  const { data: driver } = useQuery({
+    queryKey: ["driver-pin-profile", userId],
+    enabled: !!userId,
+    queryFn: async () => (await supabase.from("driver_profiles").select("withdrawal_pin_hash").eq("user_id", userId!).maybeSingle()).data,
+  });
+  const hasPin = !!driver?.withdrawal_pin_hash;
+  const [pin, setPin] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    if (!/^\d{4,8}$/.test(pin)) return toast.error("PIN must be 4-8 digits");
+    if (pin !== confirm) return toast.error("PINs do not match");
+    setSaving(true);
+    const { error } = await (supabase as any).rpc("set_withdrawal_pin", { _pin: pin });
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    setPin(""); setConfirm("");
+    toast.success("Withdrawal PIN saved");
+    qc.invalidateQueries({ queryKey: ["driver-pin-profile", userId] });
+    qc.invalidateQueries({ queryKey: ["driver-pin", userId] });
+  };
+  return (
+    <section className="rounded-2xl bg-card border p-4 shadow-soft space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <KeyRound className="w-4 h-4 text-primary" />
+          <h2 className="font-display font-bold uppercase tracking-wide">Withdrawal PIN</h2>
+        </div>
+        {hasPin && <StatusBadge label="Set" className="bg-success/15 text-success border-success/30" />}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Required to authorise withdrawals from your wallet. 4–8 digits. Five wrong entries locks withdrawals for 15 minutes.
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label htmlFor="pin">{hasPin ? "New PIN" : "PIN"}</Label>
+          <Input id="pin" type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))} maxLength={8} />
+        </div>
+        <div>
+          <Label htmlFor="pin2">Confirm</Label>
+          <Input id="pin2" type="password" inputMode="numeric" value={confirm} onChange={(e) => setConfirm(e.target.value.replace(/\D/g, "").slice(0, 8))} maxLength={8} />
+        </div>
+      </div>
+      <Button onClick={save} disabled={saving} className="w-full">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : hasPin ? "Update PIN" : "Set PIN"}</Button>
+    </section>
+  );
+}
+

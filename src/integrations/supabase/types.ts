@@ -202,6 +202,7 @@ export type Database = {
           user_id: string
           verification_notes: string | null
           verification_status: Database["public"]["Enums"]["verification_status"]
+          withdrawal_pin_hash: string | null
         }
         Insert: {
           created_at?: string
@@ -217,6 +218,7 @@ export type Database = {
           user_id: string
           verification_notes?: string | null
           verification_status?: Database["public"]["Enums"]["verification_status"]
+          withdrawal_pin_hash?: string | null
         }
         Update: {
           created_at?: string
@@ -232,6 +234,7 @@ export type Database = {
           user_id?: string
           verification_notes?: string | null
           verification_status?: Database["public"]["Enums"]["verification_status"]
+          withdrawal_pin_hash?: string | null
         }
         Relationships: []
       }
@@ -448,6 +451,27 @@ export type Database = {
           },
         ]
       }
+      pin_attempts: {
+        Row: {
+          fail_count: number
+          locked_until: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          fail_count?: number
+          locked_until?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          fail_count?: number
+          locked_until?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -597,6 +621,75 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          meta: Json
+          user_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          meta?: Json
+          user_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          meta?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wallet_topup_requests: {
+        Row: {
+          amount: number
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          method: string
+          note: string | null
+          reference: string | null
+          reject_reason: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          method: string
+          note?: string | null
+          reference?: string | null
+          reject_reason?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          method?: string
+          note?: string | null
+          reference?: string | null
+          reject_reason?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       wallet_transactions: {
         Row: {
           amount: number
@@ -640,6 +733,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      wallet_withdrawal_requests: {
+        Row: {
+          amount: number
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          destination: string
+          id: string
+          method: string
+          note: string | null
+          reject_reason: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          destination: string
+          id?: string
+          method: string
+          note?: string | null
+          reject_reason?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          destination?: string
+          id?: string
+          method?: string
+          note?: string | null
+          reject_reason?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       wallets: {
         Row: {
@@ -695,6 +830,36 @@ export type Database = {
         }
       }
       accept_dispatch_offer: { Args: { _offer_id: string }; Returns: string }
+      admin_approve_topup: {
+        Args: { _id: string }
+        Returns: {
+          balance: number
+          limited: boolean
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wallets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_approve_withdrawal: {
+        Args: { _id: string }
+        Returns: {
+          balance: number
+          limited: boolean
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wallets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       admin_credit_wallet: {
         Args: { _amount: number; _note: string; _user_id: string }
         Returns: {
@@ -716,6 +881,50 @@ export type Database = {
           _user_id: string
         }
         Returns: undefined
+      }
+      admin_reject_topup: {
+        Args: { _id: string; _reason: string }
+        Returns: {
+          amount: number
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          method: string
+          note: string | null
+          reference: string | null
+          reject_reason: string | null
+          status: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wallet_topup_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_reject_withdrawal: {
+        Args: { _id: string; _reason: string }
+        Returns: {
+          amount: number
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          destination: string
+          id: string
+          method: string
+          note: string | null
+          reject_reason: string | null
+          status: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wallet_withdrawal_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       admin_revoke_role: {
         Args: {
@@ -743,6 +952,50 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      cancel_topup: {
+        Args: { _id: string }
+        Returns: {
+          amount: number
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          method: string
+          note: string | null
+          reference: string | null
+          reject_reason: string | null
+          status: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wallet_topup_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      cancel_withdrawal: {
+        Args: { _id: string }
+        Returns: {
+          amount: number
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          destination: string
+          id: string
+          method: string
+          note: string | null
+          reject_reason: string | null
+          status: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wallet_withdrawal_requests"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -787,6 +1040,7 @@ export type Database = {
         Args: { _job_id: string; _limit?: number }
         Returns: number
       }
+      driver_can_accept: { Args: { _job_id: string }; Returns: Json }
       expire_stale_dispatch_offers: {
         Args: { _job_id: string }
         Returns: number
@@ -798,6 +1052,56 @@ export type Database = {
         }
         Returns: boolean
       }
+      request_topup: {
+        Args: { _amount: number; _method: string; _reference: string }
+        Returns: {
+          amount: number
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          method: string
+          note: string | null
+          reference: string | null
+          reject_reason: string | null
+          status: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wallet_topup_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      request_withdrawal: {
+        Args: {
+          _amount: number
+          _destination: string
+          _method: string
+          _pin: string
+        }
+        Returns: {
+          amount: number
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          destination: string
+          id: string
+          method: string
+          note: string | null
+          reject_reason: string | null
+          status: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wallet_withdrawal_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_withdrawal_pin: { Args: { _pin: string }; Returns: undefined }
     }
     Enums: {
       account_status: "active" | "suspended" | "banned"
@@ -827,7 +1131,7 @@ export type Database = {
         | "top_soil"
         | "filling_soil"
         | "custom"
-      tx_type: "topup" | "commission" | "refund" | "adjustment"
+      tx_type: "topup" | "commission" | "refund" | "adjustment" | "withdrawal"
       verification_status: "pending" | "verified" | "rejected"
     }
     CompositeTypes: {
@@ -980,7 +1284,7 @@ export const Constants = {
         "filling_soil",
         "custom",
       ],
-      tx_type: ["topup", "commission", "refund", "adjustment"],
+      tx_type: ["topup", "commission", "refund", "adjustment", "withdrawal"],
       verification_status: ["pending", "verified", "rejected"],
     },
   },
