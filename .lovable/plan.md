@@ -1,110 +1,81 @@
 
-# Con Z — Booking, AI Pricing, RBAC & Live Progress
+You're right — the current Top Up dialog is just UI, it never writes anywhere. Here's the plan to make the whole wallet actually work, with proper account security.
 
-Delivered in three phases across separate turns. Each phase ends in a working preview.
+## 1. Top-up flow (manual bank / mobile-money → admin approves → wallet credits)
 
-## Phase 1 — Booking flow, AI pricing, radar search
+New table:
 
-**Database**
-- `material_prices`: add optional `demand_multiplier` (default 1.0) and keep `min_price`/`max_price` hidden from customers via a new public view `v_material_prices_public` that exposes only `material`, `label`, `unit`. Revoke SELECT on `material_prices` from `anon`/`authenticated`; keep it readable only through server functions.
-- Trigger `tg_validate_job_budget` stays (server-side floor/ceiling enforcement is the security backstop).
-
-**Server function `computeOffer` (hybrid AI)**
-- Deterministic formula (server-side, no LLM in the money loop):
-  `base = midpoint(min,max) * qty_factor * distance_factor * demand_multiplier`
-  clamped to `[min, max]`, rounded to nearest $5.
-- Then Lovable AI (`google/gemini-3-flash-preview`) generates a one-line human explanation only. Price is never taken from the LLM.
-- Returns `{ offer, min, max, step, explanation, etaMinutes, distanceKm }` — `min`/`max` used only by the increment/decrement guard, never rendered.
-
-**Booking UX (`/customer/book`, replaces `/jobs/new`)**
-- 3-step wizard: (1) delivery address (Google Maps AddressPicker + current location) → (2) material + quantity chips → (3) offer screen.
-- Offer screen shows only: `YOUR OFFER` `US$XXX`, `–` `+`, short AI explanation, "Confirm booking" button.
-- Steps: <$100 → $5, $100–300 → $10, >$300 → $20.
-- On `–` below `min`: toast "Minimum offer reached." On `+` above `max`: toast "Maximum offer reached." Values never revealed.
-- Submit → creates `jobs` row (budget = offer) → navigates to `/jobs/$id` with radar overlay.
-
-**Radar search screen (`SearchingTrucks` component)**
-- Full-screen overlay while `jobs.status = 'open'` and no bids yet.
-- Animated concentric radar rings (CSS keyframes), rotating sweep line, 3 truck icons orbiting inward.
-- Copy cycles: "Searching for nearby tipper trucks…" → "Finding the best available driver…"
-- Estimated wait based on nearby driver count from `driver_locations`.
-- Auto-dismisses when first bid arrives (Realtime).
-
-**Hide platform fee**
-- Remove commission line from `/wallet` customer view, home cards, and job detail customer panel.
-- Keep it visible on driver wallet and `/admin/revenue`.
-
-**Driver-side job card** (no code change to pricing) — already shows offer, material, qty, address. Add ETA + distance from Routes API.
-
-## Phase 2 — RBAC hardening + navigation
-
-**Roles**
-- Roles already live in `public.user_roles` (good). Add server function `getMyRole()` that returns the highest role, called on every protected page.
-- New `_admin` pathless layout under `_authenticated`: `beforeLoad` checks `has_role(admin|super_admin)` server-side. `_super_admin` layout for super-only pages.
-- Move `/admin/*` under `_authenticated/_admin/*` (already gated in `beforeLoad` — hardening: also gate each server-fn mutation with `requireSupabaseAuth` + role check inside the handler).
-
-**Navigation**
-- SidePanel becomes role-aware. Menu items filtered by role:
-  - Customer: Home, Book delivery, My jobs, Notifications, Profile, Become a driver
-  - Driver: Dashboard, Available jobs, Accepted jobs, Earnings, Notifications, Profile
-  - Admin/Super admin: adds "Control Center" link into `/admin`
-- Admin tab removed from any bottom/tab nav (already removed in prior turn — verify).
-- Drivers with customer role also see a "Switch to Customer mode" toggle (existing `useViewMode`).
-
-**Become a Driver**
-- Profile page CTA "Become a driver" (visible when user lacks `driver` role) → opens `/profile/become-driver` form: full name, ID number, license, phone, truck details, doc uploads (existing `driver-docs` bucket).
-- Submits `driver_applications` row (new table) with status `pending`.
-- Admin verification queue reads from `driver_applications` (rename existing `admin.verifications` to consume this).
-- On approve: server function grants `driver` role via `admin_grant_role`, creates `driver_profiles` + `wallets` rows if missing, keeps `customer` role.
-- On reject: sets status `rejected` with `reason`; user can resubmit.
-
-**Database**
-```sql
-CREATE TABLE public.driver_applications (
-  id uuid PK,
-  user_id uuid REFERENCES auth.users,
-  full_name, id_number, license_number, phone text,
-  truck_reg, truck_capacity_m3, docs jsonb,
-  status text CHECK (status IN ('pending','approved','rejected')) DEFAULT 'pending',
-  reason text, reviewed_by uuid, reviewed_at, created_at, updated_at
-);
--- GRANT to authenticated + service_role
--- RLS: user can insert/select own; admins can select all + update
+```
+wallet_topup_requests
+  id, user_id, amount (>0, ≤100000),
+  method (ecocash|onemoney|zipit|bank),
+  reference, note,
+  status (pending|approved|rejected|cancelled),
+  created_at, decided_at, decided_by, reject_reason
 ```
 
-## Phase 3 — Live booking progress
+Grants + RLS (auth-only, per Data-API rules):
+- `GRANT SELECT, INSERT ON ... TO authenticated`, `GRANT ALL ... TO service_role`, no `anon`.
+- Driver INSERT/SELECT/UPDATE own rows only; cancel allowed only while pending.
+- Admin/super_admin SELECT/UPDATE all via `has_role`.
 
-**Database**
-- Extend `jobs.status` enum with: `driver_travelling`, `driver_arrived`, `loading`, `transporting`. Keep `accepted`, `in_progress`, `completed`.
-- Add `job_status_events` table (audit trail) — timestamped log of every stage change.
+Security-definer RPCs:
+- `request_topup(amount, method, reference)` — insert pending row for `auth.uid()`, cap 5 pending per driver.
+- `admin_approve_topup(id)` — admin-only; in one transaction credits `wallets.balance` and writes `wallet_transactions('topup')`. Idempotent.
+- `admin_reject_topup(id, reason)` — admin-only.
 
-**Driver flow**
-- On accepted job page, driver sees a single big "Advance status" button that cycles through stages with confirmation dialogs.
-- Each tap writes `jobs.status` + inserts `job_status_events`.
+UI:
+- Driver `wallet.tsx` Top Up sheet posts through `request_topup`; shows a "Pending top-ups" list with status pills and Cancel.
+- New admin **Top-up requests** tab in `admin.revenue.tsx` with Approve / Reject.
+- Realtime on `wallets` + `wallet_transactions` + `wallet_topup_requests` so the driver's balance and history update instantly after approval — solves the "I paid $50 and nothing happened" case.
 
-**Customer flow**
-- Vertical stepper on `/jobs/$id` with 7 stages. Current stage: animated pulsing dot + progress bar between stages. Completed stages: check icon.
-- Realtime subscription to `jobs` row updates the stepper.
-- Notifications trigger already exists — extend `tg_notify_job_status` to cover new stages.
+## 2. Commission deduction
 
-**Live map**
-- Existing `CustomerTrackMap` (Leaflet) upgraded to Google Maps (matches Phase 1 map polish). Driver marker interpolates smoothly between location updates.
+`complete_job` already deducts 7% and honours "first job free". Add:
+- Block completion when `wallet.balance < commission` (non-free jobs) with a clear error.
+- Notification "Commission $X deducted" for the driver.
+- Post-completion "Commission Deducted" receipt screen matching the mockup, read from `wallet_transactions`.
 
-## Design polish (throughout)
-- Rounded-2xl cards, larger tap targets (h-14 primary buttons), Barlow Condensed for numbers/CTAs, Inter for body.
-- Construction-themed icons (`Truck`, `Package`, `MapPin`, `HardHat`) from lucide.
-- Dark theme stays primary; orange accent (`--primary`) unchanged.
-- Framer-motion for radar, stepper transitions, offer number changes.
+## 3. Low-balance protection
 
-## Out of scope for now
-- Real-time demand modelling (uses simple `driver_locations` count).
-- Audit logs UI for super admin (data captured but no dedicated screen).
-- Payment integration.
-- Push notifications (in-app realtime notifications only).
+- RPC `driver_can_accept(job_id) → {ok, required, balance, shortfall}`.
+- `accept_dispatch_offer` calls the guard first; raises `Insufficient wallet balance`.
+- `JobOfferListener` shows the "Low Wallet Balance" modal from the board (Top Up to Accept / Maybe Later).
 
-## Turn plan
-- **This turn**: Phase 1 (booking flow, AI offer, radar, hide fee).
-- **Next turn**: Phase 2 (RBAC + Become-a-Driver).
-- **Turn after**: Phase 3 (7-stage live progress + Google Maps tracking).
+## 4. Withdrawals
 
-Reply "go" to start Phase 1, or tell me what to change.
+`wallet_withdrawal_requests` (mirrors top-ups). Driver requests → admin approves → RPC debits wallet + writes `wallet_transactions('withdrawal')`. Same RLS pattern.
+
+## 5. Account security
+
+- Enable **leaked-password protection** (HIBP) via `configure_auth`.
+- **Withdrawal PIN**: `driver_profiles.withdrawal_pin_hash` (pgcrypto bcrypt). Set from Profile. Required to submit a withdrawal. Rate-limit table `pin_attempts` → 5 tries / 15 min, then locked.
+- **Audit log**: `wallet_audit_log(user_id, actor_id, action, meta jsonb, created_at)` written by every wallet RPC; driver reads own rows, admins read all.
+- **Lock down direct writes** on `wallets` and `wallet_transactions`: revoke `INSERT/UPDATE/DELETE` from `authenticated` — every change must go through SECURITY DEFINER RPCs. Keep SELECT-own.
+- **Server validation**: every RPC clamps `amount` (`> 0`, `<= 100000`, no NaN) and re-checks role via `has_role`.
+- All new server calls go through `createServerFn` + `requireSupabaseAuth`.
+- Run `security--run_security_scan` after the migration and fix any findings.
+
+## 6. Files
+
+Backend — single migration `…_wallet_hardening.sql`:
+tables, grants, RLS, RPCs, audit trigger, revoke direct writes on wallets/wallet_transactions, enable realtime replication.
+
+Frontend:
+- `src/lib/wallet.functions.ts` (new) — `requestTopup`, `cancelTopup`, `requestWithdrawal`, `setWithdrawalPin`, `verifyWithdrawalPin`, `adminApproveTopup`, `adminRejectTopup`, `adminApproveWithdrawal`.
+- `src/routes/_authenticated/wallet.tsx` — wire Top Up to `requestTopup`; add Pending list; add Withdraw sheet with PIN.
+- `src/routes/_authenticated/admin.revenue.tsx` — approvals tab.
+- `src/components/LowBalanceModal.tsx` (new) + hook into `JobOfferListener.tsx` and manual accept.
+- `src/routes/_authenticated/profile.tsx` — "Set withdrawal PIN" card.
+
+Auth config: `configure_auth({ password_hibp_enabled: true })`.
+
+## 7. Verification
+
+- Playwright: driver requests $50 EcoCash top-up → shows Pending → admin approves → balance jumps to $50 and history shows a `topup` row, all via realtime with no refresh.
+- Driver A cannot see or approve driver B's request (RLS denies).
+- Withdrawal without PIN rejected; 6 wrong PINs locks the driver out.
+- Accept a job with balance < commission → LowBalance modal; with enough balance → commission row lands after completion.
+- `security--run_security_scan` clean.
+
+Approve and I'll ship the migration first, then the wiring in the follow-up build turn.
