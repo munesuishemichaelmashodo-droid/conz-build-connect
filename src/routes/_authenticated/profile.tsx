@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui-bits";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2, ShieldCheck, Truck } from "lucide-react";
+import { Loader2, ShieldCheck, Truck, KeyRound } from "lucide-react";
 import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
 
 export const Route = createFileRoute("/_authenticated/profile")({
