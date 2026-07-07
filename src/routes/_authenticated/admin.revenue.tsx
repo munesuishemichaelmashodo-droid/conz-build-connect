@@ -282,3 +282,184 @@ function RevenueDashboard() {
     </div>
   );
 }
+
+type TopupReq = {
+  id: string;
+  user_id: string;
+  amount: number;
+  method: string;
+  reference: string | null;
+  status: string;
+  created_at: string;
+};
+type WdReq = {
+  id: string;
+  user_id: string;
+  amount: number;
+  method: string;
+  destination: string;
+  status: string;
+  created_at: string;
+};
+
+function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; email: string | null }> | undefined }) {
+  const qc = useQueryClient();
+  const [tab, setTab] = useState<"topups" | "withdrawals">("topups");
+
+  const { data: topups } = useQuery({
+    queryKey: ["admin-topups"],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("wallet_topup_requests")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      return (data ?? []) as TopupReq[];
+    },
+  });
+  const { data: wds } = useQuery({
+    queryKey: ["admin-withdrawals"],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("wallet_withdrawal_requests")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      return (data ?? []) as WdReq[];
+    },
+  });
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("admin-wallet-reqs")
+      .on("postgres_changes", { event: "*", schema: "public", table: "wallet_topup_requests" }, () =>
+        qc.invalidateQueries({ queryKey: ["admin-topups"] }),
+      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "wallet_withdrawal_requests" }, () =>
+        qc.invalidateQueries({ queryKey: ["admin-withdrawals"] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [qc]);
+
+  const approve = async (kind: "topup" | "withdrawal", id: string) => {
+    const rpc = kind === "topup" ? "admin_approve_topup" : "admin_approve_withdrawal";
+    const { error } = await (supabase as any).rpc(rpc, { _id: id });
+    if (error) return toast.error(error.message);
+    toast.success("Approved & wallet credited");
+  };
+  const reject = async (kind: "topup" | "withdrawal", id: string) => {
+    const reason = window.prompt("Reason for rejection?") ?? "";
+    if (!reason.trim()) return;
+    const rpc = kind === "topup" ? "admin_reject_topup" : "admin_reject_withdrawal";
+    const { error } = await (supabase as any).rpc(rpc, { _id: id, _reason: reason });
+    if (error) return toast.error(error.message);
+    toast.success("Rejected");
+  };
+
+  const pendingTopups = (topups ?? []).filter((r) => r.status === "pending");
+  const pendingWds = (wds ?? []).filter((r) => r.status === "pending");
+  const list = tab === "topups" ? topups ?? [] : wds ?? [];
+
+  return (
+    <div className="rounded-2xl border bg-card p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-display font-bold uppercase tracking-wide text-sm">Wallet approvals</h3>
+      </div>
+      <div className="flex gap-1 rounded-xl bg-muted p-1">
+        <button
+          onClick={() => setTab("topups")}
+          className={cn(
+            "flex-1 h-9 rounded-lg text-xs font-display uppercase tracking-wide relative",
+            tab === "topups" ? "bg-background shadow-sm" : "text-muted-foreground",
+          )}
+        >
+          Top-ups
+          {pendingTopups.length > 0 && (
+            <span className="ml-1.5 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+              {pendingTopups.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setTab("withdrawals")}
+          className={cn(
+            "flex-1 h-9 rounded-lg text-xs font-display uppercase tracking-wide relative",
+            tab === "withdrawals" ? "bg-background shadow-sm" : "text-muted-foreground",
+          )}
+        >
+          Withdrawals
+          {pendingWds.length > 0 && (
+            <span className="ml-1.5 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+              {pendingWds.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {list.length === 0 ? (
+        <div className="text-xs text-muted-foreground py-6 text-center">No requests yet.</div>
+      ) : (
+        <div className="space-y-2">
+          {list.map((r) => {
+            const isTopup = tab === "topups";
+            const p = profiles?.get(r.user_id);
+            const positive = isTopup;
+            const dest = isTopup ? (r as TopupReq).reference : (r as WdReq).destination;
+            const statusTone: Record<string, string> = {
+              pending: "bg-warning/15 text-warning border-warning/30",
+              approved: "bg-success/15 text-success border-success/30",
+              rejected: "bg-destructive/15 text-destructive border-destructive/30",
+              cancelled: "bg-muted text-muted-foreground border-border",
+            };
+            return (
+              <div key={r.id} className="rounded-xl border p-3">
+                <div className="flex items-start gap-3">
+                  <div className={cn("w-9 h-9 rounded-full flex items-center justify-center shrink-0",
+                    positive ? "bg-success/15 text-success" : "bg-primary/15 text-primary")}>
+                    {positive ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-sm font-semibold truncate">{p?.name ?? r.user_id.slice(0, 8)}</div>
+                      <div className={cn("font-display font-bold text-sm", positive ? "text-success" : "text-primary")}>
+                        {positive ? "+" : "-"}{money(Number(r.amount))}
+                      </div>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      {r.method.toUpperCase()} · {dest || "—"} · {new Date(r.created_at).toLocaleString()}
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase", statusTone[r.status])}>
+                        <Clock className="w-3 h-3" /> {r.status}
+                      </span>
+                      {r.status === "pending" && (
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => reject(isTopup ? "topup" : "withdrawal", r.id)}
+                            className="rounded-lg border border-destructive/40 text-destructive px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1"
+                          >
+                            <X className="w-3 h-3" /> Reject
+                          </button>
+                          <button
+                            onClick={() => approve(isTopup ? "topup" : "withdrawal", r.id)}
+                            className="rounded-lg bg-success text-success-foreground px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1"
+                          >
+                            <Check className="w-3 h-3" /> Approve
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
