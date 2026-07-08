@@ -56,22 +56,24 @@ export function DriverShareLocation({ jobId, driverId }: { jobId: string; driver
     }, { onConflict: "job_id" });
   };
 
-  const start = () => {
+  const start = async () => {
     if (!privacyOn) return toast.error("Location sharing is off in privacy settings");
     if (!("geolocation" in navigator)) return toast.error("Geolocation not supported");
     setBusy(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        await push(pos);
-        watchRef.current = navigator.geolocation.watchPosition(push, (err) => toast.error(err.message), {
-          enableHighAccuracy: true, maximumAge: 5000, timeout: 15000,
-        });
-        setSharing(true); setBusy(false);
-        toast.success("Live location sharing started");
-      },
-      (err) => { setBusy(false); toast.error(err.message); },
-      { enableHighAccuracy: true, timeout: 15000 }
-    );
+    try {
+      const { locateOnce } = await import("@/lib/geolocate");
+      const c = await locateOnce();
+      await push({ coords: { latitude: c.lat, longitude: c.lng, heading: null as any, accuracy: c.accuracy ?? null as any } } as GeolocationPosition);
+      watchRef.current = navigator.geolocation.watchPosition(push, (err) => toast.error(err.message), {
+        enableHighAccuracy: true, maximumAge: 5000, timeout: 20000,
+      });
+      setSharing(true);
+      setBusy(false);
+      toast.success("Live location sharing started");
+    } catch (e: any) {
+      setBusy(false);
+      toast.error(e.message ?? "Could not get location");
+    }
   };
 
   const stop = async () => {
