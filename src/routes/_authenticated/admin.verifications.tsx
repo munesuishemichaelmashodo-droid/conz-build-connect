@@ -21,7 +21,7 @@ function AdminVerifications() {
     queryFn: async () => {
       const { data: drivers } = await supabase
         .from("driver_profiles")
-        .select("user_id,national_id,national_id_url,selfie_url,verification_status,verification_notes,created_at")
+        .select("user_id,national_id,national_id_url,selfie_url,license_url,tipper_photo_url,verification_status,verification_notes,created_at")
         .eq("verification_status", filter)
         .order("created_at", { ascending: false });
       const ids = (drivers ?? []).map((d) => d.user_id);
@@ -96,20 +96,18 @@ function AdminVerifications() {
                 <span className="text-muted-foreground">National ID: </span>
                 <span className="font-mono">{d.national_id ?? "—"}</span>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => view(d.national_id_url)}
-                  disabled={!d.national_id_url}
-                  className="flex-1 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40"
-                >
-                  <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> ID image
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => view(d.national_id_url)} disabled={!d.national_id_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                  <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> National ID
                 </button>
-                <button
-                  onClick={() => view(d.selfie_url)}
-                  disabled={!d.selfie_url}
-                  className="flex-1 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40"
-                >
+                <button onClick={() => view(d.selfie_url)} disabled={!d.selfie_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                   <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Selfie
+                </button>
+                <button onClick={() => view((d as any).license_url)} disabled={!(d as any).license_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                  <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Licence
+                </button>
+                <button onClick={() => view((d as any).tipper_photo_url)} disabled={!(d as any).tipper_photo_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                  <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Tipper
                 </button>
               </div>
               {filter === "pending" && (

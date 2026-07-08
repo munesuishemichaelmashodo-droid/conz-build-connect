@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui-bits";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2, ShieldCheck, Truck, KeyRound } from "lucide-react";
+import { Loader2, ShieldCheck, Truck, KeyRound, Camera } from "lucide-react";
 import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
 
 export const Route = createFileRoute("/_authenticated/profile")({
@@ -91,8 +91,11 @@ function ProfilePage() {
               <h2 className="font-display font-bold uppercase tracking-wide">Driver verification</h2>
               <StatusBadge label={driver?.verification_status ?? "pending"} className={driver?.verification_status === "verified" ? "bg-success/15 text-success border-success/30" : driver?.verification_status === "rejected" ? "bg-destructive/15 text-destructive border-destructive/30" : "bg-warning/15 text-warning border-warning/30"} />
             </div>
-            <DocUpload field="national_id_url" label="National ID photo" userId={userId!} current={driver?.national_id_url} refresh={() => qc.invalidateQueries({ queryKey: ["driver-profile", userId] })} />
-            <DocUpload field="selfie_url" label="Selfie verification" userId={userId!} current={driver?.selfie_url} refresh={() => qc.invalidateQueries({ queryKey: ["driver-profile", userId] })} />
+            <p className="text-xs text-muted-foreground">Take each photo with your phone camera. Make sure your face and documents are clearly visible.</p>
+            <DocUpload field="selfie_url" label="Selfie (face photo)" hint="Front camera • Look at the camera in good light" cameraFacing="user" userId={userId!} current={driver?.selfie_url} refresh={() => qc.invalidateQueries({ queryKey: ["driver-profile", userId] })} />
+            <DocUpload field="license_url" label="Driver's licence" hint="Back camera • Full licence card, all corners visible" cameraFacing="environment" userId={userId!} current={driver?.license_url} refresh={() => qc.invalidateQueries({ queryKey: ["driver-profile", userId] })} />
+            <DocUpload field="tipper_photo_url" label="Tipper truck photo" hint="Back camera • Whole truck with number plate visible" cameraFacing="environment" userId={userId!} current={driver?.tipper_photo_url} refresh={() => qc.invalidateQueries({ queryKey: ["driver-profile", userId] })} />
+            <DocUpload field="national_id_url" label="National ID" hint="Back camera • Front side of your ID card" cameraFacing="environment" userId={userId!} current={driver?.national_id_url} refresh={() => qc.invalidateQueries({ queryKey: ["driver-profile", userId] })} />
             {driver?.verification_notes && <p className="text-xs text-muted-foreground bg-muted p-2 rounded">Admin note: {driver.verification_notes}</p>}
 
             <div className="border-t pt-3 mt-3">
@@ -127,7 +130,9 @@ function ProfilePage() {
   );
 }
 
-function DocUpload({ field, label, userId, current, refresh }: { field: "national_id_url" | "selfie_url"; label: string; userId: string; current?: string | null; refresh: () => void }) {
+type DocField = "national_id_url" | "selfie_url" | "license_url" | "tipper_photo_url";
+
+function DocUpload({ field, label, hint, cameraFacing = "environment", userId, current, refresh }: { field: DocField; label: string; hint?: string; cameraFacing?: "user" | "environment"; userId: string; current?: string | null; refresh: () => void }) {
   const [uploading, setUploading] = useState(false);
   const upload = async (file: File) => {
     setUploading(true);
@@ -142,12 +147,17 @@ function DocUpload({ field, label, userId, current, refresh }: { field: "nationa
     refresh();
   };
   return (
-    <div>
-      <Label>{label}</Label>
-      <div className="flex items-center gap-2">
-        <input type="file" accept="image/*" capture="environment" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="text-xs flex-1" />
+    <div className="rounded-xl border p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="font-semibold">{label}</Label>
         {current && <StatusBadge label="Uploaded" className="bg-success/15 text-success border-success/30" />}
       </div>
+      {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+      <label className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 hover:bg-muted transition p-3 cursor-pointer">
+        <Camera className="w-5 h-5 text-primary shrink-0" />
+        <span className="text-xs font-semibold">{uploading ? "Uploading…" : current ? "Retake / replace photo" : "Open camera to take photo"}</span>
+        <input type="file" accept="image/*" capture={cameraFacing} disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="hidden" />
+      </label>
     </div>
   );
 }
