@@ -112,31 +112,30 @@ export function AddressPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const useMyLocation = () => {
-    if (!("geolocation" in navigator)) return toast.error("Geolocation not supported");
+  const applyCoords = async (lat: number, lng: number) => {
+    setCoords({ lat, lng });
+    if (mapObj.current) {
+      mapObj.current.setCenter({ lat, lng });
+      mapObj.current.setZoom(17);
+      marker.current?.setPosition({ lat, lng });
+    }
+    const addr = await reverseGeocode(lat, lng);
+    if (addr && inputRef.current) inputRef.current.value = addr;
+    onChange(addr ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`, { lat, lng });
+  };
+
+  const useMyLocation = async () => {
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        setCoords({ lat, lng });
-        if (mapObj.current) {
-          mapObj.current.setCenter({ lat, lng });
-          mapObj.current.setZoom(17);
-          marker.current?.setPosition({ lat, lng });
-        }
-        const addr = await reverseGeocode(lat, lng);
-        if (addr && inputRef.current) inputRef.current.value = addr;
-        onChange(addr ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`, { lat, lng });
-        setLocating(false);
-        toast.success("Location captured");
-      },
-      (err) => {
-        setLocating(false);
-        toast.error(err.message);
-      },
-      { enableHighAccuracy: true, timeout: 15000 }
-    );
+    try {
+      const { locateOnce } = await import("@/lib/geolocate");
+      const c = await locateOnce({ onUpdate: (better) => { void applyCoords(better.lat, better.lng); } });
+      await applyCoords(c.lat, c.lng);
+      toast.success("Location captured");
+    } catch (e: any) {
+      toast.error(e.message ?? "Could not get location");
+    } finally {
+      setLocating(false);
+    }
   };
 
   return (
