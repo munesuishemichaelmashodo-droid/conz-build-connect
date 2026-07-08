@@ -21,7 +21,7 @@ function AdminVerifications() {
     queryFn: async () => {
       const { data: drivers } = await supabase
         .from("driver_profiles")
-        .select("user_id,national_id,national_id_url,selfie_url,verification_status,verification_notes,created_at")
+        .select("user_id,national_id,national_id_url,selfie_url,license_url,tipper_photo_url,verification_status,verification_notes,created_at")
         .eq("verification_status", filter)
         .order("created_at", { ascending: false });
       const ids = (drivers ?? []).map((d) => d.user_id);
