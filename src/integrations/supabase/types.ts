@@ -193,11 +193,13 @@ export type Database = {
           first_job_free_used: boolean
           jobs_completed: number
           level: Database["public"]["Enums"]["driver_level"]
+          license_url: string | null
           national_id: string | null
           national_id_url: string | null
           rating_avg: number
           rating_count: number
           selfie_url: string | null
+          tipper_photo_url: string | null
           updated_at: string
           user_id: string
           verification_notes: string | null
@@ -209,11 +211,13 @@ export type Database = {
           first_job_free_used?: boolean
           jobs_completed?: number
           level?: Database["public"]["Enums"]["driver_level"]
+          license_url?: string | null
           national_id?: string | null
           national_id_url?: string | null
           rating_avg?: number
           rating_count?: number
           selfie_url?: string | null
+          tipper_photo_url?: string | null
           updated_at?: string
           user_id: string
           verification_notes?: string | null
@@ -225,11 +229,13 @@ export type Database = {
           first_job_free_used?: boolean
           jobs_completed?: number
           level?: Database["public"]["Enums"]["driver_level"]
+          license_url?: string | null
           national_id?: string | null
           national_id_url?: string | null
           rating_avg?: number
           rating_count?: number
           selfie_url?: string | null
+          tipper_photo_url?: string | null
           updated_at?: string
           user_id?: string
           verification_notes?: string | null
