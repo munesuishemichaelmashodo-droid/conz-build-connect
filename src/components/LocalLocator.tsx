@@ -59,31 +59,28 @@ export function LocalLocator() {
   const [address, setAddress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const locate = () => {
-    if (!("geolocation" in navigator)) {
-      setError("Geolocation not supported on this device");
-      toast.error("Geolocation not supported");
-      return;
-    }
+  const locate = async () => {
     setLoading(true);
     setError(null);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        setCoords({ lat, lng, acc: pos.coords.accuracy });
-        const addr = await reverseGeocode(lat, lng);
-        setAddress(addr);
-        setLoading(false);
-        toast.success("Location captured");
-      },
-      (err) => {
-        setLoading(false);
-        setError(err.message);
-        toast.error(err.message);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
-    );
+    try {
+      const { locateOnce } = await import("@/lib/geolocate");
+      const c = await locateOnce({
+        onUpdate: async (better) => {
+          setCoords({ lat: better.lat, lng: better.lng, acc: better.accuracy });
+          const addr = await reverseGeocode(better.lat, better.lng);
+          if (addr) setAddress(addr);
+        },
+      });
+      setCoords({ lat: c.lat, lng: c.lng, acc: c.accuracy });
+      const addr = await reverseGeocode(c.lat, c.lng);
+      setAddress(addr);
+      setLoading(false);
+      toast.success("Location captured");
+    } catch (e: any) {
+      setLoading(false);
+      setError(e.message);
+      toast.error(e.message);
+    }
   };
 
   // Auto-locate once on mount if permission already granted
