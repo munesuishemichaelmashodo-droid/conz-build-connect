@@ -80,7 +80,13 @@ function AuthPage() {
         </Link>
 
         <div className="mt-6 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center font-display font-bold text-primary-foreground shadow-lift">CZ</div>
+          <img
+            src="/conz-logo.png"
+            alt="CON Z"
+            className="w-10 h-10 rounded-lg object-cover"
+            width={40}
+            height={40}
+          />
           <div>
             <h1 className="font-display font-bold text-2xl uppercase tracking-tight leading-none">Con Z</h1>
             <div className="text-xs text-muted-foreground uppercase tracking-widest">Construction Made Easy</div>
