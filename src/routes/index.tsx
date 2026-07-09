@@ -1,5 +1,4 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import heroTruck from "@/assets/hero-truck.jpg";
 import { ArrowRight, ShieldCheck, Wallet, Truck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -14,30 +13,21 @@ export const Route = createFileRoute("/")({
 
 function Welcome() {
   return (
-    <div className="min-h-screen bg-gradient-dark text-white">
-      <div className="mx-auto max-w-screen-sm px-5 pt-10 pb-8">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center font-display font-bold shadow-lift">CZ</div>
-          <div>
-            <div className="font-display font-extrabold text-2xl tracking-tight leading-none">CON Z</div>
-            <div className="text-xs text-white/70 uppercase tracking-widest">Construction Made Easy</div>
+    <div className="min-h-screen bg-gradient-dark text-white flex flex-col">
+      <div className="mx-auto max-w-screen-sm px-5 pt-12 pb-8 flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="w-full max-w-[320px]">
+            <img
+              src="/conz-logo.png"
+              alt="CON Z — Move More. Earn More."
+              className="w-full h-auto"
+              width={320}
+              height={320}
+            />
           </div>
         </div>
 
-        <div className="mt-8 relative rounded-2xl overflow-hidden shadow-lift">
-          <img src={heroTruck} alt="Tipper truck delivering sand at sunset" className="w-full h-64 object-cover" width={1280} height={720} />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-          <div className="absolute bottom-0 inset-x-0 p-5">
-            <div className="h-1.5 w-16 stripe-orange rounded-full mb-3" />
-            <h1 className="font-display font-bold text-3xl leading-tight">
-              Sand. Stones. Soil.<br />
-              <span className="text-primary">Delivered.</span>
-            </h1>
-            <p className="text-sm text-white/80 mt-2 max-w-xs">Zimbabwe's marketplace for tipper-truck deliveries — built for customers and drivers.</p>
-          </div>
-        </div>
-
-        <div className="mt-6 grid grid-cols-3 gap-2">
+        <div className="mt-8 grid grid-cols-3 gap-2">
           {[
             { icon: Truck, label: "Real drivers" },
             { icon: ShieldCheck, label: "Verified" },

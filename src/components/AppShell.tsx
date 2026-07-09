@@ -11,7 +11,13 @@ export function AppShell({ title, children, action }: { title?: string; children
       <header className="sticky top-0 z-30 border-b bg-card/95 backdrop-blur">
         <div className="mx-auto max-w-screen-sm flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-md bg-gradient-primary flex items-center justify-center font-display font-bold text-primary-foreground text-sm shadow-lift">CZ</div>
+            <img
+              src="/conz-logo.png"
+              alt="CON Z"
+              className="w-8 h-8 rounded-md object-cover"
+              width={32}
+              height={32}
+            />
             <div className="leading-tight">
               <div className="font-display font-bold text-base">{title ?? "Con Z"}</div>
               {profile && <div className="text-[11px] text-muted-foreground -mt-0.5 truncate max-w-[160px]">{profile.full_name}</div>}
