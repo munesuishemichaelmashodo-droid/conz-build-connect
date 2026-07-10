@@ -34,11 +34,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
     },
   });
 
-      const { data, error } = await q;
-      if (error) throw error;
-      return data;
-    },
-  });
+
 
   const { data: wallet } = useQuery({
     queryKey: ["wallet", userId],
