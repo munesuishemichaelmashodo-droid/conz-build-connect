@@ -35,8 +35,8 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
   ];
 
   const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "light";
-    return (localStorage.getItem(THEME_KEY) as Theme) ?? "light";
+    if (typeof window === "undefined") return "dark";
+    return (localStorage.getItem(THEME_KEY) as Theme) ?? "dark";
   });
 
   const [activeRole, setActiveRoleState] = useState<ActiveRole | null>(() => {
