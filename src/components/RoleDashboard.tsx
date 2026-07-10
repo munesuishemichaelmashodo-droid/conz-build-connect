@@ -23,10 +23,17 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
   const { data: jobs } = useQuery({
     queryKey: ["role-dash-jobs", userId, role],
     enabled: !!userId,
+    refetchInterval: 4000,
     queryFn: async () => {
       const q = supabase.from("jobs").select("*").order("created_at", { ascending: false }).limit(5);
-      if (isDriver) q.eq("status", "open");
+      if (isDriver) q.eq("status", "open").gt("expires_at", new Date().toISOString());
       else q.eq("customer_id", userId!);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data;
+    },
+  });
+
       const { data, error } = await q;
       if (error) throw error;
       return data;
