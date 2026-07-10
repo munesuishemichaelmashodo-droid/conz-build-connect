@@ -298,6 +298,7 @@ export type Database = {
           customer_id: string
           delivery_address: string
           driver_id: string | null
+          expires_at: string | null
           final_price: number | null
           id: string
           material: Database["public"]["Enums"]["material_category"]
@@ -316,6 +317,7 @@ export type Database = {
           customer_id: string
           delivery_address: string
           driver_id?: string | null
+          expires_at?: string | null
           final_price?: number | null
           id?: string
           material: Database["public"]["Enums"]["material_category"]
@@ -334,6 +336,7 @@ export type Database = {
           customer_id?: string
           delivery_address?: string
           driver_id?: string | null
+          expires_at?: string | null
           final_price?: number | null
           id?: string
           material?: Database["public"]["Enums"]["material_category"]
@@ -819,6 +822,7 @@ export type Database = {
           customer_id: string
           delivery_address: string
           driver_id: string | null
+          expires_at: string | null
           final_price: number | null
           id: string
           material: Database["public"]["Enums"]["material_category"]
@@ -1018,6 +1022,7 @@ export type Database = {
           customer_id: string
           delivery_address: string
           driver_id: string | null
+          expires_at: string | null
           final_price: number | null
           id: string
           material: Database["public"]["Enums"]["material_category"]
@@ -1051,6 +1056,7 @@ export type Database = {
         Args: { _job_id: string }
         Returns: number
       }
+      expire_stale_open_jobs: { Args: never; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
