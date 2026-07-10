@@ -20,15 +20,18 @@ function JobsPage() {
   const { data: jobs, isLoading } = useQuery({
     queryKey: ["jobs-list", userId, isDriver, isCustomer],
     enabled: !!userId,
+    refetchInterval: 4000,
     queryFn: async () => {
       let q = supabase.from("jobs").select("*").order("created_at", { ascending: false });
       if (isCustomer && !isDriver) q = q.eq("customer_id", userId!);
-      else if (isDriver && !isCustomer) q = q.or(`status.eq.open,driver_id.eq.${userId}`);
+      else if (isDriver && !isCustomer)
+        q = q.or(`and(status.eq.open,expires_at.gt.${new Date().toISOString()}),driver_id.eq.${userId}`);
       const { data, error } = await q;
       if (error) throw error;
       return data;
     },
   });
+
 
   return (
     <AppShell title="Jobs" action={isCustomer ? (
