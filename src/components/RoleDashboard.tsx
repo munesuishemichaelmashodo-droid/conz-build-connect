@@ -9,24 +9,32 @@ import { money, levelInfo } from "@/lib/domain";
 import { JobCard } from "@/routes/_authenticated/home";
 import { LocalLocator } from "@/components/LocalLocator";
 import { JobOfferListener } from "@/components/JobOfferListener";
+import { useExpireStaleJobs } from "@/lib/use-expire-stale-jobs";
+
+
 
 export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
   const { userId, profile } = useAuth();
   const isDriver = role === "driver";
   const isCustomer = role === "customer";
+  useExpireStaleJobs(true);
+
 
   const { data: jobs } = useQuery({
     queryKey: ["role-dash-jobs", userId, role],
     enabled: !!userId,
+    refetchInterval: 4000,
     queryFn: async () => {
       const q = supabase.from("jobs").select("*").order("created_at", { ascending: false }).limit(5);
-      if (isDriver) q.eq("status", "open");
+      if (isDriver) q.eq("status", "open").gt("expires_at", new Date().toISOString());
       else q.eq("customer_id", userId!);
       const { data, error } = await q;
       if (error) throw error;
       return data;
     },
   });
+
+
 
   const { data: wallet } = useQuery({
     queryKey: ["wallet", userId],
