@@ -124,9 +124,52 @@ function ProfilePage() {
 
         {activeRole === "driver" && is("driver") && <WithdrawalPinCard />}
 
+        <SetPasswordCard />
+
         <LocationPrivacyCard />
       </div>
     </AppShell>
+  );
+}
+
+function SetPasswordCard() {
+  const [pw, setPw] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    if (pw.length < 8) return toast.error("Password must be at least 8 characters");
+    if (pw !== confirm) return toast.error("Passwords do not match");
+    setSaving(true);
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    setPw(""); setConfirm("");
+    toast.success("Password saved. You can now log in with email + password.");
+  };
+  return (
+    <section className="rounded-2xl bg-card border p-4 shadow-soft space-y-3">
+      <div className="flex items-center gap-2">
+        <KeyRound className="w-4 h-4 text-primary" />
+        <h2 className="font-display font-bold uppercase tracking-wide">Set / change login password</h2>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Set a password so you can log in with email + password — even if you originally signed up with Google.
+        Google never shares your Google password with any app, so this is a separate Con Z password you control.
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label htmlFor="npw">New password</Label>
+          <Input id="npw" type="password" value={pw} onChange={(e) => setPw(e.target.value)} minLength={8} autoComplete="new-password" />
+        </div>
+        <div>
+          <Label htmlFor="npw2">Confirm</Label>
+          <Input id="npw2" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} minLength={8} autoComplete="new-password" />
+        </div>
+      </div>
+      <Button onClick={save} disabled={saving} className="w-full">
+        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save password"}
+      </Button>
+    </section>
   );
 }
 
