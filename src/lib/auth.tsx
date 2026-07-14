@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import type { AppRole } from "@/lib/domain";
+import { activateAccount } from "@/lib/account.functions";
 
 export type Profile = {
   id: string;
@@ -38,13 +40,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [email, setEmail] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
+  const activate = useServerFn(activateAccount);
   const qc = useQueryClient();
 
-  const load = async (uid: string | null) => {
+  const load = async (uid: string | null, repair = false) => {
     if (!uid) {
       setProfile(null);
       setRoles([]);
       return;
+    }
+    if (repair) {
+      try {
+        await activate();
+      } catch (error) {
+        console.error("Account activation failed", error);
+      }
     }
     const [{ data: p }, { data: r }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", uid).maybeSingle(),
@@ -62,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setEmail(session?.user?.email ?? null);
       // defer DB read to avoid deadlock
       setTimeout(() => {
-        void load(uid);
+        void load(uid, event === "SIGNED_IN" || event === "USER_UPDATED");
       }, 0);
       if (event === "SIGNED_OUT") {
         qc.clear();
@@ -76,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const uid = data.session?.user?.id ?? null;
       setUserId(uid);
       setEmail(data.session?.user?.email ?? null);
-      void load(uid).finally(() => setLoading(false));
+      void load(uid, !!uid).finally(() => setLoading(false));
     });
 
     return () => sub.subscription.unsubscribe();

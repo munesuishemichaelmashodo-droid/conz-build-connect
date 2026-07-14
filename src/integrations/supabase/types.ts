@@ -244,6 +244,30 @@ export type Database = {
         }
         Relationships: []
       }
+      first_job_free_claims: {
+        Row: {
+          claimed_at: string
+          id: string
+          identity_key: string
+          job_id: string | null
+          user_id: string
+        }
+        Insert: {
+          claimed_at?: string
+          id?: string
+          identity_key: string
+          job_id?: string | null
+          user_id: string
+        }
+        Update: {
+          claimed_at?: string
+          id?: string
+          identity_key?: string
+          job_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       job_dispatch_offers: {
         Row: {
           created_at: string
