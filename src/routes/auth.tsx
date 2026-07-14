@@ -24,6 +24,8 @@ function AuthPage() {
   const nav = useNavigate();
   const [tab, setTab] = useState<"login" | "register">(mode ?? "login");
   const [loading, setLoading] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
 
   // shared
   const [email, setEmail] = useState("");
@@ -42,6 +44,18 @@ function AuthPage() {
     nav({ to: "/home", replace: true });
   };
 
+  const sendPasswordReset = async () => {
+    const target = (resetEmail || email).trim();
+    if (!target) return toast.error("Enter your email first");
+    setResetLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(target, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setResetLoading(false);
+    if (error) return toast.error(error.message);
+    toast.success("Password reset link sent. Check your email.");
+  };
+
   const register = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim()) return toast.error("Please enter your full name");
@@ -51,7 +65,7 @@ function AuthPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/home`,
+        emailRedirectTo: `${window.location.origin}/oauth-callback`,
         data: { full_name: fullName, phone, role },
       },
     });
@@ -63,7 +77,7 @@ function AuthPage() {
 
   const google = async () => {
     setLoading(true);
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: `${window.location.origin}/home` });
+    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: `${window.location.origin}/oauth-callback` });
     if (result.error) {
       setLoading(false);
       return toast.error("Google sign-in failed");
@@ -113,6 +127,15 @@ function AuthPage() {
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Login"}
               </Button>
             </form>
+            <div className="rounded-xl border bg-card p-3 space-y-2">
+              <Label htmlFor="resetEmail">Reset password</Label>
+              <div className="grid grid-cols-[1fr_auto] gap-2">
+                <Input id="resetEmail" type="email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} placeholder="your@email.com" autoComplete="email" />
+                <Button type="button" variant="outline" onClick={sendPasswordReset} disabled={resetLoading}>
+                  {resetLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send"}
+                </Button>
+              </div>
+            </div>
             <Divider />
             <Button type="button" variant="outline" onClick={google} disabled={loading} className="w-full h-11">
               Continue with Google
