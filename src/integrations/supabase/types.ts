@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          meta: Json
+          reason: string | null
+          target_id: string | null
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          meta?: Json
+          reason?: string | null
+          target_id?: string | null
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          meta?: Json
+          reason?: string | null
+          target_id?: string | null
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       bids: {
         Row: {
           created_at: string
@@ -1076,6 +1109,7 @@ export type Database = {
         Returns: number
       }
       driver_can_accept: { Args: { _job_id: string }; Returns: Json }
+      expire_all_stale_dispatch_offers: { Args: never; Returns: number }
       expire_stale_dispatch_offers: {
         Args: { _job_id: string }
         Returns: number
@@ -1088,6 +1122,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      log_admin_action: {
+        Args: {
+          _action: string
+          _meta: Json
+          _reason: string
+          _target_id: string
+          _target_user: string
+        }
+        Returns: undefined
+      }
+      prune_stale_driver_locations: { Args: never; Returns: number }
       request_topup: {
         Args: { _amount: number; _method: string; _reference: string }
         Returns: {
