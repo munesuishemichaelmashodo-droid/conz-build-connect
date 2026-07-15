@@ -32,6 +32,7 @@ import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
 import { Route as AuthenticatedAdminRevenueRouteImport } from './routes/_authenticated/admin.revenue'
 import { Route as AuthenticatedAdminDisputesRouteImport } from './routes/_authenticated/admin.disputes'
+import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin.audit'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -153,6 +154,11 @@ const AuthenticatedAdminDisputesRoute =
     path: '/disputes',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -165,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/home': typeof AuthenticatedHomeRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/wallet': typeof AuthenticatedWalletRoute
+  '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/disputes': typeof AuthenticatedAdminDisputesRoute
   '/admin/revenue': typeof AuthenticatedAdminRevenueRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/home': typeof AuthenticatedHomeRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/wallet': typeof AuthenticatedWalletRoute
+  '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/disputes': typeof AuthenticatedAdminDisputesRoute
   '/admin/revenue': typeof AuthenticatedAdminRevenueRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
@@ -213,6 +221,7 @@ export interface FileRoutesById {
   '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
+  '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/_authenticated/admin/disputes': typeof AuthenticatedAdminDisputesRoute
   '/_authenticated/admin/revenue': typeof AuthenticatedAdminRevenueRoute
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
@@ -239,6 +248,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/profile'
     | '/wallet'
+    | '/admin/audit'
     | '/admin/disputes'
     | '/admin/revenue'
     | '/admin/settings'
@@ -261,6 +271,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/profile'
     | '/wallet'
+    | '/admin/audit'
     | '/admin/disputes'
     | '/admin/revenue'
     | '/admin/settings'
@@ -286,6 +297,7 @@ export interface FileRouteTypes {
     | '/_authenticated/home'
     | '/_authenticated/profile'
     | '/_authenticated/wallet'
+    | '/_authenticated/admin/audit'
     | '/_authenticated/admin/disputes'
     | '/_authenticated/admin/revenue'
     | '/_authenticated/admin/settings'
@@ -471,10 +483,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminDisputesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/audit': {
+      id: '/_authenticated/admin/audit'
+      path: '/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AuthenticatedAdminAuditRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
   }
 }
 
 interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
   AuthenticatedAdminDisputesRoute: typeof AuthenticatedAdminDisputesRoute
   AuthenticatedAdminRevenueRoute: typeof AuthenticatedAdminRevenueRoute
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
@@ -484,6 +504,7 @@ interface AuthenticatedAdminRouteChildren {
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
   AuthenticatedAdminDisputesRoute: AuthenticatedAdminDisputesRoute,
   AuthenticatedAdminRevenueRoute: AuthenticatedAdminRevenueRoute,
   AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
