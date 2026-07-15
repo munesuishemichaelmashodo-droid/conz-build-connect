@@ -1,81 +1,75 @@
+# Con Z — Audit & Improvement Plan
 
-You're right — the current Top Up dialog is just UI, it never writes anywhere. Here's the plan to make the whole wallet actually work, with proper account security.
+Based on the current state of the app (auth, wallet, dispatch, tracking, ratings, admin), here are the weaknesses I see and the systems worth adding. Pick which ones to build — I'd recommend tackling them in the order below.
 
-## 1. Top-up flow (manual bank / mobile-money → admin approves → wallet credits)
+## 1. Reliability & Stability weaknesses (fix first)
 
-New table:
+- **Job expiry runs in the browser.** `useExpireStaleJobs` polls every 3s only while a user has the app open. If nobody is online, stale jobs never expire. → Move to a `pg_cron` job hitting `/api/public/hooks/expire-jobs` every 5s server-side.
+- **Dispatch waves depend on client accept.** If all offered drivers are offline, no next wave fires. → Add a server-side "wave scheduler" cron that calls `expire_stale_dispatch_offers` for every open job.
+- **Google Maps markers use deprecated `Marker`.** Warning in console; will break in a future SDK release. → Migrate to `AdvancedMarkerElement` with a fallback.
+- **No offline / weak-signal handling.** Drivers on rural Zim networks lose GPS pings silently. → Queue location updates in `IndexedDB` and flush on reconnect; show a "reconnecting" banner.
+- **Realtime channels not always cleaned up.** Some `useEffect` returns don't unsubscribe → memory leaks after long sessions.
 
-```
-wallet_topup_requests
-  id, user_id, amount (>0, ≤100000),
-  method (ecocash|onemoney|zipit|bank),
-  reference, note,
-  status (pending|approved|rejected|cancelled),
-  created_at, decided_at, decided_by, reject_reason
-```
+## 2. Security & Trust gaps
 
-Grants + RLS (auth-only, per Data-API rules):
-- `GRANT SELECT, INSERT ON ... TO authenticated`, `GRANT ALL ... TO service_role`, no `anon`.
-- Driver INSERT/SELECT/UPDATE own rows only; cancel allowed only while pending.
-- Admin/super_admin SELECT/UPDATE all via `has_role`.
+- **Photo verification is self-uploaded, never re-checked.** A driver verified once stays verified forever. → Add periodic re-verification (every 90 days) and admin "revoke verification" action.
+- **No device / session limit.** A user can sign in on 5 devices and multi-claim free jobs across identities. → Track `auth_sessions` with device fingerprint; cap active sessions to 2 and surface them in Profile ("Sign out other devices").
+- **Withdrawal PIN, but no 2FA for login.** → Add optional email OTP or TOTP for high-value accounts (drivers with >$100 balance, all admins).
+- **No rate limiting on bid submissions or job posts.** A malicious user can spam. → Add a `rate_limits` table + trigger (e.g. 10 bids/min, 5 jobs/hour).
+- **Admin actions aren't fully audited.** Wallet credits log, but role grants, verifications, and dispute rulings don't. → Extend `wallet_audit_log` into a generic `admin_audit_log`.
 
-Security-definer RPCs:
-- `request_topup(amount, method, reference)` — insert pending row for `auth.uid()`, cap 5 pending per driver.
-- `admin_approve_topup(id)` — admin-only; in one transaction credits `wallets.balance` and writes `wallet_transactions('topup')`. Idempotent.
-- `admin_reject_topup(id, reason)` — admin-only.
+## 3. UX friction to remove
 
-UI:
-- Driver `wallet.tsx` Top Up sheet posts through `request_topup`; shows a "Pending top-ups" list with status pills and Cancel.
-- New admin **Top-up requests** tab in `admin.revenue.tsx` with Approve / Reject.
-- Realtime on `wallets` + `wallet_transactions` + `wallet_topup_requests` so the driver's balance and history update instantly after approval — solves the "I paid $50 and nothing happened" case.
+- **No job history / receipts.** Customers can't see past deliveries or download an invoice. → Add `/history` route + PDF receipt via server function.
+- **No cancellation policy UI.** Currently a job can be cancelled with no consequence. → Add cancellation reason + late-cancel fee (e.g. $2 if cancelled after driver accepts).
+- **Bids show driver info but no distance/ETA.** → Compute distance from `driver_locations` to job pickup and show "8 km · ~14 min".
+- **Chat has no read receipts, no image support surfaced.** → Add `read_at` column + inline image preview using the existing `chat-media` bucket.
+- **Notifications bell has no filtering or "mark all read".**
+- **No dark/light auto-follow-system option** (only manual toggle).
+- **AddressPicker has no "recent addresses" or "saved places" (Home/Work).** Big win for repeat customers.
 
-## 2. Commission deduction
+## 4. New systems worth adding
 
-`complete_job` already deducts 7% and honours "first job free". Add:
-- Block completion when `wallet.balance < commission` (non-free jobs) with a clear error.
-- Notification "Commission $X deducted" for the driver.
-- Post-completion "Commission Deducted" receipt screen matching the mockup, read from `wallet_transactions`.
+- **Referral program.** Each user gets a code; referrer earns $2 wallet credit when referee completes first paid job. Table `referrals(referrer_id, referee_id, status, reward_amount)`.
+- **Promo codes & seasonal discounts** (super-admin managed) — `promo_codes` table + validation at booking.
+- **Driver earnings dashboard** — weekly/monthly graphs, tax export CSV, average $/km. Drivers ask for this constantly on similar apps.
+- **Customer favorites** — mark a driver as favorite, get notified when they're online, optional "request this driver" mode.
+- **Scheduled/future bookings** — customer books for tomorrow 9 AM; dispatch wave fires at T-15min.
+- **Multi-stop deliveries** — one job, multiple drop-off points, price scales with legs.
+- **In-app support / help center** — FAQ + "Contact support" ticket flow tied to `disputes` table.
+- **Push notifications (PWA)** — currently in-app only. Add web-push via service worker so drivers get pinged when the app is backgrounded (critical for the 10-second dispatch to actually work).
+- **SMS fallback for OTP / job alerts** — Zimbabwe reality: many drivers won't have push. Twilio or a local SMS gateway.
 
-## 3. Low-balance protection
+## 5. Data & Analytics
 
-- RPC `driver_can_accept(job_id) → {ok, required, balance, shortfall}`.
-- `accept_dispatch_offer` calls the guard first; raises `Insufficient wallet balance`.
-- `JobOfferListener` shows the "Low Wallet Balance" modal from the board (Top Up to Accept / Maybe Later).
+- **No aggregated metrics for super admin beyond revenue.** Add: jobs/day, acceptance rate, avg dispatch wave count, top routes, cancellation rate, driver churn.
+- **No cohort tracking.** Which signup week drives the most completed jobs?
+- **No AI pricing feedback loop.** `compute_material_offer` uses static multipliers. → Log actual accepted prices and adjust `demand_multiplier` weekly via cron.
 
-## 4. Withdrawals
+## 6. Sustainability / cost
 
-`wallet_withdrawal_requests` (mirrors top-ups). Driver requests → admin approves → RPC debits wallet + writes `wallet_transactions('withdrawal')`. Same RLS pattern.
+- **`driver_locations` table will explode.** Every 5s ping × 100 drivers × 24h = 1.7M rows/day. → Add a `pg_cron` job to prune locations older than 24h; keep a daily-aggregated `location_history` for analytics only.
+- **Realtime subscriptions billed per concurrent connection.** Consolidate: one channel per user, not one per feature.
+- **Image storage grows unbounded.** Add lifecycle: verification docs archived to cold storage after 1 year; chat media auto-deleted after 90 days.
 
-## 5. Account security
+## 7. Compliance & Legal (needed before public launch)
 
-- Enable **leaked-password protection** (HIBP) via `configure_auth`.
-- **Withdrawal PIN**: `driver_profiles.withdrawal_pin_hash` (pgcrypto bcrypt). Set from Profile. Required to submit a withdrawal. Rate-limit table `pin_attempts` → 5 tries / 15 min, then locked.
-- **Audit log**: `wallet_audit_log(user_id, actor_id, action, meta jsonb, created_at)` written by every wallet RPC; driver reads own rows, admins read all.
-- **Lock down direct writes** on `wallets` and `wallet_transactions`: revoke `INSERT/UPDATE/DELETE` from `authenticated` — every change must go through SECURITY DEFINER RPCs. Keep SELECT-own.
-- **Server validation**: every RPC clamps `amount` (`> 0`, `<= 100000`, no NaN) and re-checks role via `has_role`.
-- All new server calls go through `createServerFn` + `requireSupabaseAuth`.
-- Run `security--run_security_scan` after the migration and fix any findings.
+- Terms of Service, Privacy Policy, Refund Policy pages (static routes).
+- Cookie/consent banner (EU users if any).
+- Data export & account deletion (`/settings/data`) — GDPR & good practice.
+- Age gate on signup (18+ for drivers).
 
-## 6. Files
+## Recommended first batch (2–3 days of work)
 
-Backend — single migration `…_wallet_hardening.sql`:
-tables, grants, RLS, RPCs, audit trigger, revoke direct writes on wallets/wallet_transactions, enable realtime replication.
+If you want a concrete "next sprint", I'd pick these 6 — biggest impact, unblocks the rest:
 
-Frontend:
-- `src/lib/wallet.functions.ts` (new) — `requestTopup`, `cancelTopup`, `requestWithdrawal`, `setWithdrawalPin`, `verifyWithdrawalPin`, `adminApproveTopup`, `adminRejectTopup`, `adminApproveWithdrawal`.
-- `src/routes/_authenticated/wallet.tsx` — wire Top Up to `requestTopup`; add Pending list; add Withdraw sheet with PIN.
-- `src/routes/_authenticated/admin.revenue.tsx` — approvals tab.
-- `src/components/LowBalanceModal.tsx` (new) + hook into `JobOfferListener.tsx` and manual accept.
-- `src/routes/_authenticated/profile.tsx` — "Set withdrawal PIN" card.
+1. **Server-side job & dispatch expiry** (pg_cron) — fixes the "nobody online" hole.
+2. **PWA push notifications** — makes the 10-second dispatch actually reach drivers.
+3. **Location data pruning cron** — stops the runaway table.
+4. **Job history + PDF receipts** — most-requested customer feature.
+5. **Distance/ETA on bid cards** — instant UX upgrade.
+6. **Admin audit log** — needed the moment you have >1 admin.
 
-Auth config: `configure_auth({ password_hibp_enabled: true })`.
+---
 
-## 7. Verification
-
-- Playwright: driver requests $50 EcoCash top-up → shows Pending → admin approves → balance jumps to $50 and history shows a `topup` row, all via realtime with no refresh.
-- Driver A cannot see or approve driver B's request (RLS denies).
-- Withdrawal without PIN rejected; 6 wrong PINs locks the driver out.
-- Accept a job with balance < commission → LowBalance modal; with enough balance → commission row lands after completion.
-- `security--run_security_scan` clean.
-
-Approve and I'll ship the migration first, then the wiring in the follow-up build turn.
+Tell me which of these you want to tackle (all of section 1, the recommended batch, or a custom pick) and I'll turn it into a concrete build plan with migrations and file changes.
