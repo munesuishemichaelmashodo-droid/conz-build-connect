@@ -27,6 +27,7 @@ const TABS: { to: string; label: string; icon: typeof Users; exact?: boolean; su
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/verifications", label: "Verify", icon: ShieldCheck },
   { to: "/admin/disputes", label: "Disputes", icon: Gavel },
+  { to: "/admin/audit", label: "Audit", icon: ScrollText, superOnly: true },
   { to: "/admin/settings", label: "Settings", icon: SettingsIcon },
 ];
 
