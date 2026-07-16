@@ -1,4 +1,5 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { ArrowRight, ShieldCheck, Wallet, Truck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -10,6 +11,23 @@ export const Route = createFileRoute("/")({
   },
   component: Welcome,
 });
+
+function useRedirectWhenSignedIn() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled && data.session) navigate({ to: "/home", replace: true });
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (session) navigate({ to: "/home", replace: true });
+    });
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
+  }, [navigate]);
+}
 
 function Welcome() {
   return (
