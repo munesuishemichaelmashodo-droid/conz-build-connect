@@ -30,6 +30,7 @@ function useRedirectWhenSignedIn() {
 }
 
 function Welcome() {
+  useRedirectWhenSignedIn();
   return (
     <div className="min-h-screen bg-gradient-dark text-white flex flex-col">
       <div className="mx-auto max-w-screen-sm px-5 pt-12 pb-8 flex-1 flex flex-col">
