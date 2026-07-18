@@ -12,4 +12,12 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Pin Nitro's build target to Vercel for external CI (GitHub -> Vercel).
+  // Inside Lovable builds this override is IGNORED — the Lovable config force-pins
+  // Cloudflare — so the Lovable preview & published deployment are unaffected.
+  // On Vercel, this makes Nitro emit `.vercel/output/` (Build Output API v3),
+  // which Vercel auto-detects and serves as a full SSR + server-functions app
+  // instead of a static shell.
+  nitro: { preset: "vercel" },
 });
+
