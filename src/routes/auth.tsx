@@ -222,6 +222,46 @@ function AuthPage() {
             <TabsTrigger value="register">Register</TabsTrigger>
           </TabsList>
 
+          {authDebug && (
+            <div className="mt-4 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <div className="font-semibold text-destructive uppercase tracking-wide">
+                  {authDebug.stage} error
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAuthDebug(null)}
+                  className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                >
+                  Dismiss
+                </button>
+              </div>
+              <div><span className="text-muted-foreground">Message:</span> {authDebug.message}</div>
+              {authDebug.name && <div><span className="text-muted-foreground">Name:</span> {authDebug.name}</div>}
+              {authDebug.status !== undefined && (
+                <div><span className="text-muted-foreground">HTTP status:</span> {String(authDebug.status)}</div>
+              )}
+              {authDebug.code && <div><span className="text-muted-foreground">Code:</span> {authDebug.code}</div>}
+              {authDebug.endpoint && (
+                <div className="break-all"><span className="text-muted-foreground">Endpoint:</span> {authDebug.endpoint}</div>
+              )}
+              <div className="break-all">
+                <span className="text-muted-foreground">Supabase URL env:</span> {supabaseUrl}
+              </div>
+              <div>
+                <span className="text-muted-foreground">Publishable key present:</span>{" "}
+                {supabaseKeyPresent ? "yes" : "NO — add VITE_SUPABASE_PUBLISHABLE_KEY on Vercel"}
+              </div>
+              {authDebug.hint && (
+                <div className="pt-1 text-muted-foreground">Hint: {authDebug.hint}</div>
+              )}
+              <div className="pt-1 text-[10px] text-muted-foreground">
+                Full details also logged to the browser console under <code>[auth]</code>.
+              </div>
+            </div>
+          )}
+
+
           <TabsContent value="login" className="space-y-4 mt-4">
             <form onSubmit={login} className="space-y-3">
               <div>
