@@ -40,6 +40,15 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
+  const [authDebug, setAuthDebug] = useState<null | {
+    stage: string;
+    message: string;
+    name?: string;
+    status?: number | string;
+    code?: string;
+    endpoint?: string;
+    hint?: string;
+  }>(null);
 
   // shared
   const [email, setEmail] = useState("");
@@ -49,56 +58,142 @@ function AuthPage() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
 
+  const supabaseUrl =
+    (import.meta as unknown as { env: Record<string, string | undefined> }).env
+      .VITE_SUPABASE_URL ?? "(missing VITE_SUPABASE_URL)";
+  const supabaseKeyPresent = Boolean(
+    (import.meta as unknown as { env: Record<string, string | undefined> }).env
+      .VITE_SUPABASE_PUBLISHABLE_KEY,
+  );
+
+  const reportAuthError = (
+    stage: string,
+    err: unknown,
+    endpoint: string,
+    hint?: string,
+  ) => {
+    const e = err as {
+      message?: string;
+      name?: string;
+      status?: number;
+      code?: string;
+      __isAuthError?: boolean;
+    } | null;
+    const info = {
+      stage,
+      message: e?.message ?? String(err ?? "Unknown error"),
+      name: e?.name,
+      status: e?.status,
+      code: e?.code,
+      endpoint,
+      hint,
+    };
+    setAuthDebug(info);
+    // eslint-disable-next-line no-console
+    console.error("[auth]", info, err);
+    toast.error(`${stage} failed: ${info.message}`);
+  };
+
   const login = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthDebug(null);
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    nav({ to: "/home", replace: true });
+    const endpoint = `${supabaseUrl}/auth/v1/token?grant_type=password`;
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      setLoading(false);
+      if (error) {
+        return reportAuthError(
+          "Password sign-in",
+          error,
+          endpoint,
+          !supabaseKeyPresent
+            ? "VITE_SUPABASE_PUBLISHABLE_KEY is missing in this deploy."
+            : undefined,
+        );
+      }
+      nav({ to: "/home", replace: true });
+    } catch (err) {
+      setLoading(false);
+      reportAuthError(
+        "Password sign-in (network)",
+        err,
+        endpoint,
+        "The auth endpoint was unreachable. Check the Supabase URL, CORS, and that env vars are set on Vercel.",
+      );
+    }
   };
 
   const sendPasswordReset = async () => {
     const target = (resetEmail || email).trim();
     if (!target) return toast.error("Enter your email first");
+    setAuthDebug(null);
     setResetLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(target, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    setResetLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Password reset link sent. Check your email.");
+    const endpoint = `${supabaseUrl}/auth/v1/recover`;
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(target, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      setResetLoading(false);
+      if (error) return reportAuthError("Password reset", error, endpoint);
+      toast.success("Password reset link sent. Check your email.");
+    } catch (err) {
+      setResetLoading(false);
+      reportAuthError("Password reset (network)", err, endpoint);
+    }
   };
 
   const register = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim()) return toast.error("Please enter your full name");
     if (password.length < 8) return toast.error("Password must be at least 8 characters");
+    setAuthDebug(null);
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/oauth-callback`,
-        data: { full_name: fullName, phone, role },
-      },
-    });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Welcome to Con Z!");
-    nav({ to: "/home", replace: true });
+    const endpoint = `${supabaseUrl}/auth/v1/signup`;
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/oauth-callback`,
+          data: { full_name: fullName, phone, role },
+        },
+      });
+      setLoading(false);
+      if (error) return reportAuthError("Sign-up", error, endpoint);
+      toast.success("Welcome to Con Z!");
+      nav({ to: "/home", replace: true });
+    } catch (err) {
+      setLoading(false);
+      reportAuthError("Sign-up (network)", err, endpoint);
+    }
   };
 
   const google = async () => {
+    setAuthDebug(null);
     setLoading(true);
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: `${window.location.origin}/oauth-callback` });
-    if (result.error) {
+    const endpoint = `${supabaseUrl}/auth/v1/authorize?provider=google`;
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: `${window.location.origin}/oauth-callback`,
+      });
+      if (result.error) {
+        setLoading(false);
+        return reportAuthError(
+          "Google sign-in",
+          result.error,
+          endpoint,
+          "Check that Google provider is enabled and that this exact origin is in Supabase Auth Redirect URLs.",
+        );
+      }
+      if (result.redirected) return;
+      nav({ to: "/home", replace: true });
+    } catch (err) {
       setLoading(false);
-      return toast.error("Google sign-in failed");
+      reportAuthError("Google sign-in (network)", err, endpoint);
     }
-    if (result.redirected) return;
-    nav({ to: "/home", replace: true });
   };
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -126,6 +221,46 @@ function AuthPage() {
             <TabsTrigger value="login">Login</TabsTrigger>
             <TabsTrigger value="register">Register</TabsTrigger>
           </TabsList>
+
+          {authDebug && (
+            <div className="mt-4 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <div className="font-semibold text-destructive uppercase tracking-wide">
+                  {authDebug.stage} error
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAuthDebug(null)}
+                  className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                >
+                  Dismiss
+                </button>
+              </div>
+              <div><span className="text-muted-foreground">Message:</span> {authDebug.message}</div>
+              {authDebug.name && <div><span className="text-muted-foreground">Name:</span> {authDebug.name}</div>}
+              {authDebug.status !== undefined && (
+                <div><span className="text-muted-foreground">HTTP status:</span> {String(authDebug.status)}</div>
+              )}
+              {authDebug.code && <div><span className="text-muted-foreground">Code:</span> {authDebug.code}</div>}
+              {authDebug.endpoint && (
+                <div className="break-all"><span className="text-muted-foreground">Endpoint:</span> {authDebug.endpoint}</div>
+              )}
+              <div className="break-all">
+                <span className="text-muted-foreground">Supabase URL env:</span> {supabaseUrl}
+              </div>
+              <div>
+                <span className="text-muted-foreground">Publishable key present:</span>{" "}
+                {supabaseKeyPresent ? "yes" : "NO — add VITE_SUPABASE_PUBLISHABLE_KEY on Vercel"}
+              </div>
+              {authDebug.hint && (
+                <div className="pt-1 text-muted-foreground">Hint: {authDebug.hint}</div>
+              )}
+              <div className="pt-1 text-[10px] text-muted-foreground">
+                Full details also logged to the browser console under <code>[auth]</code>.
+              </div>
+            </div>
+          )}
+
 
           <TabsContent value="login" className="space-y-4 mt-4">
             <form onSubmit={login} className="space-y-3">
