@@ -173,12 +173,19 @@ function AuthPage() {
     setAuthDebug(null);
     setLoading(true);
     const endpoint = `${supabaseUrl}/auth/v1/authorize?provider=google`;
+    const isCancellation = (m: string) =>
+      /cancel/i.test(m) || /closed/i.test(m) || /popup/i.test(m) || /dismiss/i.test(m);
     try {
       const result = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: `${window.location.origin}/oauth-callback`,
       });
       if (result.error) {
         setLoading(false);
+        const msg = (result.error as { message?: string })?.message ?? "";
+        if (isCancellation(msg)) {
+          toast.message("Google sign-in cancelled");
+          return;
+        }
         return reportAuthError(
           "Google sign-in",
           result.error,
@@ -190,6 +197,11 @@ function AuthPage() {
       nav({ to: "/home", replace: true });
     } catch (err) {
       setLoading(false);
+      const msg = err instanceof Error ? err.message : String(err);
+      if (isCancellation(msg)) {
+        toast.message("Google sign-in cancelled");
+        return;
+      }
       reportAuthError("Google sign-in (network)", err, endpoint);
     }
   };
