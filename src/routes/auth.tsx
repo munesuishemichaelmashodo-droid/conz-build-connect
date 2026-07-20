@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -198,24 +198,28 @@ function AuthPage() {
         }
       }
 
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/oauth-callback`,
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/oauth-callback` },
       });
-      if (result.error) {
+      if (error) {
         setLoading(false);
-        const msg = (result.error as { message?: string })?.message ?? "";
+        const msg = (error as { message?: string })?.message ?? "";
         if (isCancellation(msg)) {
           toast.message("Google sign-in cancelled");
           return;
         }
         return reportAuthError(
           "Google sign-in",
-          result.error,
+          error,
           endpoint,
           "Check that Google provider is enabled and that this exact origin is in Supabase Auth Redirect URLs.",
         );
       }
-      if (result.redirected) return;
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
+      }
       goPostAuth();
     } catch (err) {
       setLoading(false);
