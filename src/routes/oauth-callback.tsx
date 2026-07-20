@@ -14,12 +14,27 @@ function AuthCallbackPage() {
 
   useEffect(() => {
     let cancelled = false;
+    const readNext = () => {
+      try {
+        const stashed = sessionStorage.getItem("conz.postAuthNext");
+        sessionStorage.removeItem("conz.postAuthNext");
+        if (stashed && stashed.startsWith("/") && !stashed.startsWith("//")) return stashed;
+      } catch {
+        /* ignore */
+      }
+      return null;
+    };
     const finish = async () => {
       for (let i = 0; i < 20; i += 1) {
         const { data } = await supabase.auth.getSession();
         if (cancelled) return;
         if (data.session) {
-          navigate({ to: "/home", replace: true });
+          const next = readNext();
+          if (next) {
+            window.location.replace(next);
+          } else {
+            navigate({ to: "/home", replace: true });
+          }
           return;
         }
         await new Promise((resolve) => setTimeout(resolve, 250));

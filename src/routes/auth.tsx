@@ -126,7 +126,7 @@ function AuthPage() {
             : undefined,
         );
       }
-      nav({ to: "/home", replace: true });
+      goPostAuth();
     } catch (err) {
       setLoading(false);
       reportAuthError(
