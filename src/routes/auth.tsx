@@ -176,7 +176,7 @@ function AuthPage() {
       setLoading(false);
       if (error) return reportAuthError("Sign-up", error, endpoint);
       toast.success("Welcome to Con Z!");
-      nav({ to: "/home", replace: true });
+      goPostAuth();
     } catch (err) {
       setLoading(false);
       reportAuthError("Sign-up (network)", err, endpoint);
@@ -190,6 +190,13 @@ function AuthPage() {
     const isCancellation = (m: string) =>
       /cancel/i.test(m) || /closed/i.test(m) || /popup/i.test(m) || /dismiss/i.test(m);
     try {
+      if (safeNext) {
+        try {
+          sessionStorage.setItem("conz.postAuthNext", safeNext);
+        } catch {
+          /* ignore */
+        }
+      }
       const result = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: `${window.location.origin}/oauth-callback`,
       });
@@ -208,7 +215,7 @@ function AuthPage() {
         );
       }
       if (result.redirected) return;
-      nav({ to: "/home", replace: true });
+      goPostAuth();
     } catch (err) {
       setLoading(false);
       const msg = err instanceof Error ? err.message : String(err);
