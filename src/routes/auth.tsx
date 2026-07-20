@@ -197,6 +197,15 @@ function AuthPage() {
           /* ignore */
         }
       }
+
+      // The Vercel-hosted build does not include Lovable's OAuth broker route.
+      // Delegate Google sign-in to the Lovable origin so the redirect lands back on Vercel.
+      if (window.location.origin === "https://conz-build-connect.vercel.app") {
+        window.location.href =
+          "https://conz-build-connect.lovable.app/~oauth/initiate?provider=google&redirect_uri=https://conz-build-connect.vercel.app/oauth-callback";
+        return;
+      }
+
       const result = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: `${window.location.origin}/oauth-callback`,
       });
