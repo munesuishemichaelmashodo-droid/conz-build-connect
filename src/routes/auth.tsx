@@ -11,7 +11,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-const searchSchema = z.object({ mode: z.enum(["login", "register"]).optional() });
+const searchSchema = z.object({
+  mode: z.enum(["login", "register"]).optional(),
+  next: z.string().optional(),
+});
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -20,23 +23,34 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
-  const { mode } = Route.useSearch();
+  const { mode, next } = Route.useSearch();
   const nav = useNavigate();
   const [tab, setTab] = useState<"login" | "register">(mode ?? "login");
+
+  // Only allow same-origin relative paths.
+  const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
+  const goPostAuth = () => {
+    if (safeNext) {
+      window.location.replace(safeNext);
+    } else {
+      nav({ to: "/home", replace: true });
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
     supabase.auth.getSession().then(({ data }) => {
-      if (!cancelled && data.session) nav({ to: "/home", replace: true });
+      if (!cancelled && data.session) goPostAuth();
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session) nav({ to: "/home", replace: true });
+      if (session) goPostAuth();
     });
     return () => {
       cancelled = true;
       sub.subscription.unsubscribe();
     };
-  }, [nav]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nav, safeNext]);
   const [loading, setLoading] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
@@ -112,7 +126,7 @@ function AuthPage() {
             : undefined,
         );
       }
-      nav({ to: "/home", replace: true });
+      goPostAuth();
     } catch (err) {
       setLoading(false);
       reportAuthError(
@@ -162,7 +176,7 @@ function AuthPage() {
       setLoading(false);
       if (error) return reportAuthError("Sign-up", error, endpoint);
       toast.success("Welcome to Con Z!");
-      nav({ to: "/home", replace: true });
+      goPostAuth();
     } catch (err) {
       setLoading(false);
       reportAuthError("Sign-up (network)", err, endpoint);
@@ -176,6 +190,13 @@ function AuthPage() {
     const isCancellation = (m: string) =>
       /cancel/i.test(m) || /closed/i.test(m) || /popup/i.test(m) || /dismiss/i.test(m);
     try {
+      if (safeNext) {
+        try {
+          sessionStorage.setItem("conz.postAuthNext", safeNext);
+        } catch {
+          /* ignore */
+        }
+      }
       const result = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: `${window.location.origin}/oauth-callback`,
       });
@@ -194,7 +215,7 @@ function AuthPage() {
         );
       }
       if (result.redirected) return;
-      nav({ to: "/home", replace: true });
+      goPostAuth();
     } catch (err) {
       setLoading(false);
       const msg = err instanceof Error ? err.message : String(err);

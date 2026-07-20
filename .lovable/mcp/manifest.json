@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "sdk_version": "0.23.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://nyivrhdpxsrxyfmexxkn.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "conz-mcp",
+      "version": "0.1.0",
+      "title": "Con Z"
+    },
+    "tools": [
+      {
+        "name": "list_my_jobs",
+        "title": "List my jobs",
+        "description": "List Con Z delivery jobs for the signed-in user. Customers see jobs they posted; drivers see jobs assigned to them. Returns up to 50 most recent jobs.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "open",
+                "assigned",
+                "in_progress",
+                "completed",
+                "cancelled",
+                "expired",
+                "any"
+              ],
+              "description": "Filter by job status. Defaults to any."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "description": "Max rows to return (1-50)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_open_jobs",
+        "title": "List open jobs",
+        "description": "Browse currently open (unassigned) Con Z delivery jobs that a driver could bid on. RLS applies — a caller who cannot view open jobs will get an empty list.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "material": {
+              "type": "string",
+              "description": "Optional material filter (e.g. river_sand, gravel)."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_wallet",
+        "title": "Get my wallet",
+        "description": "Get the signed-in Con Z user's wallet balance, pending balance, and last 10 wallet transactions.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_price_guide",
+        "title": "Get material price guide",
+        "description": "Return the Con Z enforced price ranges per material for a standard 10–15 m³ tipper load (min, max, step, unit).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
