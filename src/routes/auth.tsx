@@ -11,7 +11,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-const searchSchema = z.object({ mode: z.enum(["login", "register"]).optional() });
+const searchSchema = z.object({
+  mode: z.enum(["login", "register"]).optional(),
+  next: z.string().optional(),
+});
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
