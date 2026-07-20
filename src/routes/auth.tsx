@@ -23,23 +23,34 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
-  const { mode } = Route.useSearch();
+  const { mode, next } = Route.useSearch();
   const nav = useNavigate();
   const [tab, setTab] = useState<"login" | "register">(mode ?? "login");
+
+  // Only allow same-origin relative paths.
+  const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
+  const goPostAuth = () => {
+    if (safeNext) {
+      window.location.replace(safeNext);
+    } else {
+      nav({ to: "/home", replace: true });
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
     supabase.auth.getSession().then(({ data }) => {
-      if (!cancelled && data.session) nav({ to: "/home", replace: true });
+      if (!cancelled && data.session) goPostAuth();
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session) nav({ to: "/home", replace: true });
+      if (session) goPostAuth();
     });
     return () => {
       cancelled = true;
       sub.subscription.unsubscribe();
     };
-  }, [nav]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nav, safeNext]);
   const [loading, setLoading] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
