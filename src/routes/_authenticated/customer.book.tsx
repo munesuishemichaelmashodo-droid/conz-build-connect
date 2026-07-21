@@ -23,6 +23,11 @@ export const Route = createFileRoute("/_authenticated/customer/book")({
 
 const BOOKABLE_MATERIALS = MATERIALS.filter((m) => m.value !== "custom");
 
+// Average tipper truck fuel consumption (litres per 100 km).
+const FUEL_LITRES_PER_100KM = 32;
+// Default supplier pickup point (Harare CBD) — used until per-supplier pickup is added.
+const PICKUP_POINT = { lat: -17.8292, lng: 31.0522 };
+
 function BookDelivery() {
   const { userId, is } = useAuth();
   const nav = useNavigate();
