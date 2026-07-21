@@ -354,12 +354,14 @@ export type Database = {
           custom_material: string | null
           customer_id: string
           delivery_address: string
+          delivery_photo_url: string | null
           driver_id: string | null
           expires_at: string | null
           final_price: number | null
           id: string
           material: Database["public"]["Enums"]["material_category"]
           notes: string | null
+          pickup_photo_url: string | null
           preferred_date: string | null
           quantity_m3: number
           status: Database["public"]["Enums"]["job_status"]
@@ -373,12 +375,14 @@ export type Database = {
           custom_material?: string | null
           customer_id: string
           delivery_address: string
+          delivery_photo_url?: string | null
           driver_id?: string | null
           expires_at?: string | null
           final_price?: number | null
           id?: string
           material: Database["public"]["Enums"]["material_category"]
           notes?: string | null
+          pickup_photo_url?: string | null
           preferred_date?: string | null
           quantity_m3: number
           status?: Database["public"]["Enums"]["job_status"]
@@ -392,12 +396,14 @@ export type Database = {
           custom_material?: string | null
           customer_id?: string
           delivery_address?: string
+          delivery_photo_url?: string | null
           driver_id?: string | null
           expires_at?: string | null
           final_price?: number | null
           id?: string
           material?: Database["public"]["Enums"]["material_category"]
           notes?: string | null
+          pickup_photo_url?: string | null
           preferred_date?: string | null
           quantity_m3?: number
           status?: Database["public"]["Enums"]["job_status"]
@@ -865,7 +871,39 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      driver_public_profiles: {
+        Row: {
+          jobs_completed: number | null
+          level: Database["public"]["Enums"]["driver_level"] | null
+          rating_avg: number | null
+          rating_count: number | null
+          user_id: string | null
+          verification_status:
+            | Database["public"]["Enums"]["verification_status"]
+            | null
+        }
+        Insert: {
+          jobs_completed?: number | null
+          level?: Database["public"]["Enums"]["driver_level"] | null
+          rating_avg?: number | null
+          rating_count?: number | null
+          user_id?: string | null
+          verification_status?:
+            | Database["public"]["Enums"]["verification_status"]
+            | null
+        }
+        Update: {
+          jobs_completed?: number | null
+          level?: Database["public"]["Enums"]["driver_level"] | null
+          rating_avg?: number | null
+          rating_count?: number | null
+          user_id?: string | null
+          verification_status?:
+            | Database["public"]["Enums"]["verification_status"]
+            | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accept_bid: {
@@ -878,12 +916,14 @@ export type Database = {
           custom_material: string | null
           customer_id: string
           delivery_address: string
+          delivery_photo_url: string | null
           driver_id: string | null
           expires_at: string | null
           final_price: number | null
           id: string
           material: Database["public"]["Enums"]["material_category"]
           notes: string | null
+          pickup_photo_url: string | null
           preferred_date: string | null
           quantity_m3: number
           status: Database["public"]["Enums"]["job_status"]
@@ -1079,12 +1119,14 @@ export type Database = {
           custom_material: string | null
           customer_id: string
           delivery_address: string
+          delivery_photo_url: string | null
           driver_id: string | null
           expires_at: string | null
           final_price: number | null
           id: string
           material: Database["public"]["Enums"]["material_category"]
           notes: string | null
+          pickup_photo_url: string | null
           preferred_date: string | null
           quantity_m3: number
           status: Database["public"]["Enums"]["job_status"]

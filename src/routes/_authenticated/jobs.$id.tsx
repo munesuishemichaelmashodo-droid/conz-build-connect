@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge, Section } from "@/components/ui-bits";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, Trash2, Camera, Image as ImageIcon, PackageCheck } from "lucide-react";
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -84,11 +84,6 @@ function JobDetail() {
     qc.invalidateQueries({ queryKey: ["job", id] });
   };
 
-  const updateStatus = async (status: "in_progress") => {
-    const { error } = await supabase.from("jobs").update({ status }).eq("id", id);
-    if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["job", id] });
-  };
 
   const cancelJob = async () => {
     if (!confirm("Cancel and remove this job? Drivers will no longer see it.")) return;
@@ -153,16 +148,63 @@ function JobDetail() {
           </Button>
         )}
 
-        {isOwner && (job.status === "accepted" || job.status === "in_progress") && (
-          <Button onClick={completeJob} className="w-full bg-success text-success-foreground hover:bg-success/90">
-            <CheckCircle2 className="w-4 h-4 mr-2" />
-            Confirm delivery
-          </Button>
+        {(job.pickup_photo_url || job.delivery_photo_url) && (
+          <div className="rounded-2xl bg-card border p-4 space-y-3">
+            <div className="font-display font-bold uppercase text-sm tracking-wide">Proof of delivery</div>
+            <div className="grid grid-cols-2 gap-3">
+              {job.pickup_photo_url && (
+                <figure className="space-y-1">
+                  <img src={job.pickup_photo_url} alt="Load confirmed" className="w-full aspect-square object-cover rounded-lg border" />
+                  <figcaption className="text-xs font-semibold text-success flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Load confirmed
+                  </figcaption>
+                </figure>
+              )}
+              {job.delivery_photo_url && (
+                <figure className="space-y-1">
+                  <img src={job.delivery_photo_url} alt="Delivery confirmed" className="w-full aspect-square object-cover rounded-lg border" />
+                  <figcaption className="text-xs font-semibold text-success flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Delivery confirmed
+                  </figcaption>
+                </figure>
+              )}
+            </div>
+          </div>
         )}
 
-        {isAssignedDriver && job.status === "accepted" && (
-          <Button onClick={() => updateStatus("in_progress")} variant="outline" className="w-full">
-            Mark as en route
+        {isAssignedDriver && job.status === "accepted" && !job.pickup_photo_url && (
+          <ProofUpload
+            jobId={id}
+            kind="pickup"
+            label="Confirm Pickup"
+            hint="Take a photo of the loaded truck to start the trip."
+            onUploaded={async () => {
+              await supabase.from("jobs").update({ status: "in_progress" }).eq("id", id);
+              qc.invalidateQueries({ queryKey: ["job", id] });
+            }}
+          />
+        )}
+
+        {isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && job.pickup_photo_url && !job.delivery_photo_url && (
+          <ProofUpload
+            jobId={id}
+            kind="delivery"
+            label="Confirm Delivery"
+            hint="Take a photo at the delivery point. The customer can then confirm."
+            onUploaded={async () => {
+              qc.invalidateQueries({ queryKey: ["job", id] });
+            }}
+          />
+        )}
+
+        {isOwner && (job.status === "accepted" || job.status === "in_progress") && (
+          <Button
+            onClick={completeJob}
+            disabled={!job.delivery_photo_url}
+            className="w-full bg-success text-success-foreground hover:bg-success/90"
+          >
+            <CheckCircle2 className="w-4 h-4 mr-2" />
+            {job.delivery_photo_url ? "Confirm delivery" : "Waiting for driver's delivery photo"}
           </Button>
         )}
 
@@ -171,6 +213,7 @@ function JobDetail() {
         )}
 
         {isOwner && (job.status === "accepted" || job.status === "in_progress") && <CustomerTrackMap jobId={id} />}
+
 
         {is("driver") && !isOwner && job.status === "open" && (
           <BidForm jobId={id} existing={myBid} onSaved={() => qc.invalidateQueries({ queryKey: ["bids", id] })} />
@@ -447,6 +490,47 @@ function RateCustomerForm({ jobId, customerId, onSaved }: { jobId: string; custo
       <Button onClick={submit} disabled={loading} className="w-full">
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit rating"}
       </Button>
+    </div>
+  );
+}
+
+function ProofUpload({ jobId, kind, label, hint, onUploaded }: { jobId: string; kind: "pickup" | "delivery"; label: string; hint?: string; onUploaded: () => void | Promise<void> }) {
+  const [uploading, setUploading] = useState(false);
+  const upload = async (file: File) => {
+    setUploading(true);
+    const path = `${jobId}/${kind}.jpg`;
+    const { error: uerr } = await supabase.storage
+      .from("job-proof-photos")
+      .upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
+    if (uerr) { setUploading(false); return toast.error(uerr.message); }
+    const { data: pub } = supabase.storage.from("job-proof-photos").getPublicUrl(path);
+    const url = `${pub.publicUrl}?t=${Date.now()}`;
+    const patch = kind === "pickup" ? { pickup_photo_url: url } : { delivery_photo_url: url };
+    const { error } = await supabase.from("jobs").update(patch).eq("id", jobId);
+    setUploading(false);
+    if (error) return toast.error(error.message);
+    toast.success(`${label} photo uploaded`);
+    await onUploaded();
+  };
+  return (
+    <div className="rounded-2xl border p-4 space-y-3 bg-card">
+      <div className="flex items-center gap-2">
+        <PackageCheck className="w-5 h-5 text-primary" />
+        <div className="font-display font-bold uppercase text-sm tracking-wide">{label}</div>
+      </div>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      <div className="grid grid-cols-2 gap-2">
+        <label className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 hover:bg-muted transition p-3 cursor-pointer">
+          <Camera className="w-5 h-5 text-primary shrink-0" />
+          <span className="text-xs font-semibold">{uploading ? "Uploading…" : "Take photo"}</span>
+          <input type="file" accept="image/*" capture="environment" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="hidden" />
+        </label>
+        <label className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 hover:bg-muted transition p-3 cursor-pointer">
+          <ImageIcon className="w-5 h-5 text-primary shrink-0" />
+          <span className="text-xs font-semibold">{uploading ? "Uploading…" : "Choose from gallery"}</span>
+          <input type="file" accept="image/*" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="hidden" />
+        </label>
+      </div>
     </div>
   );
 }
