@@ -368,7 +368,13 @@ function AuthPage() {
               <div>
                 <Label htmlFor="localPhone">Phone (optional)</Label>
                 <div className="grid grid-cols-[140px_1fr] gap-2">
-                  <CountryCodeSelect value={countryCode} onChange={setCountryCode} />
+                  <CountryCodeSelect
+                    value={countryAlpha2}
+                    onChange={(c) => {
+                      setCountryAlpha2(c.code);
+                      setCountryDialCode(c.dial_code);
+                    }}
+                  />
                   <Input
                     id="localPhone"
                     value={localPhone}
