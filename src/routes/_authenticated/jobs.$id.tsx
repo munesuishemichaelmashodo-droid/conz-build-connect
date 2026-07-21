@@ -213,12 +213,10 @@ function JobDetail() {
           <BidForm jobId={id} existing={myBid} onSaved={() => qc.invalidateQueries({ queryKey: ["bids", id] })} />
         )}
 
-        {isOwner && job.status === "open" && (
-          <Button onClick={cancelJob} variant="outline" className="w-full text-destructive hover:text-destructive">
-            <Trash2 className="w-4 h-4 mr-2" />
-            Cancel job
-          </Button>
+        {isOwner && (job.status === "open" || job.status === "accepted" || job.status === "in_progress") && (
+          <CancelJobDialog jobId={id} status={job.status} onCancelled={() => nav({ to: "/jobs" })} />
         )}
+
 
         {(isOwner || is("admin") || is("super_admin")) && (
           <Section title={`Bids (${bids?.length ?? 0})`}>
