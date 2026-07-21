@@ -153,16 +153,63 @@ function JobDetail() {
           </Button>
         )}
 
-        {isOwner && (job.status === "accepted" || job.status === "in_progress") && (
-          <Button onClick={completeJob} className="w-full bg-success text-success-foreground hover:bg-success/90">
-            <CheckCircle2 className="w-4 h-4 mr-2" />
-            Confirm delivery
-          </Button>
+        {(job.pickup_photo_url || job.delivery_photo_url) && (
+          <div className="rounded-2xl bg-card border p-4 space-y-3">
+            <div className="font-display font-bold uppercase text-sm tracking-wide">Proof of delivery</div>
+            <div className="grid grid-cols-2 gap-3">
+              {job.pickup_photo_url && (
+                <figure className="space-y-1">
+                  <img src={job.pickup_photo_url} alt="Load confirmed" className="w-full aspect-square object-cover rounded-lg border" />
+                  <figcaption className="text-xs font-semibold text-success flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Load confirmed
+                  </figcaption>
+                </figure>
+              )}
+              {job.delivery_photo_url && (
+                <figure className="space-y-1">
+                  <img src={job.delivery_photo_url} alt="Delivery confirmed" className="w-full aspect-square object-cover rounded-lg border" />
+                  <figcaption className="text-xs font-semibold text-success flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Delivery confirmed
+                  </figcaption>
+                </figure>
+              )}
+            </div>
+          </div>
         )}
 
-        {isAssignedDriver && job.status === "accepted" && (
-          <Button onClick={() => updateStatus("in_progress")} variant="outline" className="w-full">
-            Mark as en route
+        {isAssignedDriver && job.status === "accepted" && !job.pickup_photo_url && (
+          <ProofUpload
+            jobId={id}
+            kind="pickup"
+            label="Confirm Pickup"
+            hint="Take a photo of the loaded truck to start the trip."
+            onUploaded={async () => {
+              await supabase.from("jobs").update({ status: "in_progress" }).eq("id", id);
+              qc.invalidateQueries({ queryKey: ["job", id] });
+            }}
+          />
+        )}
+
+        {isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && job.pickup_photo_url && !job.delivery_photo_url && (
+          <ProofUpload
+            jobId={id}
+            kind="delivery"
+            label="Confirm Delivery"
+            hint="Take a photo at the delivery point. The customer can then confirm."
+            onUploaded={async () => {
+              qc.invalidateQueries({ queryKey: ["job", id] });
+            }}
+          />
+        )}
+
+        {isOwner && (job.status === "accepted" || job.status === "in_progress") && (
+          <Button
+            onClick={completeJob}
+            disabled={!job.delivery_photo_url}
+            className="w-full bg-success text-success-foreground hover:bg-success/90"
+          >
+            <CheckCircle2 className="w-4 h-4 mr-2" />
+            {job.delivery_photo_url ? "Confirm delivery" : "Waiting for driver's delivery photo"}
           </Button>
         )}
 
@@ -171,6 +218,7 @@ function JobDetail() {
         )}
 
         {isOwner && (job.status === "accepted" || job.status === "in_progress") && <CustomerTrackMap jobId={id} />}
+
 
         {is("driver") && !isOwner && job.status === "open" && (
           <BidForm jobId={id} existing={myBid} onSaved={() => qc.invalidateQueries({ queryKey: ["bids", id] })} />
