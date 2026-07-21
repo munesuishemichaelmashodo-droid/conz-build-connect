@@ -167,7 +167,7 @@ function AuthPage() {
     setLoading(true);
     const endpoint = `${supabaseUrl}/auth/v1/signup`;
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -175,8 +175,22 @@ function AuthPage() {
           data: { full_name: fullName, phone, role },
         },
       });
+      if (error) {
+        setLoading(false);
+        return reportAuthError("Sign-up", error, endpoint);
+      }
+      // If auto-confirm is on, signUp returns a session — we're already signed in.
+      // Otherwise, try to sign in immediately with the credentials just registered.
+      if (!data.session) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) {
+          setLoading(false);
+          toast.success("Account created. Check your email to confirm, then log in.");
+          setTab("login");
+          return;
+        }
+      }
       setLoading(false);
-      if (error) return reportAuthError("Sign-up", error, endpoint);
       toast.success("Welcome to Con Z!");
       goPostAuth();
     } catch (err) {

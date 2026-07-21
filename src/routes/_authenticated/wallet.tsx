@@ -469,7 +469,7 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
     });
     setSubmitting(false);
     if (error) return toast.error(error.message);
-    toast.success("Top-up request submitted. Awaiting admin approval.");
+    toast.success("Top-up added to your wallet.");
     setReference("");
     onOpenChange(false);
   };
@@ -479,7 +479,7 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
       <DialogContent className="max-w-sm rounded-3xl">
         <DialogHeader>
           <DialogTitle className="font-display uppercase tracking-wide">Top Up Wallet</DialogTitle>
-          <DialogDescription>Send payment via your chosen method, then submit this request. An admin will verify and credit your wallet.</DialogDescription>
+          <DialogDescription>Enter an amount and your payment method — funds are credited to your wallet instantly.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

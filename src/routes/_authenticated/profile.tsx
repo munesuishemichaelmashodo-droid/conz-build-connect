@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui-bits";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2, ShieldCheck, Truck, KeyRound, Camera } from "lucide-react";
+import { Loader2, ShieldCheck, Truck, KeyRound, Camera, Image as ImageIcon } from "lucide-react";
 import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
 
 export const Route = createFileRoute("/_authenticated/profile")({
@@ -196,11 +196,18 @@ function DocUpload({ field, label, hint, cameraFacing = "environment", userId, c
         {current && <StatusBadge label="Uploaded" className="bg-success/15 text-success border-success/30" />}
       </div>
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
-      <label className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 hover:bg-muted transition p-3 cursor-pointer">
-        <Camera className="w-5 h-5 text-primary shrink-0" />
-        <span className="text-xs font-semibold">{uploading ? "Uploading…" : current ? "Retake / replace photo" : "Open camera to take photo"}</span>
-        <input type="file" accept="image/*" capture={cameraFacing} disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="hidden" />
-      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 hover:bg-muted transition p-3 cursor-pointer">
+          <Camera className="w-5 h-5 text-primary shrink-0" />
+          <span className="text-xs font-semibold">{uploading ? "Uploading…" : "Take photo"}</span>
+          <input type="file" accept="image/*" capture={cameraFacing} disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="hidden" />
+        </label>
+        <label className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 hover:bg-muted transition p-3 cursor-pointer">
+          <ImageIcon className="w-5 h-5 text-primary shrink-0" />
+          <span className="text-xs font-semibold">{uploading ? "Uploading…" : "Choose from gallery"}</span>
+          <input type="file" accept="image/*" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="hidden" />
+        </label>
+      </div>
     </div>
   );
 }
