@@ -1001,6 +1001,7 @@ export type Database = {
         Returns: undefined
       }
       admin_set_commission: { Args: { _rate: number }; Returns: Json }
+      admin_set_diesel_price: { Args: { _price: number }; Returns: Json }
       admin_set_user_status: {
         Args: {
           _status: Database["public"]["Enums"]["account_status"]

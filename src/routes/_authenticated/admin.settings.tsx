@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { Percent, Save, ShieldAlert } from "lucide-react";
+import { Percent, Save, ShieldAlert, Fuel } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -28,6 +28,19 @@ function AdminSettings() {
     if (rate != null) setValue(String(rate));
   }, [rate]);
 
+  const { data: diesel } = useQuery({
+    queryKey: ["diesel-price"],
+    queryFn: async () => {
+      const { data } = await supabase.from("system_settings").select("value").eq("key", "diesel_price_per_liter").maybeSingle();
+      return Number(data?.value ?? 1.87);
+    },
+  });
+
+  const [dieselValue, setDieselValue] = useState("");
+  useEffect(() => {
+    if (diesel != null) setDieselValue(String(diesel));
+  }, [diesel]);
+
   const { data: superCount } = useQuery({
     queryKey: ["super-count"],
     queryFn: async () => {
@@ -44,6 +57,15 @@ function AdminSettings() {
     toast.success(`Commission set to ${v}%`);
     qc.invalidateQueries({ queryKey: ["commission-rate"] });
     qc.invalidateQueries({ queryKey: ["admin-dash"] });
+  };
+
+  const saveDiesel = async () => {
+    const v = Number(dieselValue);
+    if (isNaN(v) || v <= 0 || v > 100) return toast.error("Price must be between 0 and 100");
+    const { error } = await supabase.rpc("admin_set_diesel_price", { _price: v });
+    if (error) return toast.error(error.message);
+    toast.success(`Diesel price set to $${v.toFixed(2)}/L`);
+    qc.invalidateQueries({ queryKey: ["diesel-price"] });
   };
 
   const claim = async () => {
@@ -85,6 +107,40 @@ function AdminSettings() {
         </button>
         {!isSuper && (
           <p className="text-xs text-muted-foreground text-center">Only super admins can change the commission rate.</p>
+        )}
+      </div>
+
+      <div className="rounded-2xl border bg-card p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Fuel className="w-5 h-5 text-primary" />
+          <h3 className="font-display font-bold text-lg uppercase tracking-wide">Diesel price</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Current diesel price per litre (USD). Used to estimate fuel cost in the customer price suggestion.
+        </p>
+        <div className="flex items-center gap-2">
+          <span className="font-display font-bold text-2xl text-muted-foreground">$</span>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={0.01}
+            value={dieselValue}
+            onChange={(e) => setDieselValue(e.target.value)}
+            disabled={!isSuper}
+            className="flex-1 px-3 py-2.5 rounded-xl border bg-background text-lg font-display font-bold disabled:opacity-50"
+          />
+          <span className="font-display font-bold text-sm text-muted-foreground">/ L</span>
+        </div>
+        <button
+          onClick={saveDiesel}
+          disabled={!isSuper}
+          className="w-full rounded-xl bg-primary text-primary-foreground font-semibold py-3 disabled:opacity-50"
+        >
+          <Save className="w-4 h-4 inline mr-1" /> Save diesel price
+        </button>
+        {!isSuper && (
+          <p className="text-xs text-muted-foreground text-center">Only super admins can change the diesel price.</p>
         )}
       </div>
 

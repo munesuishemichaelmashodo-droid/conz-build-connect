@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { AddressPicker } from "@/components/AddressPicker";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,11 @@ export const Route = createFileRoute("/_authenticated/customer/book")({
 
 const BOOKABLE_MATERIALS = MATERIALS.filter((m) => m.value !== "custom");
 
+// Average tipper truck fuel consumption (litres per 100 km).
+const FUEL_LITRES_PER_100KM = 32;
+// Default supplier pickup point (Harare CBD) — used until per-supplier pickup is added.
+const PICKUP_POINT = { lat: -17.8292, lng: 31.0522 };
+
 function BookDelivery() {
   const { userId, is } = useAuth();
   const nav = useNavigate();
@@ -38,6 +44,50 @@ function BookDelivery() {
   const [offerData, setOfferData] = useState<OfferResult | null>(null);
   const [offer, setOffer] = useState<number>(0);
   const [posting, setPosting] = useState(false);
+
+  const { data: matPrice } = useQuery({
+    queryKey: ["material-price", material],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("material_prices")
+        .select("min_price,max_price,label")
+        .eq("material", material)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  const { data: dieselPrice } = useQuery({
+    queryKey: ["diesel-price"],
+    queryFn: async () => {
+      const { data } = await supabase.from("system_settings").select("value").eq("key", "diesel_price_per_liter").maybeSingle();
+      return Number(data?.value ?? 1.87);
+    },
+  });
+
+  const { data: commissionRate } = useQuery({
+    queryKey: ["commission-rate"],
+    queryFn: async () => {
+      const { data } = await supabase.from("system_settings").select("value").eq("key", "commission_rate").maybeSingle();
+      return Number(data?.value ?? 7);
+    },
+  });
+
+  const suggestion = useMemo(() => {
+    if (!matPrice || !coords) return null;
+    const distanceKm = haversineKm(PICKUP_POINT, coords);
+    const midMaterial = (Number(matPrice.min_price) + Number(matPrice.max_price)) / 2;
+    const fuelCost = distanceKm * (FUEL_LITRES_PER_100KM / 100) * Number(dieselPrice ?? 1.87);
+    const commission = (midMaterial + fuelCost) * (Number(commissionRate ?? 7) / 100);
+    const total = midMaterial + fuelCost + commission;
+    const low = Math.max(Number(matPrice.min_price), Math.round(total * 0.9));
+    const high = Math.min(Number(matPrice.max_price), Math.round(total * 1.1));
+    return { low, high, distanceKm, fuelCost, commission, total: Math.round(total) };
+  }, [matPrice, coords, dieselPrice, commissionRate]);
+
+  // Prevent unused-var warning when suggestion is only rendered conditionally.
+  useEffect(() => { void suggestion; }, [suggestion]);
+
 
   if (!is("customer")) {
     return (
@@ -199,6 +249,24 @@ function BookDelivery() {
                 className="mt-2"
               />
             </div>
+
+            {suggestion && (
+              <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-primary font-semibold">
+                  <Sparkles className="w-3 h-3" /> Suggested price range
+                </div>
+                <div className="font-display font-bold text-2xl">
+                  {money(suggestion.low)} <span className="text-muted-foreground text-lg">–</span> {money(suggestion.high)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Based on {matPrice?.label} pricing, ~{suggestion.distanceKm.toFixed(1)} km from pickup,
+                  fuel at {FUEL_LITRES_PER_100KM} L/100 km × ${Number(dieselPrice ?? 1.87).toFixed(2)}/L,
+                  plus {commissionRate ?? 7}% platform commission. This is a hint — you can still enter any budget within the enforced range.
+                </p>
+              </div>
+            )}
+
+
 
             <div>
               <Label htmlFor="date">Preferred date (optional)</Label>
