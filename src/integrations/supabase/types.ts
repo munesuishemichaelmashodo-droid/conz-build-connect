@@ -349,6 +349,10 @@ export type Database = {
         Row: {
           accepted_bid_id: string | null
           budget: number
+          cancellation_reason: string | null
+          cancellation_stage: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           commission: number | null
           created_at: string
           custom_material: string | null
@@ -370,6 +374,10 @@ export type Database = {
         Insert: {
           accepted_bid_id?: string | null
           budget: number
+          cancellation_reason?: string | null
+          cancellation_stage?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           commission?: number | null
           created_at?: string
           custom_material?: string | null
@@ -391,6 +399,10 @@ export type Database = {
         Update: {
           accepted_bid_id?: string | null
           budget?: number
+          cancellation_reason?: string | null
+          cancellation_stage?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           commission?: number | null
           created_at?: string
           custom_material?: string | null
@@ -547,31 +559,37 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          cancellation_strikes: number
           created_at: string
           email: string | null
           full_name: string
           id: string
           phone: string | null
+          restricted_until: string | null
           status: Database["public"]["Enums"]["account_status"]
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
+          cancellation_strikes?: number
           created_at?: string
           email?: string | null
           full_name: string
           id: string
           phone?: string | null
+          restricted_until?: string | null
           status?: Database["public"]["Enums"]["account_status"]
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
+          cancellation_strikes?: number
           created_at?: string
           email?: string | null
           full_name?: string
           id?: string
           phone?: string | null
+          restricted_until?: string | null
           status?: Database["public"]["Enums"]["account_status"]
           updated_at?: string
         }
@@ -911,6 +929,10 @@ export type Database = {
         Returns: {
           accepted_bid_id: string | null
           budget: number
+          cancellation_reason: string | null
+          cancellation_stage: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           commission: number | null
           created_at: string
           custom_material: string | null
@@ -1049,17 +1071,53 @@ export type Database = {
         }
         Returns: {
           avatar_url: string | null
+          cancellation_strikes: number
           created_at: string
           email: string | null
           full_name: string
           id: string
           phone: string | null
+          restricted_until: string | null
           status: Database["public"]["Enums"]["account_status"]
           updated_at: string
         }
         SetofOptions: {
           from: "*"
           to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      cancel_job: {
+        Args: { _job_id: string; _reason?: string }
+        Returns: {
+          accepted_bid_id: string | null
+          budget: number
+          cancellation_reason: string | null
+          cancellation_stage: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          commission: number | null
+          created_at: string
+          custom_material: string | null
+          customer_id: string
+          delivery_address: string
+          delivery_photo_url: string | null
+          driver_id: string | null
+          expires_at: string | null
+          final_price: number | null
+          id: string
+          material: Database["public"]["Enums"]["material_category"]
+          notes: string | null
+          pickup_photo_url: string | null
+          preferred_date: string | null
+          quantity_m3: number
+          status: Database["public"]["Enums"]["job_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "jobs"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -1114,6 +1172,10 @@ export type Database = {
         Returns: {
           accepted_bid_id: string | null
           budget: number
+          cancellation_reason: string | null
+          cancellation_stage: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           commission: number | null
           created_at: string
           custom_material: string | null

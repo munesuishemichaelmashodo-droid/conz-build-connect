@@ -93,14 +93,35 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
 
         <LocalLocator />
 
+        {isCustomer && (() => {
+          const restrictedUntil = (profile as any)?.restricted_until as string | null | undefined;
+          const restricted = restrictedUntil ? new Date(restrictedUntil) > new Date() : false;
+          return (
+            <div className="space-y-2">
+              {restricted && (
+                <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm">
+                  <div className="font-semibold text-destructive">Posting temporarily restricted</div>
+                  <div className="text-muted-foreground text-xs mt-1">
+                    Your account is temporarily restricted from posting new jobs until{" "}
+                    {new Date(restrictedUntil!).toLocaleString()} due to cancellation history.
+                  </div>
+                </div>
+              )}
+              {!restricted && (
+                <Link to="/customer/book" className="block rounded-xl bg-gradient-primary text-primary-foreground p-4 shadow-lift">
+                  <Plus className="w-6 h-6" />
+                  <div className="font-display font-bold mt-2 uppercase">Book delivery</div>
+                  <div className="text-xs opacity-80">AI-priced in seconds</div>
+                </Link>
+              )}
+              <p className="text-[11px] text-muted-foreground px-1">
+                Cancelling jobs after a driver accepts may affect your account — see our cancellation policy.
+              </p>
+            </div>
+          );
+        })()}
+
         <div className="grid grid-cols-2 gap-3">
-          {isCustomer && (
-            <Link to="/customer/book" className="rounded-xl bg-gradient-primary text-primary-foreground p-4 shadow-lift">
-              <Plus className="w-6 h-6" />
-              <div className="font-display font-bold mt-2 uppercase">Book delivery</div>
-              <div className="text-xs opacity-80">AI-priced in seconds</div>
-            </Link>
-          )}
           <Link to="/jobs" className="rounded-xl bg-card border p-4 shadow-soft">
             <Briefcase className="w-6 h-6 text-primary" />
             <div className="font-display font-bold mt-2 uppercase">{isDriver ? "Find jobs" : "My jobs"}</div>
@@ -114,6 +135,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
             </Link>
           )}
         </div>
+
 
         <Section title={isDriver ? "Open jobs" : "Recent jobs"} action={
           <Link to="/jobs" className="text-xs font-semibold text-primary uppercase tracking-wide">See all</Link>
