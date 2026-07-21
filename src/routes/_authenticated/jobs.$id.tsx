@@ -85,13 +85,7 @@ function JobDetail() {
   };
 
 
-  const cancelJob = async () => {
-    if (!confirm("Cancel and remove this job? Drivers will no longer see it.")) return;
-    const { error } = await supabase.from("jobs").update({ status: "cancelled" }).eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("Job cancelled");
-    nav({ to: "/jobs" });
-  };
+
 
   return (
     <AppShell title="Job">
