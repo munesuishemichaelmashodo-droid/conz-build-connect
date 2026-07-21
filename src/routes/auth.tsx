@@ -8,7 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ArrowLeft, Loader2, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Loader2, Eye, EyeOff, ChevronsUpDown, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { COUNTRY_CODES } from "@/lib/country-codes";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
 
 const searchSchema = z.object({
@@ -72,7 +76,10 @@ function AuthPage() {
   // register
   const [role, setRole] = useState<"customer" | "driver">(initialRole ?? "customer");
   const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [countryAlpha2, setCountryAlpha2] = useState("ZW");
+  const [countryDialCode, setCountryDialCode] = useState("+263");
+  const [localPhone, setLocalPhone] = useState("");
+  const phone = `${countryDialCode}${localPhone.replace(/\D/g, "")}`;
 
   const supabaseUrl =
     (import.meta as unknown as { env: Record<string, string | undefined> }).env
@@ -359,8 +366,25 @@ function AuthPage() {
                 <Input id="fn" value={fullName} onChange={(e) => setFullName(e.target.value)} required maxLength={80} />
               </div>
               <div>
-                <Label htmlFor="ph">Phone (optional)</Label>
-                <Input id="ph" value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" maxLength={20} placeholder="+263 …" />
+                <Label htmlFor="localPhone">Phone (optional)</Label>
+                <div className="grid grid-cols-[140px_1fr] gap-2">
+                  <CountryCodeSelect
+                    value={countryAlpha2}
+                    onChange={(c) => {
+                      setCountryAlpha2(c.code);
+                      setCountryDialCode(c.dial_code);
+                    }}
+                  />
+                  <Input
+                    id="localPhone"
+                    value={localPhone}
+                    onChange={(e) => setLocalPhone(e.target.value.replace(/\D/g, ""))}
+                    type="tel"
+                    maxLength={15}
+                    placeholder="771234567"
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">Full number: {phone || "—"}</p>
               </div>
               <div>
                 <Label htmlFor="em">Email</Label>
@@ -433,5 +457,54 @@ function Divider() {
       <div className="absolute inset-0 flex items-center"><div className="w-full border-t" /></div>
       <div className="relative flex justify-center"><span className="bg-background px-2 text-[11px] uppercase tracking-widest text-muted-foreground">or</span></div>
     </div>
+  );
+}
+
+function CountryCodeSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (country: (typeof COUNTRY_CODES)[number]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = COUNTRY_CODES.find((c) => c.code === value);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between px-2 font-normal"
+        >
+          {selected ? `${selected.name} ${selected.dial_code}` : "Select code"}
+          <ChevronsUpDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[260px] p-0">
+        <Command>
+          <CommandInput placeholder="Search country..." />
+          <CommandList>
+            <CommandEmpty>No country found.</CommandEmpty>
+            <CommandGroup>
+              {COUNTRY_CODES.map((country) => (
+                <CommandItem
+                  key={country.code}
+                  value={`${country.name} ${country.dial_code}`}
+                  onSelect={() => {
+                    onChange(country);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4", value === country.code ? "opacity-100" : "opacity-0")} />
+                  {country.name} <span className="ml-auto text-muted-foreground">{country.dial_code}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
