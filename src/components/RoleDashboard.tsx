@@ -17,7 +17,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
   const { userId, profile } = useAuth();
   const isDriver = role === "driver";
   const isCustomer = role === "customer";
-  useExpireStaleJobs(true);
+  
 
 
   const { data: jobs } = useQuery({
