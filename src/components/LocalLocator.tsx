@@ -2,56 +2,7 @@ import { useEffect, useState } from "react";
 import { LocateFixed, MapPin, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-
-const BROWSER_KEY = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined;
-const TRACKING_ID = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
-
-declare global {
-  interface Window {
-    google?: any;
-    __gmapsInitPromise?: Promise<void>;
-    __gmapsInitResolve?: () => void;
-    __initGmaps?: () => void;
-  }
-}
-
-function loadGoogleMaps(): Promise<void> {
-  if (typeof window === "undefined") return Promise.resolve();
-  if (window.google?.maps) return Promise.resolve();
-  if (window.__gmapsInitPromise) return window.__gmapsInitPromise;
-  if (!BROWSER_KEY) return Promise.reject(new Error("Google Maps key missing"));
-  window.__gmapsInitPromise = new Promise<void>((resolve) => {
-    window.__gmapsInitResolve = resolve;
-    window.__initGmaps = () => window.__gmapsInitResolve?.();
-    const s = document.createElement("script");
-    const params = new URLSearchParams({
-      key: BROWSER_KEY,
-      libraries: "places,marker",
-      loading: "async",
-      callback: "__initGmaps",
-      v: "weekly",
-    });
-    if (TRACKING_ID) params.set("channel", TRACKING_ID);
-    s.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
-    s.async = true;
-    s.defer = true;
-    document.head.appendChild(s);
-  });
-  return window.__gmapsInitPromise;
-}
-
-async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
-  try {
-    await loadGoogleMaps();
-    const g = window.google;
-    if (!g?.maps) return null;
-    const geocoder = new g.maps.Geocoder();
-    const res = await geocoder.geocode({ location: { lat, lng } });
-    return res.results?.[0]?.formatted_address ?? null;
-  } catch {
-    return null;
-  }
-}
+import { reverseGeocode } from "@/lib/osm-geocode";
 
 export function LocalLocator() {
   const [loading, setLoading] = useState(false);
@@ -95,7 +46,7 @@ export function LocalLocator() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const mapHref = coords ? `https://www.google.com/maps?q=${coords.lat},${coords.lng}` : "#";
+  const mapHref = coords ? `https://www.openstreetmap.org/?mlat=${coords.lat}&mlon=${coords.lng}#map=17/${coords.lat}/${coords.lng}` : "#";
 
   return (
     <div className="rounded-2xl border bg-card p-4 shadow-soft">
