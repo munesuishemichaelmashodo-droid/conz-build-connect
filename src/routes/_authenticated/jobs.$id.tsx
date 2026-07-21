@@ -15,6 +15,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { DriverShareLocation, CustomerTrackMap } from "@/components/JobTracker";
 import { RadarSearch } from "@/components/RadarSearch";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+
 
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
   component: JobDetail,
