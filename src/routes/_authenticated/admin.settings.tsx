@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { Percent, Save, ShieldAlert } from "lucide-react";
+import { Percent, Save, ShieldAlert, Fuel } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
