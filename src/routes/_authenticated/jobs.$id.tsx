@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge, Section } from "@/components/ui-bits";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, Trash2 } from "lucide-react";
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -82,6 +82,14 @@ function JobDetail() {
     qc.invalidateQueries({ queryKey: ["job", id] });
   };
 
+  const cancelJob = async () => {
+    if (!confirm("Cancel and remove this job? Drivers will no longer see it.")) return;
+    const { error } = await supabase.from("jobs").update({ status: "cancelled" }).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Job cancelled");
+    nav({ to: "/jobs" });
+  };
+
   return (
     <AppShell title="Job">
       <Link to="/jobs" className="inline-flex items-center gap-1 text-sm text-muted-foreground mb-4"><ArrowLeft className="w-4 h-4" /> Back</Link>
@@ -127,6 +135,12 @@ function JobDetail() {
 
         {is("driver") && !isOwner && job.status === "open" && (
           <BidForm jobId={id} existing={myBid} onSaved={() => qc.invalidateQueries({ queryKey: ["bids", id] })} />
+        )}
+
+        {isOwner && job.status === "open" && (
+          <Button onClick={cancelJob} variant="outline" className="w-full text-destructive hover:text-destructive">
+            <Trash2 className="w-4 h-4 mr-2" />Cancel job
+          </Button>
         )}
 
         {(isOwner || is("admin") || is("super_admin")) && (

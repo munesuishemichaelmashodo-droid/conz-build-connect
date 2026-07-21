@@ -25,7 +25,7 @@ function JobsPage() {
       let q = supabase.from("jobs").select("*").order("created_at", { ascending: false });
       if (isCustomer && !isDriver) q = q.eq("customer_id", userId!);
       else if (isDriver && !isCustomer)
-        q = q.or(`and(status.eq.open,expires_at.gt.${new Date().toISOString()}),driver_id.eq.${userId}`);
+        q = q.or(`status.eq.open,driver_id.eq.${userId}`);
       const { data, error } = await q;
       if (error) throw error;
       return data;

@@ -59,6 +59,25 @@ function Welcome() {
           ))}
         </div>
 
+        <div className="mt-8 rounded-2xl bg-white/5 border border-white/10 p-4">
+          <div className="font-display font-bold uppercase text-xs tracking-widest text-white/70 mb-3">How it works</div>
+          <ol className="space-y-3">
+            {[
+              { n: "1", t: "Post a job", d: "Tell us what you need delivered and where." },
+              { n: "2", t: "Get driver offers", d: "Verified drivers nearby send you bids in seconds." },
+              { n: "3", t: "Track & pay", d: "Follow the truck live and pay when it arrives." },
+            ].map((s) => (
+              <li key={s.n} className="flex gap-3">
+                <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/40 text-primary font-display font-bold flex items-center justify-center shrink-0">{s.n}</div>
+                <div>
+                  <div className="font-semibold text-sm">{s.t}</div>
+                  <div className="text-[12px] text-white/60">{s.d}</div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+
         <div className="mt-8 space-y-3">
           <Link to="/auth" search={{ mode: "register" } as never} className="flex items-center justify-center gap-2 w-full h-12 rounded-xl bg-gradient-primary font-display font-bold uppercase tracking-wider shadow-lift">
             Get started <ArrowRight className="w-4 h-4" />
@@ -66,6 +85,12 @@ function Welcome() {
           <Link to="/auth" search={{ mode: "login" } as never} className="flex items-center justify-center w-full h-12 rounded-xl bg-white/10 border border-white/15 font-display font-semibold uppercase tracking-wider">
             I already have an account
           </Link>
+          <div className="text-center text-[12px] text-white/70">
+            Driver?{" "}
+            <Link to="/auth" search={{ mode: "register", role: "driver" } as never} className="text-primary font-semibold underline underline-offset-2">
+              Sign up here
+            </Link>
+          </div>
         </div>
 
         <p className="text-center text-[11px] text-white/50 mt-6">Founded in Zimbabwe • Built for the industry</p>
