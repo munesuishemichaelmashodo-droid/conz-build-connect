@@ -250,6 +250,24 @@ function BookDelivery() {
               />
             </div>
 
+            {suggestion && (
+              <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-primary font-semibold">
+                  <Sparkles className="w-3 h-3" /> Suggested price range
+                </div>
+                <div className="font-display font-bold text-2xl">
+                  {money(suggestion.low)} <span className="text-muted-foreground text-lg">–</span> {money(suggestion.high)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Based on {matPrice?.label} pricing, ~{suggestion.distanceKm.toFixed(1)} km from pickup,
+                  fuel at {FUEL_LITRES_PER_100KM} L/100 km × ${Number(dieselPrice ?? 1.87).toFixed(2)}/L,
+                  plus {commissionRate ?? 7}% platform commission. This is a hint — you can still enter any budget within the enforced range.
+                </p>
+              </div>
+            )}
+
+
+
             <div>
               <Label htmlFor="date">Preferred date (optional)</Label>
               <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
