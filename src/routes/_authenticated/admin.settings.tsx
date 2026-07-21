@@ -28,6 +28,19 @@ function AdminSettings() {
     if (rate != null) setValue(String(rate));
   }, [rate]);
 
+  const { data: diesel } = useQuery({
+    queryKey: ["diesel-price"],
+    queryFn: async () => {
+      const { data } = await supabase.from("system_settings").select("value").eq("key", "diesel_price_per_liter").maybeSingle();
+      return Number(data?.value ?? 1.87);
+    },
+  });
+
+  const [dieselValue, setDieselValue] = useState("");
+  useEffect(() => {
+    if (diesel != null) setDieselValue(String(diesel));
+  }, [diesel]);
+
   const { data: superCount } = useQuery({
     queryKey: ["super-count"],
     queryFn: async () => {
@@ -44,6 +57,15 @@ function AdminSettings() {
     toast.success(`Commission set to ${v}%`);
     qc.invalidateQueries({ queryKey: ["commission-rate"] });
     qc.invalidateQueries({ queryKey: ["admin-dash"] });
+  };
+
+  const saveDiesel = async () => {
+    const v = Number(dieselValue);
+    if (isNaN(v) || v <= 0 || v > 100) return toast.error("Price must be between 0 and 100");
+    const { error } = await supabase.rpc("admin_set_diesel_price", { _price: v });
+    if (error) return toast.error(error.message);
+    toast.success(`Diesel price set to $${v.toFixed(2)}/L`);
+    qc.invalidateQueries({ queryKey: ["diesel-price"] });
   };
 
   const claim = async () => {
