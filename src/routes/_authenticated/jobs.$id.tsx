@@ -550,7 +550,7 @@ function CancelJobDialog({ jobId, status, onCancelled }: { jobId: string; status
 
   const submit = async () => {
     setLoading(true);
-    const { error } = await supabase.rpc("cancel_job", { _job_id: jobId, _reason: reason.trim() || null });
+    const { error } = await supabase.rpc("cancel_job", { _job_id: jobId, _reason: reason.trim() || "" });
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Job cancelled");
