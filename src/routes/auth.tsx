@@ -76,7 +76,9 @@ function AuthPage() {
   // register
   const [role, setRole] = useState<"customer" | "driver">(initialRole ?? "customer");
   const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("+263");
+  const [localPhone, setLocalPhone] = useState("");
+  const phone = `${countryCode}${localPhone.replace(/\D/g, "")}`;
 
   const supabaseUrl =
     (import.meta as unknown as { env: Record<string, string | undefined> }).env
