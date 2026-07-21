@@ -117,7 +117,7 @@ function JobDetail() {
           <Button asChild variant="outline" className="w-full"><Link to="/chat/$jobId" params={{ jobId: id }}><MessageSquare className="w-4 h-4 mr-2" />Open chat</Link></Button>
         )}
 
-        {isOwner && job.status === "accepted" && (
+        {isOwner && (job.status === "accepted" || job.status === "in_progress") && (
           <Button onClick={completeJob} className="w-full bg-success text-success-foreground hover:bg-success/90"><CheckCircle2 className="w-4 h-4 mr-2" />Confirm delivery</Button>
         )}
 
