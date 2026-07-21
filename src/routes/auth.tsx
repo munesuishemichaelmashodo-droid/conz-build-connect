@@ -452,3 +452,46 @@ function Divider() {
     </div>
   );
 }
+
+function CountryCodeSelect({ value, onChange }: { value: string; onChange: (code: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const selected = COUNTRY_CODES.find((c) => c.dial_code === value);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between px-2 font-normal"
+        >
+          {selected ? `${selected.name} ${selected.dial_code}` : "Select code"}
+          <ChevronsUpDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[260px] p-0">
+        <Command>
+          <CommandInput placeholder="Search country..." />
+          <CommandList>
+            <CommandEmpty>No country found.</CommandEmpty>
+            <CommandGroup>
+              {COUNTRY_CODES.map((country) => (
+                <CommandItem
+                  key={country.code}
+                  value={`${country.name} ${country.dial_code}`}
+                  onSelect={() => {
+                    onChange(country.dial_code);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4", value === country.dial_code ? "opacity-100" : "opacity-0")} />
+                  {country.name} <span className="ml-auto text-muted-foreground">{country.dial_code}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
