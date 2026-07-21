@@ -110,6 +110,40 @@ function AdminSettings() {
         )}
       </div>
 
+      <div className="rounded-2xl border bg-card p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Fuel className="w-5 h-5 text-primary" />
+          <h3 className="font-display font-bold text-lg uppercase tracking-wide">Diesel price</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Current diesel price per litre (USD). Used to estimate fuel cost in the customer price suggestion.
+        </p>
+        <div className="flex items-center gap-2">
+          <span className="font-display font-bold text-2xl text-muted-foreground">$</span>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={0.01}
+            value={dieselValue}
+            onChange={(e) => setDieselValue(e.target.value)}
+            disabled={!isSuper}
+            className="flex-1 px-3 py-2.5 rounded-xl border bg-background text-lg font-display font-bold disabled:opacity-50"
+          />
+          <span className="font-display font-bold text-sm text-muted-foreground">/ L</span>
+        </div>
+        <button
+          onClick={saveDiesel}
+          disabled={!isSuper}
+          className="w-full rounded-xl bg-primary text-primary-foreground font-semibold py-3 disabled:opacity-50"
+        >
+          <Save className="w-4 h-4 inline mr-1" /> Save diesel price
+        </button>
+        {!isSuper && (
+          <p className="text-xs text-muted-foreground text-center">Only super admins can change the diesel price.</p>
+        )}
+      </div>
+
       {!isSuper && superCount === 0 && (
         <div className="rounded-2xl border border-warning/40 bg-warning/10 p-5 space-y-3">
           <div className="flex items-center gap-2">
