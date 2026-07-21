@@ -528,3 +528,70 @@ function ProofUpload({ jobId, kind, label, hint, onUploaded }: { jobId: string; 
     </div>
   );
 }
+
+function CancelJobDialog({ jobId, status, onCancelled }: { jobId: string; status: string; onCancelled: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const policy =
+    status === "open"
+      ? "You can cancel this job for free."
+      : status === "accepted"
+        ? "This driver has already accepted your job. Cancelling now may result in a fee and a strike on your account."
+        : "The driver has already loaded your material. Cancelling now will result in a strike and may affect your account. This should only be used for genuine emergencies.";
+
+  const tone =
+    status === "open"
+      ? "text-muted-foreground"
+      : status === "accepted"
+        ? "text-warning"
+        : "text-destructive";
+
+  const submit = async () => {
+    setLoading(true);
+    const { error } = await supabase.rpc("cancel_job", { _job_id: jobId, _reason: reason.trim() || null });
+    setLoading(false);
+    if (error) return toast.error(error.message);
+    toast.success("Job cancelled");
+    setOpen(false);
+    onCancelled();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="w-full text-destructive hover:text-destructive">
+          <Trash2 className="w-4 h-4 mr-2" />
+          Cancel job
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Cancel this job?</DialogTitle>
+          <DialogDescription className={tone}>{policy}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label htmlFor="cxr">Reason (optional)</Label>
+          <Textarea
+            id="cxr"
+            rows={3}
+            maxLength={300}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Tell us why you're cancelling"
+          />
+        </div>
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button variant="ghost" onClick={() => setOpen(false)} disabled={loading}>
+            Keep job
+          </Button>
+          <Button variant="destructive" onClick={submit} disabled={loading}>
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm cancellation"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
