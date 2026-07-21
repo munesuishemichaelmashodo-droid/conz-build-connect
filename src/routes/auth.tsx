@@ -460,9 +460,15 @@ function Divider() {
   );
 }
 
-function CountryCodeSelect({ value, onChange }: { value: string; onChange: (code: string) => void }) {
+function CountryCodeSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (country: (typeof COUNTRY_CODES)[number]) => void;
+}) {
   const [open, setOpen] = useState(false);
-  const selected = COUNTRY_CODES.find((c) => c.dial_code === value);
+  const selected = COUNTRY_CODES.find((c) => c.code === value);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -487,11 +493,11 @@ function CountryCodeSelect({ value, onChange }: { value: string; onChange: (code
                   key={country.code}
                   value={`${country.name} ${country.dial_code}`}
                   onSelect={() => {
-                    onChange(country.dial_code);
+                    onChange(country);
                     setOpen(false);
                   }}
                 >
-                  <Check className={cn("mr-2 h-4 w-4", value === country.dial_code ? "opacity-100" : "opacity-0")} />
+                  <Check className={cn("mr-2 h-4 w-4", value === country.code ? "opacity-100" : "opacity-0")} />
                   {country.name} <span className="ml-auto text-muted-foreground">{country.dial_code}</span>
                 </CommandItem>
               ))}
