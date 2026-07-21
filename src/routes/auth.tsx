@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 const searchSchema = z.object({
@@ -52,6 +52,7 @@ function AuthPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nav, safeNext]);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
   const [authDebug, setAuthDebug] = useState<null | {
@@ -308,7 +309,7 @@ function AuthPage() {
               </div>
               <div>
                 <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
+                <PasswordInput id="password" value={password} onChange={setPassword} show={showPassword} onToggle={() => setShowPassword((v) => !v)} autoComplete="current-password" />
               </div>
               <Button type="submit" disabled={loading} className="w-full h-11 font-display uppercase tracking-wide">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Login"}
@@ -352,7 +353,7 @@ function AuthPage() {
               </div>
               <div>
                 <Label htmlFor="pw">Password</Label>
-                <Input id="pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
+                <PasswordInput id="pw" value={password} onChange={setPassword} show={showPassword} onToggle={() => setShowPassword((v) => !v)} autoComplete="new-password" minLength={8} />
                 <p className="text-[11px] text-muted-foreground mt-1">Minimum 8 characters.</p>
               </div>
               <Button type="submit" disabled={loading} className="w-full h-11 font-display uppercase tracking-wide">
@@ -383,6 +384,31 @@ function RoleCard({ value, label, hint, current }: { value: "customer" | "driver
       </div>
       <span className="text-[11px] text-muted-foreground">{hint}</span>
     </label>
+  );
+}
+
+function PasswordInput({ id, value, onChange, show, onToggle, autoComplete, minLength }: { id: string; value: string; onChange: (v: string) => void; show: boolean; onToggle: () => void; autoComplete: string; minLength?: number }) {
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        type={show ? "text" : "password"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required
+        minLength={minLength}
+        autoComplete={autoComplete}
+        className="pr-10"
+      />
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label={show ? "Hide password" : "Show password"}
+        className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+      >
+        {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+      </button>
+    </div>
   );
 }
 
