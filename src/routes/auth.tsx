@@ -365,8 +365,19 @@ function AuthPage() {
                 <Input id="fn" value={fullName} onChange={(e) => setFullName(e.target.value)} required maxLength={80} />
               </div>
               <div>
-                <Label htmlFor="ph">Phone (optional)</Label>
-                <Input id="ph" value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" maxLength={20} placeholder="+263 …" />
+                <Label htmlFor="localPhone">Phone (optional)</Label>
+                <div className="grid grid-cols-[140px_1fr] gap-2">
+                  <CountryCodeSelect value={countryCode} onChange={setCountryCode} />
+                  <Input
+                    id="localPhone"
+                    value={localPhone}
+                    onChange={(e) => setLocalPhone(e.target.value.replace(/\D/g, ""))}
+                    type="tel"
+                    maxLength={15}
+                    placeholder="771234567"
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">Full number: {phone || "—"}</p>
               </div>
               <div>
                 <Label htmlFor="em">Email</Label>
