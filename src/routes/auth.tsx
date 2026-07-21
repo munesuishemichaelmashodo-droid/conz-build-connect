@@ -14,6 +14,7 @@ import { toast } from "sonner";
 const searchSchema = z.object({
   mode: z.enum(["login", "register"]).optional(),
   next: z.string().optional(),
+  role: z.enum(["customer", "driver"]).optional(),
 });
 
 export const Route = createFileRoute("/auth")({
@@ -23,9 +24,9 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
-  const { mode, next } = Route.useSearch();
+  const { mode, next, role: initialRole } = Route.useSearch();
   const nav = useNavigate();
-  const [tab, setTab] = useState<"login" | "register">(mode ?? "login");
+  const [tab, setTab] = useState<"login" | "register">(mode ?? (initialRole ? "register" : "login"));
 
   // Only allow same-origin relative paths.
   const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
@@ -69,7 +70,7 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   // register
-  const [role, setRole] = useState<"customer" | "driver">("customer");
+  const [role, setRole] = useState<"customer" | "driver">(initialRole ?? "customer");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
 
