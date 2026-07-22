@@ -1253,6 +1253,10 @@ export type Database = {
         }
         Returns: Json
       }
+      count_available_verified_drivers: {
+        Args: { _job_id: string }
+        Returns: number
+      }
       create_dispatch_wave: {
         Args: { _job_id: string; _limit?: number }
         Returns: number

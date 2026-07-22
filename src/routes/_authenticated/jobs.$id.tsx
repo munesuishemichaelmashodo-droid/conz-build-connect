@@ -59,6 +59,18 @@ function JobDetail() {
     },
   });
 
+  const showRadar = !!job && job.customer_id === userId && job.status === "open" && (bids?.length ?? 0) === 0;
+  const { data: nearbyDrivers } = useQuery({
+    queryKey: ["nearby-drivers", id],
+    enabled: showRadar,
+    refetchInterval: 15000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("count_available_verified_drivers", { _job_id: id });
+      if (error) throw error;
+      return typeof data === "number" ? data : 0;
+    },
+  });
+
   if (isLoading || !job)
     return (
       <AppShell>
@@ -96,7 +108,7 @@ function JobDetail() {
       </Link>
 
       <div className="space-y-4">
-        {isOwner && job.status === "open" && (bids?.length ?? 0) === 0 && <RadarSearch etaMinutes={5} />}
+        {isOwner && job.status === "open" && (bids?.length ?? 0) === 0 && <RadarSearch etaMinutes={5} nearbyDrivers={nearbyDrivers} />}
         <div className="rounded-2xl bg-card border p-5 shadow-soft">
           <div className="flex items-start justify-between gap-3">
             <h1 className="font-display font-bold text-2xl">
