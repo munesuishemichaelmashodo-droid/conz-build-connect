@@ -138,38 +138,47 @@ export type Database = {
       disputes: {
         Row: {
           against: string | null
+          category: Database["public"]["Enums"]["dispute_category"]
           created_at: string
           id: string
           job_id: string
+          outcome: Database["public"]["Enums"]["dispute_outcome"] | null
           raised_by: string
           reason: string
           resolution: string | null
           resolved_at: string | null
           resolved_by: string | null
+          review_due_at: string | null
           status: Database["public"]["Enums"]["dispute_status"]
         }
         Insert: {
           against?: string | null
+          category?: Database["public"]["Enums"]["dispute_category"]
           created_at?: string
           id?: string
           job_id: string
+          outcome?: Database["public"]["Enums"]["dispute_outcome"] | null
           raised_by: string
           reason: string
           resolution?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          review_due_at?: string | null
           status?: Database["public"]["Enums"]["dispute_status"]
         }
         Update: {
           against?: string | null
+          category?: Database["public"]["Enums"]["dispute_category"]
           created_at?: string
           id?: string
           job_id?: string
+          outcome?: Database["public"]["Enums"]["dispute_outcome"] | null
           raised_by?: string
           reason?: string
           resolution?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          review_due_at?: string | null
           status?: Database["public"]["Enums"]["dispute_status"]
         }
         Relationships: [
@@ -1286,6 +1295,35 @@ export type Database = {
         Returns: undefined
       }
       prune_stale_driver_locations: { Args: never; Returns: number }
+      raise_dispute: {
+        Args: {
+          _against: string
+          _category: Database["public"]["Enums"]["dispute_category"]
+          _job_id: string
+          _reason: string
+        }
+        Returns: {
+          against: string | null
+          category: Database["public"]["Enums"]["dispute_category"]
+          created_at: string
+          id: string
+          job_id: string
+          outcome: Database["public"]["Enums"]["dispute_outcome"] | null
+          raised_by: string
+          reason: string
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          review_due_at: string | null
+          status: Database["public"]["Enums"]["dispute_status"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "disputes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       request_topup: {
         Args: { _amount: number; _method: string; _reference: string }
         Returns: {
@@ -1335,6 +1373,34 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      resolve_dispute: {
+        Args: {
+          _dispute_id: string
+          _outcome: Database["public"]["Enums"]["dispute_outcome"]
+          _resolution: string
+        }
+        Returns: {
+          against: string | null
+          category: Database["public"]["Enums"]["dispute_category"]
+          created_at: string
+          id: string
+          job_id: string
+          outcome: Database["public"]["Enums"]["dispute_outcome"] | null
+          raised_by: string
+          reason: string
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          review_due_at: string | null
+          status: Database["public"]["Enums"]["dispute_status"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "disputes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_withdrawal_pin: { Args: { _pin: string }; Returns: undefined }
     }
     Enums: {
@@ -1347,6 +1413,19 @@ export type Database = {
         | "expired"
         | "superseded"
         | "rejected"
+      dispute_category:
+        | "wrong_quantity"
+        | "damage"
+        | "no_show"
+        | "payment_issue"
+        | "conduct"
+        | "other"
+      dispute_outcome:
+        | "refund"
+        | "fee_waived"
+        | "strike_issued"
+        | "no_action"
+        | "account_suspended"
       dispute_status: "open" | "investigating" | "resolved" | "rejected"
       driver_level: "bronze" | "silver" | "gold" | "platinum"
       job_status:
@@ -1503,6 +1582,21 @@ export const Constants = {
         "expired",
         "superseded",
         "rejected",
+      ],
+      dispute_category: [
+        "wrong_quantity",
+        "damage",
+        "no_show",
+        "payment_issue",
+        "conduct",
+        "other",
+      ],
+      dispute_outcome: [
+        "refund",
+        "fee_waived",
+        "strike_issued",
+        "no_action",
+        "account_suspended",
       ],
       dispute_status: ["open", "investigating", "resolved", "rejected"],
       driver_level: ["bronze", "silver", "gold", "platinum"],
