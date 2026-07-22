@@ -20,6 +20,7 @@ import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedDriverRouteImport } from './routes/_authenticated/driver'
 import { Route as AuthenticatedCustomerRouteImport } from './routes/_authenticated/customer'
+import { Route as AuthenticatedBecomeDriverRouteImport } from './routes/_authenticated/become-driver'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
@@ -93,6 +94,12 @@ const AuthenticatedCustomerRoute = AuthenticatedCustomerRouteImport.update({
   path: '/customer',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedBecomeDriverRoute =
+  AuthenticatedBecomeDriverRouteImport.update({
+    id: '/become-driver',
+    path: '/become-driver',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -202,6 +209,7 @@ export interface FileRoutesByFullPath {
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/become-driver': typeof AuthenticatedBecomeDriverRoute
   '/customer': typeof AuthenticatedCustomerRouteWithChildren
   '/driver': typeof AuthenticatedDriverRoute
   '/home': typeof AuthenticatedHomeRoute
@@ -231,6 +239,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/become-driver': typeof AuthenticatedBecomeDriverRoute
   '/driver': typeof AuthenticatedDriverRoute
   '/home': typeof AuthenticatedHomeRoute
   '/profile': typeof AuthenticatedProfileRoute
@@ -262,6 +271,7 @@ export interface FileRoutesById {
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/_authenticated/become-driver': typeof AuthenticatedBecomeDriverRoute
   '/_authenticated/customer': typeof AuthenticatedCustomerRouteWithChildren
   '/_authenticated/driver': typeof AuthenticatedDriverRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
@@ -294,6 +304,7 @@ export interface FileRouteTypes {
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/admin'
+    | '/become-driver'
     | '/customer'
     | '/driver'
     | '/home'
@@ -323,6 +334,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/become-driver'
     | '/driver'
     | '/home'
     | '/profile'
@@ -353,6 +365,7 @@ export interface FileRouteTypes {
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/_authenticated/admin'
+    | '/_authenticated/become-driver'
     | '/_authenticated/customer'
     | '/_authenticated/driver'
     | '/_authenticated/home'
@@ -465,6 +478,13 @@ declare module '@tanstack/react-router' {
       path: '/customer'
       fullPath: '/customer'
       preLoaderRoute: typeof AuthenticatedCustomerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/become-driver': {
+      id: '/_authenticated/become-driver'
+      path: '/become-driver'
+      fullPath: '/become-driver'
+      preLoaderRoute: typeof AuthenticatedBecomeDriverRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin': {
@@ -636,6 +656,7 @@ const AuthenticatedCustomerRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
+  AuthenticatedBecomeDriverRoute: typeof AuthenticatedBecomeDriverRoute
   AuthenticatedCustomerRoute: typeof AuthenticatedCustomerRouteWithChildren
   AuthenticatedDriverRoute: typeof AuthenticatedDriverRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
@@ -649,6 +670,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
+  AuthenticatedBecomeDriverRoute: AuthenticatedBecomeDriverRoute,
   AuthenticatedCustomerRoute: AuthenticatedCustomerRouteWithChildren,
   AuthenticatedDriverRoute: AuthenticatedDriverRoute,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
