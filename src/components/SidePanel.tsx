@@ -68,10 +68,14 @@ export function SidePanel() {
                   <ModeButton active={activeRole === "driver"} onClick={() => switchRole("driver")} icon={Truck} label="Driver" />
                 )}
               </div>
-              {availableRoles.length === 1 && (
-                <p className="text-[11px] text-muted-foreground mt-2">
-                  You only have one role. Ask an admin to add the other if you need it.
-                </p>
+              {availableRoles.length === 1 && availableRoles[0] === "customer" && (
+                <Link
+                  to="/become-driver"
+                  onClick={close}
+                  className="mt-2 flex items-center justify-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/20"
+                >
+                  <Truck className="w-4 h-4" /> Become a driver
+                </Link>
               )}
             </Section>
           )}
