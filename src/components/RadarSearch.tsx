@@ -84,7 +84,10 @@ export function RadarSearch({
           Estimated wait: <span className="text-primary font-semibold">{etaMinutes}–{etaMinutes + 5} min</span>
         </div>
         {typeof nearbyDrivers === "number" && (
-          <div>{nearbyDrivers} verified drivers nearby</div>
+          <div>
+            <span className="text-primary font-semibold">{nearbyDrivers}</span>{" "}
+            verified {nearbyDrivers === 1 ? "driver" : "drivers"} active nearby
+          </div>
         )}
       </div>
     </div>
