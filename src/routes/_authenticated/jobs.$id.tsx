@@ -59,6 +59,18 @@ function JobDetail() {
     },
   });
 
+  const showRadar = !!job && job.customer_id === userId && job.status === "open" && (bids?.length ?? 0) === 0;
+  const { data: nearbyDrivers } = useQuery({
+    queryKey: ["nearby-drivers", id],
+    enabled: showRadar,
+    refetchInterval: 15000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("count_available_verified_drivers", { _job_id: id });
+      if (error) throw error;
+      return typeof data === "number" ? data : 0;
+    },
+  });
+
   if (isLoading || !job)
     return (
       <AppShell>
