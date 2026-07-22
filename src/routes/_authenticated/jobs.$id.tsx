@@ -108,6 +108,7 @@ function JobDetail() {
       </Link>
 
       <div className="space-y-4">
+        <JobTimeline job={job} />
         {isOwner && job.status === "open" && (bids?.length ?? 0) === 0 && <RadarSearch etaMinutes={5} nearbyDrivers={nearbyDrivers} />}
         <div className="rounded-2xl bg-card border p-5 shadow-soft">
           <div className="flex items-start justify-between gap-3">
