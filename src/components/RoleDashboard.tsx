@@ -148,6 +148,17 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
               <div className="text-xs text-muted-foreground">Top-ups & fees</div>
             </Link>
           )}
+          {isCustomer && (
+            <button onClick={switchToDriverMode} className="text-left rounded-xl bg-card border p-4 shadow-soft hover:bg-muted transition">
+              {alreadyDriver ? <ArrowRightLeft className="w-6 h-6 text-primary" /> : <Truck className="w-6 h-6 text-primary" />}
+              <div className="font-display font-bold mt-2 uppercase">
+                {alreadyDriver ? "Driver mode" : "Become a driver"}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {alreadyDriver ? "Switch to driver view" : "Earn by delivering jobs"}
+              </div>
+            </button>
+          )}
         </div>
 
 
