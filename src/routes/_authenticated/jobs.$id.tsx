@@ -615,3 +615,151 @@ function CancelJobDialog({ jobId, status, onCancelled }: { jobId: string; status
   );
 }
 
+const DISPUTE_TYPES: { value: "wrong_quantity" | "damage" | "no_show" | "payment_issue" | "conduct" | "other"; label: string }[] = [
+  { value: "wrong_quantity", label: "Wrong quantity delivered" },
+  { value: "damage", label: "Damaged material" },
+  { value: "no_show", label: "Driver didn't show up" },
+  { value: "payment_issue", label: "Payment issue" },
+  { value: "conduct", label: "Bad conduct or behavior" },
+  { value: "other", label: "Something else" },
+];
+
+function RaiseDisputeDialog({ jobId, against }: { jobId: string; against: string | null }) {
+  const [open, setOpen] = useState(false);
+  const [category, setCategory] = useState<typeof DISPUTE_TYPES[number]["value"]>("wrong_quantity");
+  const [explanation, setExplanation] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    if (explanation.trim().length < 5) return toast.error("Please explain what happened.");
+    if (!against) return toast.error("Cannot identify the other party yet.");
+    setLoading(true);
+    const label = DISPUTE_TYPES.find((t) => t.value === category)?.label ?? category;
+    const { error } = await supabase.rpc("raise_dispute", {
+      _job_id: jobId,
+      _against: against,
+      _category: category,
+      _reason: `${label}: ${explanation.trim()}`,
+    });
+    setLoading(false);
+    if (error) return toast.error(error.message);
+    toast.success("Dispute submitted. Our team will review it.");
+    setOpen(false);
+    setExplanation("");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="w-full">
+          <Flag className="w-4 h-4 mr-2" /> Raise a dispute
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Raise a dispute</DialogTitle>
+          <DialogDescription>
+            An admin will review the job details and proof photos before deciding.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="dcat">Type of issue</Label>
+            <select
+              id="dcat"
+              value={category}
+              onChange={(e) => setCategory(e.target.value as any)}
+              className="w-full mt-1 rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              {DISPUTE_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label htmlFor="dexp">What happened?</Label>
+            <Textarea
+              id="dexp"
+              rows={4}
+              maxLength={1000}
+              value={explanation}
+              onChange={(e) => setExplanation(e.target.value)}
+              placeholder="Give a short, clear description."
+            />
+          </div>
+        </div>
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button variant="ghost" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
+          <Button onClick={submit} disabled={loading}>
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit dispute"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function JobTimeline({ job }: { job: any }) {
+  const cancelled = job.status === "cancelled";
+  const posted = true;
+  const accepted = ["accepted", "in_progress", "completed"].includes(job.status);
+  const enRoute = job.status === "in_progress" || (!!job.pickup_photo_url && job.status !== "completed") || job.status === "completed";
+  const delivered = job.status === "completed" || !!job.delivery_photo_url;
+
+  const steps = [
+    { key: "posted", label: "Posted", icon: FileText, done: posted, active: !accepted && !cancelled },
+    { key: "accepted", label: "Bid accepted", icon: CheckCircle2, done: accepted, active: accepted && !enRoute },
+    { key: "enroute", label: "En route", icon: Truck, done: enRoute, active: enRoute && !delivered },
+    { key: "delivered", label: "Delivered", icon: PackageOpen, done: delivered, active: delivered },
+  ];
+
+  if (cancelled) {
+    return (
+      <div className="rounded-2xl bg-card border p-4 text-sm text-muted-foreground">
+        This job was cancelled.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl bg-card border p-4">
+      <div className="flex items-center justify-between gap-2">
+        {steps.map((s, i) => {
+          const Icon = s.done ? s.icon : Circle;
+          const color = s.active
+            ? "text-primary"
+            : s.done
+              ? "text-success"
+              : "text-muted-foreground";
+          return (
+            <div key={s.key} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+              <div className="flex items-center w-full">
+                {i > 0 && (
+                  <div className={`h-0.5 flex-1 ${steps[i - 1].done ? "bg-success" : "bg-border"}`} />
+                )}
+                <div
+                  className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${
+                    s.active
+                      ? "border-primary bg-primary/10"
+                      : s.done
+                        ? "border-success bg-success/10"
+                        : "border-border bg-muted"
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 ${color}`} />
+                </div>
+                {i < steps.length - 1 && (
+                  <div className={`h-0.5 flex-1 ${s.done ? "bg-success" : "bg-border"}`} />
+                )}
+              </div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wide text-center ${color}`}>
+                {s.label}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
