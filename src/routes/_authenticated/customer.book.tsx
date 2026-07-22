@@ -7,7 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, ArrowRight, Loader2, Minus, Plus, Sparkles, Truck, Package, MapPin, CheckCircle2 } from "lucide-react";
+import {
+  ArrowLeft, ChevronLeft, ChevronRight, Loader2, Minus, Plus, Sparkles,
+  Truck, Package, MapPin, CheckCircle2, Calendar as CalendarIcon, StickyNote,
+} from "lucide-react";
 import { MATERIALS, type MaterialCategory, money } from "@/lib/domain";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -28,12 +31,23 @@ const FUEL_LITRES_PER_100KM = 32;
 // Default supplier pickup point (Harare CBD) — used until per-supplier pickup is added.
 const PICKUP_POINT = { lat: -17.8292, lng: 31.0522 };
 
+// Step indexes: 0=material, 1=quantity, 2=address, 3=date, 4=notes+review, 5=offer
+const STEPS = [
+  { key: "material", title: "Material" },
+  { key: "quantity", title: "Quantity" },
+  { key: "address", title: "Delivery" },
+  { key: "date", title: "Date" },
+  { key: "review", title: "Notes" },
+] as const;
+
 function BookDelivery() {
   const { userId, is } = useAuth();
   const nav = useNavigate();
   const runOffer = useServerFn(computeOffer);
+  const runExplain = useServerFn(explainOffer);
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  // 0..4 are input steps; 5 is the offer screen.
+  const [step, setStep] = useState<number>(0);
   const [address, setAddress] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [material, setMaterial] = useState<MaterialCategory>("river_sand");
@@ -85,9 +99,7 @@ function BookDelivery() {
     return { low, high, distanceKm, fuelCost, commission, total: Math.round(total) };
   }, [matPrice, coords, dieselPrice, commissionRate]);
 
-  // Prevent unused-var warning when suggestion is only rendered conditionally.
   useEffect(() => { void suggestion; }, [suggestion]);
-
 
   if (!is("customer")) {
     return (
@@ -100,7 +112,14 @@ function BookDelivery() {
     );
   }
 
-  const runExplain = useServerFn(explainOffer);
+  const canNext = () => {
+    if (step === 0) return !!material;
+    if (step === 1) return quantity >= 1 && quantity <= 30;
+    if (step === 2) return address.trim().length > 2;
+    if (step === 3) return true; // optional
+    if (step === 4) return true; // optional
+    return true;
+  };
 
   const goToOffer = async () => {
     if (!address.trim()) return toast.error("Enter the delivery address");
@@ -113,8 +132,7 @@ function BookDelivery() {
       const result = await runOffer({ data: { material, quantity, distanceKm, address } });
       setOfferData(result);
       setOffer(result.offer);
-      setStep(3);
-      // Fire AI explanation in background — never blocks the UI.
+      setStep(5);
       runExplain({ data: { material, quantity, distanceKm } })
         .then(({ explanation }) => {
           setOfferData((prev) => (prev ? { ...prev, explanation } : prev));
@@ -127,21 +145,14 @@ function BookDelivery() {
     }
   };
 
-  const step5 = offerData?.step ?? 5;
   const nextStep = (v: number) => (v < 100 ? 5 : v < 300 ? 10 : 20);
 
   const adjust = (dir: -1 | 1) => {
     if (!offerData) return;
     const s = nextStep(offer);
     const proposed = offer + dir * s;
-    if (dir < 0 && proposed < offerData.min) {
-      toast("Minimum offer reached.");
-      return;
-    }
-    if (dir > 0 && proposed > offerData.max) {
-      toast("Maximum offer reached.");
-      return;
-    }
+    if (dir < 0 && proposed < offerData.min) { toast("Minimum offer reached."); return; }
+    if (dir > 0 && proposed > offerData.max) { toast("Maximum offer reached."); return; }
     setOffer(proposed);
   };
 
@@ -164,45 +175,30 @@ function BookDelivery() {
     nav({ to: "/jobs/$id", params: { id: data.id } });
   };
 
+  const goBack = () => {
+    if (step === 0) return nav({ to: "/customer" });
+    if (step === 5) return setStep(4);
+    setStep(step - 1);
+  };
+
+  const isReview = step === 4;
+
   return (
     <AppShell title="Book delivery">
       <button
         type="button"
-        onClick={() => (step === 1 ? nav({ to: "/customer" }) : setStep((step - 1) as 1 | 2 | 3))}
+        onClick={goBack}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground mb-4"
       >
         <ArrowLeft className="w-4 h-4" /> Back
       </button>
 
-      <Stepper current={step} />
+      {step < 5 && <Stepper current={step} total={STEPS.length} />}
 
       <AnimatePresence mode="wait">
-        {step === 1 && (
-          <motion.div key="s1" {...anim} className="space-y-5 mt-6">
-            <Header icon={MapPin} title="Where to?" hint="We'll match you with the closest tipper truck." />
-            <AddressPicker
-              value={address}
-              onChange={(a, c) => {
-                setAddress(a);
-                if (c) setCoords(c);
-              }}
-            />
-            <Button
-              onClick={() => {
-                if (!address.trim()) return toast.error("Enter the delivery address");
-                setStep(2);
-              }}
-              className="w-full h-14 rounded-2xl font-display uppercase tracking-wide text-base"
-            >
-              Continue <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-          </motion.div>
-        )}
-
-        {step === 2 && (
-          <motion.div key="s2" {...anim} className="space-y-5 mt-6">
-            <Header icon={Package} title="What are we moving?" hint="Pick a material and volume." />
-
+        {step === 0 && (
+          <motion.div key="s-material" {...anim} className="space-y-5 mt-6">
+            <Header icon={Package} title="What are we moving?" hint="Pick the material you need delivered." />
             <div className="grid grid-cols-2 gap-2">
               {BOOKABLE_MATERIALS.map((m) => (
                 <button
@@ -221,35 +217,52 @@ function BookDelivery() {
                 </button>
               ))}
             </div>
+          </motion.div>
+        )}
 
+        {step === 1 && (
+          <motion.div key="s-qty" {...anim} className="space-y-5 mt-6">
+            <Header icon={Truck} title="How much?" hint="One tipper load carries 10–15 m³." />
+            <div className="flex gap-2">
+              {[10, 12, 14, 15].map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setQuantity(v)}
+                  className={cn(
+                    "flex-1 rounded-xl border py-3 font-display font-bold",
+                    quantity === v ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground",
+                  )}
+                >
+                  {v} m³
+                </button>
+              ))}
+            </div>
             <div>
-              <Label>Quantity (m³) — one tipper load is 10–15 m³</Label>
-              <div className="flex gap-2 mt-2">
-                {[10, 12, 14, 15].map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setQuantity(v)}
-                    className={cn(
-                      "flex-1 rounded-xl border py-2 font-display font-bold",
-                      quantity === v ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground",
-                    )}
-                  >
-                    {v} m³
-                  </button>
-                ))}
-              </div>
+              <Label htmlFor="qty">Custom quantity (m³)</Label>
               <Input
+                id="qty"
                 type="number"
                 min={1}
                 max={30}
                 step={0.5}
                 value={quantity}
                 onChange={(e) => setQuantity(Number(e.target.value))}
-                className="mt-2"
               />
             </div>
+          </motion.div>
+        )}
 
+        {step === 2 && (
+          <motion.div key="s-addr" {...anim} className="space-y-5 mt-6">
+            <Header icon={MapPin} title="Where to?" hint="We'll match you with the closest tipper truck." />
+            <AddressPicker
+              value={address}
+              onChange={(a, c) => {
+                setAddress(a);
+                if (c) setCoords(c);
+              }}
+            />
             {suggestion && (
               <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-1.5">
                 <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-primary font-semibold">
@@ -261,38 +274,49 @@ function BookDelivery() {
                 <p className="text-xs text-muted-foreground">
                   Based on {matPrice?.label} pricing, ~{suggestion.distanceKm.toFixed(1)} km from pickup,
                   fuel at {FUEL_LITRES_PER_100KM} L/100 km × ${Number(dieselPrice ?? 1.87).toFixed(2)}/L,
-                  plus {commissionRate ?? 7}% platform commission. This is a hint — you can still enter any budget within the enforced range.
+                  plus {commissionRate ?? 7}% platform commission.
                 </p>
               </div>
             )}
-
-
-
-            <div>
-              <Label htmlFor="date">Preferred date (optional)</Label>
-              <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            </div>
-            <div>
-              <Label htmlFor="notes">Notes (optional)</Label>
-              <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} maxLength={300} />
-            </div>
-
-            <Button
-              onClick={goToOffer}
-              disabled={computing}
-              className="w-full h-14 rounded-2xl font-display uppercase tracking-wide text-base"
-            >
-              {computing ? (
-                <><Loader2 className="w-5 h-5 animate-spin mr-2" /> Calculating fair offer…</>
-              ) : (
-                <>Get AI offer <Sparkles className="w-5 h-5 ml-2" /></>
-              )}
-            </Button>
           </motion.div>
         )}
 
-        {step === 3 && offerData && (
-          <motion.div key="s3" {...anim} className="space-y-5 mt-6">
+        {step === 3 && (
+          <motion.div key="s-date" {...anim} className="space-y-5 mt-6">
+            <Header icon={CalendarIcon} title="When do you need it?" hint="Optional — leave blank for as soon as possible." />
+            <div>
+              <Label htmlFor="date">Preferred date</Label>
+              <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            {date && (
+              <button
+                type="button"
+                onClick={() => setDate("")}
+                className="text-xs text-muted-foreground underline"
+              >
+                Clear date
+              </button>
+            )}
+          </motion.div>
+        )}
+
+        {step === 4 && (
+          <motion.div key="s-notes" {...anim} className="space-y-5 mt-6">
+            <Header icon={StickyNote} title="Anything else?" hint="Add notes for the driver, then get your AI offer." />
+            <div>
+              <Label htmlFor="notes">Notes (optional)</Label>
+              <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} maxLength={300} placeholder="Access instructions, contact person, gate code…" />
+            </div>
+            <div className="rounded-2xl bg-card border p-4 space-y-2 text-sm">
+              <Row icon={Package} label={matPrice?.label ?? "Material"} value={`${quantity} m³`} />
+              <Row icon={MapPin} label="Delivery to" value={address || "—"} />
+              <Row icon={CalendarIcon} label="Preferred date" value={date || "As soon as possible"} />
+            </div>
+          </motion.div>
+        )}
+
+        {step === 5 && offerData && (
+          <motion.div key="s-offer" {...anim} className="space-y-5 mt-6">
             <div className="rounded-3xl bg-gradient-dark text-white p-8 shadow-lift text-center">
               <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-primary font-semibold">
                 <Sparkles className="w-3 h-3" /> AI Recommended
@@ -348,6 +372,40 @@ function BookDelivery() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {step < 5 && (
+        <div className="flex gap-2 mt-8">
+          <Button
+            variant="outline"
+            onClick={() => setStep((s) => Math.max(0, s - 1))}
+            disabled={step === 0}
+            className="flex-1 h-12"
+          >
+            <ChevronLeft className="w-4 h-4 mr-1" /> Back
+          </Button>
+          {isReview ? (
+            <Button
+              onClick={goToOffer}
+              disabled={computing || !canNext()}
+              className="flex-1 h-12 font-display uppercase tracking-wide"
+            >
+              {computing ? (
+                <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Calculating…</>
+              ) : (
+                <>Get AI offer <Sparkles className="w-4 h-4 ml-2" /></>
+              )}
+            </Button>
+          ) : (
+            <Button
+              onClick={() => setStep((s) => s + 1)}
+              disabled={!canNext()}
+              className="flex-1 h-12"
+            >
+              Next <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          )}
+        </div>
+      )}
     </AppShell>
   );
 }
@@ -359,10 +417,10 @@ const anim = {
   transition: { duration: 0.25 },
 };
 
-function Stepper({ current }: { current: 1 | 2 | 3 }) {
+function Stepper({ current, total }: { current: number; total: number }) {
   return (
     <div className="flex items-center gap-2">
-      {[1, 2, 3].map((n) => (
+      {Array.from({ length: total }).map((_, n) => (
         <div
           key={n}
           className={cn(
