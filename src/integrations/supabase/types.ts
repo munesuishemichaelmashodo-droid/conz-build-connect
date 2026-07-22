@@ -229,6 +229,7 @@ export type Database = {
           license_url: string | null
           national_id: string | null
           national_id_url: string | null
+          nationality: string | null
           rating_avg: number
           rating_count: number
           selfie_url: string | null
@@ -247,6 +248,7 @@ export type Database = {
           license_url?: string | null
           national_id?: string | null
           national_id_url?: string | null
+          nationality?: string | null
           rating_avg?: number
           rating_count?: number
           selfie_url?: string | null
@@ -265,6 +267,7 @@ export type Database = {
           license_url?: string | null
           national_id?: string | null
           national_id_url?: string | null
+          nationality?: string | null
           rating_avg?: number
           rating_count?: number
           selfie_url?: string | null
@@ -637,6 +640,47 @@ export type Database = {
             foreignKeyName: "ratings_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: true
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reports: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          description: string
+          id: string
+          job_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          job_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          job_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },

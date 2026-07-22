@@ -1,10 +1,11 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
+import { useViewMode } from "@/lib/view-mode";
 import { AppShell } from "@/components/AppShell";
 import { Section, EmptyState, StatusBadge } from "@/components/ui-bits";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Briefcase, Plus, Truck, Wallet as WalletIcon, ShieldAlert, Star } from "lucide-react";
+import { Briefcase, Plus, Truck, Wallet as WalletIcon, ShieldAlert, Star, ArrowRightLeft } from "lucide-react";
 import { money, levelInfo } from "@/lib/domain";
 import { JobCard } from "@/routes/_authenticated/home";
 import { LocalLocator } from "@/components/LocalLocator";
@@ -14,9 +15,22 @@ import { JobOfferListener } from "@/components/JobOfferListener";
 
 
 export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
-  const { userId, profile } = useAuth();
+  const { userId, profile, is } = useAuth();
+  const { setActiveRole } = useViewMode();
+  const nav = useNavigate();
   const isDriver = role === "driver";
   const isCustomer = role === "customer";
+  const alreadyDriver = is("driver");
+
+  const switchToDriverMode = () => {
+    if (alreadyDriver) {
+      setActiveRole("driver");
+      nav({ to: "/driver" });
+    } else {
+      nav({ to: "/become-driver" });
+    }
+  };
+  
   
 
 
@@ -133,6 +147,17 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
               <div className="font-display font-bold mt-2 uppercase">Wallet</div>
               <div className="text-xs text-muted-foreground">Top-ups & fees</div>
             </Link>
+          )}
+          {isCustomer && (
+            <button onClick={switchToDriverMode} className="text-left rounded-xl bg-card border p-4 shadow-soft hover:bg-muted transition">
+              {alreadyDriver ? <ArrowRightLeft className="w-6 h-6 text-primary" /> : <Truck className="w-6 h-6 text-primary" />}
+              <div className="font-display font-bold mt-2 uppercase">
+                {alreadyDriver ? "Driver mode" : "Become a driver"}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {alreadyDriver ? "Switch to driver view" : "Earn by delivering jobs"}
+              </div>
+            </button>
           )}
         </div>
 

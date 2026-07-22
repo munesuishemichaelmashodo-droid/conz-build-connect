@@ -21,7 +21,7 @@ function AdminVerifications() {
     queryFn: async () => {
       const { data: drivers } = await supabase
         .from("driver_profiles")
-        .select("user_id,national_id,national_id_url,selfie_url,license_url,tipper_photo_url,verification_status,verification_notes,created_at")
+        .select("user_id,national_id,national_id_url,selfie_url,license_url,tipper_photo_url,nationality,verification_status,verification_notes,created_at")
         .eq("verification_status", filter)
         .order("created_at", { ascending: false });
       const ids = (drivers ?? []).map((d) => d.user_id);
@@ -95,6 +95,10 @@ function AdminVerifications() {
               <div className="text-sm">
                 <span className="text-muted-foreground">National ID: </span>
                 <span className="font-mono">{d.national_id ?? "—"}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">Nationality: </span>
+                <span>{(d as any).nationality ?? "—"}</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => view(d.national_id_url)} disabled={!d.national_id_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
