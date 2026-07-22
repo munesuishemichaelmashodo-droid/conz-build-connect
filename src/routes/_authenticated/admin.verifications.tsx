@@ -96,6 +96,10 @@ function AdminVerifications() {
                 <span className="text-muted-foreground">National ID: </span>
                 <span className="font-mono">{d.national_id ?? "—"}</span>
               </div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">Nationality: </span>
+                <span>{(d as any).nationality ?? "—"}</span>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => view(d.national_id_url)} disabled={!d.national_id_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                   <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> National ID
