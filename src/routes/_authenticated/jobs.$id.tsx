@@ -157,6 +157,13 @@ function JobDetail() {
           </Button>
         )}
 
+        {(isOwner || isAssignedDriver) && ["accepted", "in_progress", "completed"].includes(job.status) && (
+          <RaiseDisputeDialog
+            jobId={id}
+            against={isOwner ? job.driver_id : job.customer_id}
+          />
+        )}
+
         {(job.pickup_photo_url || job.delivery_photo_url) && (
           <div className="rounded-2xl bg-card border p-4 space-y-3">
             <div className="font-display font-bold uppercase text-sm tracking-wide">Proof of delivery</div>
