@@ -179,3 +179,58 @@ export function CustomerTrackMap({ jobId }: { jobId: string }) {
     </div>
   );
 }
+
+export function DriverRouteView({ jobId }: { jobId: string }) {
+  const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
+  const [destination, setDestination] = useState<{ lat: number; lng: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data } = await (supabase.from("jobs") as any)
+        .select("delivery_lat,delivery_lng")
+        .eq("id", jobId)
+        .maybeSingle();
+      if (mounted && data?.delivery_lat != null && data?.delivery_lng != null) {
+        setDestination({ lat: Number(data.delivery_lat), lng: Number(data.delivery_lng) });
+      }
+    })();
+    (async () => {
+      try {
+        const { locateOnce } = await import("@/lib/geolocate");
+        const c = await locateOnce();
+        if (mounted) setOrigin({ lat: c.lat, lng: c.lng });
+      } catch (e: any) {
+        if (mounted) setError(e?.message ?? "Could not get your location");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [jobId]);
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl bg-card border p-4 text-xs text-muted-foreground flex items-center gap-2">
+        <Loader2 className="w-3 h-3 animate-spin" /> Loading route to delivery point…
+      </div>
+    );
+  }
+  if (!destination) {
+    return (
+      <div className="rounded-2xl bg-card border p-4 text-xs text-muted-foreground">
+        No delivery coordinates on this job — route can't be calculated.
+      </div>
+    );
+  }
+  if (!origin) {
+    return (
+      <div className="rounded-2xl bg-card border p-4 text-xs text-muted-foreground">
+        {error ?? "Location required to show the route."}
+      </div>
+    );
+  }
+  return <RouteMap driverLocation={origin} initialDestination={destination} />;
+}
