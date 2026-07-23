@@ -92,6 +92,11 @@ export function SidePanel() {
             <NavItem to="/help" icon={LifeBuoy} label="Help & FAQ" onClick={close} />
             <NavItem to="/report" icon={MessageSquareWarning} label="Report an issue" onClick={close} />
           </Section>
+
+          <Section label="Legal">
+            <NavItem to="/terms" icon={FileText} label="Terms & Conditions" onClick={close} />
+            <NavItem to="/privacy" icon={Lock} label="Privacy Policy" onClick={close} />
+          </Section>
         </div>
 
         <div className="p-4 border-t">
