@@ -579,6 +579,7 @@ export type Database = {
           phone: string | null
           restricted_until: string | null
           status: Database["public"]["Enums"]["account_status"]
+          terms_accepted_at: string | null
           updated_at: string
         }
         Insert: {
@@ -591,6 +592,7 @@ export type Database = {
           phone?: string | null
           restricted_until?: string | null
           status?: Database["public"]["Enums"]["account_status"]
+          terms_accepted_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -603,6 +605,7 @@ export type Database = {
           phone?: string | null
           restricted_until?: string | null
           status?: Database["public"]["Enums"]["account_status"]
+          terms_accepted_at?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1132,6 +1135,7 @@ export type Database = {
           phone: string | null
           restricted_until: string | null
           status: Database["public"]["Enums"]["account_status"]
+          terms_accepted_at: string | null
           updated_at: string
         }
         SetofOptions: {
