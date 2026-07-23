@@ -23,7 +23,7 @@ export async function searchAddress(query: string, limit = 6): Promise<GeocodeRe
   if (q.length < 3) return [];
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(q)}&limit=${limit}&addressdetails=1`,
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(q)}&limit=${limit}&addressdetails=1&countrycodes=zw&viewbox=25.2%2C-15.6%2C33.1%2C-22.5&bounded=1`,
       { headers: { Accept: "application/json" } },
     );
     if (!res.ok) return [];
