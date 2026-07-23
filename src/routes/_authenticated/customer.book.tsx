@@ -58,6 +58,30 @@ function BookDelivery() {
   const [offerData, setOfferData] = useState<OfferResult | null>(null);
   const [offer, setOffer] = useState<number>(0);
   const [posting, setPosting] = useState(false);
+  const [roadDistanceKm, setRoadDistanceKm] = useState<number | null>(null);
+
+  // Fetch real driving distance (pickup → destination) via the quick-responder
+  // edge function so pricing reflects road distance, not straight-line.
+  useEffect(() => {
+    if (!coords) { setRoadDistanceKm(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("quick-responder", {
+          body: {
+            startLat: PICKUP_POINT.lat,
+            startLng: PICKUP_POINT.lng,
+            destLat: coords.lat,
+            destLng: coords.lng,
+          },
+        });
+        if (!cancelled && !error && data && typeof data.distanceKm === "number") {
+          setRoadDistanceKm(data.distanceKm);
+        }
+      } catch { /* fall back to haversine */ }
+    })();
+    return () => { cancelled = true; };
+  }, [coords]);
 
   const { data: matPrice } = useQuery({
     queryKey: ["material-price", material],
