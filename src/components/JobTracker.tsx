@@ -8,6 +8,7 @@ import { MapPin, Navigation2, Square, Loader2, ShieldOff } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
 import { useLocationSharingEnabled } from "@/lib/location-privacy";
+import { RouteMap } from "@/components/RouteMap";
 
 // Fix default marker icons (Vite breaks Leaflet's default path resolution)
 const truckIcon = L.divIcon({
