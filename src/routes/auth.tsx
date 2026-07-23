@@ -171,6 +171,7 @@ function AuthPage() {
     e.preventDefault();
     if (!fullName.trim()) return toast.error("Please enter your full name");
     if (password.length < 8) return toast.error("Password must be at least 8 characters");
+    if (!acceptedTerms) return toast.error("Please accept the Terms and Privacy Policy to continue");
     setAuthDebug(null);
     setLoading(true);
     const endpoint = `${supabaseUrl}/auth/v1/signup`;
