@@ -1,75 +1,54 @@
-# Con Z — Audit & Improvement Plan
 
-Based on the current state of the app (auth, wallet, dispatch, tracking, ratings, admin), here are the weaknesses I see and the systems worth adding. Pick which ones to build — I'd recommend tackling them in the order below.
+# Con Z — Feature Status Audit
 
-## 1. Reliability & Stability weaknesses (fix first)
+Legend: ✅ Complete · 🟡 Partial · 🔴 Not started
 
-- **Job expiry runs in the browser.** `useExpireStaleJobs` polls every 3s only while a user has the app open. If nobody is online, stale jobs never expire. → Move to a `pg_cron` job hitting `/api/public/hooks/expire-jobs` every 5s server-side.
-- **Dispatch waves depend on client accept.** If all offered drivers are offline, no next wave fires. → Add a server-side "wave scheduler" cron that calls `expire_stale_dispatch_offers` for every open job.
-- **Google Maps markers use deprecated `Marker`.** Warning in console; will break in a future SDK release. → Migrate to `AdvancedMarkerElement` with a fallback.
-- **No offline / weak-signal handling.** Drivers on rural Zim networks lose GPS pings silently. → Queue location updates in `IndexedDB` and flush on reconnect; show a "reconnecting" banner.
-- **Realtime channels not always cleaned up.** Some `useEffect` returns don't unsubscribe → memory leaks after long sessions.
+## 1. Backend security review — 🟡 Partial
+- RLS: Enabled on all 24 public tables (each has policies per the tables index). Sensitive writes are routed through `SECURITY DEFINER` RPCs (`accept_bid`, `complete_job`, `request_topup`, `request_withdrawal`, `admin_*`, `raise_dispute`, `accept_dispatch_offer`) with `has_role`/`auth.uid()` checks.
+- Server functions: `requireSupabaseAuth` middleware exists (`src/integrations/supabase/auth-middleware.ts`) but almost no `createServerFn` uses it — most privileged work goes through Postgres RPCs, which is fine but means there's no server-side rate limiting.
+- Gaps: no automated `security--run_security_scan` has been recorded this session; MCP OAuth routes under `src/routes/[.mcp]` and `[.well-known]` are public by design but haven't been audited here. Recommend running the scanner before store submission.
 
-## 2. Security & Trust gaps
+## 2. Admin panel access lockdown — ✅ Complete
+- `src/routes/_authenticated/admin.tsx` `beforeLoad` fetches `user_roles` and redirects to `/home` unless the user has `admin` or `super_admin`. Individual super-admin-only tabs (Revenue, Audit) hidden via `is("super_admin")`. Server-side RPCs also enforce `has_role(...,'admin'|'super_admin')`, so client bypass wouldn't grant privileges.
 
-- **Photo verification is self-uploaded, never re-checked.** A driver verified once stays verified forever. → Add periodic re-verification (every 90 days) and admin "revoke verification" action.
-- **No device / session limit.** A user can sign in on 5 devices and multi-claim free jobs across identities. → Track `auth_sessions` with device fingerprint; cap active sessions to 2 and surface them in Profile ("Sign out other devices").
-- **Withdrawal PIN, but no 2FA for login.** → Add optional email OTP or TOTP for high-value accounts (drivers with >$100 balance, all admins).
-- **No rate limiting on bid submissions or job posts.** A malicious user can spam. → Add a `rate_limits` table + trigger (e.g. 10 bids/min, 5 jobs/hour).
-- **Admin actions aren't fully audited.** Wallet credits log, but role grants, verifications, and dispute rulings don't. → Extend `wallet_audit_log` into a generic `admin_audit_log`.
+## 3. Rating system — 🟡 Partial (works, but only surfaced on job detail)
+- Submission: `src/routes/_authenticated/jobs.$id.tsx` writes to `ratings` (customer → driver) and `customer_ratings` (driver → customer). `tg_rating_aggregate` trigger updates `driver_profiles.rating_avg`/`rating_count`.
+- Display: Driver aggregate shown on bid cards (`jobs.$id.tsx` L273–274). No dedicated driver profile page listing reviews; customer ratings are stored but never displayed anywhere in the UI.
 
-## 3. UX friction to remove
+## 4. Terms & Conditions — 🔴 Not started
+- No `/terms`, `/privacy`, or acceptance checkbox in `src/routes/auth.tsx`. No `terms_accepted_at` column on `profiles`. Required before store submission.
 
-- **No job history / receipts.** Customers can't see past deliveries or download an invoice. → Add `/history` route + PDF receipt via server function.
-- **No cancellation policy UI.** Currently a job can be cancelled with no consequence. → Add cancellation reason + late-cancel fee (e.g. $2 if cancelled after driver accepts).
-- **Bids show driver info but no distance/ETA.** → Compute distance from `driver_locations` to job pickup and show "8 km · ~14 min".
-- **Chat has no read receipts, no image support surfaced.** → Add `read_at` column + inline image preview using the existing `chat-media` bucket.
-- **Notifications bell has no filtering or "mark all read".**
-- **No dark/light auto-follow-system option** (only manual toggle).
-- **AddressPicker has no "recent addresses" or "saved places" (Home/Work).** Big win for repeat customers.
+## 5. Driver verification signup — ✅ Complete
+- `src/routes/_authenticated/become-driver.tsx` is the 5-step slideshow (identity → selfie → licence → truck → nationality) with progress bar, camera+gallery uploads to `driver-docs` bucket, and a "Pending verification — usually within 24 hours" confirmation screen. Admin review UI at `admin.verifications.tsx`. Bidding + dispatch acceptance are RLS/RPC-gated on `verification_status = 'verified'`.
 
-## 4. New systems worth adding
+## 6. Dispute system — 🟡 Partial
+- ✅ Types selector, `raise_dispute` RPC, admin resolve queue (`admin.disputes.tsx`), `resolve_dispute` RPC with `strike_issued` outcome that increments `profiles.cancellation_strikes` and applies 7-day restriction after 3 strikes.
+- ✅ 48-hour review clock: `raise_dispute` sets `review_due_at = now() + 48h`.
+- 🟡 Evidence auto-pull: dispute is linked by `job_id` so admin can view `pickup_photo_url`/`delivery_photo_url` via the job, but there's no explicit evidence panel that surfaces GPS trail (`driver_locations`) or photos inline in the dispute detail view — admin has to navigate manually.
 
-- **Referral program.** Each user gets a code; referrer earns $2 wallet credit when referee completes first paid job. Table `referrals(referrer_id, referee_id, status, reward_amount)`.
-- **Promo codes & seasonal discounts** (super-admin managed) — `promo_codes` table + validation at booking.
-- **Driver earnings dashboard** — weekly/monthly graphs, tax export CSV, average $/km. Drivers ask for this constantly on similar apps.
-- **Customer favorites** — mark a driver as favorite, get notified when they're online, optional "request this driver" mode.
-- **Scheduled/future bookings** — customer books for tomorrow 9 AM; dispatch wave fires at T-15min.
-- **Multi-stop deliveries** — one job, multiple drop-off points, price scales with legs.
-- **In-app support / help center** — FAQ + "Contact support" ticket flow tied to `disputes` table.
-- **Push notifications (PWA)** — currently in-app only. Add web-push via service worker so drivers get pinged when the app is backgrounded (critical for the 10-second dispatch to actually work).
-- **SMS fallback for OTP / job alerts** — Zimbabwe reality: many drivers won't have push. Twilio or a local SMS gateway.
+## 7. Notification system — ✅ Complete
+- `notifications` table + triggers `tg_notify_bid_submitted`, `tg_notify_bid_status`, `tg_notify_job_status` cover bid submitted/accepted, tracking started, job completed, top-up decisions, withdrawal decisions, job expired. `NotificationsBell.tsx` renders them with Realtime.
 
-## 5. Data & Analytics
+## 8. Wallet top-ups (no admin approval) — ✅ Complete
+- `request_topup` RPC self-credits: inserts request with `status='approved'`, immediately updates `wallets.balance`, writes `wallet_transactions` row, and notifies. Wired from `wallet.tsx`. Admin approve/reject RPCs still exist for legacy/manual cases but the user flow no longer requires them.
 
-- **No aggregated metrics for super admin beyond revenue.** Add: jobs/day, acceptance rate, avg dispatch wave count, top routes, cancellation rate, driver churn.
-- **No cohort tracking.** Which signup week drives the most completed jobs?
-- **No AI pricing feedback loop.** `compute_material_offer` uses static multipliers. → Log actual accepted prices and adjust `demand_multiplier` weekly via cron.
+## 9. Help & Report in SidePanel — ✅ Complete
+- `src/routes/_authenticated/help.tsx` and `report.tsx` exist and are linked from `SidePanel.tsx`. `reports` table has policies.
 
-## 6. Sustainability / cost
+## 10. Customer ↔ Driver Mode switch — ✅ Complete
+- Consolidated into SidePanel "View As". Customers without driver role see "Become a driver" CTA linking to `/become-driver`; verified drivers get a toggle between customer/driver views (`src/lib/view-mode.tsx`).
 
-- **`driver_locations` table will explode.** Every 5s ping × 100 drivers × 24h = 1.7M rows/day. → Add a `pg_cron` job to prune locations older than 24h; keep a daily-aggregated `location_history` for analytics only.
-- **Realtime subscriptions billed per concurrent connection.** Consolidate: one channel per user, not one per feature.
-- **Image storage grows unbounded.** Add lifecycle: verification docs archived to cold storage after 1 year; chat media auto-deleted after 90 days.
+## 11. First-job-free bonus — ✅ Complete
+- `driver_profiles.first_job_free_used` flag + `first_job_free_claims` identity-keyed table prevent multi-account abuse. `complete_job` RPC charges $0 commission on first eligible completion and logs a wallet transaction; `driver_can_accept` bypasses balance requirement while free.
 
-## 7. Compliance & Legal (needed before public launch)
+## 12. App-store publishing readiness — 🔴 Not started
+- No `capacitor.config.ts`, no `@capacitor/*` deps in `package.json`, no `android/` or `ios/` folders. `public/manifest.webmanifest` exists (PWA) but no native shell, no store-format icons/splash, no bundle IDs. Everything for Capacitor packaging still to do.
 
-- Terms of Service, Privacy Policy, Refund Policy pages (static routes).
-- Cookie/consent banner (EU users if any).
-- Data export & account deletion (`/settings/data`) — GDPR & good practice.
-- Age gate on signup (18+ for drivers).
+## Recommended next actions (in order)
+1. Add Terms & Privacy pages + signup checkbox + `terms_accepted_at` column.
+2. Add a driver public profile with review list (surface `ratings` and `customer_ratings`).
+3. Enrich dispute detail view with inline photos + last-known GPS points.
+4. Run `security--run_security_scan` and address findings.
+5. Add Capacitor (`@capacitor/core`, `@capacitor/android`, `@capacitor/ios`), configure app icons/splash, set bundle IDs, and produce signed builds.
 
-## Recommended first batch (2–3 days of work)
-
-If you want a concrete "next sprint", I'd pick these 6 — biggest impact, unblocks the rest:
-
-1. **Server-side job & dispatch expiry** (pg_cron) — fixes the "nobody online" hole.
-2. **PWA push notifications** — makes the 10-second dispatch actually reach drivers.
-3. **Location data pruning cron** — stops the runaway table.
-4. **Job history + PDF receipts** — most-requested customer feature.
-5. **Distance/ETA on bid cards** — instant UX upgrade.
-6. **Admin audit log** — needed the moment you have >1 admin.
-
----
-
-Tell me which of these you want to tackle (all of section 1, the recommended batch, or a custom pick) and I'll turn it into a concrete build plan with migrations and file changes.
+No code changes were made — this is a read-only status report.
