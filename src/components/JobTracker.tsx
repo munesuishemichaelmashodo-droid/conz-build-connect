@@ -116,6 +116,21 @@ export function DriverShareLocation({ jobId, driverId }: { jobId: string; driver
 
 export function CustomerTrackMap({ jobId }: { jobId: string }) {
   const [loc, setLoc] = useState<Loc | null>(null);
+  const [destination, setDestination] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data } = await (supabase.from("jobs") as any)
+        .select("delivery_lat,delivery_lng")
+        .eq("id", jobId)
+        .maybeSingle();
+      if (mounted && data?.delivery_lat != null && data?.delivery_lng != null) {
+        setDestination({ lat: Number(data.delivery_lat), lng: Number(data.delivery_lng) });
+      }
+    })();
+    return () => { mounted = false; };
+  }, [jobId]);
 
   useEffect(() => {
     let mounted = true;
@@ -160,7 +175,7 @@ export function CustomerTrackMap({ jobId }: { jobId: string }) {
           </>
         )}
       </div>
-      {loc && <RouteMap driverLocation={{ lat: loc.lat, lng: loc.lng }} />}
+      {loc && <RouteMap driverLocation={{ lat: loc.lat, lng: loc.lng }} initialDestination={destination} />}
     </div>
   );
 }
