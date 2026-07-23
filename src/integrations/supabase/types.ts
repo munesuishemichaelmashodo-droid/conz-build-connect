@@ -370,6 +370,8 @@ export type Database = {
           custom_material: string | null
           customer_id: string
           delivery_address: string
+          delivery_lat: number | null
+          delivery_lng: number | null
           delivery_photo_url: string | null
           driver_id: string | null
           expires_at: string | null
@@ -395,6 +397,8 @@ export type Database = {
           custom_material?: string | null
           customer_id: string
           delivery_address: string
+          delivery_lat?: number | null
+          delivery_lng?: number | null
           delivery_photo_url?: string | null
           driver_id?: string | null
           expires_at?: string | null
@@ -420,6 +424,8 @@ export type Database = {
           custom_material?: string | null
           customer_id?: string
           delivery_address?: string
+          delivery_lat?: number | null
+          delivery_lng?: number | null
           delivery_photo_url?: string | null
           driver_id?: string | null
           expires_at?: string | null
@@ -994,6 +1000,8 @@ export type Database = {
           custom_material: string | null
           customer_id: string
           delivery_address: string
+          delivery_lat: number | null
+          delivery_lng: number | null
           delivery_photo_url: string | null
           driver_id: string | null
           expires_at: string | null
@@ -1159,6 +1167,8 @@ export type Database = {
           custom_material: string | null
           customer_id: string
           delivery_address: string
+          delivery_lat: number | null
+          delivery_lng: number | null
           delivery_photo_url: string | null
           driver_id: string | null
           expires_at: string | null
@@ -1238,6 +1248,8 @@ export type Database = {
           custom_material: string | null
           customer_id: string
           delivery_address: string
+          delivery_lat: number | null
+          delivery_lng: number | null
           delivery_photo_url: string | null
           driver_id: string | null
           expires_at: string | null

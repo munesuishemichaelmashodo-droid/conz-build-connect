@@ -13,7 +13,7 @@ import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { useState } from "react";
 import { toast } from "sonner";
-import { DriverShareLocation, CustomerTrackMap } from "@/components/JobTracker";
+import { DriverShareLocation, CustomerTrackMap, DriverRouteView } from "@/components/JobTracker";
 import { RadarSearch } from "@/components/RadarSearch";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 
@@ -225,7 +225,10 @@ function JobDetail() {
         )}
 
         {isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && (
-          <DriverShareLocation jobId={id} driverId={userId!} />
+          <>
+            <DriverRouteView jobId={id} />
+            <DriverShareLocation jobId={id} driverId={userId!} />
+          </>
         )}
 
         {isOwner && (job.status === "accepted" || job.status === "in_progress") && <CustomerTrackMap jobId={id} />}
