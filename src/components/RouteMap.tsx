@@ -2,7 +2,7 @@ import { useState } from "react";
 import { MapContainer, TileLayer, Marker, Polyline, Popup, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { supabase } from "@/integrations/supabase/client";
+import { getRoute } from "@/lib/routing.functions";
 import { Loader2, MapPin, Navigation2, Route as RouteIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -37,16 +37,14 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
   async function fetchRoute(dest: { lat: number; lng: number }) {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("quick-responder", {
-        body: {
+      const r = await getRoute({
+        data: {
           startLat: driverLocation.lat,
           startLng: driverLocation.lng,
           destLat: dest.lat,
           destLng: dest.lng,
         },
       });
-      if (error) throw error;
-      const r = data as RouteResult;
       setRoute(r);
       onRoute?.(r);
     } catch (e: any) {
