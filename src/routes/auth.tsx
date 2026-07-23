@@ -80,6 +80,7 @@ function AuthPage() {
   const [countryDialCode, setCountryDialCode] = useState("+263");
   const [localPhone, setLocalPhone] = useState("");
   const phone = `${countryDialCode}${localPhone.replace(/\D/g, "")}`;
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const supabaseUrl =
     (import.meta as unknown as { env: Record<string, string | undefined> }).env
@@ -170,6 +171,7 @@ function AuthPage() {
     e.preventDefault();
     if (!fullName.trim()) return toast.error("Please enter your full name");
     if (password.length < 8) return toast.error("Password must be at least 8 characters");
+    if (!acceptedTerms) return toast.error("Please accept the Terms and Privacy Policy to continue");
     setAuthDebug(null);
     setLoading(true);
     const endpoint = `${supabaseUrl}/auth/v1/signup`;
@@ -197,6 +199,19 @@ function AuthPage() {
           return;
         }
       }
+      // Record terms acceptance timestamp on the profile (best-effort).
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const uid = sess.session?.user?.id;
+        if (uid) {
+          await supabase
+            .from("profiles")
+            .update({ terms_accepted_at: new Date().toISOString() })
+            .eq("id", uid);
+        }
+      } catch {
+        /* non-blocking */
+      }
       setLoading(false);
       toast.success("Welcome to Con Z!");
       goPostAuth();
@@ -207,6 +222,9 @@ function AuthPage() {
   };
 
   const google = async () => {
+    if (tab === "register" && !acceptedTerms) {
+      return toast.error("Please accept the Terms and Privacy Policy to continue");
+    }
     setAuthDebug(null);
     setLoading(true);
     const endpoint = `${supabaseUrl}/auth/v1/authorize?provider=google`;
@@ -395,7 +413,22 @@ function AuthPage() {
                 <PasswordInput id="pw" value={password} onChange={setPassword} show={showPassword} onToggle={() => setShowPassword((v) => !v)} autoComplete="new-password" minLength={8} />
                 <p className="text-[11px] text-muted-foreground mt-1">Minimum 8 characters.</p>
               </div>
-              <Button type="submit" disabled={loading} className="w-full h-11 font-display uppercase tracking-wide">
+              <label className="flex items-start gap-2 text-xs text-muted-foreground select-none">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                  required
+                />
+                <span>
+                  I agree to the{" "}
+                  <Link to="/terms" target="_blank" className="underline text-foreground">Terms and Conditions</Link>{" "}
+                  and{" "}
+                  <Link to="/privacy" target="_blank" className="underline text-foreground">Privacy Policy</Link>.
+                </span>
+              </label>
+              <Button type="submit" disabled={loading || !acceptedTerms} className="w-full h-11 font-display uppercase tracking-wide">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create account"}
               </Button>
             </form>
