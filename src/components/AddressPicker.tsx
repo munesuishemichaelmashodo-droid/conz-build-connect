@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Loader2, LocateFixed, MapPin } from "lucide-react";
+import { CheckCircle2, Loader2, LocateFixed, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -62,6 +62,7 @@ export function AddressPicker({
 }) {
   const [coords, setCoords] = useState<{ lat: number; lng: number }>({ lat: -17.8252, lng: 31.0335 });
   const [hasPin, setHasPin] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
   const [zoom, setZoom] = useState(12);
   const [locating, setLocating] = useState(false);
   const [query, setQuery] = useState(value);
@@ -86,29 +87,39 @@ export function AddressPicker({
     return () => clearTimeout(t);
   }, [query]);
 
-  const applyCoords = async (lat: number, lng: number, addressHint?: string) => {
+  // Set/update the pin locally without committing coords upstream.
+  const setPin = async (lat: number, lng: number, addressHint?: string) => {
     setCoords({ lat, lng });
     setHasPin(true);
+    setConfirmed(false);
     setZoom(16);
     const addr = addressHint ?? (await reverseGeocode(lat, lng));
     const finalAddr = addr ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
     setQuery(finalAddr);
-    onChange(finalAddr, { lat, lng });
+    // Update address text upstream, but don't attach coords until user confirms.
+    onChange(finalAddr, undefined);
   };
 
   const pickResult = (r: GeocodeResult) => {
     setOpen(false);
     setResults([]);
-    void applyCoords(r.lat, r.lng, r.label);
+    void setPin(r.lat, r.lng, r.label);
+  };
+
+  const confirmLocation = () => {
+    if (!hasPin) return;
+    setConfirmed(true);
+    onChange(query, coords);
+    toast.success("Location confirmed");
   };
 
   const useMyLocation = async () => {
     setLocating(true);
     try {
       const { locateOnce } = await import("@/lib/geolocate");
-      const c = await locateOnce({ onUpdate: (better) => void applyCoords(better.lat, better.lng) });
-      await applyCoords(c.lat, c.lng);
-      toast.success("Location captured");
+      const c = await locateOnce({ onUpdate: (better) => void setPin(better.lat, better.lng) });
+      await setPin(c.lat, c.lng);
+      toast.success("Location captured — tap Confirm to use it");
     } catch (e: any) {
       toast.error(e.message ?? "Could not get location");
     } finally {
@@ -130,7 +141,8 @@ export function AddressPicker({
             onChange={(e) => {
               setQuery(e.target.value);
               setOpen(true);
-              onChange(e.target.value, hasPin ? coords : undefined);
+              setConfirmed(false);
+              onChange(e.target.value, undefined);
             }}
             onFocus={() => setOpen(true)}
             onBlur={() => setTimeout(() => setOpen(false), 150)}
