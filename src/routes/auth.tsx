@@ -413,7 +413,22 @@ function AuthPage() {
                 <PasswordInput id="pw" value={password} onChange={setPassword} show={showPassword} onToggle={() => setShowPassword((v) => !v)} autoComplete="new-password" minLength={8} />
                 <p className="text-[11px] text-muted-foreground mt-1">Minimum 8 characters.</p>
               </div>
-              <Button type="submit" disabled={loading} className="w-full h-11 font-display uppercase tracking-wide">
+              <label className="flex items-start gap-2 text-xs text-muted-foreground select-none">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                  required
+                />
+                <span>
+                  I agree to the{" "}
+                  <Link to="/terms" target="_blank" className="underline text-foreground">Terms and Conditions</Link>{" "}
+                  and{" "}
+                  <Link to="/privacy" target="_blank" className="underline text-foreground">Privacy Policy</Link>.
+                </span>
+              </label>
+              <Button type="submit" disabled={loading || !acceptedTerms} className="w-full h-11 font-display uppercase tracking-wide">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create account"}
               </Button>
             </form>
