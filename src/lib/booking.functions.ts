@@ -14,12 +14,32 @@ const MATERIALS = [
   "custom",
 ] as const;
 
-const OfferInput = z.object({
-  material: z.enum(MATERIALS),
-  quantity: z.number().positive().max(50),
-  distanceKm: z.number().min(0).max(500).optional(),
-  address: z.string().max(200).optional(),
-});
+const MAX_SERVICE_KM = 500;
+const TOO_FAR_MESSAGE =
+  "This delivery address is too far from our service area — please choose a closer address.";
+
+const OfferInput = z
+  .object({
+    material: z.enum(MATERIALS),
+    quantity: z.number().positive().max(50),
+    distanceKm: z.number().min(0).optional(),
+    address: z.string().max(200).optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.distanceKm !== undefined && val.distanceKm > MAX_SERVICE_KM) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: TOO_FAR_MESSAGE, path: ["distanceKm"] });
+    }
+  });
+
+function parseOfferInput(input: unknown) {
+  const result = OfferInput.safeParse(input);
+  if (!result.success) {
+    const tooFar = result.error.issues.find((i) => i.message === TOO_FAR_MESSAGE);
+    if (tooFar) throw new Error(TOO_FAR_MESSAGE);
+    throw new Error(result.error.issues[0]?.message ?? "Invalid booking details");
+  }
+  return result.data;
+}
 
 export type OfferResult = {
   offer: number;
@@ -39,7 +59,7 @@ export type OfferResult = {
  */
 export const computeOffer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => OfferInput.parse(input))
+  .inputValidator(parseOfferInput)
   .handler(async ({ data, context }): Promise<OfferResult> => {
     const { supabase } = context;
     const distanceKm = data.distanceKm ?? 15;
@@ -83,7 +103,9 @@ export const computeOffer = createServerFn({ method: "POST" })
 const ExplainInput = z.object({
   material: z.string().max(50),
   quantity: z.number().positive().max(50),
-  distanceKm: z.number().min(0).max(500),
+  // Clamp instead of hard-max so the AI blurb never becomes the source of a
+  // raw Zod error surfaced to the customer.
+  distanceKm: z.number().min(0).transform((v) => Math.min(v, MAX_SERVICE_KM)),
 });
 
 /**

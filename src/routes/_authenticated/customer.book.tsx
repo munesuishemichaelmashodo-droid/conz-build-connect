@@ -67,16 +67,17 @@ function BookDelivery() {
     let cancelled = false;
     (async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("quick-responder", {
-          body: {
+        const { getRoute } = await import("@/lib/routing.functions");
+        const r = await getRoute({
+          data: {
             startLat: PICKUP_POINT.lat,
             startLng: PICKUP_POINT.lng,
             destLat: coords.lat,
             destLng: coords.lng,
           },
         });
-        if (!cancelled && !error && data && typeof data.distanceKm === "number") {
-          setRoadDistanceKm(data.distanceKm);
+        if (!cancelled && typeof r.distanceKm === "number") {
+          setRoadDistanceKm(r.distanceKm);
         }
       } catch { /* fall back to haversine */ }
     })();
