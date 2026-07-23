@@ -180,15 +180,26 @@ export function AddressPicker({
           {hasPin && (
             <DraggableMarker
               position={coords}
-              onDragEnd={(lat, lng) => void applyCoords(lat, lng)}
+              onDragEnd={(lat, lng) => void setPin(lat, lng)}
             />
           )}
         </MapContainer>
       </div>
       {hasPin && (
-        <p className="text-[11px] text-muted-foreground">
-          Pin: {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)} — drag the pin to fine-tune.
-        </p>
+        <div className="space-y-2">
+          <p className="text-[11px] text-muted-foreground">
+            Pin: {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)} — drag the pin to fine-tune.
+          </p>
+          <Button
+            type="button"
+            onClick={confirmLocation}
+            variant={confirmed ? "outline" : "default"}
+            className="w-full"
+          >
+            <CheckCircle2 className="w-4 h-4 mr-2" />
+            {confirmed ? "Location confirmed — tap to update" : "Confirm this location"}
+          </Button>
+        </div>
       )}
     </div>
   );
