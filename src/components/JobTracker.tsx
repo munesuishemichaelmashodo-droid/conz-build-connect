@@ -8,6 +8,7 @@ import { MapPin, Navigation2, Square, Loader2, ShieldOff } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
 import { useLocationSharingEnabled } from "@/lib/location-privacy";
+import { RouteMap } from "@/components/RouteMap";
 
 // Fix default marker icons (Vite breaks Leaflet's default path resolution)
 const truckIcon = L.divIcon({
@@ -135,28 +136,31 @@ export function CustomerTrackMap({ jobId }: { jobId: string }) {
   }, [jobId]);
 
   return (
-    <div className="rounded-2xl bg-card border overflow-hidden">
-      <div className="flex items-center gap-2 px-4 pt-4 pb-2 font-display font-bold uppercase text-sm tracking-wide">
-        <MapPin className="w-4 h-4 text-primary" /> Live driver location
+    <div className="space-y-3">
+      <div className="rounded-2xl bg-card border overflow-hidden">
+        <div className="flex items-center gap-2 px-4 pt-4 pb-2 font-display font-bold uppercase text-sm tracking-wide">
+          <MapPin className="w-4 h-4 text-primary" /> Live driver location
+        </div>
+        {!loc ? (
+          <p className="px-4 pb-4 text-xs text-muted-foreground">Driver hasn't started sharing location yet.</p>
+        ) : (
+          <>
+            <div className="h-64 w-full">
+              <MapContainer center={[loc.lat, loc.lng]} zoom={15} scrollWheelZoom={false} style={{ height: "100%", width: "100%" }} key={`${loc.lat},${loc.lng}`}>
+                <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <Marker position={[loc.lat, loc.lng]} icon={truckIcon}>
+                  <Popup>Updated {new Date(loc.updated_at).toLocaleTimeString()}</Popup>
+                </Marker>
+              </MapContainer>
+            </div>
+            <div className="px-4 py-2 text-[11px] text-muted-foreground flex justify-between">
+              <span>{loc.lat.toFixed(5)}, {loc.lng.toFixed(5)}</span>
+              <span>Updated {new Date(loc.updated_at).toLocaleTimeString()}</span>
+            </div>
+          </>
+        )}
       </div>
-      {!loc ? (
-        <p className="px-4 pb-4 text-xs text-muted-foreground">Driver hasn't started sharing location yet.</p>
-      ) : (
-        <>
-          <div className="h-64 w-full">
-            <MapContainer center={[loc.lat, loc.lng]} zoom={15} scrollWheelZoom={false} style={{ height: "100%", width: "100%" }} key={`${loc.lat},${loc.lng}`}>
-              <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <Marker position={[loc.lat, loc.lng]} icon={truckIcon}>
-                <Popup>Updated {new Date(loc.updated_at).toLocaleTimeString()}</Popup>
-              </Marker>
-            </MapContainer>
-          </div>
-          <div className="px-4 py-2 text-[11px] text-muted-foreground flex justify-between">
-            <span>{loc.lat.toFixed(5)}, {loc.lng.toFixed(5)}</span>
-            <span>Updated {new Date(loc.updated_at).toLocaleTimeString()}</span>
-          </div>
-        </>
-      )}
+      {loc && <RouteMap driverLocation={{ lat: loc.lat, lng: loc.lng }} />}
     </div>
   );
 }

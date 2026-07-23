@@ -58,6 +58,30 @@ function BookDelivery() {
   const [offerData, setOfferData] = useState<OfferResult | null>(null);
   const [offer, setOffer] = useState<number>(0);
   const [posting, setPosting] = useState(false);
+  const [roadDistanceKm, setRoadDistanceKm] = useState<number | null>(null);
+
+  // Fetch real driving distance (pickup → destination) via the quick-responder
+  // edge function so pricing reflects road distance, not straight-line.
+  useEffect(() => {
+    if (!coords) { setRoadDistanceKm(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("quick-responder", {
+          body: {
+            startLat: PICKUP_POINT.lat,
+            startLng: PICKUP_POINT.lng,
+            destLat: coords.lat,
+            destLng: coords.lng,
+          },
+        });
+        if (!cancelled && !error && data && typeof data.distanceKm === "number") {
+          setRoadDistanceKm(data.distanceKm);
+        }
+      } catch { /* fall back to haversine */ }
+    })();
+    return () => { cancelled = true; };
+  }, [coords]);
 
   const { data: matPrice } = useQuery({
     queryKey: ["material-price", material],
@@ -89,7 +113,7 @@ function BookDelivery() {
 
   const suggestion = useMemo(() => {
     if (!matPrice || !coords) return null;
-    const distanceKm = haversineKm(PICKUP_POINT, coords);
+    const distanceKm = roadDistanceKm ?? haversineKm(PICKUP_POINT, coords);
     const midMaterial = (Number(matPrice.min_price) + Number(matPrice.max_price)) / 2;
     const fuelCost = distanceKm * (FUEL_LITRES_PER_100KM / 100) * Number(dieselPrice ?? 1.87);
     const commission = (midMaterial + fuelCost) * (Number(commissionRate ?? 7) / 100);
@@ -97,7 +121,7 @@ function BookDelivery() {
     const low = Math.max(Number(matPrice.min_price), Math.round(total * 0.9));
     const high = Math.min(Number(matPrice.max_price), Math.round(total * 1.1));
     return { low, high, distanceKm, fuelCost, commission, total: Math.round(total) };
-  }, [matPrice, coords, dieselPrice, commissionRate]);
+  }, [matPrice, coords, dieselPrice, commissionRate, roadDistanceKm]);
 
   useEffect(() => { void suggestion; }, [suggestion]);
 
@@ -126,9 +150,9 @@ function BookDelivery() {
     if (!quantity || quantity < 1) return toast.error("Enter quantity");
     setComputing(true);
     try {
-      const distanceKm = coords
+      const distanceKm = roadDistanceKm ?? (coords
         ? haversineKm({ lat: -17.8252, lng: 31.0335 }, coords)
-        : 15;
+        : 15);
       const result = await runOffer({ data: { material, quantity, distanceKm, address } });
       setOfferData(result);
       setOffer(result.offer);
