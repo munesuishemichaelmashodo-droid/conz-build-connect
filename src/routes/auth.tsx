@@ -222,6 +222,9 @@ function AuthPage() {
   };
 
   const google = async () => {
+    if (tab === "register" && !acceptedTerms) {
+      return toast.error("Please accept the Terms and Privacy Policy to continue");
+    }
     setAuthDebug(null);
     setLoading(true);
     const endpoint = `${supabaseUrl}/auth/v1/authorize?provider=google`;
