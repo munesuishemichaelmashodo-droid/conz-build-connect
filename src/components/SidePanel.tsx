@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Moon, Sun, Truck, HardHat, User, Bell, Shield, Settings as SettingsIcon, LogOut, LifeBuoy, MessageSquareWarning } from "lucide-react";
+import { Menu, Moon, Sun, Truck, HardHat, User, Bell, Shield, Settings as SettingsIcon, LogOut, LifeBuoy, MessageSquareWarning, FileText, Lock } from "lucide-react";
 import { useViewMode } from "@/lib/view-mode";
 import { useAuth } from "@/lib/auth";
 import { useNavigate } from "@tanstack/react-router";
