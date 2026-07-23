@@ -199,6 +199,19 @@ function AuthPage() {
           return;
         }
       }
+      // Record terms acceptance timestamp on the profile (best-effort).
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const uid = sess.session?.user?.id;
+        if (uid) {
+          await supabase
+            .from("profiles")
+            .update({ terms_accepted_at: new Date().toISOString() })
+            .eq("id", uid);
+        }
+      } catch {
+        /* non-blocking */
+      }
       setLoading(false);
       toast.success("Welcome to Con Z!");
       goPostAuth();
