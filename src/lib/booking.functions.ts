@@ -14,7 +14,7 @@ const MATERIALS = [
   "custom",
 ] as const;
 
-const MAX_SERVICE_KM = 500;
+const MAX_SERVICE_KM = 900;
 const TOO_FAR_MESSAGE =
   "This delivery address is too far from our service area — please choose a closer address.";
 

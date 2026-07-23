@@ -190,10 +190,12 @@ function BookDelivery() {
       custom_material: null,
       quantity_m3: quantity,
       delivery_address: address.trim(),
+      delivery_lat: coords?.lat ?? null,
+      delivery_lng: coords?.lng ?? null,
       budget: offer,
       preferred_date: date || null,
       notes: notes.trim() || null,
-    }).select().single();
+    } as any).select().single();
     setPosting(false);
     if (error) return toast.error(error.message);
     toast.success("Booking confirmed! Searching for trucks…");
