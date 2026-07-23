@@ -1311,35 +1311,65 @@ export type Database = {
         Returns: undefined
       }
       prune_stale_driver_locations: { Args: never; Returns: number }
-      raise_dispute: {
-        Args: {
-          _against: string
-          _category: Database["public"]["Enums"]["dispute_category"]
-          _job_id: string
-          _reason: string
-        }
-        Returns: {
-          against: string | null
-          category: Database["public"]["Enums"]["dispute_category"]
-          created_at: string
-          id: string
-          job_id: string
-          outcome: Database["public"]["Enums"]["dispute_outcome"] | null
-          raised_by: string
-          reason: string
-          resolution: string | null
-          resolved_at: string | null
-          resolved_by: string | null
-          review_due_at: string | null
-          status: Database["public"]["Enums"]["dispute_status"]
-        }
-        SetofOptions: {
-          from: "*"
-          to: "disputes"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      raise_dispute:
+        | {
+            Args: {
+              _against: string
+              _category: Database["public"]["Enums"]["dispute_category"]
+              _job_id: string
+              _reason: string
+            }
+            Returns: {
+              against: string | null
+              category: Database["public"]["Enums"]["dispute_category"]
+              created_at: string
+              id: string
+              job_id: string
+              outcome: Database["public"]["Enums"]["dispute_outcome"] | null
+              raised_by: string
+              reason: string
+              resolution: string | null
+              resolved_at: string | null
+              resolved_by: string | null
+              review_due_at: string | null
+              status: Database["public"]["Enums"]["dispute_status"]
+            }
+            SetofOptions: {
+              from: "*"
+              to: "disputes"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              _against: string
+              _category: string
+              _job_id: string
+              _reason: string
+            }
+            Returns: {
+              against: string | null
+              category: Database["public"]["Enums"]["dispute_category"]
+              created_at: string
+              id: string
+              job_id: string
+              outcome: Database["public"]["Enums"]["dispute_outcome"] | null
+              raised_by: string
+              reason: string
+              resolution: string | null
+              resolved_at: string | null
+              resolved_by: string | null
+              review_due_at: string | null
+              status: Database["public"]["Enums"]["dispute_status"]
+            }
+            SetofOptions: {
+              from: "*"
+              to: "disputes"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       request_topup: {
         Args: { _amount: number; _method: string; _reference: string }
         Returns: {
