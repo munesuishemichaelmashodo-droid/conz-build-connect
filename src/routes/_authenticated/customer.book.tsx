@@ -150,9 +150,9 @@ function BookDelivery() {
     if (!quantity || quantity < 1) return toast.error("Enter quantity");
     setComputing(true);
     try {
-      const distanceKm = coords
+      const distanceKm = roadDistanceKm ?? (coords
         ? haversineKm({ lat: -17.8252, lng: 31.0335 }, coords)
-        : 15;
+        : 15);
       const result = await runOffer({ data: { material, quantity, distanceKm, address } });
       setOfferData(result);
       setOffer(result.offer);
