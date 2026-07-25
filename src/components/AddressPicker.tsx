@@ -145,11 +145,22 @@ export function AddressPicker({
               onChange(e.target.value, undefined);
             }}
             onFocus={() => setOpen(true)}
-            onBlur={() => setTimeout(() => setOpen(false), 150)}
+            onBlur={() => {
+              // Delay long enough to outlast the 350ms debounce + fetch round-trip,
+              // and skip closing entirely while a search is still in flight.
+              setTimeout(() => {
+                if (!searching) setOpen(false);
+              }, 1200);
+            }}
           />
-          {open && (results.length > 0 || searching) && (
+          {open && query.trim().length >= 3 && (results.length > 0 || searching || results.length === 0) && (
             <div className="absolute z-20 left-0 right-0 top-11 rounded-md border bg-popover shadow-lg max-h-64 overflow-auto">
               {searching && <div className="px-3 py-2 text-xs text-muted-foreground">Searching…</div>}
+              {!searching && results.length === 0 && (
+                <div className="px-3 py-2 text-xs text-muted-foreground">
+                  No results found — try a different spelling.
+                </div>
+              )}
               {results.map((r, i) => (
                 <button
                   key={i}
