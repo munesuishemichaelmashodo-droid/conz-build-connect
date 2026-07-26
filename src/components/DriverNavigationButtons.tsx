@@ -11,10 +11,15 @@ type DriverNavigationButtonsProps = {
   pickupLabel?: string;
   dropoffLabel?: string;
 };
-
 function hasPoint(point: Point) {
-  return typeof point.lat === "number" && typeof point.lng === "number";
+  return (
+    typeof point.lat === "number" &&
+    typeof point.lng === "number" &&
+    Number.isFinite(point.lat) &&
+    Number.isFinite(point.lng)
+  );
 }
+
 
 function googleNavigateTo(point: Point) {
   return `https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}&travelmode=driving`;
