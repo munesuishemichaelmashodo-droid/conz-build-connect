@@ -146,9 +146,15 @@ function BookDelivery() {
     return true;
   };
 
-  const goToOffer = async () => {
-    if (!address.trim()) return toast.error("Enter the delivery address");
-    if (!quantity || quantity < 1) return toast.error("Enter quantity");
+const goToOffer = async () => {
+  if (!address.trim()) return toast.error("Enter the delivery address");
+
+  if (!coords) {
+    setStep(2);
+    return toast.error("Select the delivery point on the map so the driver can navigate.");
+  }
+
+  if (!quantity || quantity < 1) return toast.error("Enter quantity");
     setComputing(true);
     try {
       const distanceKm = roadDistanceKm ?? (coords
