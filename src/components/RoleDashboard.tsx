@@ -1,4 +1,4 @@
-"./DriverNavigationButtons"
+import { DriverNavigationButtons } from "./DriverNavigationButtons";
 import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
