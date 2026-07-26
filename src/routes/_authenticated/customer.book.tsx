@@ -69,13 +69,13 @@ function BookDelivery() {
       try {
         const { getRoute } = await import("@/lib/routing.functions");
         const r = await getRoute({
-          data: {
-            startLat: PICKUP_POINT.lat,
-            startLng: PICKUP_POINT.lng,
-            destLat: coords.lat,
-            destLng: coords.lng,
-          },
-        });
+  data: {
+    startLat: PICKUP_POINT.lat,
+    startLng: PICKUP_POINT.lng,
+    destLat: coords.lat,
+    destLng: coords.lng,
+  },
+});
         if (!cancelled && typeof r.distanceKm === "number") {
           setRoadDistanceKm(r.distanceKm);
         }
@@ -188,24 +188,57 @@ const goToOffer = async () => {
   };
 
   const confirm = async () => {
-    if (!offerData) return;
-    setPosting(true);
-    const { data, error } = await supabase.from("jobs").insert({
+  if (!offerData) return;
+
+  if (!coords) {
+    setStep(2);
+    return toast.error("Select the delivery point on the map before confirming.");
+  }
+
+  setPosting(true);
+
+  const { data, error } = await supabase
+    .from("jobs")
+    .insert({
       customer_id: userId!,
+
       material,
+
       custom_material: null,
+
       quantity_m3: quantity,
+
+      // Existing delivery fields
       delivery_address: address.trim(),
-      delivery_lat: coords?.lat ?? null,
-      delivery_lng: coords?.lng ?? null,
+      delivery_lat: coords.lat,
+      delivery_lng: coords.lng,
+
+      // New fields for driver GPS navigation
+      pickup_address: PICKUP_ADDRESS,
+      pickup_lat: PICKUP_POINT.lat,
+      pickup_lng: PICKUP_POINT.lng,
+
+      dropoff_address: address.trim(),
+      dropoff_lat: coords.lat,
+      dropoff_lng: coords.lng,
+
       budget: offer,
+
       preferred_date: date || null,
+
       notes: notes.trim() || null,
-    } as any).select().single();
-    setPosting(false);
-    if (error) return toast.error(error.message);
-    toast.success("Booking confirmed! Searching for trucks…");
-    nav({ to: "/jobs/$id", params: { id: data.id } });
+    } as any)
+    .select()
+    .single();
+
+  setPosting(false);
+
+  if (error) return toast.error(error.message);
+
+  toast.success("Booking confirmed! Searching for trucks…");
+
+  nav({ to: "/jobs/$id", params: { id: data.id } });
+};
   };
 
   const goBack = () => {
