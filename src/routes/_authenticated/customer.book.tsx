@@ -140,7 +140,7 @@ function BookDelivery() {
   const canNext = () => {
     if (step === 0) return !!material;
     if (step === 1) return quantity >= 1 && quantity <= 30;
-    if (step === 2) return address.trim().length > 2;
+    if (step === 2) return address.trim().length > 2 && !!coords;
     if (step === 3) return true; // optional
     if (step === 4) return true; // optional
     return true;
