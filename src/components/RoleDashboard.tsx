@@ -141,15 +141,24 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
         </div>
 
 
-        <Section title={isDriver ? "Open jobs" : "Recent jobs"} action={
-          <Link to="/jobs" className="text-xs font-semibold text-primary uppercase tracking-wide">See all</Link>
-        }>
-          {(jobs ?? []).length === 0 ? (
-            <EmptyState icon={Truck} title="Nothing here yet" hint={isCustomer ? "Post your first job to get bids." : "No open jobs in your area right now."} />
-          ) : (
-           <div className="space-y-3">
-            {jobs!.map((j) => {
-               const job = j as any;
+     <Section
+  title={isDriver ? "Open jobs" : "Recent jobs"}
+  action={
+    <Link to="/jobs" className="text-xs font-semibold text-primary uppercase tracking-wide">
+      See all
+    </Link>
+  }
+>
+  {(jobs ?? []).length === 0 ? (
+    <EmptyState
+      icon={Truck}
+      title="Nothing here yet"
+      hint={isCustomer ? "Post your first job to get bids." : "No open jobs in your area right now."}
+    />
+  ) : (
+       <div className="space-y-3">
+  {jobs!.map((j) => {
+    const job = j as any;
 
     return (
       <div key={job.id} className="space-y-2">
@@ -158,18 +167,21 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
         {isDriver && (
           <DriverNavigationButtons
             pickup={{
-              lat: job.pickup_lat ?? job.pickupLat,
-              lng: job.pickup_lng ?? job.pickupLng,
+              lat: job.pickup_lat ?? -17.8292,
+              lng: job.pickup_lng ?? 31.0522,
             }}
             dropoff={{
-              lat: job.dropoff_lat ?? job.dropoffLat,
-              lng: job.dropoff_lng ?? job.dropoffLng,
+              lat: job.dropoff_lat ?? job.delivery_lat,
+              lng: job.dropoff_lng ?? job.delivery_lng,
             }}
-            pickupLabel={job.pickup_address ?? job.pickupAddress ?? "Pickup"}
-            dropoffLabel={job.dropoff_address ?? job.dropoffAddress ?? "Drop-off"}
+            pickupLabel={job.pickup_address ?? "Harare CBD supplier pickup point"}
+            dropoffLabel={job.dropoff_address ?? job.delivery_address ?? "Drop-off"}
           />
         )}
       </div>
+    );
+  })}
+</div>
     );
   })}
 </div> 
