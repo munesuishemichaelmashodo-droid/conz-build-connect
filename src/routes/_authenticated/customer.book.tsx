@@ -30,7 +30,7 @@ const BOOKABLE_MATERIALS = MATERIALS.filter((m) => m.value !== "custom");
 const FUEL_LITRES_PER_100KM = 32;
 // Default supplier pickup point (Harare CBD) — used until per-supplier pickup is added.
 const PICKUP_POINT = { lat: -17.8292, lng: 31.0522 };
-
+const PICKUP_ADDRESS = "Harare CBD supplier pickup point";
 // Step indexes: 0=material, 1=quantity, 2=address, 3=date, 4=notes+review, 5=offer
 const STEPS = [
   { key: "material", title: "Material" },
