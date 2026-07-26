@@ -147,9 +147,32 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
           {(jobs ?? []).length === 0 ? (
             <EmptyState icon={Truck} title="Nothing here yet" hint={isCustomer ? "Post your first job to get bids." : "No open jobs in your area right now."} />
           ) : (
-            <div className="space-y-2">
-              {jobs!.map((j) => <JobCard key={j.id} j={j} />)}
-            </div>
+           <div className="space-y-3">
+            {jobs!.map((j) => {
+               const job = j as any;
+
+    return (
+      <div key={job.id} className="space-y-2">
+        <JobCard j={j} />
+
+        {isDriver && (
+          <DriverNavigationButtons
+            pickup={{
+              lat: job.pickup_lat ?? job.pickupLat,
+              lng: job.pickup_lng ?? job.pickupLng,
+            }}
+            dropoff={{
+              lat: job.dropoff_lat ?? job.dropoffLat,
+              lng: job.dropoff_lng ?? job.dropoffLng,
+            }}
+            pickupLabel={job.pickup_address ?? job.pickupAddress ?? "Pickup"}
+            dropoffLabel={job.dropoff_address ?? job.dropoffAddress ?? "Drop-off"}
+          />
+        )}
+      </div>
+    );
+  })}
+</div> 
           )}
         </Section>
       </div>
