@@ -283,11 +283,19 @@ function BookDelivery() {
         {step === 2 && (
           <motion.div key="s-addr" {...anim} className="space-y-5 mt-6">
             <Header icon={MapPin} title="Where to?" hint="We'll match you with the closest tipper truck." />
-            <AddressPicker
-              value={address}
-              onChange={(a, c) => {
-                setAddress(a);
-                if (c) setCoords(c);
+           <AddressPicker
+  value={address}
+  onChange={(a, c) => {
+    setAddress(a);
+    setCoords(c ?? null);
+  }}
+/>
+
+{address.trim().length > 2 && !coords && (
+  <p className="text-xs text-destructive">
+    Please select a map result or pin the delivery point so the driver can navigate accurately.
+  </p>
+)}
               }}
             />
             {suggestion && (
