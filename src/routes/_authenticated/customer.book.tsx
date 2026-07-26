@@ -369,20 +369,41 @@ const confirm = async () => {
           </motion.div>
         )}
 
-        {step === 4 && (
-          <motion.div key="s-notes" {...anim} className="space-y-5 mt-6">
-            <Header icon={StickyNote} title="Anything else?" hint="Add notes for the driver, then get your AI offer." />
-            <div>
-              <Label htmlFor="notes">Notes (optional)</Label>
-              <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} maxLength={300} placeholder="Access instructions, contact person, gate code…" />
-            </div>
-            <div className="rounded-2xl bg-card border p-4 space-y-2 text-sm">
-              <Row icon={Package} label={matPrice?.label ?? "Material"} value={`${quantity} m³`} />
-              <Row icon={MapPin} label="Delivery to" value={address || "—"} />
-              <Row icon={CalendarIcon} label="Preferred date" value={date || "As soon as possible"} />
-            </div>
-          </motion.div>
-        )}
+{step === 4 && (
+  <motion.div key="s-notes" {...anim} className="space-y-5 mt-6">
+    <Header
+      icon={StickyNote}
+      title="Anything else?"
+      hint="Add notes for the driver, then get your AI offer."
+    />
+
+    <div>
+      <Label htmlFor="notes">Notes (optional)</Label>
+      <Textarea
+        id="notes"
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        rows={3}
+        maxLength={300}
+        placeholder="Access instructions, contact person, gate code…"
+      />
+    </div>
+
+    <div className="rounded-2xl bg-card border p-4 space-y-2 text-sm">
+      <Row
+        icon={Package}
+        label={matPrice?.label ?? "Material"}
+        value={`${quantity} m³`}
+      />
+      <Row icon={MapPin} label="Delivery to" value={address || "—"} />
+      <Row
+        icon={CalendarIcon}
+        label="Preferred date"
+        value={date || "As soon as possible"}
+      />
+    </div>
+  </motion.div>
+)}
 
         {step === 5 && offerData && (
           <motion.div key="s-offer" {...anim} className="space-y-5 mt-6">
