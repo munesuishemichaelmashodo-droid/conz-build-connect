@@ -140,8 +140,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
           )}
         </div>
 
-
-     <Section
+<Section
   title={isDriver ? "Open jobs" : "Recent jobs"}
   action={
     <Link to="/jobs" className="text-xs font-semibold text-primary uppercase tracking-wide">
@@ -156,37 +155,34 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
       hint={isCustomer ? "Post your first job to get bids." : "No open jobs in your area right now."}
     />
   ) : (
-       <div className="space-y-3">
-  {jobs!.map((j) => {
-    const job = j as any;
+    <div className="space-y-3">
+      {jobs!.map((j) => {
+        const job = j as any;
 
-    return (
-      <div key={job.id} className="space-y-2">
-        <JobCard j={j} />
+        return (
+          <div key={job.id} className="space-y-2">
+            <JobCard j={j} />
 
-        {isDriver && (
-          <DriverNavigationButtons
-            pickup={{
-              lat: job.pickup_lat ?? -17.8292,
-              lng: job.pickup_lng ?? 31.0522,
-            }}
-            dropoff={{
-              lat: job.dropoff_lat ?? job.delivery_lat,
-              lng: job.dropoff_lng ?? job.delivery_lng,
-            }}
-            pickupLabel={job.pickup_address ?? "Harare CBD supplier pickup point"}
-            dropoffLabel={job.dropoff_address ?? job.delivery_address ?? "Drop-off"}
-          />
-        )}
-      </div>
-    );
-  })}
-</div>
-    );
-  })}
-</div> 
-          )}
-        </Section>
+            {isDriver && (
+              <DriverNavigationButtons
+                pickup={{
+                  lat: job.pickup_lat ?? -17.8292,
+                  lng: job.pickup_lng ?? 31.0522,
+                }}
+                dropoff={{
+                  lat: job.dropoff_lat ?? job.delivery_lat,
+                  lng: job.dropoff_lng ?? job.delivery_lng,
+                }}
+                pickupLabel={job.pickup_address ?? "Harare CBD supplier pickup point"}
+                dropoffLabel={job.dropoff_address ?? job.delivery_address ?? "Drop-off"}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  )}
+</Section>
       </div>
     </AppShell>
   );
