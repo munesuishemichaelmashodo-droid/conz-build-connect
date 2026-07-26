@@ -236,9 +236,7 @@ const confirm = async () => {
 
   nav({ to: "/jobs/$id", params: { id: data.id } });
 };
-  };
-
-  const goBack = () => {
+ const goBack = () => {
     if (step === 0) return nav({ to: "/customer" });
     if (step === 5) return setStep(4);
     setStep(step - 1);
