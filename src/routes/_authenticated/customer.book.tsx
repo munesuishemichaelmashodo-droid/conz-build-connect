@@ -186,8 +186,7 @@ const goToOffer = async () => {
     if (dir > 0 && proposed > offerData.max) { toast("Maximum offer reached."); return; }
     setOffer(proposed);
   };
-
-  const confirm = async () => {
+const confirm = async () => {
   if (!offerData) return;
 
   if (!coords) {
@@ -208,12 +207,10 @@ const goToOffer = async () => {
 
       quantity_m3: quantity,
 
-      // Existing delivery fields
       delivery_address: address.trim(),
       delivery_lat: coords.lat,
       delivery_lng: coords.lng,
 
-      // New fields for driver GPS navigation
       pickup_address: PICKUP_ADDRESS,
       pickup_lat: PICKUP_POINT.lat,
       pickup_lng: PICKUP_POINT.lng,
