@@ -8,8 +8,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import {
-  ArrowLeft, ChevronLeft, ChevronRight, Loader2, Minus, Plus, Sparkles,
-  Truck, Package, MapPin, CheckCircle2, Calendar as CalendarIcon, StickyNote,
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Minus,
+  Plus,
+  Sparkles,
+  Truck,
+  Package,
+  MapPin,
+  CheckCircle2,
+  Calendar as CalendarIcon,
+  StickyNote,
+  type LucideIcon,
 } from "lucide-react";
 import { MATERIALS, type MaterialCategory, money } from "@/lib/domain";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,12 +38,14 @@ export const Route = createFileRoute("/_authenticated/customer/book")({
 
 const BOOKABLE_MATERIALS = MATERIALS.filter((m) => m.value !== "custom");
 
-// Average tipper truck fuel consumption (litres per 100 km).
+// Average tipper truck fuel consumption, litres per 100 km.
 const FUEL_LITRES_PER_100KM = 32;
-// Default supplier pickup point (Harare CBD) — used until per-supplier pickup is added.
+
+// Default supplier pickup point, Harare CBD.
+// Later this can become a real supplier pickup location.
 const PICKUP_POINT = { lat: -17.8292, lng: 31.0522 };
 const PICKUP_ADDRESS = "Harare CBD supplier pickup point";
-// Step indexes: 0=material, 1=quantity, 2=address, 3=date, 4=notes+review, 5=offer
+
 const STEPS = [
   { key: "material", title: "Material" },
   { key: "quantity", title: "Quantity" },
@@ -43,10 +57,10 @@ const STEPS = [
 function BookDelivery() {
   const { userId, is } = useAuth();
   const nav = useNavigate();
+
   const runOffer = useServerFn(computeOffer);
   const runExplain = useServerFn(explainOffer);
 
-  // 0..4 are input steps; 5 is the offer screen.
   const [step, setStep] = useState<number>(0);
   const [address, setAddress] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -60,28 +74,40 @@ function BookDelivery() {
   const [posting, setPosting] = useState(false);
   const [roadDistanceKm, setRoadDistanceKm] = useState<number | null>(null);
 
-  // Fetch real driving distance (pickup → destination) via the quick-responder
-  // edge function so pricing reflects road distance, not straight-line.
   useEffect(() => {
-    if (!coords) { setRoadDistanceKm(null); return; }
+    if (!coords) {
+      setRoadDistanceKm(null);
+      return;
+    }
+
     let cancelled = false;
-    (async () => {
+
+    async function loadRoute() {
       try {
         const { getRoute } = await import("@/lib/routing.functions");
+
         const r = await getRoute({
-  data: {
-    startLat: PICKUP_POINT.lat,
-    startLng: PICKUP_POINT.lng,
-    destLat: coords.lat,
-    destLng: coords.lng,
-  },
-});
+          data: {
+            startLat: PICKUP_POINT.lat,
+            startLng: PICKUP_POINT.lng,
+            destLat: coords.lat,
+            destLng: coords.lng,
+          },
+        });
+
         if (!cancelled && typeof r.distanceKm === "number") {
           setRoadDistanceKm(r.distanceKm);
         }
-      } catch { /* fall back to haversine */ }
-    })();
-    return () => { cancelled = true; };
+      } catch {
+        // Fall back to haversine.
+      }
+    }
+
+    loadRoute();
+
+    return () => {
+      cancelled = true;
+    };
   }, [coords]);
 
   const { data: matPrice } = useQuery({
@@ -92,6 +118,7 @@ function BookDelivery() {
         .select("min_price,max_price,label")
         .eq("material", material)
         .maybeSingle();
+
       return data;
     },
   });
@@ -99,7 +126,12 @@ function BookDelivery() {
   const { data: dieselPrice } = useQuery({
     queryKey: ["diesel-price"],
     queryFn: async () => {
-      const { data } = await supabase.from("system_settings").select("value").eq("key", "diesel_price_per_liter").maybeSingle();
+      const { data } = await supabase
+        .from("system_settings")
+        .select("value")
+        .eq("key", "diesel_price_per_liter")
+        .maybeSingle();
+
       return Number(data?.value ?? 1.87);
     },
   });
@@ -107,31 +139,50 @@ function BookDelivery() {
   const { data: commissionRate } = useQuery({
     queryKey: ["commission-rate"],
     queryFn: async () => {
-      const { data } = await supabase.from("system_settings").select("value").eq("key", "commission_rate").maybeSingle();
+      const { data } = await supabase
+        .from("system_settings")
+        .select("value")
+        .eq("key", "commission_rate")
+        .maybeSingle();
+
       return Number(data?.value ?? 7);
     },
   });
 
   const suggestion = useMemo(() => {
     if (!matPrice || !coords) return null;
+
     const distanceKm = roadDistanceKm ?? haversineKm(PICKUP_POINT, coords);
     const midMaterial = (Number(matPrice.min_price) + Number(matPrice.max_price)) / 2;
-    const fuelCost = distanceKm * (FUEL_LITRES_PER_100KM / 100) * Number(dieselPrice ?? 1.87);
+    const fuelCost =
+      distanceKm * (FUEL_LITRES_PER_100KM / 100) * Number(dieselPrice ?? 1.87);
     const commission = (midMaterial + fuelCost) * (Number(commissionRate ?? 7) / 100);
     const total = midMaterial + fuelCost + commission;
     const low = Math.max(Number(matPrice.min_price), Math.round(total * 0.9));
     const high = Math.min(Number(matPrice.max_price), Math.round(total * 1.1));
-    return { low, high, distanceKm, fuelCost, commission, total: Math.round(total) };
+
+    return {
+      low,
+      high,
+      distanceKm,
+      fuelCost,
+      commission,
+      total: Math.round(total),
+    };
   }, [matPrice, coords, dieselPrice, commissionRate, roadDistanceKm]);
 
-  useEffect(() => { void suggestion; }, [suggestion]);
+  useEffect(() => {
+    void suggestion;
+  }, [suggestion]);
 
   if (!is("customer")) {
     return (
       <AppShell title="Book delivery">
         <div className="text-center py-10 space-y-3">
           <p className="text-muted-foreground">Only customer accounts can book deliveries.</p>
-          <Button asChild variant="outline"><Link to="/profile">Go to profile</Link></Button>
+          <Button asChild variant="outline">
+            <Link to="/profile">Go to profile</Link>
+          </Button>
         </div>
       </AppShell>
     );
@@ -141,34 +192,42 @@ function BookDelivery() {
     if (step === 0) return !!material;
     if (step === 1) return quantity >= 1 && quantity <= 30;
     if (step === 2) return address.trim().length > 2 && !!coords;
-    if (step === 3) return true; // optional
-    if (step === 4) return true; // optional
+    if (step === 3) return true;
+    if (step === 4) return true;
     return true;
   };
 
-const goToOffer = async () => {
-  if (!address.trim()) return toast.error("Enter the delivery address");
+  const goToOffer = async () => {
+    if (!address.trim()) return toast.error("Enter the delivery address");
 
-  if (!coords) {
-    setStep(2);
-    return toast.error("Select the delivery point on the map so the driver can navigate.");
-  }
+    if (!coords) {
+      setStep(2);
+      return toast.error("Select the delivery point on the map so the driver can navigate.");
+    }
 
-  if (!quantity || quantity < 1) return toast.error("Enter quantity");
+    if (!quantity || quantity < 1) return toast.error("Enter quantity");
+
     setComputing(true);
+
     try {
-      const distanceKm = roadDistanceKm ?? (coords
-        ? haversineKm({ lat: -17.8252, lng: 31.0335 }, coords)
-        : 15);
-      const result = await runOffer({ data: { material, quantity, distanceKm, address } });
+      const distanceKm =
+        roadDistanceKm ?? (coords ? haversineKm(PICKUP_POINT, coords) : 15);
+
+      const result = await runOffer({
+        data: { material, quantity, distanceKm, address },
+      });
+
       setOfferData(result);
       setOffer(result.offer);
       setStep(5);
+
       runExplain({ data: { material, quantity, distanceKm } })
         .then(({ explanation }) => {
           setOfferData((prev) => (prev ? { ...prev, explanation } : prev));
         })
-        .catch(() => { /* keep fallback */ });
+        .catch(() => {
+          // Keep fallback explanation.
+        });
     } catch (e: any) {
       toast.error(e?.message ?? "Could not calculate offer");
     } finally {
@@ -180,63 +239,71 @@ const goToOffer = async () => {
 
   const adjust = (dir: -1 | 1) => {
     if (!offerData) return;
+
     const s = nextStep(offer);
     const proposed = offer + dir * s;
-    if (dir < 0 && proposed < offerData.min) { toast("Minimum offer reached."); return; }
-    if (dir > 0 && proposed > offerData.max) { toast("Maximum offer reached."); return; }
+
+    if (dir < 0 && proposed < offerData.min) {
+      toast("Minimum offer reached.");
+      return;
+    }
+
+    if (dir > 0 && proposed > offerData.max) {
+      toast("Maximum offer reached.");
+      return;
+    }
+
     setOffer(proposed);
   };
-const confirm = async () => {
-  if (!offerData) return;
 
-  if (!coords) {
-    setStep(2);
-    return toast.error("Select the delivery point on the map before confirming.");
-  }
+  const confirm = async () => {
+    if (!offerData) return;
 
-  setPosting(true);
+    if (!coords) {
+      setStep(2);
+      return toast.error("Select the delivery point on the map before confirming.");
+    }
 
-  const { data, error } = await supabase
-    .from("jobs")
-    .insert({
-      customer_id: userId!,
+    setPosting(true);
 
-      material,
+    const { data, error } = await supabase
+      .from("jobs")
+      .insert({
+        customer_id: userId!,
 
-      custom_material: null,
+        material,
+        custom_material: null,
+        quantity_m3: quantity,
 
-      quantity_m3: quantity,
+        delivery_address: address.trim(),
+        delivery_lat: coords.lat,
+        delivery_lng: coords.lng,
 
-      delivery_address: address.trim(),
-      delivery_lat: coords.lat,
-      delivery_lng: coords.lng,
+        pickup_address: PICKUP_ADDRESS,
+        pickup_lat: PICKUP_POINT.lat,
+        pickup_lng: PICKUP_POINT.lng,
 
-      pickup_address: PICKUP_ADDRESS,
-      pickup_lat: PICKUP_POINT.lat,
-      pickup_lng: PICKUP_POINT.lng,
+        dropoff_address: address.trim(),
+        dropoff_lat: coords.lat,
+        dropoff_lng: coords.lng,
 
-      dropoff_address: address.trim(),
-      dropoff_lat: coords.lat,
-      dropoff_lng: coords.lng,
+        budget: offer,
+        preferred_date: date || null,
+        notes: notes.trim() || null,
+      } as any)
+      .select()
+      .single();
 
-      budget: offer,
+    setPosting(false);
 
-      preferred_date: date || null,
+    if (error) return toast.error(error.message);
 
-      notes: notes.trim() || null,
-    } as any)
-    .select()
-    .single();
+    toast.success("Booking confirmed! Searching for trucks…");
 
-  setPosting(false);
+    nav({ to: "/jobs/$id", params: { id: data.id } });
+  };
 
-  if (error) return toast.error(error.message);
-
-  toast.success("Booking confirmed! Searching for trucks…");
-
-  nav({ to: "/jobs/$id", params: { id: data.id } });
-};
- const goBack = () => {
+  const goBack = () => {
     if (step === 0) return nav({ to: "/customer" });
     if (step === 5) return setStep(4);
     setStep(step - 1);
@@ -260,6 +327,7 @@ const confirm = async () => {
         {step === 0 && (
           <motion.div key="s-material" {...anim} className="space-y-5 mt-6">
             <Header icon={Package} title="What are we moving?" hint="Pick the material you need delivered." />
+
             <div className="grid grid-cols-2 gap-2">
               {BOOKABLE_MATERIALS.map((m) => (
                 <button
@@ -273,7 +341,9 @@ const confirm = async () => {
                       : "hover:border-primary/40",
                   )}
                 >
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{m.group}</div>
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    {m.group}
+                  </div>
                   <div className="font-display font-bold text-sm">{m.label}</div>
                 </button>
               ))}
@@ -284,6 +354,7 @@ const confirm = async () => {
         {step === 1 && (
           <motion.div key="s-qty" {...anim} className="space-y-5 mt-6">
             <Header icon={Truck} title="How much?" hint="One tipper load carries 10–15 m³." />
+
             <div className="flex gap-2">
               {[10, 12, 14, 15].map((v) => (
                 <button
@@ -292,13 +363,16 @@ const confirm = async () => {
                   onClick={() => setQuantity(v)}
                   className={cn(
                     "flex-1 rounded-xl border py-3 font-display font-bold",
-                    quantity === v ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground",
+                    quantity === v
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "text-muted-foreground",
                   )}
                 >
                   {v} m³
                 </button>
               ))}
             </div>
+
             <div>
               <Label htmlFor="qty">Custom quantity (m³)</Label>
               <Input
@@ -316,34 +390,42 @@ const confirm = async () => {
 
         {step === 2 && (
           <motion.div key="s-addr" {...anim} className="space-y-5 mt-6">
-            <Header icon={MapPin} title="Where to?" hint="We'll match you with the closest tipper truck." />
-           <AddressPicker
-  value={address}
-  onChange={(a, c) => {
-    setAddress(a);
-    setCoords(c ?? null);
-  }}
-/>
+            <Header
+              icon={MapPin}
+              title="Where to?"
+              hint="We'll match you with the closest tipper truck."
+            />
 
-{address.trim().length > 2 && !coords && (
-  <p className="text-xs text-destructive">
-    Please select a map result or pin the delivery point so the driver can navigate accurately.
-  </p>
-)}
+            <AddressPicker
+              value={address}
+              onChange={(a, c) => {
+                setAddress(a);
+                setCoords(c ?? null);
               }}
             />
+
+            {address.trim().length > 2 && !coords && (
+              <p className="text-xs text-destructive">
+                Please select a map result or pin the delivery point so the driver can navigate accurately.
+              </p>
+            )}
+
             {suggestion && (
               <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-1.5">
                 <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-primary font-semibold">
                   <Sparkles className="w-3 h-3" /> Suggested price range
                 </div>
+
                 <div className="font-display font-bold text-2xl">
-                  {money(suggestion.low)} <span className="text-muted-foreground text-lg">–</span> {money(suggestion.high)}
+                  {money(suggestion.low)}{" "}
+                  <span className="text-muted-foreground text-lg">–</span>{" "}
+                  {money(suggestion.high)}
                 </div>
+
                 <p className="text-xs text-muted-foreground">
                   Based on {matPrice?.label} pricing, ~{suggestion.distanceKm.toFixed(1)} km from pickup,
-                  fuel at {FUEL_LITRES_PER_100KM} L/100 km × ${Number(dieselPrice ?? 1.87).toFixed(2)}/L,
-                  plus {commissionRate ?? 7}% platform commission.
+                  fuel at {FUEL_LITRES_PER_100KM} L/100 km × $
+                  {Number(dieselPrice ?? 1.87).toFixed(2)}/L, plus {commissionRate ?? 7}% platform commission.
                 </p>
               </div>
             )}
@@ -352,11 +434,22 @@ const confirm = async () => {
 
         {step === 3 && (
           <motion.div key="s-date" {...anim} className="space-y-5 mt-6">
-            <Header icon={CalendarIcon} title="When do you need it?" hint="Optional — leave blank for as soon as possible." />
+            <Header
+              icon={CalendarIcon}
+              title="When do you need it?"
+              hint="Optional — leave blank for as soon as possible."
+            />
+
             <div>
               <Label htmlFor="date">Preferred date</Label>
-              <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Input
+                id="date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
             </div>
+
             {date && (
               <button
                 type="button"
@@ -369,41 +462,41 @@ const confirm = async () => {
           </motion.div>
         )}
 
-{step === 4 && (
-  <motion.div key="s-notes" {...anim} className="space-y-5 mt-6">
-    <Header
-      icon={StickyNote}
-      title="Anything else?"
-      hint="Add notes for the driver, then get your AI offer."
-    />
+        {step === 4 && (
+          <motion.div key="s-notes" {...anim} className="space-y-5 mt-6">
+            <Header
+              icon={StickyNote}
+              title="Anything else?"
+              hint="Add notes for the driver, then get your AI offer."
+            />
 
-    <div>
-      <Label htmlFor="notes">Notes (optional)</Label>
-      <Textarea
-        id="notes"
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        rows={3}
-        maxLength={300}
-        placeholder="Access instructions, contact person, gate code…"
-      />
-    </div>
+            <div>
+              <Label htmlFor="notes">Notes (optional)</Label>
+              <Textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                maxLength={300}
+                placeholder="Access instructions, contact person, gate code…"
+              />
+            </div>
 
-    <div className="rounded-2xl bg-card border p-4 space-y-2 text-sm">
-      <Row
-        icon={Package}
-        label={matPrice?.label ?? "Material"}
-        value={`${quantity} m³`}
-      />
-      <Row icon={MapPin} label="Delivery to" value={address || "—"} />
-      <Row
-        icon={CalendarIcon}
-        label="Preferred date"
-        value={date || "As soon as possible"}
-      />
-    </div>
-  </motion.div>
-)}
+            <div className="rounded-2xl bg-card border p-4 space-y-2 text-sm">
+              <Row
+                icon={Package}
+                label={matPrice?.label ?? "Material"}
+                value={`${quantity} m³`}
+              />
+              <Row icon={MapPin} label="Delivery to" value={address || "—"} />
+              <Row
+                icon={CalendarIcon}
+                label="Preferred date"
+                value={date || "As soon as possible"}
+              />
+            </div>
+          </motion.div>
+        )}
 
         {step === 5 && offerData && (
           <motion.div key="s-offer" {...anim} className="space-y-5 mt-6">
@@ -411,7 +504,11 @@ const confirm = async () => {
               <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-primary font-semibold">
                 <Sparkles className="w-3 h-3" /> AI Recommended
               </div>
-              <div className="text-[11px] uppercase tracking-widest text-white/60 mt-3">Your offer</div>
+
+              <div className="text-[11px] uppercase tracking-widest text-white/60 mt-3">
+                Your offer
+              </div>
+
               <motion.div
                 key={offer}
                 initial={{ scale: 0.9, opacity: 0 }}
@@ -421,7 +518,10 @@ const confirm = async () => {
               >
                 {money(offer)}
               </motion.div>
-              <p className="text-xs text-white/70 mt-3 max-w-xs mx-auto">{offerData.explanation}</p>
+
+              <p className="text-xs text-white/70 mt-3 max-w-xs mx-auto">
+                {offerData.explanation}
+              </p>
 
               <div className="mt-6 flex items-center justify-center gap-6">
                 <button
@@ -432,6 +532,7 @@ const confirm = async () => {
                 >
                   <Minus className="w-6 h-6" />
                 </button>
+
                 <button
                   type="button"
                   onClick={() => adjust(1)}
@@ -446,7 +547,11 @@ const confirm = async () => {
             <div className="rounded-2xl bg-card border p-4 space-y-2 text-sm">
               <Row icon={Package} label={offerData.label} value={`${quantity} m³`} />
               <Row icon={MapPin} label="Delivery to" value={address} />
-              <Row icon={Truck} label="Estimated distance" value={`${offerData.distanceKm} km`} />
+              <Row
+                icon={Truck}
+                label="Estimated distance"
+                value={`${offerData.distanceKm} km`}
+              />
             </div>
 
             <Button
@@ -454,8 +559,15 @@ const confirm = async () => {
               disabled={posting}
               className="w-full h-14 rounded-2xl font-display uppercase tracking-wide text-base"
             >
-              {posting ? <Loader2 className="w-5 h-5 animate-spin" /> : (<>Confirm booking <CheckCircle2 className="w-5 h-5 ml-2" /></>)}
+              {posting ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <>
+                  Confirm booking <CheckCircle2 className="w-5 h-5 ml-2" />
+                </>
+              )}
             </Button>
+
             <p className="text-[11px] text-center text-muted-foreground">
               We'll immediately search for the closest verified tipper truck.
             </p>
@@ -473,6 +585,7 @@ const confirm = async () => {
           >
             <ChevronLeft className="w-4 h-4 mr-1" /> Back
           </Button>
+
           {isReview ? (
             <Button
               onClick={goToOffer}
@@ -480,9 +593,13 @@ const confirm = async () => {
               className="flex-1 h-12 font-display uppercase tracking-wide"
             >
               {computing ? (
-                <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Calculating…</>
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" /> Calculating…
+                </>
               ) : (
-                <>Get AI offer <Sparkles className="w-4 h-4 ml-2" /></>
+                <>
+                  Get AI offer <Sparkles className="w-4 h-4 ml-2" />
+                </>
               )}
             </Button>
           ) : (
@@ -523,7 +640,15 @@ function Stepper({ current, total }: { current: number; total: number }) {
   );
 }
 
-function Header({ icon: Icon, title, hint }: { icon: typeof MapPin; title: string; hint: string }) {
+function Header({
+  icon: Icon,
+  title,
+  hint,
+}: {
+  icon: LucideIcon;
+  title: string;
+  hint: string;
+}) {
   return (
     <div>
       <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-3">
@@ -535,12 +660,22 @@ function Header({ icon: Icon, title, hint }: { icon: typeof MapPin; title: strin
   );
 }
 
-function Row({ icon: Icon, label, value }: { icon: typeof MapPin; label: string; value: string }) {
+function Row({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+}) {
   return (
     <div className="flex items-center gap-3">
       <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
       <div className="flex-1 min-w-0">
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          {label}
+        </div>
         <div className="text-sm truncate">{value}</div>
       </div>
     </div>
@@ -551,10 +686,12 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
   const R = 6371;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
   const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+
   const s =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((a.lat * Math.PI) / 180) *
       Math.cos((b.lat * Math.PI) / 180) *
       Math.sin(dLng / 2) ** 2;
+
   return 2 * R * Math.asin(Math.sqrt(s));
 }
