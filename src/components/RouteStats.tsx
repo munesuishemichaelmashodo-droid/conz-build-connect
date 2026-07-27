@@ -1,4 +1,3 @@
-import { RouteStats } from "@/components/RouteStats";
 import { useEffect, useState } from "react";
 import { Clock, Loader2, MapPin, Navigation, Wallet } from "lucide-react";
 import { formatArrival, formatDistance, formatDuration, formatFare } from "@/lib/format";
