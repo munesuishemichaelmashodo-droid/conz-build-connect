@@ -232,5 +232,5 @@ export function DriverRouteView({ jobId }: { jobId: string }) {
       </div>
     );
   }
-  return <RouteMap driverLocation={origin} initialDestination={destination} />;
+return <RouteMap driverLocation={origin} initialDestination={destination} showNavigateButton />
 }
