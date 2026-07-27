@@ -115,7 +115,7 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
           <span className="text-muted-foreground">No destination selected yet.</span>
         )}
       </div>
-      {showNavigateButton && destination && (
+     {showNavigateButton && destination && (
         <div className="px-4 pb-4">
           
             href={`https://www.google.com/maps/dir/?api=1&destination=${destination.lat},${destination.lng}&travelmode=driving`}
