@@ -117,8 +117,10 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
       </div>
      {showNavigateButton && destination && (
         <div className="px-4 pb-4">
-          
-            href={`https://www.google.com/maps/dir/?api=1&destination=${destination.lat},${destination.lng}&travelmode=driving`}
+          <a
+href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+  `${destination.lat},${destination.lng}`
+)}&travelmode=driving`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 w-full rounded-xl bg-primary text-primary-foreground font-semibold text-sm py-2.5 hover:opacity-90 transition"
