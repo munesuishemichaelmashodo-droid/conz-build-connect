@@ -79,7 +79,7 @@ function BookDelivery() {
       setRoadDistanceKm(null);
       return;
     }
-
+    const dest = coords;
     let cancelled = false;
 
     async function loadRoute() {
