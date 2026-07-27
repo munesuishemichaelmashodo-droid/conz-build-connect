@@ -27,9 +27,10 @@ type Props = {
   initialDestination?: { lat: number; lng: number } | null;
   onRoute?: (r: RouteResult) => void;
   height?: number;
+  showNavigateButton?: boolean;
 };
 
-export function RouteMap({ driverLocation, initialDestination = null, onRoute, height = 320 }: Props) {
+export function RouteMap({ driverLocation, initialDestination = null, onRoute, height = 320, showNavigateButton = false }: Props) {
   const [destination, setDestination] = useState<{ lat: number; lng: number } | null>(initialDestination);
   const [route, setRoute] = useState<RouteResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -96,10 +97,10 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
           ) : null}
         </MapContainer>
       </div>
-      <div className="px-4 py-3 flex items-center justify-between text-xs">
+<div className="px-4 py-3 flex items-center justify-between text-xs">
         {loading ? (
           <span className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="w-3 h-3 animate-spin" /> Calculating route…
+            <Loader2 className="w-3 h-3 animate-spin" /> Calculating routeâ€¦
           </span>
         ) : route ? (
           <>
@@ -114,8 +115,19 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
           <span className="text-muted-foreground">No destination selected yet.</span>
         )}
       </div>
+      {showNavigateButton && destination && (
+        <div className="px-4 pb-4">
+          
+            href={`https://www.google.com/maps/dir/?api=1&destination=${destination.lat},${destination.lng}&travelmode=driving`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full rounded-xl bg-primary text-primary-foreground font-semibold text-sm py-2.5 hover:opacity-90 transition"
+          >
+            <Navigation2 className="w-4 h-4" /> Navigate with Google Maps
+          </a>
+        </div>
+      )}
     </div>
   );
 }
-
 export default RouteMap;
