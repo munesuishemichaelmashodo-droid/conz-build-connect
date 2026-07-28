@@ -22,7 +22,7 @@ function TermsPage() {
         </Link>
 
         <header className="mt-6 mb-8">
-          <div className="text-xs text-muted-foreground uppercase tracking-widest">Con Z Connect</div>
+          <div className="text-xs text-muted-foreground uppercase tracking-widest">Con Z Build Connect</div>
           <h1 className="font-display font-bold text-3xl uppercase tracking-tight">Terms and Conditions</h1>
           <p className="text-xs text-muted-foreground mt-2">Last updated: 23 July 2026</p>
         </header>
