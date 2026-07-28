@@ -5,9 +5,9 @@ export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
       { title: "Terms and Conditions — Con Z" },
-      { name: "description", content: "Terms and Conditions governing use of the Con Z Connect construction logistics marketplace." },
+      { name: "description", content: "Terms and Conditions governing use of the Con Z Build Connect construction logistics marketplace." },
       { property: "og:title", content: "Terms and Conditions — Con Z" },
-      { property: "og:description", content: "Terms and Conditions governing use of the Con Z Connect construction logistics marketplace." },
+      { property: "og:description", content: "Terms and Conditions governing use of the Con Z Build Connect construction logistics marketplace." },
     ],
   }),
   component: TermsPage,
