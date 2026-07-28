@@ -94,6 +94,9 @@ function Welcome() {
         </div>
 
         <p className="text-center text-[11px] text-white/50 mt-6">Founded in Zimbabwe • Built for the industry</p>
+        <p className="text-center text-[11px] text-white/70 mt-2">
+          Contact: <a href="mailto:munesuishemichaelmashodo@gmail.com" className="underline">munesuishemichaelmashodo@gmail.com</a>
+        </p>
       </div>
     </div>
   );
