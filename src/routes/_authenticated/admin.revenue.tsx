@@ -237,12 +237,10 @@ function RevenueDashboard() {
           ))}
         </div>
         <div className="text-xs text-muted-foreground">
-          {filtered.length} events · {money(filtered.reduce((a, t) => a + Math.abs(Number(t.amount)), 0))} collected
-      </div>
+          {filtered.length} events • {money(filtered.reduce((a, t) => a + Math.abs(Number(t.amount)), 0))} collected
+        </div>
 
-      <ApprovalsSection profiles={profiles} />
-
-
+        <ApprovalsSection profiles={profiles} />
       </div>
 
       {/* Top drivers by commission */}
@@ -262,7 +260,7 @@ function RevenueDashboard() {
                   <div className="min-w-0">
                     <div className="font-semibold text-sm truncate">{p?.name ?? d.uid.slice(0, 8)}</div>
                     <div className="text-[11px] text-muted-foreground truncate">
-                      {p?.email ?? ""} · {d.count} jobs
+                      {p?.email ?? ""} • {d.count} jobs
                     </div>
                   </div>
                   <div className="font-display font-bold text-sm">{money(d.total)}</div>
@@ -292,6 +290,7 @@ type TopupReq = {
   status: string;
   created_at: string;
 };
+
 type WdReq = {
   id: string;
   user_id: string;
@@ -317,6 +316,7 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
       return (data ?? []) as TopupReq[];
     },
   });
+
   const { data: wds } = useQuery({
     queryKey: ["admin-withdrawals"],
     queryFn: async () => {
@@ -350,6 +350,7 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
     if (error) return toast.error(error.message);
     toast.success("Approved & wallet credited");
   };
+
   const reject = async (kind: "topup" | "withdrawal", id: string) => {
     const reason = window.prompt("Reason for rejection?") ?? "";
     if (!reason.trim()) return;
@@ -361,13 +362,58 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
 
   const pendingTopups = (topups ?? []).filter((r) => r.status === "pending");
   const pendingWds = (wds ?? []).filter((r) => r.status === "pending");
+
   const list = tab === "topups" ? topups ?? [] : wds ?? [];
+
+  // Exports the currently visible tab (top-ups or withdrawals) as a CSV ledger —
+  // the withdrawal export doubles as the payout-reconciliation sheet for accounting.
+  const exportApprovalsCsv = () => {
+    const isTopup = tab === "topups";
+    const header = isTopup
+      ? ["Date", "User", "Email", "Method", "Reference", "Amount (USD)", "Status"]
+      : ["Date", "User", "Email", "Method", "Destination", "Amount (USD)", "Status"];
+    const rows = [
+      header,
+      ...list.map((r) => {
+        const p = profiles?.get(r.user_id);
+        return [
+          new Date(r.created_at).toISOString(),
+          p?.name ?? r.user_id,
+          p?.email ?? "",
+          r.method,
+          isTopup ? (r as TopupReq).reference ?? "" : (r as WdReq).destination ?? "",
+          Number(r.amount).toFixed(2),
+          r.status,
+        ];
+      }),
+    ];
+    const csv = rows.map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `wallet-${tab}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Report downloaded");
+  };
 
   return (
     <div className="rounded-2xl border bg-card p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-display font-bold uppercase tracking-wide text-sm">Wallet approvals</h3>
+        {list.length > 0 && (
+          <button
+            onClick={exportApprovalsCsv}
+            className="rounded-lg bg-success text-success-foreground font-semibold px-3 py-1.5 text-xs"
+          >
+            <Download className="w-3.5 h-3.5 inline mr-1" /> Export CSV
+          </button>
+        )}
       </div>
+
       <div className="flex gap-1 rounded-xl bg-muted p-1">
         <button
           onClick={() => setTab("topups")}
@@ -429,7 +475,7 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
                       </div>
                     </div>
                     <div className="text-[11px] text-muted-foreground truncate">
-                      {r.method.toUpperCase()} · {dest || "—"} · {new Date(r.created_at).toLocaleString()}
+                      {r.method.toUpperCase()} • {dest || "—"} • {new Date(r.created_at).toLocaleString()}
                     </div>
                     <div className="mt-2 flex items-center justify-between gap-2">
                       <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase", statusTone[r.status])}>
@@ -462,4 +508,3 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
     </div>
   );
 }
-
