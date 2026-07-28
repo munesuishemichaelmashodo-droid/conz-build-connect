@@ -142,8 +142,9 @@ function PrivacyPage() {
 
           <Section title="10. Contact">
             <p>
-              For privacy questions or requests, contact us at <b>[contact email]</b> or
-              <b> [company postal address]</b>, Zimbabwe.
+              For privacy questions or requests, you can reach us at{" "}
+              <b>munesuishemichaelmashodo@gmail.com</b> or{" "}
+              <b>ngaatendwew@gmail.com</b>.
             </p>
           </Section>
 
