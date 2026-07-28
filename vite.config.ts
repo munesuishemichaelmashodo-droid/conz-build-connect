@@ -11,6 +11,28 @@ export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
   },
-
-  nitro: { preset: "vercel" },
+  nitro: {
+    preset: "vercel",
+    // Nitro leaves these as runtime imports and its file tracing does not copy
+    // `tslib` (a transitive dep of @supabase/functions-js) into the serverless
+    // bundle, causing ERR_MODULE_NOT_FOUND at boot and a 500 on every route.
+    // Inlining bundles them into the server output instead.
+    externals: {
+      inline: [
+        "tslib",
+        "@supabase/supabase-js",
+        "@supabase/functions-js",
+        "@supabase/auth-js",
+        "@supabase/postgrest-js",
+        "@supabase/realtime-js",
+        "@supabase/storage-js",
+      ],
+    },
+  },
+  vite: {
+    ssr: {
+      // Belt and braces: also stop Vite externalising them during SSR build.
+      noExternal: [/^@supabase\//, "tslib"],
+    },
+  },
 });
