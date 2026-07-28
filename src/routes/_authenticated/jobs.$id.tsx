@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge, Section } from "@/components/ui-bits";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, MessageCircle, Share2, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle } from "lucide-react";
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -17,10 +17,110 @@ import { DriverShareLocation, CustomerTrackMap, DriverRouteView } from "@/compon
 import { RadarSearch } from "@/components/RadarSearch";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 
-
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
   component: JobDetail,
 });
+
+// Build a wa.me deep link with a pre-filled message.
+// Normalizes ZW numbers: 0772123456 -> 263772123456.
+const waLink = (phone: string | null | undefined, text: string) => {
+  if (!phone) return null;
+  let p = phone.replace(/[^\d+]/g, "");
+  if (p.startsWith("+")) p = p.slice(1);
+  if (p.startsWith("00")) p = p.slice(2);
+  if (p.startsWith("0")) p = "263" + p.slice(1);
+  if (p.length < 9) return null;
+  return `https://wa.me/${p}?text=${encodeURIComponent(text)}`;
+};
+
+// WhatsApp panel: direct contact with the other party + shareable delivery summary.
+// "Share" needs no phone number — it forwards a formatted summary to any
+// WhatsApp contact or group (e.g. the foreman waiting on site).
+function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
+  const otherId = isOwner ? job.driver_id : job.customer_id;
+  const material = materialLabel(job.material as any, job.custom_material);
+  const ref = String(job.id).slice(0, 8);
+
+  const { data: other } = useQuery({
+    queryKey: ["wa-contact", job.id, otherId],
+    enabled: !!otherId,
+    retry: false,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id,full_name,phone")
+        .eq("id", otherId)
+        .maybeSingle();
+      // If the phone column or RLS blocks this read, degrade gracefully.
+      if (error) return null;
+      return data;
+    },
+  });
+
+  const name = other?.full_name ?? (isOwner ? "your driver" : "the customer");
+
+  const summary =
+    `ConZ delivery ${ref}: ${material}, ${Number(job.quantity_m3)} m³, ` +
+    `to ${job.delivery_address}. Status: ${job.status.replace("_", " ")}.` +
+    (job.final_price ? ` Agreed price: ${money(Number(job.final_price))}.` : "") +
+    (isOwner && other?.full_name ? ` Driver: ${other.full_name}.` : "");
+
+  const directText = isOwner
+    ? `Hi ${name}, about my ConZ delivery ${ref} (${material}).`
+    : `Hi ${name}, I'm your ConZ driver for delivery ${ref} (${material}).`;
+
+  const direct = waLink(other?.phone, directText);
+  const arrivedPickup = waLink(other?.phone, `${summary} I've arrived at the pickup point and I'm loading now.`);
+  const outsideNow = waLink(other?.phone, `${summary} I'm outside with your delivery — please send someone to receive it.`);
+  const share = `https://wa.me/?text=${encodeURIComponent(summary)}`;
+
+  return (
+    <div className="rounded-2xl bg-card border p-4 space-y-3">
+      <div className="font-display font-bold uppercase text-sm tracking-wide flex items-center gap-2">
+        <MessageCircle className="w-4 h-4 text-success" /> WhatsApp
+      </div>
+
+      {direct ? (
+        <div className="space-y-2">
+          <Button asChild variant="outline" className="w-full">
+            <a href={direct} target="_blank" rel="noreferrer">
+              <MessageCircle className="w-4 h-4 mr-2" />
+              Message {name} on WhatsApp
+            </a>
+          </Button>
+          {!isOwner && job.status === "accepted" && arrivedPickup && (
+            <Button asChild className="w-full bg-success text-success-foreground hover:bg-success/90">
+              <a href={arrivedPickup} target="_blank" rel="noreferrer">
+                I've arrived at pickup
+              </a>
+            </Button>
+          )}
+          {!isOwner && job.status === "in_progress" && outsideNow && (
+            <Button asChild className="w-full bg-success text-success-foreground hover:bg-success/90">
+              <a href={outsideNow} target="_blank" rel="noreferrer">
+                I'm outside with the delivery
+              </a>
+            </Button>
+          )}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          No WhatsApp number on their profile yet — use in-app chat below.
+        </p>
+      )}
+
+      <Button asChild variant="secondary" className="w-full">
+        <a href={share} target="_blank" rel="noreferrer">
+          <Share2 className="w-4 h-4 mr-2" />
+          Share this delivery on WhatsApp
+        </a>
+      </Button>
+      <p className="text-[11px] text-muted-foreground">
+        Share forwards a delivery summary to any WhatsApp contact or group — e.g. the foreman waiting on site.
+      </p>
+    </div>
+  );
+}
 
 function JobDetail() {
   const { id } = Route.useParams();
@@ -60,6 +160,7 @@ function JobDetail() {
   });
 
   const showRadar = !!job && job.customer_id === userId && job.status === "open" && (bids?.length ?? 0) === 0;
+
   const { data: nearbyDrivers } = useQuery({
     queryKey: ["nearby-drivers", id],
     enabled: showRadar,
@@ -98,9 +199,6 @@ function JobDetail() {
     qc.invalidateQueries({ queryKey: ["job", id] });
   };
 
-
-
-
   return (
     <AppShell title="Job">
       <Link to="/jobs" className="inline-flex items-center gap-1 text-sm text-muted-foreground mb-4">
@@ -109,7 +207,9 @@ function JobDetail() {
 
       <div className="space-y-4">
         <JobTimeline job={job} />
+
         {isOwner && job.status === "open" && (bids?.length ?? 0) === 0 && <RadarSearch etaMinutes={5} nearbyDrivers={nearbyDrivers} />}
+
         <div className="rounded-2xl bg-card border p-5 shadow-soft">
           <div className="flex items-start justify-between gap-3">
             <h1 className="font-display font-bold text-2xl">
@@ -117,6 +217,7 @@ function JobDetail() {
             </h1>
             <StatusBadge label={s.label} className={s.className} />
           </div>
+
           <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
             <div>
               <div className="text-[11px] uppercase text-muted-foreground tracking-widest">Quantity</div>
@@ -129,17 +230,21 @@ function JobDetail() {
               <div className="font-display font-bold text-primary text-lg">{money(Number(job.budget))}</div>
             </div>
           </div>
+
           <div className="mt-3 flex items-start gap-2 text-sm">
             <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
             <span>{job.delivery_address}</span>
           </div>
+
           {job.preferred_date && (
             <div className="mt-2 flex items-center gap-2 text-sm">
               <Calendar className="w-4 h-4 text-muted-foreground" />
               <span>{job.preferred_date}</span>
             </div>
           )}
+
           {job.notes && <p className="mt-3 text-sm text-muted-foreground border-t pt-3">{job.notes}</p>}
+
           {job.final_price && (
             <div className="mt-3 pt-3 border-t text-sm flex justify-between">
               <span className="text-muted-foreground">Agreed price</span>
@@ -147,6 +252,10 @@ function JobDetail() {
             </div>
           )}
         </div>
+
+        {(isOwner || isAssignedDriver) && ["accepted", "in_progress"].includes(job.status) && (
+          <WhatsAppPanel job={job} isOwner={isOwner} />
+        )}
 
         {(isOwner || isAssignedDriver) && job.status !== "open" && (
           <Button asChild variant="outline" className="w-full">
@@ -233,7 +342,6 @@ function JobDetail() {
 
         {isOwner && (job.status === "accepted" || job.status === "in_progress") && <CustomerTrackMap jobId={id} />}
 
-
         {is("driver") && !isOwner && job.status === "open" && (
           <BidForm jobId={id} existing={myBid} onSaved={() => qc.invalidateQueries({ queryKey: ["bids", id] })} />
         )}
@@ -241,7 +349,6 @@ function JobDetail() {
         {isOwner && (job.status === "open" || job.status === "accepted" || job.status === "in_progress") && (
           <CancelJobDialog jobId={id} status={job.status} onCancelled={() => nav({ to: "/jobs" })} />
         )}
-
 
         {(isOwner || is("admin") || is("super_admin")) && (
           <Section title={`Bids (${bids?.length ?? 0})`}>
@@ -306,6 +413,7 @@ function JobDetail() {
         {isOwner && job.status === "completed" && (
           <RateForm jobId={id} driverId={job.driver_id!} onSaved={() => nav({ to: "/jobs" })} />
         )}
+
         {isAssignedDriver && job.status === "completed" && (
           <RateCustomerForm jobId={id} customerId={job.customer_id} onSaved={() => nav({ to: "/jobs" })} />
         )}
@@ -513,6 +621,7 @@ function RateCustomerForm({ jobId, customerId, onSaved }: { jobId: string; custo
 
 function ProofUpload({ jobId, kind, label, hint, onUploaded }: { jobId: string; kind: "pickup" | "delivery"; label: string; hint?: string; onUploaded: () => void | Promise<void> }) {
   const [uploading, setUploading] = useState(false);
+
   const upload = async (file: File) => {
     setUploading(true);
     const path = `${jobId}/${kind}.jpg`;
@@ -529,6 +638,7 @@ function ProofUpload({ jobId, kind, label, hint, onUploaded }: { jobId: string; 
     toast.success(`${label} photo uploaded`);
     await onUploaded();
   };
+
   return (
     <div className="rounded-2xl border p-4 space-y-3 bg-card">
       <div className="flex items-center gap-2">
@@ -765,4 +875,3 @@ function JobTimeline({ job }: { job: any }) {
     </div>
   );
 }
-
