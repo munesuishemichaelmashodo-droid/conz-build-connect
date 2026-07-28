@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,10 +13,20 @@ import { RouteMap } from "@/components/RouteMap";
 // Fix default marker icons (Vite breaks Leaflet's default path resolution)
 const truckIcon = L.divIcon({
   className: "",
-  html: `<div style="background:hsl(var(--primary));color:hsl(var(--primary-foreground));width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px">🚛</div>`,
+  html: `<div style="background:hsl(var(--primary));color:hsl(var(--primary-foreground));width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px">🚚</div>`,
   iconSize: [32, 32],
   iconAnchor: [16, 16],
 });
+
+// Pans the map to follow the truck without remounting it —
+// avoids the tile-reload flash on every location update.
+function Follow({ lat, lng }: { lat: number; lng: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView([lat, lng]);
+  }, [lat, lng, map]);
+  return null;
+}
 
 type Loc = { lat: number; lng: number; updated_at: string; heading: number | null; accuracy: number | null };
 
@@ -139,6 +149,7 @@ export function CustomerTrackMap({ jobId }: { jobId: string }) {
       if (mounted && data) setLoc(data as Loc);
     };
     load();
+
     const channel = supabase
       .channel(`track:${jobId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "driver_locations", filter: `job_id=eq.${jobId}` },
@@ -147,6 +158,7 @@ export function CustomerTrackMap({ jobId }: { jobId: string }) {
           else setLoc(payload.new as Loc);
         })
       .subscribe();
+
     return () => { mounted = false; supabase.removeChannel(channel); };
   }, [jobId]);
 
@@ -161,7 +173,8 @@ export function CustomerTrackMap({ jobId }: { jobId: string }) {
         ) : (
           <>
             <div className="h-64 w-full">
-              <MapContainer center={[loc.lat, loc.lng]} zoom={15} scrollWheelZoom={false} style={{ height: "100%", width: "100%" }} key={`${loc.lat},${loc.lng}`}>
+              <MapContainer center={[loc.lat, loc.lng]} zoom={15} scrollWheelZoom={false} style={{ height: "100%", width: "100%" }}>
+                <Follow lat={loc.lat} lng={loc.lng} />
                 <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <Marker position={[loc.lat, loc.lng]} icon={truckIcon}>
                   <Popup>Updated {new Date(loc.updated_at).toLocaleTimeString()}</Popup>
@@ -218,6 +231,7 @@ export function DriverRouteView({ jobId }: { jobId: string }) {
       </div>
     );
   }
+
   if (!destination) {
     return (
       <div className="rounded-2xl bg-card border p-4 text-xs text-muted-foreground">
@@ -225,6 +239,7 @@ export function DriverRouteView({ jobId }: { jobId: string }) {
       </div>
     );
   }
+
   if (!origin) {
     return (
       <div className="rounded-2xl bg-card border p-4 text-xs text-muted-foreground">
@@ -232,5 +247,6 @@ export function DriverRouteView({ jobId }: { jobId: string }) {
       </div>
     );
   }
-return <RouteMap driverLocation={origin} initialDestination={destination} showNavigateButton />
+
+  return <RouteMap driverLocation={origin} initialDestination={destination} showNavigateButton />;
 }

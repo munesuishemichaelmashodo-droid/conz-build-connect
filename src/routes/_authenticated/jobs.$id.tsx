@@ -165,6 +165,9 @@ function JobDetail() {
   const { data: bids } = useQuery({
     queryKey: ["bids", id],
     enabled: !!job,
+    // While the job is open, poll for new bids so the customer sees offers
+    // appear live instead of having to refresh the page.
+    refetchInterval: job?.status === "open" ? 15000 : false,
     queryFn: async () => {
       const { data: bids } = await supabase.from("bids").select("*").eq("job_id", id).order("price");
       if (!bids?.length) return [] as any[];

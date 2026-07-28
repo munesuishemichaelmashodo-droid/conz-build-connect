@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { useEffect } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,6 +46,16 @@ const destIcon = L.divIcon({
   iconSize: [26, 26],
   iconAnchor: [13, 26],
 });
+
+// Pans the map to follow the truck without remounting it —
+// avoids the tile-reload flash on every 15s poll.
+function Follow({ lat, lng }: { lat: number; lng: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView([lat, lng]);
+  }, [lat, lng, map]);
+  return null;
+}
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -164,8 +175,8 @@ function PublicTrackPage() {
                     zoom={15}
                     scrollWheelZoom={false}
                     style={{ height: "100%", width: "100%" }}
-                    key={`${live.lat},${live.lng}`}
                   >
+                    <Follow lat={live.lat} lng={live.lng} />
                     <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                     <Marker position={[live.lat, live.lng]} icon={truckIcon}>
                       <Popup>Updated {new Date(live.updated_at).toLocaleTimeString()}</Popup>
