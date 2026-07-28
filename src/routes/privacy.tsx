@@ -5,9 +5,9 @@ export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [
       { title: "Privacy Policy — Con Z" },
-      { name: "description", content: "How Con Z Connect collects, uses, and stores your data on the construction logistics marketplace." },
+      { name: "description", content: "How Con Z Build Connect collects, uses, and stores your data on the construction logistics marketplace." },
       { property: "og:title", content: "Privacy Policy — Con Z" },
-      { property: "og:description", content: "How Con Z Connect collects, uses, and stores your data on the construction logistics marketplace." },
+      { property: "og:description", content: "How Con Z Build Connect collects, uses, and stores your data on the construction logistics marketplace." },
     ],
   }),
   component: PrivacyPage,
