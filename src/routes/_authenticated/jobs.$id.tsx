@@ -11,6 +11,7 @@ import { StatusBadge, Section } from "@/components/ui-bits";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, MessageCircle, Share2, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle } from "lucide-react";
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
+import { SITE_URL } from "@/lib/site";
 import { useState } from "react";
 import { toast } from "sonner";
 import { DriverShareLocation, CustomerTrackMap, DriverRouteView } from "@/components/JobTracker";
@@ -72,7 +73,22 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
   const direct = waLink(other?.phone, directText);
   const arrivedPickup = waLink(other?.phone, `${summary} I've arrived at the pickup point and I'm loading now.`);
   const outsideNow = waLink(other?.phone, `${summary} I'm outside with your delivery — please send someone to receive it.`);
-  const share = `https://wa.me/?text=${encodeURIComponent(summary)}`;
+
+  // Public live-tracking link (Batch 6): included in the WhatsApp share message
+  // so the recipient can watch the truck without a Con Z account.
+  const trackUrl = job.tracking_token ? `${SITE_URL}/track/${job.tracking_token}` : null;
+  const shareText = trackUrl ? `${summary} Track live: ${trackUrl}` : summary;
+  const share = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+
+  const copyTrackLink = async () => {
+    if (!trackUrl) return;
+    try {
+      await navigator.clipboard.writeText(trackUrl);
+      toast.success("Tracking link copied");
+    } catch {
+      toast.error(`Couldn't copy — the link is: ${trackUrl}`);
+    }
+  };
 
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
@@ -115,8 +131,17 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
           Share this delivery on WhatsApp
         </a>
       </Button>
+      {trackUrl && (
+        <button
+          type="button"
+          onClick={copyTrackLink}
+          className="w-full text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+        >
+          Copy live tracking link
+        </button>
+      )}
       <p className="text-[11px] text-muted-foreground">
-        Share forwards a delivery summary to any WhatsApp contact or group — e.g. the foreman waiting on site.
+        Share forwards a delivery summary and live tracking link to any WhatsApp contact or group — no Con Z account needed to watch the truck.
       </p>
     </div>
   );
