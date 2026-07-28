@@ -6,7 +6,7 @@ import { CheckCircle2, Loader2, LocateFixed, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { reverseGeocode, searchAddress, type GeocodeResult } from "@/lib/osm-geocode";
+import { reverseGeocode, searchAddress, type BoundingBox, type GeocodeResult } from "@/lib/osm-geocode";
 
 const pinIcon = L.divIcon({
   className: "",
@@ -23,8 +23,25 @@ function Recenter({ lat, lng, zoom }: { lat: number; lng: number; zoom?: number 
   return null;
 }
 
-// Optional: clicking the map drops/moves the pin. Delete this component and
-// its usage inside <MapContainer> if you don't want click-to-place.
+// When a search result has a bounding box (suburbs, landmarks, roads),
+// frame the whole area instead of zooming to a single point.
+// Declared AFTER <Recenter> in the tree so this view wins when both fire.
+function FitBounds({ bbox }: { bbox: BoundingBox | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!bbox) return;
+    map.fitBounds(
+      [
+        [bbox[0], bbox[2]], // [south, west]
+        [bbox[1], bbox[3]], // [north, east]
+      ],
+      { padding: [30, 30], maxZoom: 17 },
+    );
+  }, [bbox, map]);
+  return null;
+}
+
+// Clicking the map drops/moves the pin.
 function ClickToPlace({ onPick }: { onPick: (lat: number, lng: number) => void }) {
   useMapEvents({
     click: (e) => onPick(e.latlng.lat, e.latlng.lng),
@@ -81,10 +98,11 @@ export function AddressPicker({
   const [manualMode, setManualMode] = useState(false);
   const [manualLat, setManualLat] = useState("");
   const [manualLng, setManualLng] = useState("");
+  const [bbox, setBbox] = useState<BoundingBox | null>(null);
 
   useEffect(() => setQuery(value), [value]);
 
-  // Debounced address search
+  // Debounced address search (powers the dropdown suggestions)
   useEffect(() => {
     if (!query || query.length < 3) {
       setResults([]);
@@ -100,22 +118,40 @@ export function AddressPicker({
   }, [query]);
 
   // Set/update the pin locally without committing coords upstream.
-  const setPin = async (lat: number, lng: number, addressHint?: string) => {
+  // Pass a bbox when the source is a search result for an area (suburb, road,
+  // landmark) so the map frames the area instead of a single point.
+  const setPin = async (lat: number, lng: number, addressHint?: string, box?: BoundingBox) => {
     setCoords({ lat, lng });
     setHasPin(true);
     setConfirmed(false);
-    setZoom(16);
+    setBbox(box ?? null);
+    if (!box) setZoom(16);
     const addr = addressHint ?? (await reverseGeocode(lat, lng));
     const finalAddr = addr ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
     setQuery(finalAddr);
-    // Update address text upstream, but don't attach coords until user confirms.
     onChange(finalAddr, undefined);
   };
 
   const pickResult = (r: GeocodeResult) => {
     setOpen(false);
     setResults([]);
-    void setPin(r.lat, r.lng, r.label);
+    void setPin(r.lat, r.lng, r.label, r.bbox);
+  };
+
+  // Pressing Enter in the search box: geocode the typed text and jump
+  // straight to the best match — no dropdown click required.
+  const searchAndJump = async () => {
+    const q = query.trim();
+    if (q.length < 3) return;
+    setSearching(true);
+    const r = await searchAddress(q);
+    setSearching(false);
+    setResults(r);
+    if (r.length === 0) {
+      toast.error("Couldn't find that place in Zimbabwe — try a suburb or landmark name");
+      return;
+    }
+    pickResult(r[0]);
   };
 
   const confirmLocation = () => {
@@ -172,7 +208,7 @@ export function AddressPicker({
           <input
             id="addr-picker"
             value={query}
-            placeholder="Search address…"
+            placeholder="Search address, suburb or landmark…"
             className="flex h-10 w-full rounded-md border border-input bg-background pl-8 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onChange={(e) => {
               setQuery(e.target.value);
@@ -181,6 +217,12 @@ export function AddressPicker({
               onChange(e.target.value, undefined);
             }}
             onFocus={() => setOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void searchAndJump();
+              }
+            }}
             onBlur={() => {
               // Delay long enough to outlast the 350ms debounce + fetch round-trip,
               // and skip closing entirely while a search is still in flight.
@@ -265,6 +307,7 @@ export function AddressPicker({
         >
           <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <Recenter lat={coords.lat} lng={coords.lng} zoom={zoom} />
+          <FitBounds bbox={bbox} />
           <ClickToPlace onPick={(lat, lng) => void setPin(lat, lng)} />
           {hasPin && (
             <DraggableMarker
