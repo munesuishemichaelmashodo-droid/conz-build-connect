@@ -3,7 +3,7 @@ import { u as require_react } from "./_libs/@floating-ui/react-dom+[...].mjs";
 import { c as require_jsx_runtime } from "./_libs/@radix-ui/react-arrow+[...].mjs";
 import { n as oauth, t as Route } from "./_._lovable.oauth.consent-CPgIe8m7.mjs";
 import { t as Button } from "./_ssr/button-Bq5vK6RO.mjs";
-import { G as LoaderCircle } from "./_libs/lucide-react.mjs";
+import { K as LoaderCircle } from "./_libs/lucide-react.mjs";
 //#region node_modules/.nitro/vite/services/ssr/assets/_._lovable.oauth.consent-B6jorWD_.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Clock, Loader2, MapPin, Navigation, Wallet } from "lucide-react";
 import { formatArrival, formatDistance, formatDuration, formatFare } from "@/lib/format";
 
@@ -50,7 +50,7 @@ export function RouteStats({
     return (
       <div className="px-4 py-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
         <Loader2 className="w-3 h-3 animate-spin" />
-        Calculating route…
+        Calculating routeâ€¦
       </div>
     );
   }

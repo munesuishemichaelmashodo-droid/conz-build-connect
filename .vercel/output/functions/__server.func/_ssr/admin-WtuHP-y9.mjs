@@ -1,7 +1,7 @@
 import { f as Outlet, g as Link, l as useRouterState } from "../_libs/@tanstack/react-router+[...].mjs";
 import { c as require_jsx_runtime } from "../_libs/@radix-ui/react-arrow+[...].mjs";
 import { t as cn } from "./utils-C_uf36nf.mjs";
-import { R as MessageSquareWarning, S as Settings, T as ScrollText, Z as Gavel, b as ShieldCheck, c as TrendingUp, i as Users, q as LayoutDashboard } from "../_libs/lucide-react.mjs";
+import { J as LayoutDashboard, Q as Gavel, S as Settings, T as ScrollText, b as ShieldCheck, c as TrendingUp, i as Users, z as MessageSquareWarning } from "../_libs/lucide-react.mjs";
 import { n as useAuth } from "./auth-CKNZvOvp.mjs";
 import { t as AppShell } from "./AppShell-1W_lsY73.mjs";
 //#region node_modules/.nitro/vite/services/ssr/assets/admin-WtuHP-y9.js

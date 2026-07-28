@@ -1,6 +1,6 @@
 import { t as supabase } from "./client-BKwn9D3n.mjs";
 import { c as require_jsx_runtime } from "../_libs/@radix-ui/react-arrow+[...].mjs";
-import { N as OctagonAlert, at as DollarSign, b as ShieldCheck, i as Users, o as Truck, vt as Briefcase } from "../_libs/lucide-react.mjs";
+import { N as OctagonAlert, b as ShieldCheck, i as Users, o as Truck, ot as DollarSign, yt as Briefcase } from "../_libs/lucide-react.mjs";
 import { t as useQuery } from "../_libs/tanstack__react-query.mjs";
 import { i as money } from "./domain-CYaPqfcD.mjs";
 //#region node_modules/.nitro/vite/services/ssr/assets/admin.index-CQ4ldbqy.js

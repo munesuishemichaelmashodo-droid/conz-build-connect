@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-DVpe7PXp.js";import{t}from"./RoleDashboard-B2yZ_QKz.js";var n=e(),r=()=>(0,n.jsx)(t,{role:`customer`});export{r as component};

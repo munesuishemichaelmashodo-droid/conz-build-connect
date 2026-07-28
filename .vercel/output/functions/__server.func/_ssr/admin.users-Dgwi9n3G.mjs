@@ -2,7 +2,7 @@ import { o as __toESM } from "../_runtime.mjs";
 import { t as supabase } from "./client-BKwn9D3n.mjs";
 import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
 import { c as require_jsx_runtime } from "../_libs/@radix-ui/react-arrow+[...].mjs";
-import { b as ShieldCheck, n as X, r as Wallet, w as Search, xt as Ban, y as ShieldOff } from "../_libs/lucide-react.mjs";
+import { St as Ban, b as ShieldCheck, n as X, r as Wallet, w as Search, y as ShieldOff } from "../_libs/lucide-react.mjs";
 import { r as useQueryClient, t as useQuery } from "../_libs/tanstack__react-query.mjs";
 import { n as useAuth } from "./auth-CKNZvOvp.mjs";
 import { n as toast } from "../_libs/sonner.mjs";

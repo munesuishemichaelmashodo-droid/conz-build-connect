@@ -3,9 +3,9 @@ import { MapContainer, TileLayer, Marker, Polyline, Popup, useMapEvents } from "
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { getRoute } from "@/lib/routing.functions";
-import { Loader2, MapPin, Navigation2, Route as RouteIcon } from "lucide-react";
+import { Navigation2, Route as RouteIcon } from "lucide-react";
 import { toast } from "sonner";
-
+import { RouteStats } from "@/components/RouteStats";
 const truckIcon = L.divIcon({
   className: "",
   html: `<div style="background:hsl(var(--primary));color:hsl(var(--primary-foreground));width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px">🚛</div>`,
@@ -97,24 +97,7 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
           ) : null}
         </MapContainer>
       </div>
-<div className="px-4 py-3 flex items-center justify-between text-xs">
-        {loading ? (
-          <span className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="w-3 h-3 animate-spin" /> Calculating routeâ€¦
-          </span>
-        ) : route ? (
-          <>
-            <span className="flex items-center gap-1 font-semibold">
-              <Navigation2 className="w-3 h-3 text-primary" /> {route.distanceKm.toFixed(1)} km
-            </span>
-            <span className="flex items-center gap-1 font-semibold">
-              <MapPin className="w-3 h-3 text-primary" /> ETA {route.etaMin} min
-            </span>
-          </>
-        ) : (
-          <span className="text-muted-foreground">No destination selected yet.</span>
-        )}
-      </div>
+<RouteStats distanceKm={route?.distanceKm} etaMin={route?.etaMin} loading={loading} />
      {showNavigateButton && destination && (
         <div className="px-4 pb-4">
           <a

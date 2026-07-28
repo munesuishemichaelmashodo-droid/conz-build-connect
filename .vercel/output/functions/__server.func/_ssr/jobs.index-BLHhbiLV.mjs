@@ -2,7 +2,7 @@ import { t as supabase } from "./client-BKwn9D3n.mjs";
 import { g as Link } from "../_libs/@tanstack/react-router+[...].mjs";
 import { c as require_jsx_runtime } from "../_libs/@radix-ui/react-arrow+[...].mjs";
 import { t as Button } from "./button-Bq5vK6RO.mjs";
-import { O as Plus, vt as Briefcase } from "../_libs/lucide-react.mjs";
+import { O as Plus, yt as Briefcase } from "../_libs/lucide-react.mjs";
 import { t as useQuery } from "../_libs/tanstack__react-query.mjs";
 import { n as useAuth } from "./auth-CKNZvOvp.mjs";
 import { t as AppShell } from "./AppShell-1W_lsY73.mjs";

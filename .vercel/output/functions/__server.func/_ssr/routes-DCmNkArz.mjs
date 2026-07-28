@@ -3,7 +3,7 @@ import { t as supabase } from "./client-BKwn9D3n.mjs";
 import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
 import { g as Link, v as useNavigate } from "../_libs/@tanstack/react-router+[...].mjs";
 import { c as require_jsx_runtime } from "../_libs/@radix-ui/react-arrow+[...].mjs";
-import { Ct as ArrowRight, b as ShieldCheck, o as Truck, r as Wallet } from "../_libs/lucide-react.mjs";
+import { b as ShieldCheck, o as Truck, r as Wallet, wt as ArrowRight } from "../_libs/lucide-react.mjs";
 //#region node_modules/.nitro/vite/services/ssr/assets/routes-DCmNkArz.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();

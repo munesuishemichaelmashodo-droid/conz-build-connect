@@ -4,7 +4,7 @@ import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
 import { g as Link, v as useNavigate } from "../_libs/@tanstack/react-router+[...].mjs";
 import { c as require_jsx_runtime } from "../_libs/@radix-ui/react-arrow+[...].mjs";
 import { t as Button } from "./button-Bq5vK6RO.mjs";
-import { A as Package, B as MapPin, G as LoaderCircle, O as Plus, W as LocateFixed, f as Star, n as X, o as Truck, r as Wallet, vt as Briefcase, x as ShieldAlert } from "../_libs/lucide-react.mjs";
+import { A as Package, G as LocateFixed, K as LoaderCircle, O as Plus, V as MapPin, f as Star, n as X, o as Truck, r as Wallet, x as ShieldAlert, yt as Briefcase } from "../_libs/lucide-react.mjs";
 import { t as useQuery } from "../_libs/tanstack__react-query.mjs";
 import { n as useAuth } from "./auth-CKNZvOvp.mjs";
 import { n as toast } from "../_libs/sonner.mjs";

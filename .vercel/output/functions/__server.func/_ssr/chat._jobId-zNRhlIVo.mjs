@@ -4,7 +4,7 @@ import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
 import { g as Link } from "../_libs/@tanstack/react-router+[...].mjs";
 import { c as require_jsx_runtime } from "../_libs/@radix-ui/react-arrow+[...].mjs";
 import { t as Button } from "./button-Bq5vK6RO.mjs";
-import { C as Send, wt as ArrowLeft } from "../_libs/lucide-react.mjs";
+import { C as Send, Tt as ArrowLeft } from "../_libs/lucide-react.mjs";
 import { t as useQuery } from "../_libs/tanstack__react-query.mjs";
 import { n as useAuth } from "./auth-CKNZvOvp.mjs";
 import { n as toast } from "../_libs/sonner.mjs";

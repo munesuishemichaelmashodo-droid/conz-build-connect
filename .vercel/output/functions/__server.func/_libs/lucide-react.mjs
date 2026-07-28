@@ -976,6 +976,16 @@ var Navigation2 = createLucideIcon("navigation-2", [["polygon", {
 * This source code is licensed under the ISC license.
 * See the LICENSE file in the root directory of this source tree.
 */
+var Navigation = createLucideIcon("navigation", [["polygon", {
+	points: "3 11 22 2 13 21 11 13 3 11",
+	key: "1ltx0t"
+}]]);
+/**
+* @license lucide-react v0.575.0 - ISC
+*
+* This source code is licensed under the ISC license.
+* See the LICENSE file in the root directory of this source tree.
+*/
 var OctagonAlert = createLucideIcon("octagon-alert", [
 	["path", {
 		d: "M12 16h.01",
@@ -1621,4 +1631,4 @@ var Zap = createLucideIcon("zap", [["path", {
 	key: "1xq2db"
 }]]);
 //#endregion
-export { Flag as $, Package as A, MapPin as B, Send as C, ArrowRight as Ct, Route as D, Save as E, Moon as F, LoaderCircle as G, LogOut as H, Minus as I, KeyRound as J, LifeBuoy as K, MessageSquare as L, PackageCheck as M, OctagonAlert as N, Plus as O, Navigation2 as P, Fuel as Q, MessageSquareWarning as R, Settings as S, ArrowUpRight as St, ScrollText as T, ArrowDownLeft as Tt, Lock as U, Mail as V, LocateFixed as W, HardHat as X, Image as Y, Gavel as Z, ShieldX as _, Building2 as _t, User as a, DollarSign as at, ShieldCheck as b, Banknote as bt, TrendingUp as c, Circle as ct, StickyNote as d, ChevronsUpDown as dt, FileText as et, Star as f, ChevronRight as ft, Shield as g, Calendar as gt, Smartphone as h, Camera as ht, Users as i, Download as it, PackageOpen as j, Percent as k, Trash2 as l, CircleX as lt, Sparkles as m, Check as mt, X as n, EyeOff as nt, Truck as o, CreditCard as ot, Square as p, ChevronLeft as pt, LayoutDashboard as q, Wallet as r, ExternalLink as rt, TriangleAlert as s, Clock as st, Zap as t, Eye as tt, Sun as u, CircleCheck as ut, ShieldQuestionMark as v, Briefcase as vt, Search as w, ArrowLeft as wt, ShieldAlert as x, Ban as xt, ShieldOff as y, Bell as yt, Menu as z };
+export { Fuel as $, Package as A, Menu as B, Send as C, ArrowUpRight as Ct, Route as D, Save as E, ArrowDownLeft as Et, Navigation2 as F, LocateFixed as G, Mail as H, Moon as I, LayoutDashboard as J, LoaderCircle as K, Minus as L, PackageCheck as M, OctagonAlert as N, Plus as O, Navigation as P, Gavel as Q, MessageSquare as R, Settings as S, Ban as St, ScrollText as T, ArrowLeft as Tt, LogOut as U, MapPin as V, Lock as W, Image as X, KeyRound as Y, HardHat as Z, ShieldX as _, Calendar as _t, User as a, Download as at, ShieldCheck as b, Bell as bt, TrendingUp as c, Clock as ct, StickyNote as d, CircleCheck as dt, Flag as et, Star as f, ChevronsUpDown as ft, Shield as g, Camera as gt, Smartphone as h, Check as ht, Users as i, ExternalLink as it, PackageOpen as j, Percent as k, Trash2 as l, Circle as lt, Sparkles as m, ChevronLeft as mt, X as n, Eye as nt, Truck as o, DollarSign as ot, Square as p, ChevronRight as pt, LifeBuoy as q, Wallet as r, EyeOff as rt, TriangleAlert as s, CreditCard as st, Zap as t, FileText as tt, Sun as u, CircleX as ut, ShieldQuestionMark as v, Building2 as vt, Search as w, ArrowRight as wt, ShieldAlert as x, Banknote as xt, ShieldOff as y, Briefcase as yt, MessageSquareWarning as z };
