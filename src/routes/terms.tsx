@@ -28,12 +28,12 @@ function TermsPage() {
         </header>
 
         <div className="prose prose-sm dark:prose-invert max-w-none space-y-6">
-          <Section title="1. About Con Z Connect">
+          <Section title="1. About Con Z Build Connect">
             <p>
-              Con Z Connect ("Con Z", "we", "us", "our") is a registered legal company in the Republic
-              of Zimbabwe [Company Registration Number], operating a construction logistics marketplace
-              that connects customers requiring bulk material deliveries with independent tipper truck
-              drivers ("Drivers").
+              Con Z Build Connect is operated as a sole proprietorship in Zimbabwe by
+              Munesuishe Michael Mashodo. It operates a construction logistics marketplace
+              that connects customers requiring bulk material deliveries with independent
+              tipper truck drivers ("Drivers").
             </p>
           </Section>
 
