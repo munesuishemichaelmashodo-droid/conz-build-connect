@@ -34,5 +34,14 @@ export default defineConfig({
       // Belt and braces: also stop Vite externalising them during SSR build.
       noExternal: [/^@supabase\//, "tslib"],
     },
+    resolve: {
+      alias: [
+        // Force tslib to its ESM entry. When inlined via the CJS `tslib.js`
+        // entry, the top-level `var { __extends, ... } = __toESM(...)`
+        // destructuring resolves to `undefined` at runtime on Node/Vercel
+        // and crashes SSR with "Cannot destructure property '__extends'".
+        { find: /^tslib$/, replacement: "tslib/tslib.es6.mjs" },
+      ],
+    },
   },
 });
