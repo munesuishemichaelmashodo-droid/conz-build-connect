@@ -5,9 +5,9 @@ export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [
       { title: "Privacy Policy — Con Z" },
-      { name: "description", content: "How Con Z Connect collects, uses, and stores your data on the construction logistics marketplace." },
+      { name: "description", content: "How Con Z Build Connect collects, uses, and stores your data on the construction logistics marketplace." },
       { property: "og:title", content: "Privacy Policy — Con Z" },
-      { property: "og:description", content: "How Con Z Connect collects, uses, and stores your data on the construction logistics marketplace." },
+      { property: "og:description", content: "How Con Z Build Connect collects, uses, and stores your data on the construction logistics marketplace." },
     ],
   }),
   component: PrivacyPage,
@@ -22,7 +22,7 @@ function PrivacyPage() {
         </Link>
 
         <header className="mt-6 mb-8">
-          <div className="text-xs text-muted-foreground uppercase tracking-widest">Con Z Connect</div>
+          <div className="text-xs text-muted-foreground uppercase tracking-widest">Con Z Build Connect</div>
           <h1 className="font-display font-bold text-3xl uppercase tracking-tight">Privacy Policy</h1>
           <p className="text-xs text-muted-foreground mt-2">Last updated: 23 July 2026</p>
         </header>
@@ -30,9 +30,9 @@ function PrivacyPage() {
         <div className="space-y-6">
           <Section title="1. Who We Are">
             <p>
-              Con Z Connect ("Con Z", "we") is a Zimbabwean company [Company Registration Number]
-              that operates the Con Z construction logistics marketplace. This policy explains what
-              personal data we collect through the app, how we use it, and how we protect it.
+              Con Z Build Connect ("Con Z", "we") is operated as a sole proprietorship in
+              Zimbabwe by Munesuishe Michael Mashodo. This policy explains what personal data
+              we collect through the app, how we use it, and how we protect it.
             </p>
           </Section>
 
@@ -142,8 +142,9 @@ function PrivacyPage() {
 
           <Section title="10. Contact">
             <p>
-              For privacy questions or requests, contact us at <b>[contact email]</b> or
-              <b> [company postal address]</b>, Zimbabwe.
+              For privacy questions or requests, you can reach us at{" "}
+              <b>munesuishemichaelmashodo@gmail.com</b> or{" "}
+              <b>ngaatendwew@gmail.com</b>.
             </p>
           </Section>
 

@@ -5,9 +5,9 @@ export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
       { title: "Terms and Conditions — Con Z" },
-      { name: "description", content: "Terms and Conditions governing use of the Con Z Connect construction logistics marketplace." },
+      { name: "description", content: "Terms and Conditions governing use of the Con Z Build Connect construction logistics marketplace." },
       { property: "og:title", content: "Terms and Conditions — Con Z" },
-      { property: "og:description", content: "Terms and Conditions governing use of the Con Z Connect construction logistics marketplace." },
+      { property: "og:description", content: "Terms and Conditions governing use of the Con Z Build Connect construction logistics marketplace." },
     ],
   }),
   component: TermsPage,
@@ -22,18 +22,18 @@ function TermsPage() {
         </Link>
 
         <header className="mt-6 mb-8">
-          <div className="text-xs text-muted-foreground uppercase tracking-widest">Con Z Connect</div>
+          <div className="text-xs text-muted-foreground uppercase tracking-widest">Con Z Build Connect</div>
           <h1 className="font-display font-bold text-3xl uppercase tracking-tight">Terms and Conditions</h1>
           <p className="text-xs text-muted-foreground mt-2">Last updated: 23 July 2026</p>
         </header>
 
         <div className="prose prose-sm dark:prose-invert max-w-none space-y-6">
-          <Section title="1. About Con Z Connect">
+          <Section title="1. About Con Z Build Connect">
             <p>
-              Con Z Connect ("Con Z", "we", "us", "our") is a registered legal company in the Republic
-              of Zimbabwe [Company Registration Number], operating a construction logistics marketplace
-              that connects customers requiring bulk material deliveries with independent tipper truck
-              drivers ("Drivers").
+              Con Z Build Connect is operated as a sole proprietorship in Zimbabwe by
+              Munesuishe Michael Mashodo. It operates a construction logistics marketplace
+              that connects customers requiring bulk material deliveries with independent
+              tipper truck drivers ("Drivers").
             </p>
           </Section>
 
@@ -143,8 +143,9 @@ function TermsPage() {
 
           <Section title="14. Contact">
             <p>
-              For questions about these Terms, contact us at <b>[contact email]</b> or write to
-              <b> [company postal address]</b>, Zimbabwe.
+              For questions about these Terms, you can reach us at{" "}
+              <b>munesuishemichaelmashodo@gmail.com</b> or{" "}
+              <b>ngaatendwew@gmail.com</b>.
             </p>
           </Section>
 
