@@ -30,9 +30,9 @@ function PrivacyPage() {
         <div className="space-y-6">
           <Section title="1. Who We Are">
             <p>
-              Con Z Connect ("Con Z", "we") is a Zimbabwean company [Company Registration Number]
-              that operates the Con Z construction logistics marketplace. This policy explains what
-              personal data we collect through the app, how we use it, and how we protect it.
+              Con Z Build Connect ("Con Z", "we") is operated as a sole proprietorship in
+              Zimbabwe by Munesuishe Michael Mashodo. This policy explains what personal data
+              we collect through the app, how we use it, and how we protect it.
             </p>
           </Section>
 
