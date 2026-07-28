@@ -143,8 +143,9 @@ function TermsPage() {
 
           <Section title="14. Contact">
             <p>
-              For questions about these Terms, contact us at <b>[contact email]</b> or write to
-              <b> [company postal address]</b>, Zimbabwe.
+              For questions about these Terms, you can reach us at{" "}
+              <b>munesuishemichaelmashodo@gmail.com</b> or{" "}
+              <b>ngaatendwew@gmail.com</b>.
             </p>
           </Section>
 
