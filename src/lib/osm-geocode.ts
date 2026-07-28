@@ -16,7 +16,15 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string |
   }
 }
 
-export type GeocodeResult = { label: string; lat: number; lng: number };
+// [south, north, west, east] — same order as Nominatim's boundingbox field.
+export type BoundingBox = [number, number, number, number];
+
+export type GeocodeResult = {
+  label: string;
+  lat: number;
+  lng: number;
+  bbox?: BoundingBox;
+};
 
 export async function searchAddress(query: string, limit = 6): Promise<GeocodeResult[]> {
   const q = query.trim();
@@ -27,8 +35,25 @@ export async function searchAddress(query: string, limit = 6): Promise<GeocodeRe
       { headers: { Accept: "application/json" } },
     );
     if (!res.ok) return [];
-    const data = (await res.json()) as Array<{ display_name: string; lat: string; lon: string }>;
-    return data.map((d) => ({ label: d.display_name, lat: parseFloat(d.lat), lng: parseFloat(d.lon) }));
+    const data = (await res.json()) as Array<{
+      display_name: string;
+      lat: string;
+      lon: string;
+      boundingbox?: [string, string, string, string];
+    }>;
+    return data.map((d) => ({
+      label: d.display_name,
+      lat: parseFloat(d.lat),
+      lng: parseFloat(d.lon),
+      bbox: d.boundingbox
+        ? ([
+            parseFloat(d.boundingbox[0]), // south
+            parseFloat(d.boundingbox[1]), // north
+            parseFloat(d.boundingbox[2]), // west
+            parseFloat(d.boundingbox[3]), // east
+          ] as BoundingBox)
+        : undefined,
+    }));
   } catch {
     return [];
   }
