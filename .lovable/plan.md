@@ -1,54 +1,69 @@
 
-# Con Z — Feature Status Audit
+# Con Z Build Connect — Audit Report (read-only)
 
-Legend: ✅ Complete · 🟡 Partial · 🔴 Not started
+Build: `bun run build` succeeds locally, no TS/Vite errors. Production URL served by Cloudflare Worker preset via Nitro.
 
-## 1. Backend security review — 🟡 Partial
-- RLS: Enabled on all 24 public tables (each has policies per the tables index). Sensitive writes are routed through `SECURITY DEFINER` RPCs (`accept_bid`, `complete_job`, `request_topup`, `request_withdrawal`, `admin_*`, `raise_dispute`, `accept_dispatch_offer`) with `has_role`/`auth.uid()` checks.
-- Server functions: `requireSupabaseAuth` middleware exists (`src/integrations/supabase/auth-middleware.ts`) but almost no `createServerFn` uses it — most privileged work goes through Postgres RPCs, which is fine but means there's no server-side rate limiting.
-- Gaps: no automated `security--run_security_scan` has been recorded this session; MCP OAuth routes under `src/routes/[.mcp]` and `[.well-known]` are public by design but haven't been audited here. Recommend running the scanner before store submission.
+## 1. Bugs, unfinished flows, dead code
 
-## 2. Admin panel access lockdown — ✅ Complete
-- `src/routes/_authenticated/admin.tsx` `beforeLoad` fetches `user_roles` and redirects to `/home` unless the user has `admin` or `super_admin`. Individual super-admin-only tabs (Revenue, Audit) hidden via `is("super_admin")`. Server-side RPCs also enforce `has_role(...,'admin'|'super_admin')`, so client bypass wouldn't grant privileges.
+- **No Paynow / no payment gateway anywhere.** `rg paynow` = 0 matches. Wallet top-ups are self-credited (`request_topup` inserts as `approved` immediately with no money movement) — so top-ups are essentially "trust me". `admin_approve_topup`/`admin_reject_topup` still exist but are dead paths (nothing enters `pending`).
+- **Withdrawals have no payout rail.** `admin_approve_withdrawal` only debits the wallet and inserts a notification — no Ecocash/OneMoney/Zipit/bank API is called. Manual off-platform payout is implied but not documented in the UI.
+- **Two `raise_dispute` overloads coexist** (enum-arg and text-arg). PostgREST resolves by arg type; both remain callable and can drift.
+- **`expire_stale_open_jobs` still present** in DB despite the "remove auto-expiry" change; if any cron ever calls it, jobs will silently cancel. Same for `expire_stale_dispatch_offers` / `expire_all_stale_dispatch_offers` — no scheduler is wired (no `pg_cron`, no `/api/public/*` cron route). Stale dispatch offers therefore sit `pending` until a driver hits `accept_dispatch_offer`, which re-checks `expires_at`. Next-wave dispatch never fires automatically.
+- **`prune_stale_driver_locations`** exists but is never scheduled — `driver_locations` grows unbounded.
+- **`first_job_free_claims` identity-key logic** relies on phone/email being present and stable; users who change phone before first job can double-claim. Low-risk but noted.
+- **`AddressPicker` search** uses Nominatim direct from browser — no key, subject to 1 req/sec throttling and CORS/UA blocks; silent empty results still possible.
+- **`RouteMap`/`getRoute`** calls OSRM public demo server (`router.project-osrm.org`) — no SLA, rate-limited, occasional 5xx. Fallback is straight-line only.
+- **Auth debug panel (`authDebug`) in `src/routes/auth.tsx`** leaks Supabase URL and error internals into user-facing UI — useful for debugging, noise/leak in production.
+- **`useEffect` deps disabled** in auth.tsx (`// eslint-disable-next-line react-hooks/exhaustive-deps`) — `goPostAuth` closure can be stale.
+- No `TODO`/`FIXME` markers found in `src/`.
+- No `try` around `supabase.auth.signInWithOAuth` popup cancellation in `oauth-callback.tsx` (not read in this audit — verify).
 
-## 3. Rating system — 🟡 Partial (works, but only surfaced on job detail)
-- Submission: `src/routes/_authenticated/jobs.$id.tsx` writes to `ratings` (customer → driver) and `customer_ratings` (driver → customer). `tg_rating_aggregate` trigger updates `driver_profiles.rating_avg`/`rating_count`.
-- Display: Driver aggregate shown on bid cards (`jobs.$id.tsx` L273–274). No dedicated driver profile page listing reviews; customer ratings are stored but never displayed anywhere in the UI.
+## 2. Security
 
-## 4. Terms & Conditions — 🔴 Not started
-- No `/terms`, `/privacy`, or acceptance checkbox in `src/routes/auth.tsx`. No `terms_accepted_at` column on `profiles`. Required before store submission.
+- **Supabase linter: 85 findings.**
+  - 1 ERROR: a `SECURITY DEFINER` **view** exists (bypasses RLS of caller). Needs identification and conversion to `security_invoker=on` unless intentional.
+  - 82 WARN: `SECURITY DEFINER` functions callable by `anon` and/or `authenticated`. Most are business RPCs (accept_bid, complete_job, admin_*). The internal callback triggers (`tg_*`, `handle_new_user`) and admin-only functions (`admin_grant_role`, `admin_revoke_role`, `admin_set_commission`, `admin_set_diesel_price`, `claim_super_admin`, `log_admin_action`) should have `EXECUTE` revoked from `anon`/`authenticated` and granted only where needed. Right now any signed-in user can invoke `log_admin_action` and `claim_super_admin` (the latter is guarded by "if any super_admin exists, reject" — currently one exists, so safe, but a race remains if that row is ever deleted).
+  - 1 WARN: **`job-proof-photos` bucket is public and listable** — anyone can enumerate every proof photo across all jobs. Should be private with signed URLs, or scoped SELECT policy.
+  - 1 WARN: **Leaked-password protection (HIBP) disabled** in Auth settings.
+- **`admin_credit_wallet`** accepts arbitrary `_amount` including negative; audit trail is written but no rate limit / dual-control.
+- **`request_topup`** self-credits without proof; no per-day cap, no anti-fraud. Users can inflate balance instantly.
+- **`raise_dispute` (text overload)** returns the existing open dispute on duplicate — but does not check if the requester is `raised_by` (any participant reusing it gets someone else's dispute row back). Verify.
+- **`profiles` RLS**: full policies not inspected here; earlier work claimed role writes are locked to super_admin via `user_roles` table (correct pattern). Confirm no policy on `profiles` allows self-update of a `role`-adjacent field.
+- **Client `.env`** exposes `VITE_SUPABASE_URL` + publishable key — fine by design. No secret leaks in `src/`.
+- **`SUPABASE_SERVICE_ROLE_KEY`** correctly gated behind `client.server.ts` Proxy; grep confirms no client-graph import.
+- **Zod validation** exists on booking (`booking.functions.ts`) but many other client mutations (bid submission, profile edits, dispute reason) go straight to `supabase.from(...).insert/update` with no server-side length caps beyond DB column types.
+- **CSP / security headers**: none configured (`vercel.json` / no `_headers` for CF Worker).
 
-## 5. Driver verification signup — ✅ Complete
-- `src/routes/_authenticated/become-driver.tsx` is the 5-step slideshow (identity → selfie → licence → truck → nationality) with progress bar, camera+gallery uploads to `driver-docs` bucket, and a "Pending verification — usually within 24 hours" confirmation screen. Admin review UI at `admin.verifications.tsx`. Bidding + dispatch acceptance are RLS/RPC-gated on `verification_status = 'verified'`.
+## 3. Production-ready gaps
 
-## 6. Dispute system — 🟡 Partial
-- ✅ Types selector, `raise_dispute` RPC, admin resolve queue (`admin.disputes.tsx`), `resolve_dispute` RPC with `strike_issued` outcome that increments `profiles.cancellation_strikes` and applies 7-day restriction after 3 strikes.
-- ✅ 48-hour review clock: `raise_dispute` sets `review_due_at = now() + 48h`.
-- 🟡 Evidence auto-pull: dispute is linked by `job_id` so admin can view `pickup_photo_url`/`delivery_photo_url` via the job, but there's no explicit evidence panel that surfaces GPS trail (`driver_locations`) or photos inline in the dispute detail view — admin has to navigate manually.
+- **Payments (Paynow):** not started. No Paynow SDK, no init/redirect, no IPN webhook route under `/api/public/*`, no `payments` table, no `payment_intent` link on top-ups or job payouts. This is the single biggest missing production piece for a Zimbabwe marketplace.
+- **Notifications:** in-app only (`notifications` table + `NotificationsBell`). No push (web push / FCM), no SMS (Twilio/Africa's Talking), no email (Resend). Drivers will miss 10-second dispatch waves if the tab is closed.
+- **Ratings:** bidirectional (`ratings` + `customer_ratings`) exist; aggregate trigger updates `driver_profiles.rating_avg`. **Missing:** public driver profile page, review moderation, ability to flag a rating, filtering out ratings from cancelled/disputed jobs.
+- **GPS/tracking:** works via `driver_locations` + `RouteMap` (OSRM). **Gaps:** no server-side pruning schedule, no geofence for "arrived at pickup / delivery", no offline queue for driver location writes, OSRM public endpoint not SLA-backed.
+- **Dispatch loop:** first wave fires via `trigger_initial_dispatch`; **subsequent waves require a cron** that calls `expire_all_stale_dispatch_offers`. No cron exists → after wave 1 expires with no acceptance, the job sits `open` with 0 pending offers forever.
+- **Driver KYC:** doc uploads go to `driver-docs` (private bucket ✅) but admin verification UI presumably signs URLs — verify link expiry.
+- **App store readiness:** no native wrapper (Capacitor/PWA-only), no privacy manifest, no store screenshots pipeline. PWA manifest exists.
+- **Observability:** no error reporting (Sentry etc.). `error-capture.ts` and `lovable-error-reporting.ts` present — extent unverified in this pass.
+- **Rate limiting:** none at app layer or DB layer for RPCs (`request_topup`, `raise_dispute`, `set_withdrawal_pin` — the last has lockout after 5 wrong PINs, good).
+- **Terms/Privacy:** present at `/terms` and `/privacy` with `terms_accepted_at` capture.
 
-## 7. Notification system — ✅ Complete
-- `notifications` table + triggers `tg_notify_bid_submitted`, `tg_notify_bid_status`, `tg_notify_job_status` cover bid submitted/accepted, tracking started, job completed, top-up decisions, withdrawal decisions, job expired. `NotificationsBell.tsx` renders them with Realtime.
+## 4. Currently broken in production
 
-## 8. Wallet top-ups (no admin approval) — ✅ Complete
-- `request_topup` RPC self-credits: inserts request with `status='approved'`, immediately updates `wallets.balance`, writes `wallet_transactions` row, and notifies. Wired from `wallet.tsx`. Admin approve/reject RPCs still exist for legacy/manual cases but the user flow no longer requires them.
+- Build passes and no runtime crash reproduced in this pass. Preview URL responds.
+- **Functional break in production behavior (not a crash):**
+  - **Dispatch stalls after wave 1** (no cron) — customers see "Matching…" with count > 0 but no offers land after the first 10s wave.
+  - **`job-proof-photos` bucket public** — data-leak class issue live now.
+  - **Wallet top-ups credit without payment** — economic risk live now.
+- No console errors captured this turn (no logs snapshot available).
 
-## 9. Help & Report in SidePanel — ✅ Complete
-- `src/routes/_authenticated/help.tsx` and `report.tsx` exist and are linked from `SidePanel.tsx`. `reports` table has policies.
+## Suggested next steps (not executed)
 
-## 10. Customer ↔ Driver Mode switch — ✅ Complete
-- Consolidated into SidePanel "View As". Customers without driver role see "Become a driver" CTA linking to `/become-driver`; verified drivers get a toggle between customer/driver views (`src/lib/view-mode.tsx`).
+1. Integrate Paynow (web checkout + IPN webhook at `src/routes/api/public/paynow/webhook.ts`) and gate `request_topup` behind a verified payment_intent.
+2. Add a cron (`pg_cron` → `/api/public/cron/expire-dispatch`) firing every 5–10s to keep waves rolling and prune driver_locations hourly.
+3. Lock down the linter findings: `security_invoker=on` on the flagged view; `REVOKE EXECUTE ... FROM anon, authenticated` on admin-only DEFINER functions; make `job-proof-photos` private + signed URLs; enable HIBP.
+4. Remove the dead `expire_stale_open_jobs` function or wire it intentionally.
+5. Consolidate the two `raise_dispute` overloads.
+6. Add web-push (or at minimum SMS via Africa's Talking) for driver dispatch offers.
+7. Strip the auth debug panel from production builds (env-gate it).
 
-## 11. First-job-free bonus — ✅ Complete
-- `driver_profiles.first_job_free_used` flag + `first_job_free_claims` identity-keyed table prevent multi-account abuse. `complete_job` RPC charges $0 commission on first eligible completion and logs a wallet transaction; `driver_can_accept` bypasses balance requirement while free.
-
-## 12. App-store publishing readiness — 🔴 Not started
-- No `capacitor.config.ts`, no `@capacitor/*` deps in `package.json`, no `android/` or `ios/` folders. `public/manifest.webmanifest` exists (PWA) but no native shell, no store-format icons/splash, no bundle IDs. Everything for Capacitor packaging still to do.
-
-## Recommended next actions (in order)
-1. Add Terms & Privacy pages + signup checkbox + `terms_accepted_at` column.
-2. Add a driver public profile with review list (surface `ratings` and `customer_ratings`).
-3. Enrich dispute detail view with inline photos + last-known GPS points.
-4. Run `security--run_security_scan` and address findings.
-5. Add Capacitor (`@capacitor/core`, `@capacitor/android`, `@capacitor/ios`), configure app icons/splash, set bundle IDs, and produce signed builds.
-
-No code changes were made — this is a read-only status report.
+_Nothing was modified. Approve any subset above and I'll implement._
