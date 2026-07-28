@@ -8,13 +8,20 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-
 import appCss from "../styles.css?url";
 import "../lib/fonts";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "@/lib/auth";
 import { ViewModeProvider } from "@/lib/view-mode";
 import { Toaster } from "@/components/ui/sonner";
+
+// Public base URL of the live site — used for absolute Open Graph URLs.
+// Change this to your custom domain if/when you add one.
+const SITE_URL = "https://conz-build-connect.vercel.app";
+const SITE_NAME = "Con Z";
+const SITE_TITLE = "Con Z — Construction Made Easy";
+const SITE_DESCRIPTION = "Zimbabwe's construction marketplace. Post jobs. Get tipper trucks. Build.";
+const OG_IMAGE = `${SITE_URL}/og-image.jpg`;
 
 function NotFoundComponent() {
   return (
@@ -41,7 +48,6 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
@@ -64,19 +70,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { httpEquiv: "Permissions-Policy", content: "geolocation=(self)" },
-      { title: "Con Z — Construction Made Easy" },
-      { name: "description", content: "Zimbabwe's construction marketplace. Post jobs. Get tipper trucks. Build." },
+      { title: SITE_TITLE },
+      { name: "description", content: SITE_DESCRIPTION },
       { name: "theme-color", content: "#ee6c1a" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "apple-mobile-web-app-title", content: "Con Z" },
-      { property: "og:title", content: "Con Z — Construction Made Easy" },
-      { property: "og:description", content: "Zimbabwe's construction marketplace. Post jobs. Get tipper trucks. Build." },
+      { name: "apple-mobile-web-app-title", content: SITE_NAME },
+      { property: "og:title", content: SITE_TITLE },
+      { property: "og:description", content: SITE_DESCRIPTION },
       { property: "og:type", content: "website" },
-      { name: "twitter:title", content: "Con Z — Construction Made Easy" },
-      { name: "twitter:description", content: "Zimbabwe's construction marketplace. Post jobs. Get tipper trucks. Build." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4d05f15a-7722-42ea-a3c5-3eecd99b318c/id-preview-06f31798--d6171186-9007-4171-9ac3-88faed9a4817.lovable.app-1783595269103.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4d05f15a-7722-42ea-a3c5-3eecd99b318c/id-preview-06f31798--d6171186-9007-4171-9ac3-88faed9a4817.lovable.app-1783595269103.png" },
+      { property: "og:url", content: SITE_URL },
+      { property: "og:site_name", content: SITE_NAME },
+      { property: "og:image", content: OG_IMAGE },
+      { property: "og:image:type", content: "image/jpeg" },
+      { name: "twitter:title", content: SITE_TITLE },
+      { name: "twitter:description", content: SITE_DESCRIPTION },
+      { name: "twitter:image", content: OG_IMAGE },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
@@ -113,7 +122,6 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
