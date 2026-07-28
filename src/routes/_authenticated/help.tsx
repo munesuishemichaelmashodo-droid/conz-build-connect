@@ -48,7 +48,7 @@ function HelpPage() {
               <div className="text-xs text-muted-foreground">support@conz.co.zw — we usually reply within a day.</div>
             </div>
           </a>
-          <Link to="/report" className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-muted transition">
+          <Link to="/report" search={{jobId: undefined}} className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-muted transition">
             <MessageSquareWarning className="w-5 h-5 text-primary" />
             <div>
               <div className="font-semibold">Report an issue</div>

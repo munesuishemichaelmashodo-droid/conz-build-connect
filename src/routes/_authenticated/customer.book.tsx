@@ -79,9 +79,10 @@ function BookDelivery() {
       setRoadDistanceKm(null);
       return;
     }
-    const dest = coords;
-    let cancelled = false;
-
+     const dest = coords;
+    
+    
+     let cancelled = false;
     async function loadRoute() {
       try {
         const { getRoute } = await import("@/lib/routing.functions");
@@ -90,8 +91,8 @@ function BookDelivery() {
           data: {
             startLat: PICKUP_POINT.lat,
             startLng: PICKUP_POINT.lng,
-            destLat: coords.lat,
-            destLng: coords.lng,
+            destLat: dest.lat,
+            destLng: dest.lng,
           },
         });
 

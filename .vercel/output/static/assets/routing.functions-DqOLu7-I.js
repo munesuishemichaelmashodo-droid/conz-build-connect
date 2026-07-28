@@ -1,0 +1,1 @@
+import{i as e}from"./jsx-runtime-DVpe7PXp.js";import{n as t,t as n}from"./createServerFn-UStXTmmS.js";var r=e({getRoute:()=>i}),i=n({method:`POST`}).handler(t(`1c6c71434ab46b355c7a124c4cc97e4dcd02cd6678474c55ccb412a274e97972`));export{r as n,i as t};
