@@ -143,8 +143,7 @@ function PrivacyPage() {
           <Section title="10. Contact">
             <p>
               For privacy questions or requests, you can reach us at{" "}
-              <b>munesuishemichaelmashodo@gmail.com</b> or{" "}
-              <b>ngaatendwew@gmail.com</b>.
+              <b>constructionz.zw@gmail.com</b>
             </p>
           </Section>
 
