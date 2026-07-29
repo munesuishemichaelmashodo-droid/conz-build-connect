@@ -31,7 +31,7 @@ function PrivacyPage() {
           <Section title="1. Who We Are">
             <p>
               Con Z Build Connect ("Con Z", "we") is operated as a sole proprietorship in
-              Zimbabwe by Munesuishe Michael Mashodo. This policy explains what personal data
+              Zimbabwe by NavySky PVT. This policy explains what personal data
               we collect through the app, how we use it, and how we protect it.
             </p>
           </Section>
@@ -143,8 +143,7 @@ function PrivacyPage() {
           <Section title="10. Contact">
             <p>
               For privacy questions or requests, you can reach us at{" "}
-              <b>munesuishemichaelmashodo@gmail.com</b> or{" "}
-              <b>ngaatendwew@gmail.com</b>.
+              <b>constructionz.zw@gmail.com</b>
             </p>
           </Section>
 
