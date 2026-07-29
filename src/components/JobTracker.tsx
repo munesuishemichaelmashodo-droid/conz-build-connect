@@ -26,6 +26,20 @@ function Follow({ lat, lng }: { lat: number; lng: number }) {
     map.setView([lat, lng]);
   }, [lat, lng, map]);
   return null;
+}// Leaflet doesn't detect when its container resizes on its own
+// (e.g. a dialog opening/closing shifts layout below it) — this
+// nudges it to recalculate so it doesn't render a stale, zoomed-out view.
+function ResizeFix() {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    const ro = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [map]);
+  return null;
 }
 
 type Loc = { lat: number; lng: number; updated_at: string; heading: number | null; accuracy: number | null };
@@ -174,6 +188,7 @@ export function CustomerTrackMap({ jobId }: { jobId: string }) {
           <>
             <div className="h-64 w-full">
               <MapContainer center={[loc.lat, loc.lng]} zoom={15} scrollWheelZoom={false} style={{ height: "100%", width: "100%" }}>
+                <ResizeFix />
                 <Follow lat={loc.lat} lng={loc.lng} />
                 <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <Marker position={[loc.lat, loc.lng]} icon={truckIcon}>

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { MapContainer, TileLayer, Marker, Polyline, Popup, useMapEvents } from "react-leaflet";
+import { useState, useEffect } from "react";
+import { MapContainer, TileLayer, Marker, Polyline, Popup, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { getRoute } from "@/lib/routing.functions";
@@ -19,7 +19,21 @@ const destIcon = L.divIcon({
   iconSize: [28, 28],
   iconAnchor: [14, 28],
 });
-
+// Leaflet doesn't detect when its container resizes on its own
+// (e.g. a dialog opening/closing shifts layout below it) — this
+// nudges it to recalculate so it doesn't render a stale, zoomed-out view.
+function ResizeFix() {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    const ro = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [map]);
+  return null;
+}
 export type RouteResult = { distanceKm: number; etaMin: number; coords: [number, number][] };
 
 type Props = {
@@ -77,13 +91,14 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
       </p>
       <div style={{ height }} className="w-full">
         <MapContainer
-          center={[driverLocation.lat, driverLocation.lng]}
-          zoom={13}
-          scrollWheelZoom={false}
-          style={{ height: "100%", width: "100%" }}
-        >
-          <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <ClickHandler />
+  center={[driverLocation.lat, driverLocation.lng]}
+  zoom={13}
+  scrollWheelZoom={false}
+  style={{ height: "100%", width: "100%" }}
+> 
+  <ResizeFix />
+  <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+  <ClickHandler />
           <Marker position={[driverLocation.lat, driverLocation.lng]} icon={truckIcon}>
             <Popup>Driver</Popup>
           </Marker>
