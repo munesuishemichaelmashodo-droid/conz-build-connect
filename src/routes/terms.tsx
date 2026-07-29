@@ -31,7 +31,7 @@ function TermsPage() {
           <Section title="1. About Con Z Build Connect">
             <p>
               Con Z Build Connect is operated as a sole proprietorship in Zimbabwe by
-              Munesuishe Michael Mashodo. It operates a construction logistics marketplace
+              NavySky Logistics (PVT). It operates a construction logistics marketplace
               that connects customers requiring bulk material deliveries with independent
               tipper truck drivers ("Drivers").
             </p>
