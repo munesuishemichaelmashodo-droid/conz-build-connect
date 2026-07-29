@@ -20,7 +20,29 @@ type Notification = {
   read: boolean;
   created_at: string;
 };
-
+function playChime() {
+  try {
+    if ("vibrate" in navigator) navigator.vibrate(150);
+  } catch {}
+  try {
+    const Ctx =
+      (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext })
+        .AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "sine";
+    o.frequency.value = 1046; // higher pitch than the job-offer alert, so they're distinguishable
+    o.connect(g);
+    g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.25, ctx.currentTime);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    o.stop(ctx.currentTime + 0.4);
+  } catch {}
+}
 export function NotificationsBell() {
   const { userId } = useAuth();
   const [items, setItems] = useState<Notification[]>([]);
@@ -57,6 +79,7 @@ export function NotificationsBell() {
           const n = payload.new as Notification;
           setItems((prev) => [n, ...prev].slice(0, 30));
           toast(n.title, { description: n.body ?? undefined });
+          playChime();
         },
       )
       .on(
