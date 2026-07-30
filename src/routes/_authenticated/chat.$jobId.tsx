@@ -26,7 +26,7 @@ function ChatPage() {
   const { data: job } = useQuery({
     queryKey: ["job-chat-meta", jobId],
     queryFn: async () => {
-      const { data } = await supabase.from("jobs").select("id,customer_id,driver_id,material,custom_material").eq("id", jobId).maybeSingle();
+      const { data } = await supabase.from("jobs").select("id,customer_id,driver_id,material,custom_material,status").eq("id", jobId).maybeSingle();
       return data;
     },
   });
