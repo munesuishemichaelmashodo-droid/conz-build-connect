@@ -71,7 +71,12 @@ const isAssignedDriver = job ? job.driver_id === userId : false;
     if (error) return toast.error(error.message);
     setBody("");
   };
-
+  const quickSend = async (text: string) => {
+  setSending(true);
+  const { error } = await supabase.from("messages").insert({ job_id: jobId, sender_id: userId!, body: text });
+  setSending(false);
+  if (error) toast.error(error.message);
+};
   return (
     <AppShell title={otherProfile?.full_name ? `Chat · ${otherProfile.full_name}` : "Chat"}>
       <Link to="/jobs/$id" params={{ id: jobId }} className="inline-flex items-center gap-1 text-sm text-muted-foreground mb-3">
