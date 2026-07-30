@@ -32,6 +32,7 @@ function ChatPage() {
   });
 
   const otherId = job ? (job.customer_id === userId ? job.driver_id : job.customer_id) : null;
+const isAssignedDriver = job ? job.driver_id === userId : false;
 
   const { data: otherProfile } = useQuery({
     queryKey: ["chat-peer", otherId],
