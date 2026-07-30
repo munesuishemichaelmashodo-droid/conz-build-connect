@@ -281,10 +281,6 @@ function JobDetail() {
           )}
         </div>
 
-        {(isOwner || isAssignedDriver) && ["accepted", "in_progress"].includes(job.status) && (
-          <WhatsAppPanel job={job} isOwner={isOwner} />
-        )}
-
         {(isOwner || isAssignedDriver) && job.status !== "open" && (
           <Button asChild variant="outline" className="w-full">
             <Link to="/chat/$jobId" params={{ jobId: id }}>
