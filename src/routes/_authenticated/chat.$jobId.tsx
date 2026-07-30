@@ -100,6 +100,22 @@ const isAssignedDriver = job ? job.driver_id === userId : false;
             );
           })}
         </div>
+{isAssignedDriver && job?.status === "accepted" && (
+          <div className="border-t p-2">
+            <Button variant="outline" size="sm" className="w-full" disabled={sending}
+              onClick={() => quickSend("📦 I've arrived at the pickup point and I'm loading now.")}>
+              I've arrived at pickup
+            </Button>
+          </div>
+        )}
+        {isAssignedDriver && job?.status === "in_progress" && (
+          <div className="border-t p-2">
+            <Button variant="outline" size="sm" className="w-full" disabled={sending}
+              onClick={() => quickSend("🚚 I'm outside with your delivery — please send someone to receive it.")}>
+              I'm outside with the delivery
+            </Button>
+          </div>
+        )}
         <form onSubmit={send} className="border-t p-2 flex gap-2">
           <Input value={body} onChange={(e) => setBody(e.target.value)} placeholder="Type a message…" maxLength={1000} />
           <Button type="submit" disabled={sending || !body.trim()} size="icon"><Send className="w-4 h-4" /></Button>
