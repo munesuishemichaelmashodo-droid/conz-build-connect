@@ -36,3 +36,15 @@ supabase/.temp/
 tsc-errors.txt
 types.backup*.ts
 types.new.ts
+
+.vercel/
+supabase/.temp/
+tsc-errors.txt
+types.backup*.ts
+types.new.ts
+
+.vercel/
+supabase/.temp/
+tsc-errors.txt
+types.backup*.ts
+types.new.ts
