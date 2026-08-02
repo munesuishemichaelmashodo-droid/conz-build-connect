@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+﻿import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
@@ -284,9 +284,6 @@ function BookDelivery() {
         pickup_lat: PICKUP_POINT.lat,
         pickup_lng: PICKUP_POINT.lng,
 
-        dropoff_address: address.trim(),
-        dropoff_lat: coords.lat,
-        dropoff_lng: coords.lng,
 
         budget: offer,
         preferred_date: date || null,
@@ -299,7 +296,7 @@ function BookDelivery() {
 
     if (error) return toast.error(error.message);
 
-    toast.success("Booking confirmed! Searching for trucks…");
+    toast.success("Booking confirmed! Searching for trucksâ€¦");
 
     nav({ to: "/jobs/$id", params: { id: data.id } });
   };
@@ -354,7 +351,7 @@ function BookDelivery() {
 
         {step === 1 && (
           <motion.div key="s-qty" {...anim} className="space-y-5 mt-6">
-            <Header icon={Truck} title="How much?" hint="One tipper load carries 10–15 m³." />
+            <Header icon={Truck} title="How much?" hint="One tipper load carries 10â€“15 mÂ³." />
 
             <div className="flex gap-2">
               {[10, 12, 14, 15].map((v) => (
@@ -369,13 +366,13 @@ function BookDelivery() {
                       : "text-muted-foreground",
                   )}
                 >
-                  {v} m³
+                  {v} mÂ³
                 </button>
               ))}
             </div>
 
             <div>
-              <Label htmlFor="qty">Custom quantity (m³)</Label>
+              <Label htmlFor="qty">Custom quantity (mÂ³)</Label>
               <Input
                 id="qty"
                 type="number"
@@ -419,13 +416,13 @@ function BookDelivery() {
 
                 <div className="font-display font-bold text-2xl">
                   {money(suggestion.low)}{" "}
-                  <span className="text-muted-foreground text-lg">–</span>{" "}
+                  <span className="text-muted-foreground text-lg">â€“</span>{" "}
                   {money(suggestion.high)}
                 </div>
 
                 <p className="text-xs text-muted-foreground">
                   Based on {matPrice?.label} pricing, ~{suggestion.distanceKm.toFixed(1)} km from pickup,
-                  fuel at {FUEL_LITRES_PER_100KM} L/100 km × $
+                  fuel at {FUEL_LITRES_PER_100KM} L/100 km Ã— $
                   {Number(dieselPrice ?? 1.87).toFixed(2)}/L, plus {commissionRate ?? 7}% platform commission.
                 </p>
               </div>
@@ -438,7 +435,7 @@ function BookDelivery() {
             <Header
               icon={CalendarIcon}
               title="When do you need it?"
-              hint="Optional — leave blank for as soon as possible."
+              hint="Optional â€” leave blank for as soon as possible."
             />
 
             <div>
@@ -479,7 +476,7 @@ function BookDelivery() {
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
                 maxLength={300}
-                placeholder="Access instructions, contact person, gate code…"
+                placeholder="Access instructions, contact person, gate codeâ€¦"
               />
             </div>
 
@@ -487,9 +484,9 @@ function BookDelivery() {
               <Row
                 icon={Package}
                 label={matPrice?.label ?? "Material"}
-                value={`${quantity} m³`}
+                value={`${quantity} mÂ³`}
               />
-              <Row icon={MapPin} label="Delivery to" value={address || "—"} />
+              <Row icon={MapPin} label="Delivery to" value={address || "â€”"} />
               <Row
                 icon={CalendarIcon}
                 label="Preferred date"
@@ -546,7 +543,7 @@ function BookDelivery() {
             </div>
 
             <div className="rounded-2xl bg-card border p-4 space-y-2 text-sm">
-              <Row icon={Package} label={offerData.label} value={`${quantity} m³`} />
+              <Row icon={Package} label={offerData.label} value={`${quantity} mÂ³`} />
               <Row icon={MapPin} label="Delivery to" value={address} />
               <Row
                 icon={Truck}
@@ -595,7 +592,7 @@ function BookDelivery() {
             >
               {computing ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" /> Calculating…
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" /> Calculatingâ€¦
                 </>
               ) : (
                 <>

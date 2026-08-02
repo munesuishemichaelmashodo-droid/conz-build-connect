@@ -1,5 +1,4 @@
 ﻿import { supabase } from "@/integrations/supabase/client";
-import { uploadJobEvidence, signedEvidenceUrl } from "@/lib/upload-evidence";
 import { warmLocation, describeAccuracy } from "@/lib/capture-location";
 import { getWarmLocation, type CapturedLocation } from "@/lib/capture-location";
 

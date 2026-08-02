@@ -1,4 +1,4 @@
-import { DriverNavigationButtons } from "./DriverNavigationButtons";
+﻿import { DriverNavigationButtons } from "./DriverNavigationButtons";
 import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
@@ -77,7 +77,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
                   <StatusBadge label={levelInfo(driver.level).label} className={levelInfo(driver.level).className} />
                   <div className="text-xs text-white/70 mt-1 flex items-center gap-1 justify-end">
                     <Star className="w-3 h-3 fill-current text-warning" />
-                    {Number(driver.rating_avg).toFixed(1)} • {driver.jobs_completed} jobs
+                    {Number(driver.rating_avg).toFixed(1)} â€¢ {driver.jobs_completed} jobs
                   </div>
                 </div>
               )}
@@ -119,7 +119,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
                 </Link>
               )}
               <p className="text-[11px] text-muted-foreground px-1">
-                Cancelling jobs after a driver accepts may affect your account — see our cancellation policy.
+                Cancelling jobs after a driver accepts may affect your account â€” see our cancellation policy.
               </p>
             </div>
           );
@@ -170,11 +170,11 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
                   lng: job.pickup_lng ?? 31.0522,
                 }}
                 dropoff={{
-                  lat: job.dropoff_lat ?? job.delivery_lat,
-                  lng: job.dropoff_lng ?? job.delivery_lng,
+                  lat: job.delivery_lat,
+                  lng: job.delivery_lng,
                 }}
                 pickupLabel={job.pickup_address ?? "Harare CBD supplier pickup point"}
-                dropoffLabel={job.dropoff_address ?? job.delivery_address ?? "Drop-off"}
+                dropoffLabel={job.delivery_address ?? "Drop-off"}
               />
             )}
           </div>
