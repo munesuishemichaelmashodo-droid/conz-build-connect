@@ -61,10 +61,13 @@ function AdminSettings() {
 
   const saveDiesel = async () => {
     const v = Number(dieselValue);
-    if (isNaN(v) || v <= 0 || v > 100) return toast.error("Price must be between 0 and 100");
-    const { error } = await supabase.rpc("admin_set_diesel_price", { _price: v });
+   if (isNaN(v) || v < 0.5 || v > 2.0) return toast.error("Multiplier must be between 0.50 and 2.00");
+    const { error } = await supabase.rpc("admin_set_demand_multiplier", {
+  _multiplier: v,
+  _reason: "Price adjustment",
+});
     if (error) return toast.error(error.message);
-    toast.success(`Diesel price set to $${v.toFixed(2)}/L`);
+toast.success(`Price multiplier set to ${v.toFixed(2)}`);
     qc.invalidateQueries({ queryKey: ["diesel-price"] });
   };
 
@@ -113,31 +116,32 @@ function AdminSettings() {
       <div className="rounded-2xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Fuel className="w-5 h-5 text-primary" />
-          <h3 className="font-display font-bold text-lg uppercase tracking-wide">Diesel price</h3>
+          <h3 className="font-display font-bold text-lg uppercase tracking-wide">Price multiplier</h3>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Current diesel price per litre (USD). Used to estimate fuel cost in the customer price suggestion.
-        </p>
+        
+121         <p> className="text-sm text-muted-foreground"</p>
+          Moves every enforced material price at once. 1.00 = no change, 1.08 = +8%.
+        
         <div className="flex items-center gap-2">
-          <span className="font-display font-bold text-2xl text-muted-foreground">$</span>
+          <span className="font-display font-bold text-2xl text-muted-foreground">*</span>
           <input
             type="number"
-            min={0}
-            max={100}
+            min={0.5}
+            max={2.0}
             step={0.01}
             value={dieselValue}
             onChange={(e) => setDieselValue(e.target.value)}
             disabled={!isSuper}
             className="flex-1 px-3 py-2.5 rounded-xl border bg-background text-lg font-display font-bold disabled:opacity-50"
           />
-          <span className="font-display font-bold text-sm text-muted-foreground">/ L</span>
+         
         </div>
         <button
           onClick={saveDiesel}
           disabled={!isSuper}
           className="w-full rounded-xl bg-primary text-primary-foreground font-semibold py-3 disabled:opacity-50"
         >
-          <Save className="w-4 h-4 inline mr-1" /> Save diesel price
+          <Save className="w-4 h-4 inline mr-1" /> Apply multiplier
         </button>
         {!isSuper && (
           <p className="text-xs text-muted-foreground text-center">Only super admins can change the diesel price.</p>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Polyline, Popup, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -8,19 +8,19 @@ import { toast } from "sonner";
 import { RouteStats } from "@/components/RouteStats";
 const truckIcon = L.divIcon({
   className: "",
-  html: `<div style="background:hsl(var(--primary));color:hsl(var(--primary-foreground));width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px">🚛</div>`,
+  html: `<div style="background:hsl(var(--primary));color:hsl(var(--primary-foreground));width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px">ðŸš›</div>`,
   iconSize: [32, 32],
   iconAnchor: [16, 16],
 });
 
 const destIcon = L.divIcon({
   className: "",
-  html: `<div style="background:hsl(var(--foreground));color:hsl(var(--background));width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><span style="transform:rotate(45deg);font-size:14px">📍</span></div>`,
+  html: `<div style="background:hsl(var(--foreground));color:hsl(var(--background));width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><span style="transform:rotate(45deg);font-size:14px">ðŸ“</span></div>`,
   iconSize: [28, 28],
   iconAnchor: [14, 28],
 });
 // Leaflet doesn't detect when its container resizes on its own
-// (e.g. a dialog opening/closing shifts layout below it) — this
+// (e.g. a dialog opening/closing shifts layout below it) â€” this
 // nudges it to recalculate so it doesn't render a stale, zoomed-out view.
 function ResizeFix() {
   const map = useMap();
