@@ -28,10 +28,16 @@ type Job = {
 
 const WINDOW_MS = 10_000;
 
-/** Short beep via WebAudio; also vibrate if supported. */
-function alertPulse() {
+/**
+ * Short beep via WebAudio; also vibrate if supported.
+ * `variant`:
+ *  - "dispatch" (default): urgent falling two-tone, long buzz — "accept now or lose it"
+ *  - "nudge": softer rising two-tone, short double tap — "come look at this"
+ */
+export function alertPulse(variant: "dispatch" | "nudge" = "dispatch") {
+  const nudge = variant === "nudge";
   try {
-    if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
+    if ("vibrate" in navigator) navigator.vibrate(nudge ? [60, 60, 60] : [200, 100, 200]);
   } catch {}
   try {
     const Ctx =
@@ -42,17 +48,18 @@ function alertPulse() {
     const ctx = new Ctx();
     const o = ctx.createOscillator();
     const g = ctx.createGain();
-    o.type = "sine";
-    o.frequency.value = 880;
+    o.type = nudge ? "triangle" : "sine";
+    o.frequency.value = nudge ? 523 : 880;
     o.connect(g);
     g.connect(ctx.destination);
-    g.gain.setValueAtTime(0.3, ctx.currentTime);
+    g.gain.setValueAtTime(nudge ? 0.16 : 0.3, ctx.currentTime);
     o.start();
-    o.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-    o.stop(ctx.currentTime + 0.55);
+    o.frequency.setValueAtTime(nudge ? 784 : 660, ctx.currentTime + 0.12);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (nudge ? 0.35 : 0.5));
+    o.stop(ctx.currentTime + (nudge ? 0.4 : 0.55));
   } catch {}
 }
+
 
 export function JobOfferListener() {
   const { userId, is } = useAuth();

@@ -48,3 +48,5 @@ supabase/.temp/
 tsc-errors.txt
 types.backup*.ts
 types.new.ts
+
+.env
