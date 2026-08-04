@@ -150,6 +150,9 @@ function PrivacyPage() {
           <p className="pt-6 text-xs text-muted-foreground">
             See also our <Link to="/terms" className="underline">Terms and Conditions</Link>.
           </p>
+          <p className="pt-2 text-[11px] text-muted-foreground">
+            © {new Date().getFullYear()} Con Z Connect (Pvt) Ltd. All rights reserved.
+          </p>
         </div>
       </div>
     </div>
