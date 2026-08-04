@@ -509,7 +509,7 @@ function BidForm({ jobId, existing, onSaved }: { jobId: string; existing?: any; 
           placeholder="e.g. Can deliver tomorrow morning"
         />
       </div>
-      <Button type="submit" disabled={loading} className="w-full">
+      <Button type="submit" disabled={loading || showFundsWarning} className="w-full">
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : existing ? "Update bid" : "Submit bid"}
       </Button>
     </form>
