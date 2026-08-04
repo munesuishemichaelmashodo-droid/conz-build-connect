@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { Percent, Save, ShieldAlert, Fuel } from "lucide-react";
+import { Percent, Save, ShieldAlert, Fuel, Package } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -40,6 +40,21 @@ function AdminSettings() {
   useEffect(() => {
     if (diesel != null) setDieselValue(String(diesel));
   }, [diesel]);
+
+  const { data: materials } = useQuery({
+    queryKey: ["admin-material-prices-full"],
+    queryFn: async () => {
+      const { data } = await (supabase.rpc as unknown as (f: string) => Promise<{ data: unknown }>)("admin_material_prices");
+      return (data ?? []) as Array<{
+        material: string;
+        label: string;
+        min_price: number | null;
+        max_price: number | null;
+        enforced: boolean;
+        unit: string;
+      }>;
+    },
+  });
 
   const { data: superCount } = useQuery({
     queryKey: ["super-count"],
@@ -118,12 +133,11 @@ toast.success(`Price multiplier set to ${v.toFixed(2)}`);
           <Fuel className="w-5 h-5 text-primary" />
           <h3 className="font-display font-bold text-lg uppercase tracking-wide">Price multiplier</h3>
         </div>
-        
-121         <p> className="text-sm text-muted-foreground"</p>
+        <p className="text-sm text-muted-foreground">
           Moves every enforced material price at once. 1.00 = no change, 1.08 = +8%.
-        
+        </p>
         <div className="flex items-center gap-2">
-          <span className="font-display font-bold text-2xl text-muted-foreground">*</span>
+          <span className="font-display font-bold text-2xl text-muted-foreground">×</span>
           <input
             type="number"
             min={0.5}
@@ -148,6 +162,30 @@ toast.success(`Price multiplier set to ${v.toFixed(2)}`);
         )}
       </div>
 
+      <div className="rounded-2xl border bg-card p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Package className="w-5 h-5 text-primary" />
+          <h3 className="font-display font-bold text-lg uppercase tracking-wide">Material prices</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Set the min/max price range per material (per {materials?.[0]?.unit ?? "10-15 m³ load"}). Turning enforcement
+          off lets customers name their own price for that material.
+        </p>
+        <div className="space-y-3">
+          {materials?.map((m) => (
+            <MaterialPriceRow
+              key={m.material}
+              material={m}
+              isSuper={isSuper}
+              onSaved={() => {
+                qc.invalidateQueries({ queryKey: ["admin-material-prices-full"] });
+                qc.invalidateQueries({ queryKey: ["admin-material-prices"] });
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
       {!isSuper && superCount === 0 && (
         <div className="rounded-2xl border border-warning/40 bg-warning/10 p-5 space-y-3">
           <div className="flex items-center gap-2">
@@ -170,6 +208,124 @@ toast.success(`Price multiplier set to ${v.toFixed(2)}`);
         <div>Signed in as: <span className="font-mono">{userId?.slice(0, 8)}</span></div>
         <div>Super admins on platform: {superCount ?? 0}</div>
       </div>
+    </div>
+  );
+}
+
+function MaterialPriceRow({
+  material,
+  isSuper,
+  onSaved,
+}: {
+  material: { material: string; label: string; min_price: number | null; max_price: number | null; enforced: boolean };
+  isSuper: boolean;
+  onSaved: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [min, setMin] = useState(String(material.min_price ?? 0));
+  const [max, setMax] = useState(String(material.max_price ?? 0));
+  const [enforced, setEnforced] = useState(material.enforced);
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    const minV = Number(min);
+    const maxV = Number(max);
+    if (enforced && (isNaN(minV) || isNaN(maxV) || minV < 0 || maxV <= 0 || minV > maxV)) {
+      return toast.error("Min must be ≥ 0, max must be > 0, and min ≤ max.");
+    }
+    if (reason.trim().length < 5) {
+      return toast.error("Give a reason (at least 5 characters) — it is recorded in the admin audit log.");
+    }
+    setSaving(true);
+    const { error } = await (supabase.rpc as unknown as (
+      f: string,
+      a: Record<string, unknown>,
+    ) => Promise<{ error: { message: string } | null }>)("admin_set_material_price", {
+      _material: material.material,
+      _min_price: minV,
+      _max_price: maxV,
+      _enforced: enforced,
+      _reason: reason.trim(),
+    });
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success(`${material.label} price updated`);
+    setReason("");
+    setOpen(false);
+    onSaved();
+  };
+
+  return (
+    <div className="rounded-xl border p-3 space-y-2">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-2 text-left"
+      >
+        <span className="font-semibold text-sm">{material.label}</span>
+        <span className="text-xs text-muted-foreground font-mono">
+          {material.enforced
+            ? `$${Number(material.min_price ?? 0).toFixed(0)}–$${Number(material.max_price ?? 0).toFixed(0)}`
+            : "Not enforced"}
+        </span>
+      </button>
+      {open && (
+        <div className="space-y-2 pt-2 border-t">
+          <label className="flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={enforced}
+              onChange={(e) => setEnforced(e.target.checked)}
+              disabled={!isSuper}
+            />
+            Enforce a price range for this material
+          </label>
+          {enforced && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[11px] text-muted-foreground">Min ($)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={min}
+                  onChange={(e) => setMin(e.target.value)}
+                  disabled={!isSuper}
+                  className="w-full px-2 py-1.5 rounded-lg border bg-background text-sm disabled:opacity-50"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-muted-foreground">Max ($)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={max}
+                  onChange={(e) => setMax(e.target.value)}
+                  disabled={!isSuper}
+                  className="w-full px-2 py-1.5 rounded-lg border bg-background text-sm disabled:opacity-50"
+                />
+              </div>
+            </div>
+          )}
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            disabled={!isSuper}
+            placeholder="Reason (required, recorded in the audit log)"
+            className="w-full px-2 py-1.5 rounded-lg border bg-background text-xs disabled:opacity-50"
+          />
+          <button
+            onClick={save}
+            disabled={!isSuper || saving}
+            className="w-full rounded-lg bg-primary text-primary-foreground font-semibold py-2 text-sm disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

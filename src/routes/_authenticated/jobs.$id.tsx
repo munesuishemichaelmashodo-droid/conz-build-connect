@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge, Section } from "@/components/ui-bits";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, MessageCircle, Share2, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, MessageCircle, Share2, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle, Wallet } from "lucide-react";
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { SITE_URL } from "@/lib/site";
 import { useState } from "react";
@@ -458,6 +458,31 @@ function BidForm({ jobId, existing, onSaved }: { jobId: string; existing?: any; 
   const [message, setMessage] = useState(existing?.message ?? "");
   const [loading, setLoading] = useState(false);
 
+  // Upfront commission-funds check so the driver learns about a shortfall
+  // before bidding, not when the customer's acceptance fails.
+  const { data: funds } = useQuery({
+    queryKey: ["can-accept-for", jobId, userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("driver_can_accept_for", {
+        _job_id: jobId,
+        _driver_id: userId,
+      });
+      if (error) throw error;
+      return data as {
+        ok: boolean;
+        required?: number;
+        available?: number;
+        shortfall?: number;
+        free?: boolean;
+        reason?: string;
+      };
+    },
+  });
+
+  const shortfall = Number(funds?.shortfall ?? 0);
+  const showFundsWarning = !!funds && funds.ok === false && !funds.free && shortfall > 0;
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const p = parseFloat(price);
@@ -480,7 +505,31 @@ function BidForm({ jobId, existing, onSaved }: { jobId: string; existing?: any; 
   };
 
   return (
-    <form onSubmit={submit} className="rounded-2xl bg-card border p-4 space-y-3">
+    <div className="space-y-3">
+      {showFundsWarning && (
+        <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4 space-y-2">
+          <div className="flex items-start gap-2">
+            <Wallet className="w-4 h-4 mt-0.5 text-warning shrink-0" />
+            <div className="text-sm">
+              <div className="font-display font-bold uppercase text-xs tracking-wide text-warning">
+                Top up to take this job
+              </div>
+              <p className="mt-1 text-muted-foreground">
+                You need {money(shortfall)} more in your wallet to take jobs like this — commission is reserved when a
+                bid is accepted.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Commission required {money(Number(funds?.required ?? 0))} · Available{" "}
+                {money(Number(funds?.available ?? 0))}
+              </p>
+            </div>
+          </div>
+          <Button asChild size="sm" variant="outline" className="w-full">
+            <Link to="/wallet">Top up wallet</Link>
+          </Button>
+        </div>
+      )}
+      <form onSubmit={submit} className="rounded-2xl bg-card border p-4 space-y-3">
       <div className="font-display font-bold uppercase text-sm tracking-wide">
         {existing ? "Update your bid" : "Submit a bid"}
       </div>
@@ -517,7 +566,8 @@ function BidForm({ jobId, existing, onSaved }: { jobId: string; existing?: any; 
       <Button type="submit" disabled={loading || showFundsWarning} className="w-full">
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : existing ? "Update bid" : "Submit bid"}
       </Button>
-    </form>
+      </form>
+    </div>
   );
 }
 
