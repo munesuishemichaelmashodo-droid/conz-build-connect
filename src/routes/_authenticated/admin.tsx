@@ -1,6 +1,6 @@
-import { createFileRoute, Outlet, Link, useRouterState, redirect } from "@tanstack/react-router";
+﻿import { createFileRoute, Outlet, Link, useRouterState, redirect } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { LayoutDashboard, Users, ShieldCheck, Gavel, Settings as SettingsIcon, TrendingUp, ScrollText, MessageSquareWarning } from "lucide-react";
+import { LayoutDashboard, Users, ShieldCheck, Gavel, Settings as SettingsIcon, TrendingUp, ScrollText, BookOpen, MessageSquareWarning } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -28,7 +28,8 @@ const TABS: { to: string; label: string; icon: typeof Users; exact?: boolean; su
   { to: "/admin/verifications", label: "Verify", icon: ShieldCheck },
   { to: "/admin/disputes", label: "Disputes", icon: Gavel },
   { to: "/admin/reports", label: "Reports", icon: MessageSquareWarning },
-  { to: "/admin/audit", label: "Audit", icon: ScrollText, superOnly: true },
+  { to: "/admin/audit", label: "Audit", icon: ScrollText, BookOpen, superOnly: true },
+  { to: "/admin/ledger", label: "Ledger", icon: BookOpen, superOnly: true },
   { to: "/admin/settings", label: "Settings", icon: SettingsIcon },
 ];
 
@@ -66,3 +67,5 @@ function AdminLayout() {
     </AppShell>
   );
 }
+
+
