@@ -333,8 +333,9 @@ function JobDetail() {
             label="Confirm Pickup"
             hint="Take a photo of the loaded truck to start the trip."
             onUploaded={async () => {
-              await supabase.from("jobs").update({ status: "in_progress" }).eq("id", id);
-              qc.invalidateQueries({ queryKey: ["job", id] });
+            const { error } = await supabase.rpc("start_trip", { _job_id: id });
+            if (error) return toast.error(error.message);
+            qc.invalidateQueries({ queryKey: ["job", id] });
             }}
           />
         )}
