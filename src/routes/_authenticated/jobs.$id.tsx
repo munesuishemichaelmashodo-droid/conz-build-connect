@@ -214,7 +214,12 @@ function JobDetail() {
 
   const acceptBid = async (bidId: string) => {
     const { error } = await supabase.rpc("accept_bid", { _bid_id: bidId });
-    if (error) return toast.error(error.message);
+    if (error) {
+      if (/insufficient wallet balance/i.test(error.message)) {
+        return toast.error("This driver can no longer accept — ask them to top up, or accept another bid.");
+      }
+      return toast.error(error.message);
+    }
     toast.success("Bid accepted!");
     qc.invalidateQueries({ queryKey: ["job", id] });
     qc.invalidateQueries({ queryKey: ["bids", id] });
