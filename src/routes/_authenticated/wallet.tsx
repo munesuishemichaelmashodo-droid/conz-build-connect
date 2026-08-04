@@ -30,6 +30,7 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { initiatePaynowTopup } from "@/lib/paynow.functions";
 
 export const Route = createFileRoute("/_authenticated/wallet")({
   component: WalletPage,
@@ -457,7 +458,29 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
   const [reference, setReference] = useState("");
   const [method, setMethod] = useState<string>("ecocash");
   const [submitting, setSubmitting] = useState(false);
+  const [payingNow, setPayingNow] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
   const presets = [10, 20, 50, 100];
+
+  const payWithPaynow = async () => {
+    if (!amount || amount <= 0) return toast.error("Enter an amount");
+    setPayingNow(true);
+    try {
+      const result = await initiatePaynowTopup({ data: { amount } });
+      if (!result.ok) {
+        if (result.error === "paynow_not_configured") {
+          toast.error("Paynow isn't connected yet — use manual top-up below for now.");
+          setManualOpen(true);
+        } else {
+          toast.error(result.error);
+        }
+        return;
+      }
+      window.location.href = result.redirectUrl;
+    } finally {
+      setPayingNow(false);
+    }
+  };
 
   const submit = async () => {
     if (!amount || amount <= 0) return toast.error("Enter an amount");
@@ -479,7 +502,7 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
       <DialogContent className="max-w-sm rounded-3xl">
         <DialogHeader>
           <DialogTitle className="font-display uppercase tracking-wide">Top Up Wallet</DialogTitle>
-          <DialogDescription>Enter an amount and your payment method — funds are credited to your wallet instantly.</DialogDescription>
+          <DialogDescription>Pay instantly via Paynow — EcoCash, OneMoney, ZIPIT, Visa/Mastercard, or bank.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -512,48 +535,64 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
             </div>
           </div>
 
-          <div>
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Payment Method</div>
-            <div className="space-y-1.5">
-              {METHODS.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setMethod(m.id)}
-                  className={cn(
-                    "w-full flex items-center gap-3 rounded-xl border p-3 text-left transition",
-                    method === m.id ? "border-primary bg-primary/5" : "hover:border-primary/40",
-                  )}
-                >
-                  <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                    <m.icon className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold">{m.label}</div>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">{m.hint}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-[10px] uppercase tracking-widest text-muted-foreground">Payment reference (optional)</label>
-            <input
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              placeholder="EcoCash txn ID / bank ref"
-              maxLength={80}
-              className="w-full mt-1 px-3 py-2.5 rounded-xl border bg-background text-sm"
-            />
-          </div>
-
-          <Button onClick={submit} disabled={submitting} className="w-full h-12 rounded-xl font-display uppercase tracking-wide">
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>I Have Made Payment — {money(amount || 0)}</>}
+          <Button onClick={payWithPaynow} disabled={payingNow} className="w-full h-12 rounded-xl font-display uppercase tracking-wide">
+            {payingNow ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Pay with Paynow — {money(amount || 0)}</>}
           </Button>
           <p className="text-[11px] text-center text-muted-foreground">
-            Your wallet is credited within minutes after admin verifies the payment.
+            You'll be redirected to Paynow's secure checkout. Your wallet is credited automatically once payment clears.
           </p>
+
+          <button
+            type="button"
+            onClick={() => setManualOpen((o) => !o)}
+            className="text-[11px] text-muted-foreground underline w-full text-center"
+          >
+            {manualOpen ? "Hide manual top-up" : "Paid another way? Submit manually instead"}
+          </button>
+
+          {manualOpen && (
+            <div className="space-y-4 pt-2 border-t">
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Payment Method</div>
+                <div className="space-y-1.5">
+                  {METHODS.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setMethod(m.id)}
+                      className={cn(
+                        "w-full flex items-center gap-3 rounded-xl border p-3 text-left transition",
+                        method === m.id ? "border-primary bg-primary/5" : "hover:border-primary/40",
+                      )}
+                    >
+                      <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                        <m.icon className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold">{m.label}</div>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">{m.hint}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-muted-foreground">Payment reference (optional)</label>
+                <input
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  placeholder="EcoCash txn ID / bank ref"
+                  maxLength={80}
+                  className="w-full mt-1 px-3 py-2.5 rounded-xl border bg-background text-sm"
+                />
+              </div>
+
+              <Button onClick={submit} disabled={submitting} variant="outline" className="w-full h-12 rounded-xl font-display uppercase tracking-wide">
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>I Have Made Payment — {money(amount || 0)}</>}
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
