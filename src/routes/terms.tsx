@@ -144,13 +144,15 @@ function TermsPage() {
           <Section title="14. Contact">
             <p>
               For questions about these Terms, you can reach us at{" "}
-              <b>munesuishemichaelmashodo@gmail.com</b> or{" "}
-              <b>ngaatendwew@gmail.com</b>.
+              <b>constructionz.zw@gmail.com</b>.
             </p>
           </Section>
 
           <p className="pt-6 text-xs text-muted-foreground">
             See also our <Link to="/privacy" className="underline">Privacy Policy</Link>.
+          </p>
+          <p className="pt-2 text-[11px] text-muted-foreground">
+            © {new Date().getFullYear()} Con Z Connect (Pvt) Ltd. All rights reserved.
           </p>
         </div>
       </div>

@@ -97,6 +97,12 @@ function Welcome() {
         <p className="text-center text-[11px] text-white/70 mt-2">
           Contact: <a href="mailto: constructionz.zw@gmail.com" className="underline">constructionz.zw@gmail.com</a>
         </p>
+        <p className="text-center text-[11px] text-white/50 mt-3">
+          <Link to="/terms" className="underline">Terms</Link> · <Link to="/privacy" className="underline">Privacy</Link>
+        </p>
+        <p className="text-center text-[10px] text-white/40 mt-2">
+          © {new Date().getFullYear()} Con Z Connect (Pvt) Ltd. All rights reserved.
+        </p>
       </div>
     </div>
   );
