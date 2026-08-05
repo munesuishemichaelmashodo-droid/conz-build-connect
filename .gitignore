@@ -50,3 +50,7 @@ types.backup*.ts
 types.new.ts
 
 .env
+
+*.bak
+/wallet.tsx
+/customer.book.tsx
