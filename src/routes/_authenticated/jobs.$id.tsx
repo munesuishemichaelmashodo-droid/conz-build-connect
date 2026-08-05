@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,7 +35,7 @@ const waLink = (phone: string | null | undefined, text: string) => {
 };
 
 // WhatsApp panel: direct contact with the other party + shareable delivery summary.
-// "Share" needs no phone number — it forwards a formatted summary to any
+// "Share" needs no phone number â€” it forwards a formatted summary to any
 // WhatsApp contact or group (e.g. the foreman waiting on site).
 function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
   const otherId = isOwner ? job.driver_id : job.customer_id;
@@ -61,7 +61,7 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
   const name = other?.full_name ?? (isOwner ? "your driver" : "the customer");
 
   const summary =
-    `ConZ delivery ${ref}: ${material}, ${Number(job.quantity_m3)} m³, ` +
+    `ConZ delivery ${ref}: ${material}, ${Number(job.quantity_m3)} mÂ³, ` +
     `to ${job.delivery_address}. Status: ${job.status.replace("_", " ")}.` +
     (job.final_price ? ` Agreed price: ${money(Number(job.final_price))}.` : "") +
     (isOwner && other?.full_name ? ` Driver: ${other.full_name}.` : "");
@@ -72,7 +72,7 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
 
   const direct = waLink(other?.phone, directText);
   const arrivedPickup = waLink(other?.phone, `${summary} I've arrived at the pickup point and I'm loading now.`);
-  const outsideNow = waLink(other?.phone, `${summary} I'm outside with your delivery — please send someone to receive it.`);
+  const outsideNow = waLink(other?.phone, `${summary} I'm outside with your delivery â€” please send someone to receive it.`);
 
   // Public live-tracking link (Batch 6): included in the WhatsApp share message
   // so the recipient can watch the truck without a Con Z account.
@@ -86,7 +86,7 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
       await navigator.clipboard.writeText(trackUrl);
       toast.success("Tracking link copied");
     } catch {
-      toast.error(`Couldn't copy — the link is: ${trackUrl}`);
+      toast.error(`Couldn't copy â€” the link is: ${trackUrl}`);
     }
   };
 
@@ -121,7 +121,7 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          No WhatsApp number on their profile yet — use in-app chat below.
+          No WhatsApp number on their profile yet â€” use in-app chat below.
         </p>
       )}
 
@@ -141,7 +141,7 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
         </button>
       )}
       <p className="text-[11px] text-muted-foreground">
-        Share forwards a delivery summary and live tracking link to any WhatsApp contact or group — no Con Z account needed to watch the truck.
+        Share forwards a delivery summary and live tracking link to any WhatsApp contact or group â€” no Con Z account needed to watch the truck.
       </p>
     </div>
   );
@@ -203,7 +203,7 @@ function JobDetail() {
   if (isLoading || !job)
     return (
       <AppShell>
-        <div className="text-center text-muted-foreground py-10">Loading…</div>
+        <div className="text-center text-muted-foreground py-10">Loadingâ€¦</div>
       </AppShell>
     );
 
@@ -216,7 +216,7 @@ function JobDetail() {
     const { error } = await supabase.rpc("accept_bid", { _bid_id: bidId });
     if (error) {
       if (/insufficient wallet balance/i.test(error.message)) {
-        return toast.error("This driver can no longer accept — ask them to top up, or accept another bid.");
+        return toast.error("This driver can no longer accept â€” ask them to top up, or accept another bid.");
       }
       return toast.error(error.message);
     }
@@ -227,7 +227,7 @@ function JobDetail() {
 
   const completeJob = async () => {
     const { error } = await supabase.rpc("complete_job", { _job_id: id });
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("Delivery confirmed.");
     qc.invalidateQueries({ queryKey: ["job", id] });
   };
@@ -254,7 +254,7 @@ function JobDetail() {
           <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
             <div>
               <div className="text-[11px] uppercase text-muted-foreground tracking-widest">Quantity</div>
-              <div className="font-semibold">{Number(job.quantity_m3)} m³</div>
+              <div className="font-semibold">{Number(job.quantity_m3)} mÂ³</div>
             </div>
             <div>
               <div className="text-[11px] uppercase text-muted-foreground tracking-widest">
@@ -334,7 +334,7 @@ function JobDetail() {
             hint="Take a photo of the loaded truck to start the trip."
             onUploaded={async () => {
             const { error } = await supabase.rpc("start_trip", { _job_id: id });
-            if (error) return toast.error(error.message);
+            if (error) { toast.error(error.message); return; }
             qc.invalidateQueries({ queryKey: ["job", id] });
             }}
           />
@@ -413,7 +413,7 @@ function JobDetail() {
                                   {Number(b.driver.rating_avg || 0).toFixed(1)}{" "}
                                   <span className="text-muted-foreground/70">({b.driver.rating_count ?? 0})</span>
                                 </span>
-                                <span>• {b.driver.jobs_completed ?? 0} rides completed</span>
+                                <span>â€¢ {b.driver.jobs_completed ?? 0} rides completed</span>
                               </>
                             )}
                           </div>
@@ -500,7 +500,7 @@ function BidForm({ jobId, existing, onSaved }: { jobId: string; existing?: any; 
       { onConflict: "job_id,driver_id" },
     );
     setLoading(false);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success(existing ? "Bid updated" : "Bid submitted");
     onSaved();
   };
@@ -516,11 +516,11 @@ function BidForm({ jobId, existing, onSaved }: { jobId: string; existing?: any; 
                 Top up to take this job
               </div>
               <p className="mt-1 text-muted-foreground">
-                You need {money(shortfall)} more in your wallet to take jobs like this — commission is reserved when a
+                You need {money(shortfall)} more in your wallet to take jobs like this â€” commission is reserved when a
                 bid is accepted.
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Commission required {money(Number(funds?.required ?? 0))} · Available{" "}
+                Commission required {money(Number(funds?.required ?? 0))} Â· Available{" "}
                 {money(Number(funds?.available ?? 0))}
               </p>
             </div>
@@ -594,7 +594,7 @@ function RateForm({ jobId, driverId, onSaved }: { jobId: string; driverId: strin
       comment: comment.trim() || null,
     });
     setLoading(false);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("Thanks for the rating!");
     onSaved();
   };
@@ -656,7 +656,7 @@ function RateCustomerForm({ jobId, customerId, onSaved }: { jobId: string; custo
       comment: comment.trim() || null,
     });
     setLoading(false);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("Thanks for rating the customer!");
     setDone(true);
     onSaved();
@@ -714,7 +714,7 @@ function ProofUpload({ jobId, kind, label, hint, onUploaded }: { jobId: string; 
     const patch = kind === "pickup" ? { pickup_photo_url: url } : { delivery_photo_url: url };
     const { error } = await supabase.from("jobs").update(patch).eq("id", jobId);
     setUploading(false);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success(`${label} photo uploaded`);
     await onUploaded();
   };
@@ -729,12 +729,12 @@ function ProofUpload({ jobId, kind, label, hint, onUploaded }: { jobId: string; 
       <div className="grid grid-cols-2 gap-2">
         <label className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 hover:bg-muted transition p-3 cursor-pointer">
           <Camera className="w-5 h-5 text-primary shrink-0" />
-          <span className="text-xs font-semibold">{uploading ? "Uploading…" : "Take photo"}</span>
+          <span className="text-xs font-semibold">{uploading ? "Uploadingâ€¦" : "Take photo"}</span>
           <input type="file" accept="image/*" capture="environment" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="hidden" />
         </label>
         <label className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 hover:bg-muted transition p-3 cursor-pointer">
           <ImageIcon className="w-5 h-5 text-primary shrink-0" />
-          <span className="text-xs font-semibold">{uploading ? "Uploading…" : "Choose from gallery"}</span>
+          <span className="text-xs font-semibold">{uploading ? "Uploadingâ€¦" : "Choose from gallery"}</span>
           <input type="file" accept="image/*" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="hidden" />
         </label>
       </div>
@@ -765,7 +765,7 @@ function CancelJobDialog({ jobId, status, onCancelled }: { jobId: string; status
     setLoading(true);
     const { error } = await supabase.rpc("cancel_job", { _job_id: jobId, _reason: reason.trim() || "" });
     setLoading(false);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("Job cancelled");
     setOpen(false);
     onCancelled();
@@ -835,7 +835,7 @@ function RaiseDisputeDialog({ jobId, against }: { jobId: string; against: string
       _reason: `${label}: ${explanation.trim()}`,
     });
     setLoading(false);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("Dispute submitted. Our team will review it.");
     setOpen(false);
     setExplanation("");
@@ -955,3 +955,4 @@ function JobTimeline({ job }: { job: any }) {
     </div>
   );
 }
+
