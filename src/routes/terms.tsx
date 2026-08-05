@@ -144,7 +144,7 @@ function TermsPage() {
           <Section title="14. Contact">
             <p>
               For questions about these Terms, you can reach us at{" "}
-              <b>constructionz@gmail.com</b>.
+              <b>constructionz.zw@gmail.com</b>.
             </p>
           </Section>
 
