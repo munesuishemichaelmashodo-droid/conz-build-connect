@@ -3,7 +3,7 @@ import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { initiatePaynowTopup } from "@/lib/paynow.functions";
+import { initiatePaynowTopup, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
 import {
   Wallet as WalletIcon,
   Fuel,
@@ -114,6 +114,39 @@ function WalletPage() {
     enabled: !!userId,
     queryFn: async () => (await supabase.from("driver_profiles").select("withdrawal_pin_hash").eq("user_id", userId!).maybeSingle()).data,
   });
+
+  // Reconcile any pending Paynow top-ups by polling Paynow directly — the
+  // resultUrl webhook is not always reliably delivered (especially in test
+  // mode), so this is the primary confirmation path: check whenever the
+  // wallet page mounts or regains focus (e.g. returning from Paynow's site).
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    const reconcile = async () => {
+      try {
+        const res = await reconcilePendingPaynowPayments();
+        if (!cancelled && res.credited > 0) {
+          qc.invalidateQueries({ queryKey: ["wallet", userId] });
+          qc.invalidateQueries({ queryKey: ["wallet-tx", userId] });
+          qc.invalidateQueries({ queryKey: ["topups", userId] });
+          toast.success(res.credited === 1 ? "Payment confirmed — wallet credited!" : `${res.credited} payments confirmed — wallet credited!`);
+        }
+      } catch {
+        // Silent — realtime/webhook path can still catch it later.
+      }
+    };
+    reconcile();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") reconcile();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", reconcile);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", reconcile);
+    };
+  }, [userId, qc]);
 
   // Realtime — refresh on any wallet change
   useEffect(() => {

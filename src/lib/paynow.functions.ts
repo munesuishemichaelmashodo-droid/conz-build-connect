@@ -66,3 +66,50 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
 
     return { ok: true, paymentId: payment.id, redirectUrl: result.browserUrl };
   });
+
+const SUCCESS_STATUSES = new Set(["paid", "awaiting delivery", "delivered"]);
+const FAILED_STATUSES = new Set(["cancelled", "failed", "disputed", "refunded"]);
+
+export type ReconcileResult = { checked: number; credited: number };
+
+/**
+ * Actively reconcile this user's still-pending Paynow top-ups by polling
+ * Paynow directly, rather than waiting on the resultUrl webhook (which is
+ * not reliably delivered, especially in test mode). Safe to call anytime —
+ * idempotent, only touches this user's own rows.
+ */
+export const reconcilePendingPaynowPayments = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<ReconcileResult> => {
+    const { pollPaynowStatus } = await import("@/lib/paynow.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = supabaseAdmin as any;
+
+    const { data: pending } = await db
+      .from("payments")
+      .select("id, paynow_poll_url")
+      .eq("user_id", context.userId)
+      .eq("type", "topup")
+      .eq("status", "initiated")
+      .not("paynow_poll_url", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    let credited = 0;
+    for (const p of pending ?? []) {
+      const result = await pollPaynowStatus(p.paynow_poll_url);
+      if (!result.ok) continue;
+      if (SUCCESS_STATUSES.has(result.status)) {
+        await db
+          .from("payments")
+          .update({ status: "paid", paynow_reference: result.paynowReference ?? p.id })
+          .eq("id", p.id)
+          .eq("status", "initiated"); // idempotency guard
+        const { error } = await db.rpc("credit_wallet_from_payment", { _payment_id: p.id });
+        if (!error) credited += 1;
+      } else if (FAILED_STATUSES.has(result.status)) {
+        await db.from("payments").update({ status: "failed" }).eq("id", p.id).eq("status", "initiated");
+      }
+    }
+    return { checked: pending?.length ?? 0, credited };
+  });

@@ -47,6 +47,31 @@ export async function verifyPaynowPayload(
   return expected === received.toUpperCase();
 }
 
+export type PollResult = { ok: true; status: string; paynowReference?: string } | { ok: false; error: string };
+
+/**
+ * Actively check a payment's status via Paynow's poll URL (returned at
+ * initiation). Used as the primary reconciliation path since the resultUrl
+ * webhook is not always reliably delivered, especially in test mode.
+ */
+export async function pollPaynowStatus(pollUrl: string): Promise<PollResult> {
+  const creds = getPaynowCredentials();
+  if (!creds) return { ok: false, error: "paynow_not_configured" };
+  let res: Response;
+  try {
+    res = await fetch(pollUrl, { method: "GET", signal: AbortSignal.timeout(10000) });
+  } catch (err) {
+    const timedOut = err instanceof Error && err.name === "TimeoutError";
+    return { ok: false, error: timedOut ? "paynow_timeout" : "paynow_unreachable" };
+  }
+  const text = await res.text();
+  const fields: Array<[string, string]> = [...new URLSearchParams(text).entries()];
+  const valid = await verifyPaynowPayload(fields, creds.key);
+  if (!valid) return { ok: false, error: "invalid_hash" };
+  const map = parsePaynowResponse(text);
+  return { ok: true, status: (map["status"] ?? "").toLowerCase(), paynowReference: map["paynowreference"] };
+}
+
 export type InitiateResult =
   | { ok: true; browserUrl: string; pollUrl: string }
   | { ok: false; error: string };
