@@ -3,8 +3,8 @@
 const INITIATE_URL = "https://www.paynow.co.zw/interface/initiatetransaction";
 
 export function getPaynowCredentials(): { id: string; key: string } | null {
-  const id = process.env["PAYNOW_INTEGRATION_ID"];
-  const key = process.env["PAYNOW_INTEGRATION_KEY"];
+  const id = process.env["PAYNOW_INTEGRATION_ID"]?.trim();
+  const key = process.env["PAYNOW_INTEGRATION_KEY"]?.trim();
   if (!id || !key) return null;
   return { id, key };
 }
