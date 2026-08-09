@@ -100,11 +100,11 @@ export const reconcilePendingPaynowPayments = createServerFn({ method: "POST" })
       const result = await pollPaynowStatus(p.paynow_poll_url);
       if (!result.ok) continue;
       if (SUCCESS_STATUSES.has(result.status)) {
-        await db
-          .from("payments")
-          .update({ status: "paid", paynow_reference: result.paynowReference ?? p.id })
-          .eq("id", p.id)
-          .eq("status", "initiated"); // idempotency guard
+        // Do NOT pre-set status to "paid" — the RPC uses that as its own
+        // idempotency guard and would skip crediting if already set.
+        if (result.paynowReference) {
+          await db.from("payments").update({ paynow_reference: result.paynowReference }).eq("id", p.id);
+        }
         const { error } = await db.rpc("credit_wallet_from_payment", { _payment_id: p.id });
         if (!error) credited += 1;
       } else if (FAILED_STATUSES.has(result.status)) {

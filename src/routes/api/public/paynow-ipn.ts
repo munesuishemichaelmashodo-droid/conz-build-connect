@@ -34,11 +34,13 @@ async function handleIpn(request: Request): Promise<Response> {
   if (!payment) return new Response("unknown reference", { status: 404 });
 
   if (SUCCESS_STATUSES.includes(status)) {
-    await db
-      .from("payments")
-      .update({ status: "paid", paynow_reference: map["paynowreference"] ?? reference })
-      .eq("id", payment.id);
-    // Idempotent: credits wallet, logs transaction, notifies the user.
+    // Do NOT pre-set status to "paid" here — credit_wallet_from_payment()
+    // uses status='paid' as its own idempotency guard and will skip crediting
+    // if it's already set. Only store the paynow_reference; let the RPC be
+    // the sole place that transitions status and credits the wallet.
+    if (map["paynowreference"]) {
+      await db.from("payments").update({ paynow_reference: map["paynowreference"] }).eq("id", payment.id);
+    }
     const { error } = await db.rpc("credit_wallet_from_payment", { _payment_id: payment.id });
     if (error) console.error("[paynow-ipn] credit_wallet_from_payment failed", error.message);
   } else if (FAILED_STATUSES.includes(status)) {
