@@ -39,6 +39,10 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
     if (error || !payment) return { ok: false, error: error?.message ?? "payment_create_failed" };
 
     const origin = new URL(getRequestUrl()).origin;
+    // resultUrl (Paynow's server-to-server webhook) must always hit the stable
+    // production domain — deployment-specific *.vercel.app URLs can be gated by
+    // Vercel deployment protection, silently blocking the callback.
+    const CANONICAL_ORIGIN = "https://conz-build-connect.vercel.app";
     const email = (context.claims as { email?: string })?.email ?? "noreply@conz.co.zw";
 
     const result = await initiatePaynowTransaction({
@@ -46,7 +50,7 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
       amount: data.amount,
       authEmail: email,
       returnUrl: `${origin}/wallet`,
-      resultUrl: `${origin}/api/public/paynow-ipn`,
+      resultUrl: `${CANONICAL_ORIGIN}/api/public/paynow-ipn`,
       additionalInfo: `Con Z wallet top-up ${payment.id}`,
     });
 
