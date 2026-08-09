@@ -31,7 +31,7 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
         amount: data.amount,
         currency: "USD",
         method: "paynow",
-        status: "pending",
+        status: "initiated",
       })
       .select("id")
       .single();
