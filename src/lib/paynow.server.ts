@@ -76,11 +76,18 @@ export async function initiatePaynowTransaction(args: {
 
   const body = new URLSearchParams([...fields, ["hash", hash]]).toString();
 
-  const res = await fetch(INITIATE_URL, {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body,
-  });
+  let res: Response;
+  try {
+    res = await fetch(INITIATE_URL, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body,
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (err) {
+    const timedOut = err instanceof Error && err.name === "TimeoutError";
+    return { ok: false, error: timedOut ? "paynow_timeout" : "paynow_unreachable" };
+  }
   const text = await res.text();
   const parsed = parsePaynowResponse(text);
 

@@ -461,15 +461,20 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
   const submit = async () => {
     if (!amount || amount <= 0) return toast.error("Enter an amount");
     setSubmitting(true);
-    const res = await initiatePaynowTopup({ data: { amount } });
-    if (!res.ok) {
-      setSubmitting(false);
-      if (res.error === "paynow_not_configured") {
-        return toast.error("Online payments are unavailable right now. Please contact support.");
+    try {
+      const res = await initiatePaynowTopup({ data: { amount } });
+      if (!res.ok) {
+        setSubmitting(false);
+        if (res.error === "paynow_not_configured") {
+          return toast.error("Online payments are unavailable right now. Please contact support.");
+        }
+        return toast.error(res.error || "Could not start payment");
       }
-      return toast.error(res.error || "Could not start payment");
+      window.location.href = res.redirectUrl;
+    } catch (err) {
+      setSubmitting(false);
+      toast.error(err instanceof Error ? err.message : "Could not start payment. Please try again.");
     }
-    window.location.href = res.redirectUrl;
   };
 
   return (
