@@ -1,4 +1,4 @@
-﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,11 +12,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, MessageCircle, Share2, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle, Wallet } from "lucide-react";
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { SITE_URL } from "@/lib/site";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { DriverShareLocation, CustomerTrackMap, DriverRouteView } from "@/components/JobTracker";
 import { RadarSearch } from "@/components/RadarSearch";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { uploadJobEvidence, signedEvidenceUrl } from "@/lib/upload-evidence";
 
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
   component: JobDetail,
@@ -35,7 +36,7 @@ const waLink = (phone: string | null | undefined, text: string) => {
 };
 
 // WhatsApp panel: direct contact with the other party + shareable delivery summary.
-// "Share" needs no phone number â€” it forwards a formatted summary to any
+// "Share" needs no phone number — it forwards a formatted summary to any
 // WhatsApp contact or group (e.g. the foreman waiting on site).
 function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
   const otherId = isOwner ? job.driver_id : job.customer_id;
@@ -61,7 +62,7 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
   const name = other?.full_name ?? (isOwner ? "your driver" : "the customer");
 
   const summary =
-    `ConZ delivery ${ref}: ${material}, ${Number(job.quantity_m3)} mÂ³, ` +
+    `ConZ delivery ${ref}: ${material}, ${Number(job.quantity_m3)} m³, ` +
     `to ${job.delivery_address}. Status: ${job.status.replace("_", " ")}.` +
     (job.final_price ? ` Agreed price: ${money(Number(job.final_price))}.` : "") +
     (isOwner && other?.full_name ? ` Driver: ${other.full_name}.` : "");
@@ -72,7 +73,7 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
 
   const direct = waLink(other?.phone, directText);
   const arrivedPickup = waLink(other?.phone, `${summary} I've arrived at the pickup point and I'm loading now.`);
-  const outsideNow = waLink(other?.phone, `${summary} I'm outside with your delivery â€” please send someone to receive it.`);
+  const outsideNow = waLink(other?.phone, `${summary} I'm outside with your delivery — please send someone to receive it.`);
 
   // Public live-tracking link (Batch 6): included in the WhatsApp share message
   // so the recipient can watch the truck without a Con Z account.
@@ -86,7 +87,7 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
       await navigator.clipboard.writeText(trackUrl);
       toast.success("Tracking link copied");
     } catch {
-      toast.error(`Couldn't copy â€” the link is: ${trackUrl}`);
+      toast.error(`Couldn't copy — the link is: ${trackUrl}`);
     }
   };
 
@@ -121,7 +122,7 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          No WhatsApp number on their profile yet â€” use in-app chat below.
+          No WhatsApp number on their profile yet — use in-app chat below.
         </p>
       )}
 
@@ -141,7 +142,7 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
         </button>
       )}
       <p className="text-[11px] text-muted-foreground">
-        Share forwards a delivery summary and live tracking link to any WhatsApp contact or group â€” no Con Z account needed to watch the truck.
+        Share forwards a delivery summary and live tracking link to any WhatsApp contact or group — no Con Z account needed to watch the truck.
       </p>
     </div>
   );
@@ -203,7 +204,7 @@ function JobDetail() {
   if (isLoading || !job)
     return (
       <AppShell>
-        <div className="text-center text-muted-foreground py-10">Loadingâ€¦</div>
+        <div className="text-center text-muted-foreground py-10">Loading…</div>
       </AppShell>
     );
 
@@ -216,7 +217,7 @@ function JobDetail() {
     const { error } = await supabase.rpc("accept_bid", { _bid_id: bidId });
     if (error) {
       if (/insufficient wallet balance/i.test(error.message)) {
-        return toast.error("This driver can no longer accept â€” ask them to top up, or accept another bid.");
+        return toast.error("This driver can no longer accept — ask them to top up, or accept another bid.");
       }
       return toast.error(error.message);
     }
@@ -254,7 +255,7 @@ function JobDetail() {
           <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
             <div>
               <div className="text-[11px] uppercase text-muted-foreground tracking-widest">Quantity</div>
-              <div className="font-semibold">{Number(job.quantity_m3)} mÂ³</div>
+              <div className="font-semibold">{Number(job.quantity_m3)} m³</div>
             </div>
             <div>
               <div className="text-[11px] uppercase text-muted-foreground tracking-widest">
@@ -308,7 +309,7 @@ function JobDetail() {
             <div className="grid grid-cols-2 gap-3">
               {job.pickup_photo_url && (
                 <figure className="space-y-1">
-                  <img src={job.pickup_photo_url} alt="Load confirmed" className="w-full aspect-square object-cover rounded-lg border" />
+                  <SignedProofPhoto path={job.pickup_photo_url} alt="Load confirmed" />
                   <figcaption className="text-xs font-semibold text-success flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" /> Load confirmed
                   </figcaption>
@@ -316,7 +317,7 @@ function JobDetail() {
               )}
               {job.delivery_photo_url && (
                 <figure className="space-y-1">
-                  <img src={job.delivery_photo_url} alt="Delivery confirmed" className="w-full aspect-square object-cover rounded-lg border" />
+                  <SignedProofPhoto path={job.delivery_photo_url} alt="Delivery confirmed" />
                   <figcaption className="text-xs font-semibold text-success flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" /> Delivery confirmed
                   </figcaption>
@@ -413,7 +414,7 @@ function JobDetail() {
                                   {Number(b.driver.rating_avg || 0).toFixed(1)}{" "}
                                   <span className="text-muted-foreground/70">({b.driver.rating_count ?? 0})</span>
                                 </span>
-                                <span>â€¢ {b.driver.jobs_completed ?? 0} rides completed</span>
+                                <span>• {b.driver.jobs_completed ?? 0} rides completed</span>
                               </>
                             )}
                           </div>
@@ -516,11 +517,11 @@ function BidForm({ jobId, existing, onSaved }: { jobId: string; existing?: any; 
                 Top up to take this job
               </div>
               <p className="mt-1 text-muted-foreground">
-                You need {money(shortfall)} more in your wallet to take jobs like this â€” commission is reserved when a
+                You need {money(shortfall)} more in your wallet to take jobs like this — commission is reserved when a
                 bid is accepted.
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Commission required {money(Number(funds?.required ?? 0))} Â· Available{" "}
+                Commission required {money(Number(funds?.required ?? 0))} · Available{" "}
                 {money(Number(funds?.available ?? 0))}
               </p>
             </div>
@@ -699,24 +700,71 @@ function RateCustomerForm({ jobId, customerId, onSaved }: { jobId: string; custo
   );
 }
 
+function SignedProofPhoto({ path, alt }: { path: string; alt: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    // Handle both: new storage paths (signed URL) and any older rows that
+    // still hold a legacy broken public URL from before this fix.
+    if (path.startsWith("http")) {
+      setUrl(path);
+      return;
+    }
+    signedEvidenceUrl(path)
+      .then((u) => {
+        if (alive) setUrl(u);
+      })
+      .catch(() => {
+        if (alive) setFailed(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [path]);
+
+  if (failed) {
+    return (
+      <div className="w-full aspect-square rounded-lg border bg-muted flex items-center justify-center text-[10px] text-muted-foreground text-center p-2">
+        Photo unavailable
+      </div>
+    );
+  }
+
+  return url ? (
+    <img
+      src={url}
+      alt={alt}
+      className="w-full aspect-square object-cover rounded-lg border"
+      onError={() => setFailed(true)}
+    />
+  ) : (
+    <div className="w-full aspect-square rounded-lg border bg-muted animate-pulse" />
+  );
+}
+
 function ProofUpload({ jobId, kind, label, hint, onUploaded }: { jobId: string; kind: "pickup" | "delivery"; label: string; hint?: string; onUploaded: () => void | Promise<void> }) {
   const [uploading, setUploading] = useState(false);
 
   const upload = async (file: File) => {
     setUploading(true);
-    const path = `${jobId}/${kind}.jpg`;
-    const { error: uerr } = await supabase.storage
-      .from("job-proof-photos")
-      .upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
-    if (uerr) { setUploading(false); return toast.error(uerr.message); }
-    const { data: pub } = supabase.storage.from("job-proof-photos").getPublicUrl(path);
-    const url = `${pub.publicUrl}?t=${Date.now()}`;
-    const patch = kind === "pickup" ? { pickup_photo_url: url } : { delivery_photo_url: url };
-    const { error } = await supabase.from("jobs").update(patch).eq("id", jobId);
-    setUploading(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success(`${label} photo uploaded`);
-    await onUploaded();
+    try {
+      // Uploads to the private bucket, captures GPS, and records a row in
+      // job_evidence (used by the dispute investigation view). We then store
+      // the storage PATH (not a broken public URL — the bucket is private)
+      // on the job row so the rest of this page can gate on it as before.
+      const result = await uploadJobEvidence(jobId, kind, file);
+      const patch = kind === "pickup" ? { pickup_photo_url: result.path } : { delivery_photo_url: result.path };
+      const { error } = await supabase.from("jobs").update(patch).eq("id", jobId);
+      if (error) throw new Error(error.message);
+      toast.success(`${label} photo uploaded`);
+      await onUploaded();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -729,12 +777,12 @@ function ProofUpload({ jobId, kind, label, hint, onUploaded }: { jobId: string; 
       <div className="grid grid-cols-2 gap-2">
         <label className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 hover:bg-muted transition p-3 cursor-pointer">
           <Camera className="w-5 h-5 text-primary shrink-0" />
-          <span className="text-xs font-semibold">{uploading ? "Uploadingâ€¦" : "Take photo"}</span>
+          <span className="text-xs font-semibold">{uploading ? "Uploading…" : "Take photo"}</span>
           <input type="file" accept="image/*" capture="environment" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="hidden" />
         </label>
         <label className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 hover:bg-muted transition p-3 cursor-pointer">
           <ImageIcon className="w-5 h-5 text-primary shrink-0" />
-          <span className="text-xs font-semibold">{uploading ? "Uploadingâ€¦" : "Choose from gallery"}</span>
+          <span className="text-xs font-semibold">{uploading ? "Uploading…" : "Choose from gallery"}</span>
           <input type="file" accept="image/*" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="hidden" />
         </label>
       </div>
