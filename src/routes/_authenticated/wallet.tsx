@@ -1,4 +1,4 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -42,7 +42,7 @@ const METHODS = [
   { id: "ecocash", label: "EcoCash", hint: "Instant", icon: Smartphone },
   { id: "onemoney", label: "OneMoney", hint: "Instant", icon: Smartphone },
   { id: "zipit", label: "ZIPIT", hint: "Instant", icon: CreditCard },
-  { id: "bank", label: "Bank Transfer", hint: "1â€“5 min", icon: Building2 },
+  { id: "bank", label: "Bank Transfer", hint: "1–5 min", icon: Building2 },
 ] as const;
 
 type TopupReq = {
@@ -115,7 +115,7 @@ function WalletPage() {
     queryFn: async () => (await supabase.from("driver_profiles").select("withdrawal_pin_hash").eq("user_id", userId!).maybeSingle()).data,
   });
 
-  // Realtime â€” refresh on any wallet change
+  // Realtime — refresh on any wallet change
   useEffect(() => {
     if (!userId) return;
     const ch = supabase
@@ -244,7 +244,7 @@ function WalletPage() {
             <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4 text-sm">
               <div className="font-display font-bold uppercase text-xs tracking-wide text-warning">Set a withdrawal PIN</div>
               <p className="text-[13px] mt-1 opacity-90">
-                A 4â€“8 digit PIN protects your withdrawals. Set it from your Profile.
+                A 4–8 digit PIN protects your withdrawals. Set it from your Profile.
               </p>
             </div>
           )}
@@ -387,13 +387,13 @@ function RequestRow({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <div className="text-sm font-semibold">{isTopup ? "Top Up" : "Withdrawal"} Â· {method.toUpperCase()}</div>
+            <div className="text-sm font-semibold">{isTopup ? "Top Up" : "Withdrawal"} · {method.toUpperCase()}</div>
             <div className={cn("text-sm font-display font-bold", isTopup ? "text-success" : "text-primary")}>
               {isTopup ? "+" : "-"}{money(amount)}
             </div>
           </div>
           <div className="text-[11px] text-muted-foreground truncate mt-0.5">
-            {reference ? `Ref: ${reference} Â· ` : ""}{new Date(createdAt).toLocaleString()}
+            {reference ? `Ref: ${reference} · ` : ""}{new Date(createdAt).toLocaleString()}
           </div>
           <div className="mt-2 flex items-center justify-between gap-2">
             <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase", statusTone[status])}>
@@ -455,8 +455,6 @@ function Feature({ icon: Icon, title, hint }: { icon: typeof Shield; title: stri
 
 function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [amount, setAmount] = useState<number>(50);
-  const [reference, setReference] = useState("");
-  const [method, setMethod] = useState<string>("ecocash");
   const [submitting, setSubmitting] = useState(false);
   const presets = [10, 20, 50, 100];
 
@@ -467,7 +465,7 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
     if (!res.ok) {
       setSubmitting(false);
       if (res.error === "paynow_not_configured") {
-        return toast.error("Online payments are unavailable. Contact support.");
+        return toast.error("Online payments are unavailable right now. Please contact support.");
       }
       return toast.error(res.error || "Could not start payment");
     }
@@ -479,7 +477,7 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
       <DialogContent className="max-w-sm rounded-3xl">
         <DialogHeader>
           <DialogTitle className="font-display uppercase tracking-wide">Top Up Wallet</DialogTitle>
-          <DialogDescription>Enter an amount and your payment method â€” funds are credited to your wallet instantly.</DialogDescription>
+          <DialogDescription>Enter an amount — you'll be securely redirected to Paynow to complete payment.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -512,47 +510,20 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
             </div>
           </div>
 
-          <div>
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Payment Method</div>
-            <div className="space-y-1.5">
-              {METHODS.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setMethod(m.id)}
-                  className={cn(
-                    "w-full flex items-center gap-3 rounded-xl border p-3 text-left transition",
-                    method === m.id ? "border-primary bg-primary/5" : "hover:border-primary/40",
-                  )}
-                >
-                  <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                    <m.icon className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold">{m.label}</div>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">{m.hint}</div>
-                </button>
-              ))}
+          <div className="rounded-2xl border p-3 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <Zap className="w-4 h-4" />
+            </div>
+            <div className="text-[12px] text-muted-foreground leading-snug">
+              Pay via <span className="font-semibold text-foreground">EcoCash, OneMoney, ZIPIT, bank transfer, Visa or Mastercard</span> on Paynow's secure checkout.
             </div>
           </div>
 
-          <div>
-            <label className="text-[10px] uppercase tracking-widest text-muted-foreground">Payment reference (optional)</label>
-            <input
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              placeholder="EcoCash txn ID / bank ref"
-              maxLength={80}
-              className="w-full mt-1 px-3 py-2.5 rounded-xl border bg-background text-sm"
-            />
-          </div>
-
           <Button onClick={submit} disabled={submitting} className="w-full h-12 rounded-xl font-display uppercase tracking-wide">
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>I Have Made Payment â€” {money(amount || 0)}</>}
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Pay with Paynow — {money(amount || 0)}</>}
           </Button>
           <p className="text-[11px] text-center text-muted-foreground">
-            Your wallet is credited within minutes after admin verifies the payment.
+            Your wallet is credited automatically once payment is confirmed.
           </p>
         </div>
       </DialogContent>
@@ -662,7 +633,7 @@ function WithdrawDialog({
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
               maxLength={8}
-              placeholder="â€¢â€¢â€¢â€¢"
+              placeholder="••••"
               className="w-full mt-1 px-3 py-2.5 rounded-xl border bg-background text-sm tracking-widest"
             />
             {!hasPin && (
@@ -671,7 +642,7 @@ function WithdrawDialog({
           </div>
 
           <Button onClick={submit} disabled={submitting || !hasPin} className="w-full h-12 rounded-xl font-display uppercase tracking-wide">
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Request Withdrawal â€” {money(amount || 0)}</>}
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Request Withdrawal — {money(amount || 0)}</>}
           </Button>
         </div>
       </DialogContent>
