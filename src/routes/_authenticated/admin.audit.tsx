@@ -38,6 +38,13 @@ const ACTION_STYLE: Record<string, string> = {
   user_status_changed: "bg-sky-500/15 text-sky-500 border-sky-500/30",
   driver_verification_changed: "bg-primary/15 text-primary border-primary/30",
   dispute_status_changed: "bg-violet-500/15 text-violet-500 border-violet-500/30",
+  wallet_credited_by_admin: "bg-amber-500/15 text-amber-500 border-amber-500/30",
+  topup_approved: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30",
+  topup_rejected: "bg-rose-500/15 text-rose-500 border-rose-500/30",
+  withdrawal_approved: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30",
+  withdrawal_rejected: "bg-rose-500/15 text-rose-500 border-rose-500/30",
+  strike_waived: "bg-sky-500/15 text-sky-500 border-sky-500/30",
+  demand_multiplier_updated: "bg-amber-500/15 text-amber-500 border-amber-500/30",
 };
 
 function AuditLogPage() {

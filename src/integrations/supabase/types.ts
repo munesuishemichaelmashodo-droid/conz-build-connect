@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -11,31 +11,6 @@ export type Database = {
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
-  }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
   }
   public: {
     Tables: {
@@ -1422,6 +1397,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      admin_evidence_paths: {
+        Args: { _job_id: string }
+        Returns: {
+          evidence_id: string
+          kind: string
+          storage_path: string
+        }[]
+      }
       admin_grant_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1430,6 +1413,7 @@ export type Database = {
         Returns: undefined
       }
       admin_job_evidence: { Args: { _job_id: string }; Returns: Json }
+      admin_job_investigation: { Args: { _job_id: string }; Returns: Json }
       admin_material_prices: { Args: never; Returns: Json }
       admin_reject_topup: {
         Args: { _id: string; _reason: string }
@@ -1487,34 +1471,73 @@ export type Database = {
         Args: { _multiplier: number; _reason: string }
         Returns: number
       }
-      admin_set_material_price: {
-        Args: {
-          _demand_multiplier?: number
-          _enforced?: boolean
-          _label?: string
-          _material: Database["public"]["Enums"]["material_category"]
-          _max_price: number
-          _min_price: number
-          _reason?: string
-        }
+      admin_set_driver_verification: {
+        Args: { _notes?: string; _status: string; _user_id: string }
         Returns: {
-          demand_multiplier: number
-          enforced: boolean
-          label: string
-          material: Database["public"]["Enums"]["material_category"]
-          max_price: number
-          min_price: number
-          unit: string
+          created_at: string
+          first_job_free_used: boolean
+          jobs_completed: number
+          level: Database["public"]["Enums"]["driver_level"]
+          license_url: string | null
+          national_id: string | null
+          national_id_url: string | null
+          nationality: string | null
+          rating_avg: number
+          rating_count: number
+          selfie_url: string | null
+          tipper_photo_url: string | null
           updated_at: string
-          updated_by: string | null
+          user_id: string
+          verification_notes: string | null
+          verification_status: Database["public"]["Enums"]["verification_status"]
+          withdrawal_pin_hash: string | null
         }
         SetofOptions: {
           from: "*"
-          to: "material_prices"
+          to: "driver_profiles"
           isOneToOne: true
           isSetofReturn: false
         }
       }
+      admin_set_material_price:
+        | {
+            Args: {
+              _demand_multiplier?: number
+              _enforced?: boolean
+              _label?: string
+              _material: Database["public"]["Enums"]["material_category"]
+              _max_price: number
+              _min_price: number
+              _reason?: string
+            }
+            Returns: {
+              demand_multiplier: number
+              enforced: boolean
+              label: string
+              material: Database["public"]["Enums"]["material_category"]
+              max_price: number
+              min_price: number
+              unit: string
+              updated_at: string
+              updated_by: string | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "material_prices"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              _enforced: boolean
+              _material: string
+              _max_price: number
+              _min_price: number
+              _reason: string
+            }
+            Returns: undefined
+          }
       admin_set_user_status: {
         Args: {
           _status: Database["public"]["Enums"]["account_status"]
@@ -1704,6 +1727,22 @@ export type Database = {
         Args: { _job_id: string; _limit?: number }
         Returns: number
       }
+      credit_wallet_from_payment: {
+        Args: { _payment_id: string }
+        Returns: {
+          balance: number
+          held: number
+          limited: boolean
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wallets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       driver_active_jobs: {
         Args: never
         Returns: {
@@ -1790,6 +1829,7 @@ export type Database = {
         Args: { _job_id: string; _kind: string }
         Returns: number
       }
+      expire_stale_accepted_jobs: { Args: never; Returns: number }
       expire_stale_dispatch_offers: {
         Args: { _job_id: string }
         Returns: number
@@ -2182,9 +2222,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       account_status: ["active", "suspended", "banned"],

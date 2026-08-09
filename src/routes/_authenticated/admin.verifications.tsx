@@ -45,10 +45,11 @@ function AdminVerifications() {
   };
 
   const setStatus = async (user_id: string, status: "verified" | "rejected", note?: string) => {
-    const { error } = await supabase
-      .from("driver_profiles")
-      .update({ verification_status: status, verification_notes: note ?? null })
-      .eq("user_id", user_id);
+    const { error } = await supabase.rpc("admin_set_driver_verification", {
+      _user_id: user_id,
+      _status: status,
+      _notes: note ?? undefined,
+    });
     if (error) return toast.error(error.message);
     toast.success(status === "verified" ? "Driver verified" : "Driver rejected");
     qc.invalidateQueries({ queryKey: ["admin-verifications"] });
