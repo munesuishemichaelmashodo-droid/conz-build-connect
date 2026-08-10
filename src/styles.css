@@ -182,3 +182,17 @@
     );
   }
 }
+
+/* Leaflet's own CSS gives its panes/controls a z-index up to 1000, which
+   sits above every overlay in this app (dialogs, sheets, popovers all use
+   Tailwind's z-50). That let an open map bleed through on top of the side
+   panel, notifications, and any dialog. Cap Leaflet well below z-50. */
+.leaflet-container {
+  z-index: 0;
+}
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom,
+.leaflet-control {
+  z-index: 10 !important;
+}

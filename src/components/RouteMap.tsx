@@ -49,6 +49,13 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
   const [route, setRoute] = useState<RouteResult | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // A real delivery address is already fixed on the job in every actual use
+  // of this component (customer tracking, driver navigation, public
+  // tracking) — tapping the map must never be able to silently move it.
+  // Only fall back to click-to-set when this map genuinely has no
+  // destination yet.
+  const locked = !!initialDestination;
+
   async function fetchRoute(dest: { lat: number; lng: number }) {
     setLoading(true);
     try {
@@ -87,7 +94,7 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
         <RouteIcon className="w-4 h-4 text-primary" /> Route & ETA
       </div>
       <p className="px-4 pb-2 text-xs text-muted-foreground">
-        Tap the map to drop a destination and see the driving route.
+        {locked ? "Delivery destination is set for this job." : "Tap the map to drop a destination and see the driving route."}
       </p>
       <div style={{ height }} className="w-full">
         <MapContainer
@@ -98,7 +105,7 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
 > 
   <ResizeFix />
   <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-  <ClickHandler />
+  {!locked && <ClickHandler />}
           <Marker position={[driverLocation.lat, driverLocation.lng]} icon={truckIcon}>
             <Popup>Driver</Popup>
           </Marker>
