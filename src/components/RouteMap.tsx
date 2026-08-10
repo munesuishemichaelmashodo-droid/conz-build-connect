@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Polyline, Popup, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -20,7 +20,7 @@ const destIcon = L.divIcon({
   iconAnchor: [14, 28],
 });
 // Leaflet doesn't detect when its container resizes on its own
-// (e.g. a dialog opening/closing shifts layout below it) â€” this
+// (e.g. a dialog opening/closing shifts layout below it) — this
 // nudges it to recalculate so it doesn't render a stale, zoomed-out view.
 function ResizeFix() {
   const map = useMap();

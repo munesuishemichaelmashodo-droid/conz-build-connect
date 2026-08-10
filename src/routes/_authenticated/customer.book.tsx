@@ -313,7 +313,7 @@ function BookDelivery() {
 
     if (error) return toast.error(error.message);
 
-    toast.success("Booking confirmed! Searching for trucksâ€¦");
+    toast.success("Booking confirmed! Searching for trucks…");
 
     nav({ to: "/jobs/$id", params: { id: data.id } });
   };
@@ -375,7 +375,7 @@ function BookDelivery() {
 
         {step === 1 && (
           <motion.div key="s-qty" {...anim} className="space-y-5 mt-6">
-            <Header icon={Truck} title="How much?" hint="One tipper load carries 10â€“15 mÂ³." />
+            <Header icon={Truck} title="How much?" hint="One tipper load carries 10–15 m³." />
 
             <div className="flex gap-2">
               {[10, 12, 14, 15].map((v) => (
@@ -390,13 +390,13 @@ function BookDelivery() {
                       : "text-muted-foreground",
                   )}
                 >
-                  {v} mÂ³
+                  {v} m³
                 </button>
               ))}
             </div>
 
             <div>
-              <Label htmlFor="qty">Custom quantity (mÂ³)</Label>
+              <Label htmlFor="qty">Custom quantity (m³)</Label>
               <Input
                 id="qty"
                 type="number"
@@ -440,7 +440,7 @@ function BookDelivery() {
 
                 <div className="font-display font-bold text-2xl">
                   {money(suggestion.low)}{" "}
-                  <span className="text-muted-foreground text-lg">â€“</span>{" "}
+                  <span className="text-muted-foreground text-lg">–</span>{" "}
                   {money(suggestion.high)}
                 </div>
 
@@ -459,7 +459,7 @@ function BookDelivery() {
             <Header
               icon={CalendarIcon}
               title="When do you need it?"
-              hint="Optional â€” leave blank for as soon as possible."
+              hint="Optional — leave blank for as soon as possible."
             />
 
             <div>
@@ -500,7 +500,7 @@ function BookDelivery() {
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
                 maxLength={300}
-                placeholder="Access instructions, contact person, gate codeâ€¦"
+                placeholder="Access instructions, contact person, gate code…"
               />
             </div>
 
@@ -508,9 +508,9 @@ function BookDelivery() {
               <Row
                 icon={Package}
                 label={matPrice?.label ?? "Material"}
-                value={`${quantity} mÂ³`}
+                value={`${quantity} m³`}
               />
-              <Row icon={MapPin} label="Delivery to" value={address || "â€”"} />
+              <Row icon={MapPin} label="Delivery to" value={address || "—"} />
               <Row
                 icon={CalendarIcon}
                 label="Preferred date"
@@ -567,7 +567,7 @@ function BookDelivery() {
             </div>
 
             <div className="rounded-2xl bg-card border p-4 space-y-2 text-sm">
-              <Row icon={Package} label={offerData.label} value={`${quantity} mÂ³`} />
+              <Row icon={Package} label={offerData.label} value={`${quantity} m³`} />
               <Row icon={MapPin} label="Delivery to" value={address} />
               <Row
                 icon={Truck}
@@ -616,7 +616,7 @@ function BookDelivery() {
             >
               {computing ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" /> Calculatingâ€¦
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" /> Calculating…
                 </>
               ) : (
                 <>
