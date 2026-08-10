@@ -70,6 +70,13 @@ function AuthPage() {
     hint?: string;
   }>(null);
 
+  // sign-in/up method toggle, independent per tab
+  const [loginMethod, setLoginMethod] = useState<"email" | "phone">("email");
+  const [registerMethod, setRegisterMethod] = useState<"email" | "phone">("email");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
+
   // shared
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -221,6 +228,59 @@ function AuthPage() {
     }
   };
 
+  const sendOtp = async (forRegister: boolean) => {
+    if (localPhone.replace(/\D/g, "").length < 6) return toast.error("Enter a valid phone number");
+    if (forRegister) {
+      if (!fullName.trim()) return toast.error("Please enter your full name");
+      if (!acceptedTerms) return toast.error("Please accept the Terms and Privacy Policy to continue");
+    }
+    setAuthDebug(null);
+    setOtpLoading(true);
+    const endpoint = `${supabaseUrl}/auth/v1/otp`;
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        phone,
+        options: forRegister ? { data: { full_name: fullName, role, phone } } : undefined,
+      });
+      setOtpLoading(false);
+      if (error) return reportAuthError("Sending code", error, endpoint);
+      setOtpSent(true);
+      toast.success(`Code sent to ${phone}`);
+    } catch (err) {
+      setOtpLoading(false);
+      reportAuthError("Sending code (network)", err, endpoint, "Check that a Phone/SMS provider is configured in Supabase Auth.");
+    }
+  };
+
+  const verifyOtp = async () => {
+    if (otpCode.trim().length < 4) return toast.error("Enter the code you received");
+    setAuthDebug(null);
+    setOtpLoading(true);
+    const endpoint = `${supabaseUrl}/auth/v1/verify`;
+    try {
+      const { error } = await supabase.auth.verifyOtp({ phone, token: otpCode.trim(), type: "sms" });
+      if (error) {
+        setOtpLoading(false);
+        return reportAuthError("Verifying code", error, endpoint);
+      }
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const uid = sess.session?.user?.id;
+        if (uid) {
+          await supabase.from("profiles").update({ terms_accepted_at: new Date().toISOString() }).eq("id", uid);
+        }
+      } catch {
+        /* non-blocking */
+      }
+      setOtpLoading(false);
+      toast.success("Welcome to Con Z!");
+      goPostAuth();
+    } catch (err) {
+      setOtpLoading(false);
+      reportAuthError("Verifying code (network)", err, endpoint);
+    }
+  };
+
   const google = async () => {
     if (tab === "register" && !acceptedTerms) {
       return toast.error("Please accept the Terms and Privacy Policy to continue");
@@ -342,28 +402,62 @@ function AuthPage() {
 
 
           <TabsContent value="login" className="space-y-4 mt-4">
-            <form onSubmit={login} className="space-y-3">
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-              </div>
-              <div>
-                <Label htmlFor="password">Password</Label>
-                <PasswordInput id="password" value={password} onChange={setPassword} show={showPassword} onToggle={() => setShowPassword((v) => !v)} autoComplete="current-password" />
-              </div>
-              <Button type="submit" disabled={loading} className="w-full h-11 font-display uppercase tracking-wide">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Login"}
-              </Button>
-            </form>
-            <div className="rounded-xl border bg-card p-3 space-y-2">
-              <Label htmlFor="resetEmail">Reset password</Label>
-              <div className="grid grid-cols-[1fr_auto] gap-2">
-                <Input id="resetEmail" type="email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} placeholder="your@email.com" autoComplete="email" />
-                <Button type="button" variant="outline" onClick={sendPasswordReset} disabled={resetLoading}>
-                  {resetLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send"}
+            <MethodToggle
+              value={loginMethod}
+              onChange={(m) => {
+                setLoginMethod(m);
+                setOtpSent(false);
+                setOtpCode("");
+              }}
+            />
+            {loginMethod === "email" ? (
+              <form onSubmit={login} className="space-y-3">
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+                </div>
+                <div>
+                  <Label htmlFor="password">Password</Label>
+                  <PasswordInput id="password" value={password} onChange={setPassword} show={showPassword} onToggle={() => setShowPassword((v) => !v)} autoComplete="current-password" />
+                </div>
+                <Button type="submit" disabled={loading} className="w-full h-11 font-display uppercase tracking-wide">
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Login"}
                 </Button>
+              </form>
+            ) : (
+              <PhoneOtpBlock
+                countryAlpha2={countryAlpha2}
+                onCountryChange={(c) => {
+                  setCountryAlpha2(c.code);
+                  setCountryDialCode(c.dial_code);
+                }}
+                localPhone={localPhone}
+                onLocalPhoneChange={setLocalPhone}
+                phone={phone}
+                otpSent={otpSent}
+                otpCode={otpCode}
+                onOtpCodeChange={setOtpCode}
+                loading={otpLoading}
+                onSend={() => sendOtp(false)}
+                onVerify={verifyOtp}
+                onChangeNumber={() => {
+                  setOtpSent(false);
+                  setOtpCode("");
+                }}
+                submitLabel="Login"
+              />
+            )}
+            {loginMethod === "email" && (
+              <div className="rounded-xl border bg-card p-3 space-y-2">
+                <Label htmlFor="resetEmail">Reset password</Label>
+                <div className="grid grid-cols-[1fr_auto] gap-2">
+                  <Input id="resetEmail" type="email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} placeholder="your@email.com" autoComplete="email" />
+                  <Button type="button" variant="outline" onClick={sendPasswordReset} disabled={resetLoading}>
+                    {resetLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send"}
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
             <Divider />
             <Button type="button" variant="outline" onClick={google} disabled={loading} className="w-full h-11">
               Continue with Google
@@ -371,67 +465,121 @@ function AuthPage() {
           </TabsContent>
 
           <TabsContent value="register" className="space-y-4 mt-4">
-            <form onSubmit={register} className="space-y-3">
-              <div>
-                <Label>I am a…</Label>
-                <RadioGroup value={role} onValueChange={(v) => setRole(v as "customer" | "driver")} className="grid grid-cols-2 gap-2 mt-1">
-                  <RoleCard value="customer" label="Customer" hint="I need deliveries" current={role} />
-                  <RoleCard value="driver" label="Driver" hint="I own a tipper" current={role} />
-                </RadioGroup>
-              </div>
-              <div>
-                <Label htmlFor="fn">Full name</Label>
-                <Input id="fn" value={fullName} onChange={(e) => setFullName(e.target.value)} required maxLength={80} />
-              </div>
-              <div>
-                <Label htmlFor="localPhone">Phone (optional)</Label>
-                <div className="grid grid-cols-[140px_1fr] gap-2">
-                  <CountryCodeSelect
-                    value={countryAlpha2}
-                    onChange={(c) => {
-                      setCountryAlpha2(c.code);
-                      setCountryDialCode(c.dial_code);
-                    }}
-                  />
-                  <Input
-                    id="localPhone"
-                    value={localPhone}
-                    onChange={(e) => setLocalPhone(e.target.value.replace(/\D/g, ""))}
-                    type="tel"
-                    maxLength={15}
-                    placeholder="771234567"
-                  />
+            <div>
+              <Label>I am a…</Label>
+              <RadioGroup value={role} onValueChange={(v) => setRole(v as "customer" | "driver")} className="grid grid-cols-2 gap-2 mt-1">
+                <RoleCard value="customer" label="Customer" hint="I need deliveries" current={role} />
+                <RoleCard value="driver" label="Driver" hint="I own a tipper" current={role} />
+              </RadioGroup>
+            </div>
+            <div>
+              <Label htmlFor="fn">Full name</Label>
+              <Input id="fn" value={fullName} onChange={(e) => setFullName(e.target.value)} required maxLength={80} />
+            </div>
+
+            <MethodToggle
+              value={registerMethod}
+              onChange={(m) => {
+                setRegisterMethod(m);
+                setOtpSent(false);
+                setOtpCode("");
+              }}
+            />
+
+            {registerMethod === "email" ? (
+              <form onSubmit={register} className="space-y-3">
+                <div>
+                  <Label htmlFor="localPhone">Phone (optional)</Label>
+                  <div className="grid grid-cols-[140px_1fr] gap-2">
+                    <CountryCodeSelect
+                      value={countryAlpha2}
+                      onChange={(c) => {
+                        setCountryAlpha2(c.code);
+                        setCountryDialCode(c.dial_code);
+                      }}
+                    />
+                    <Input
+                      id="localPhone"
+                      value={localPhone}
+                      onChange={(e) => setLocalPhone(e.target.value.replace(/\D/g, ""))}
+                      type="tel"
+                      maxLength={15}
+                      placeholder="771234567"
+                    />
+                  </div>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1">Full number: {phone || "—"}</p>
-              </div>
-              <div>
-                <Label htmlFor="em">Email</Label>
-                <Input id="em" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-              </div>
-              <div>
-                <Label htmlFor="pw">Password</Label>
-                <PasswordInput id="pw" value={password} onChange={setPassword} show={showPassword} onToggle={() => setShowPassword((v) => !v)} autoComplete="new-password" minLength={8} />
-                <p className="text-[11px] text-muted-foreground mt-1">Minimum 8 characters.</p>
-              </div>
-              <label className="flex items-start gap-2 text-xs text-muted-foreground select-none">
-                <input
-                  type="checkbox"
-                  checked={acceptedTerms}
-                  onChange={(e) => setAcceptedTerms(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 accent-primary"
-                  required
+                <div>
+                  <Label htmlFor="em">Email</Label>
+                  <Input id="em" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+                </div>
+                <div>
+                  <Label htmlFor="pw">Password</Label>
+                  <PasswordInput id="pw" value={password} onChange={setPassword} show={showPassword} onToggle={() => setShowPassword((v) => !v)} autoComplete="new-password" minLength={8} />
+                  <p className="text-[11px] text-muted-foreground mt-1">Minimum 8 characters.</p>
+                </div>
+                <label className="flex items-start gap-2 text-xs text-muted-foreground select-none">
+                  <input
+                    type="checkbox"
+                    checked={acceptedTerms}
+                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-primary"
+                    required
+                  />
+                  <span>
+                    I agree to the{" "}
+                    <Link to="/terms" target="_blank" className="underline text-foreground">Terms and Conditions</Link>{" "}
+                    and{" "}
+                    <Link to="/privacy" target="_blank" className="underline text-foreground">Privacy Policy</Link>.
+                  </span>
+                </label>
+                <Button type="submit" disabled={loading || !acceptedTerms} className="w-full h-11 font-display uppercase tracking-wide">
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create account"}
+                </Button>
+              </form>
+            ) : (
+              <div className="space-y-3">
+                <PhoneOtpBlock
+                  countryAlpha2={countryAlpha2}
+                  onCountryChange={(c) => {
+                    setCountryAlpha2(c.code);
+                    setCountryDialCode(c.dial_code);
+                  }}
+                  localPhone={localPhone}
+                  onLocalPhoneChange={setLocalPhone}
+                  phone={phone}
+                  otpSent={otpSent}
+                  otpCode={otpCode}
+                  onOtpCodeChange={setOtpCode}
+                  loading={otpLoading}
+                  onSend={() => sendOtp(true)}
+                  onVerify={verifyOtp}
+                  onChangeNumber={() => {
+                    setOtpSent(false);
+                    setOtpCode("");
+                  }}
+                  submitLabel="Create account"
+                  extra={
+                    !otpSent && (
+                      <label className="flex items-start gap-2 text-xs text-muted-foreground select-none">
+                        <input
+                          type="checkbox"
+                          checked={acceptedTerms}
+                          onChange={(e) => setAcceptedTerms(e.target.checked)}
+                          className="mt-0.5 h-4 w-4 accent-primary"
+                          required
+                        />
+                        <span>
+                          I agree to the{" "}
+                          <Link to="/terms" target="_blank" className="underline text-foreground">Terms and Conditions</Link>{" "}
+                          and{" "}
+                          <Link to="/privacy" target="_blank" className="underline text-foreground">Privacy Policy</Link>.
+                        </span>
+                      </label>
+                    )
+                  }
                 />
-                <span>
-                  I agree to the{" "}
-                  <Link to="/terms" target="_blank" className="underline text-foreground">Terms and Conditions</Link>{" "}
-                  and{" "}
-                  <Link to="/privacy" target="_blank" className="underline text-foreground">Privacy Policy</Link>.
-                </span>
-              </label>
-              <Button type="submit" disabled={loading || !acceptedTerms} className="w-full h-11 font-display uppercase tracking-wide">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create account"}
-              </Button>
-            </form>
+              </div>
+            )}
             <Divider />
             <Button type="button" variant="outline" onClick={google} disabled={loading} className="w-full h-11">
               Continue with Google
@@ -442,6 +590,111 @@ function AuthPage() {
           </TabsContent>
         </Tabs>
       </div>
+    </div>
+  );
+}
+
+function MethodToggle({ value, onChange }: { value: "email" | "phone"; onChange: (v: "email" | "phone") => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-1 rounded-lg border p-1">
+      {(["email", "phone"] as const).map((m) => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => onChange(m)}
+          className={cn(
+            "h-8 rounded-md text-xs font-semibold uppercase tracking-wide transition",
+            value === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
+          )}
+        >
+          {m === "email" ? "Email" : "Phone"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function PhoneOtpBlock({
+  countryAlpha2,
+  onCountryChange,
+  localPhone,
+  onLocalPhoneChange,
+  phone,
+  otpSent,
+  otpCode,
+  onOtpCodeChange,
+  loading,
+  onSend,
+  onVerify,
+  onChangeNumber,
+  submitLabel,
+  extra,
+}: {
+  countryAlpha2: string;
+  onCountryChange: (c: (typeof COUNTRY_CODES)[number]) => void;
+  localPhone: string;
+  onLocalPhoneChange: (v: string) => void;
+  phone: string;
+  otpSent: boolean;
+  otpCode: string;
+  onOtpCodeChange: (v: string) => void;
+  loading: boolean;
+  onSend: () => void;
+  onVerify: () => void;
+  onChangeNumber: () => void;
+  submitLabel: string;
+  extra?: React.ReactNode;
+}) {
+  if (otpSent) {
+    return (
+      <div className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          Enter the code sent to <span className="font-semibold text-foreground">{phone}</span>.{" "}
+          <button type="button" onClick={onChangeNumber} className="underline text-foreground">
+            Change number
+          </button>
+        </p>
+        <Input
+          value={otpCode}
+          onChange={(e) => onOtpCodeChange(e.target.value.replace(/\D/g, ""))}
+          type="tel"
+          inputMode="numeric"
+          maxLength={8}
+          placeholder="123456"
+          autoFocus
+          className="text-center text-lg tracking-[0.3em]"
+        />
+        <Button type="button" onClick={onVerify} disabled={loading} className="w-full h-11 font-display uppercase tracking-wide">
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify code"}
+        </Button>
+        <button type="button" onClick={onSend} disabled={loading} className="w-full text-center text-xs text-muted-foreground underline">
+          Resend code
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label htmlFor="otpPhone">Phone number</Label>
+        <div className="grid grid-cols-[140px_1fr] gap-2">
+          <CountryCodeSelect value={countryAlpha2} onChange={onCountryChange} />
+          <Input
+            id="otpPhone"
+            value={localPhone}
+            onChange={(e) => onLocalPhoneChange(e.target.value.replace(/\D/g, ""))}
+            type="tel"
+            maxLength={15}
+            placeholder="771234567"
+          />
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-1">We'll text a code to: {phone || "—"}</p>
+      </div>
+      {extra}
+      <Button type="button" onClick={onSend} disabled={loading} className="w-full h-11 font-display uppercase tracking-wide">
+        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : `Send code — ${submitLabel}`}
+      </Button>
     </div>
   );
 }
