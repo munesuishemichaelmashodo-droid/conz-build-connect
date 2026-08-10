@@ -21,7 +21,7 @@ function AdminVerifications() {
     queryFn: async () => {
       const { data: drivers } = await supabase
         .from("driver_profiles")
-        .select("user_id,national_id,national_id_url,selfie_url,license_url,tipper_photo_url,nationality,verification_status,verification_notes,created_at")
+        .select("user_id,national_id,national_id_url,selfie_url,license_url,tipper_photo_url,operator_license_url,certificate_of_fitness_url,git_insurance_url,zinara_url,nationality,verification_status,verification_notes,created_at")
         .eq("verification_status", filter)
         .order("created_at", { ascending: false });
       const ids = (drivers ?? []).map((d) => d.user_id);
@@ -114,6 +114,32 @@ function AdminVerifications() {
                 <button onClick={() => view((d as any).tipper_photo_url)} disabled={!(d as any).tipper_photo_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                   <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Tipper
                 </button>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Transport compliance —{" "}
+                  {[
+                    (d as any).operator_license_url,
+                    (d as any).certificate_of_fitness_url,
+                    (d as any).git_insurance_url,
+                    (d as any).zinara_url,
+                  ].filter(Boolean).length}/4 on file
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => view((d as any).operator_license_url)} disabled={!(d as any).operator_license_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                    <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Operator licence
+                  </button>
+                  <button onClick={() => view((d as any).certificate_of_fitness_url)} disabled={!(d as any).certificate_of_fitness_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                    <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Fitness cert
+                  </button>
+                  <button onClick={() => view((d as any).git_insurance_url)} disabled={!(d as any).git_insurance_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                    <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> GIT insurance
+                  </button>
+                  <button onClick={() => view((d as any).zinara_url)} disabled={!(d as any).zinara_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                    <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> ZINARA
+                  </button>
+                </div>
               </div>
               {filter === "pending" && (
                 <div className="grid grid-cols-2 gap-2 pt-1">

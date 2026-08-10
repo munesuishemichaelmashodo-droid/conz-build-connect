@@ -363,14 +363,17 @@ export type Database = {
       }
       driver_profiles: {
         Row: {
+          certificate_of_fitness_url: string | null
           created_at: string
           first_job_free_used: boolean
+          git_insurance_url: string | null
           jobs_completed: number
           level: Database["public"]["Enums"]["driver_level"]
           license_url: string | null
           national_id: string | null
           national_id_url: string | null
           nationality: string | null
+          operator_license_url: string | null
           rating_avg: number
           rating_count: number
           selfie_url: string | null
@@ -380,16 +383,20 @@ export type Database = {
           verification_notes: string | null
           verification_status: Database["public"]["Enums"]["verification_status"]
           withdrawal_pin_hash: string | null
+          zinara_url: string | null
         }
         Insert: {
+          certificate_of_fitness_url?: string | null
           created_at?: string
           first_job_free_used?: boolean
+          git_insurance_url?: string | null
           jobs_completed?: number
           level?: Database["public"]["Enums"]["driver_level"]
           license_url?: string | null
           national_id?: string | null
           national_id_url?: string | null
           nationality?: string | null
+          operator_license_url?: string | null
           rating_avg?: number
           rating_count?: number
           selfie_url?: string | null
@@ -399,16 +406,20 @@ export type Database = {
           verification_notes?: string | null
           verification_status?: Database["public"]["Enums"]["verification_status"]
           withdrawal_pin_hash?: string | null
+          zinara_url?: string | null
         }
         Update: {
+          certificate_of_fitness_url?: string | null
           created_at?: string
           first_job_free_used?: boolean
+          git_insurance_url?: string | null
           jobs_completed?: number
           level?: Database["public"]["Enums"]["driver_level"]
           license_url?: string | null
           national_id?: string | null
           national_id_url?: string | null
           nationality?: string | null
+          operator_license_url?: string | null
           rating_avg?: number
           rating_count?: number
           selfie_url?: string | null
@@ -418,6 +429,7 @@ export type Database = {
           verification_notes?: string | null
           verification_status?: Database["public"]["Enums"]["verification_status"]
           withdrawal_pin_hash?: string | null
+          zinara_url?: string | null
         }
         Relationships: []
       }
@@ -1477,14 +1489,17 @@ export type Database = {
       admin_set_driver_verification: {
         Args: { _notes?: string; _status: string; _user_id: string }
         Returns: {
+          certificate_of_fitness_url: string | null
           created_at: string
           first_job_free_used: boolean
+          git_insurance_url: string | null
           jobs_completed: number
           level: Database["public"]["Enums"]["driver_level"]
           license_url: string | null
           national_id: string | null
           national_id_url: string | null
           nationality: string | null
+          operator_license_url: string | null
           rating_avg: number
           rating_count: number
           selfie_url: string | null
@@ -1494,6 +1509,7 @@ export type Database = {
           verification_notes: string | null
           verification_status: Database["public"]["Enums"]["verification_status"]
           withdrawal_pin_hash: string | null
+          zinara_url: string | null
         }
         SetofOptions: {
           from: "*"

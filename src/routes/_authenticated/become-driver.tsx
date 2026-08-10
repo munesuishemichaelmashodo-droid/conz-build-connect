@@ -18,13 +18,14 @@ export const Route = createFileRoute("/_authenticated/become-driver")({
   component: BecomeDriverPage,
 });
 
-type DocField = "selfie_url" | "license_url" | "tipper_photo_url";
+type DocField = "selfie_url" | "license_url" | "tipper_photo_url" | "operator_license_url" | "certificate_of_fitness_url" | "git_insurance_url" | "zinara_url";
 
 const STEPS = [
   { key: "identity", title: "Your details" },
   { key: "selfie", title: "Selfie photo" },
   { key: "license", title: "Driver's licence" },
   { key: "truck", title: "Your truck" },
+  { key: "compliance", title: "Transport documents" },
   { key: "nationality", title: "Nationality" },
 ] as const;
 
@@ -38,6 +39,10 @@ function BecomeDriverPage() {
   const [selfie, setSelfie] = useState<string | null>(null);
   const [license, setLicense] = useState<string | null>(null);
   const [truckPhoto, setTruckPhoto] = useState<string | null>(null);
+  const [operatorLicense, setOperatorLicense] = useState<string | null>(null);
+  const [certOfFitness, setCertOfFitness] = useState<string | null>(null);
+  const [gitInsurance, setGitInsurance] = useState<string | null>(null);
+  const [zinara, setZinara] = useState<string | null>(null);
   const [nationality, setNationality] = useState<string>("Zimbabwe");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -49,13 +54,17 @@ function BecomeDriverPage() {
       await supabase.from("driver_profiles").upsert({ user_id: userId }, { onConflict: "user_id", ignoreDuplicates: true });
       const { data } = await supabase
         .from("driver_profiles")
-        .select("selfie_url,license_url,tipper_photo_url,nationality,verification_status")
+        .select("selfie_url,license_url,tipper_photo_url,operator_license_url,certificate_of_fitness_url,git_insurance_url,zinara_url,nationality,verification_status")
         .eq("user_id", userId)
         .maybeSingle();
       if (data) {
         setSelfie(data.selfie_url ?? null);
         setLicense(data.license_url ?? null);
         setTruckPhoto(data.tipper_photo_url ?? null);
+        setOperatorLicense((data as any).operator_license_url ?? null);
+        setCertOfFitness((data as any).certificate_of_fitness_url ?? null);
+        setGitInsurance((data as any).git_insurance_url ?? null);
+        setZinara((data as any).zinara_url ?? null);
         if (data.nationality) setNationality(data.nationality);
         if (data.verification_status === "pending" && data.selfie_url && data.license_url && data.tipper_photo_url && data.nationality) {
           setDone(true);
@@ -69,7 +78,8 @@ function BecomeDriverPage() {
     if (step === 1) return !!selfie;
     if (step === 2) return !!license;
     if (step === 3) return !!truckPhoto;
-    if (step === 4) return !!nationality;
+    if (step === 4) return true; // compliance docs are recommended, not blocking
+    if (step === 5) return !!nationality;
     return false;
   };
 
@@ -166,6 +176,19 @@ function BecomeDriverPage() {
           )}
           {step === 4 && (
             <div className="space-y-3">
+              <h2 className="font-display font-bold text-xl">Transport compliance documents</h2>
+              <p className="text-sm text-muted-foreground">
+                Recommended, not required to submit — but drivers with these on file get priority for jobs and are
+                protected if a customer or authority ever asks for proof.
+              </p>
+              <ComplianceDocRow label="Operator's Licence / Route Permit" userId={userId!} field="operator_license_url" current={operatorLicense} onDone={setOperatorLicense} />
+              <ComplianceDocRow label="VID Certificate of Fitness" userId={userId!} field="certificate_of_fitness_url" current={certOfFitness} onDone={setCertOfFitness} />
+              <ComplianceDocRow label="Goods-in-Transit insurance" userId={userId!} field="git_insurance_url" current={gitInsurance} onDone={setGitInsurance} />
+              <ComplianceDocRow label="ZINARA registration" userId={userId!} field="zinara_url" current={zinara} onDone={setZinara} />
+            </div>
+          )}
+          {step === 5 && (
+            <div className="space-y-3">
               <h2 className="font-display font-bold text-xl">Your nationality</h2>
               <p className="text-sm text-muted-foreground">Where is your citizenship from?</p>
               <NationalitySelect value={nationality} onChange={setNationality} />
@@ -189,6 +212,38 @@ function BecomeDriverPage() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+function ComplianceDocRow({
+  label, field, userId, current, onDone,
+}: {
+  label: string; field: DocField; userId: string; current: string | null; onDone: (path: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const upload = async (file: File) => {
+    setUploading(true);
+    const path = `${userId}/${field}-${Date.now()}-${file.name.replace(/[^a-z0-9.]/gi, "_")}`;
+    const { error: uerr } = await supabase.storage.from("driver-docs").upload(path, file, { upsert: true });
+    if (uerr) { setUploading(false); return toast.error(uerr.message); }
+    const patch = { [field]: path };
+    const { error } = await supabase.from("driver_profiles").update(patch as never).eq("user_id", userId);
+    setUploading(false);
+    if (error) return toast.error(error.message);
+    toast.success("Uploaded");
+    onDone(path);
+  };
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border p-3">
+      <div className="flex items-center gap-2 min-w-0">
+        {current ? <Check className="w-4 h-4 text-success shrink-0" /> : <div className="w-4 h-4 rounded-full border shrink-0" />}
+        <span className="text-sm truncate">{label}</span>
+      </div>
+      <label className="shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer hover:bg-muted">
+        {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : current ? "Replace" : "Upload"}
+        <input type="file" accept="image/*,.pdf" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="hidden" />
+      </label>
+    </div>
   );
 }
 
