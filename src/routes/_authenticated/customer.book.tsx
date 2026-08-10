@@ -1,4 +1,4 @@
-﻿import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
@@ -31,9 +31,20 @@ import { useServerFn } from "@tanstack/react-start";
 import { computeOffer, explainOffer, type OfferResult } from "@/lib/booking.functions";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { z } from "zod";
+
+const bookSearchSchema = z.object({
+  material: z.string().optional(),
+  quantity: z.coerce.number().optional(),
+  address: z.string().optional(),
+  lat: z.coerce.number().optional(),
+  lng: z.coerce.number().optional(),
+  driverId: z.string().optional(),
+});
 
 export const Route = createFileRoute("/_authenticated/customer/book")({
   component: BookDelivery,
+  validateSearch: bookSearchSchema,
 });
 
 const BOOKABLE_MATERIALS = MATERIALS.filter((m) => m.value !== "custom");
@@ -57,15 +68,20 @@ const STEPS = [
 function BookDelivery() {
   const { userId, is } = useAuth();
   const nav = useNavigate();
+  const search = Route.useSearch();
 
   const runOffer = useServerFn(computeOffer);
   const runExplain = useServerFn(explainOffer);
 
   const [step, setStep] = useState<number>(0);
-  const [address, setAddress] = useState("");
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [material, setMaterial] = useState<MaterialCategory>("river_sand");
-  const [quantity, setQuantity] = useState<number>(12);
+  const [address, setAddress] = useState(search.address ?? "");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    search.lat != null && search.lng != null ? { lat: search.lat, lng: search.lng } : null,
+  );
+  const [material, setMaterial] = useState<MaterialCategory>(
+    BOOKABLE_MATERIALS.some((m) => m.value === search.material) ? (search.material as MaterialCategory) : "river_sand",
+  );
+  const [quantity, setQuantity] = useState<number>(search.quantity ?? 12);
   const [notes, setNotes] = useState("");
   const [date, setDate] = useState("");
   const [computing, setComputing] = useState(false);
@@ -288,6 +304,7 @@ function BookDelivery() {
         budget: offer,
         preferred_date: date || null,
         notes: notes.trim() || null,
+        preferred_driver_id: search.driverId || null,
       } as any)
       .select()
       .single();
@@ -320,6 +337,13 @@ function BookDelivery() {
       </button>
 
       {step < 5 && <Stepper current={step} total={STEPS.length} />}
+
+      {search.driverId && (
+        <div className="mt-4 rounded-xl bg-primary/10 border border-primary/30 p-3 text-xs text-primary flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>We'll notify your previous driver directly so they can bid first.</span>
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         {step === 0 && (

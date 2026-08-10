@@ -1,11 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState, StatusBadge } from "@/components/ui-bits";
-import { MessageSquareWarning } from "lucide-react";
+import { MessageSquareWarning, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/reports")({
@@ -17,6 +17,28 @@ type Filter = "open" | "resolved" | "all";
 function AdminReports() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<Filter>("open");
+
+  const { data: flags } = useQuery({
+    queryKey: ["admin-chat-flags"],
+    queryFn: async () => {
+      const { data: rows } = await supabase
+        .from("chat_flags")
+        .select("job_id,pattern_type,snippet,created_at")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (!rows?.length) return [];
+      // Group by job — a job with 2+ flags is the real signal.
+      const byJob = new Map<string, typeof rows>();
+      for (const r of rows) {
+        const list = byJob.get(r.job_id) ?? [];
+        list.push(r);
+        byJob.set(r.job_id, list);
+      }
+      return Array.from(byJob.entries())
+        .filter(([, list]) => list.length >= 2)
+        .map(([job_id, list]) => ({ job_id, count: list.length, latest: list[0] }));
+    },
+  });
 
   const { data } = useQuery({
     queryKey: ["admin-reports", filter],
@@ -42,6 +64,28 @@ function AdminReports() {
 
   return (
     <div className="space-y-3">
+      {!!flags?.length && (
+        <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 space-y-2">
+          <div className="flex items-center gap-2 text-xs font-semibold text-warning uppercase tracking-wide">
+            <ShieldAlert className="w-4 h-4" /> Possible off-platform contact ({flags.length})
+          </div>
+          {flags.map((f) => (
+            <Link
+              key={f.job_id}
+              to="/jobs/$id"
+              params={{ id: f.job_id }}
+              className="block rounded-lg bg-card border p-2 text-xs hover:bg-muted"
+            >
+              <div className="flex justify-between">
+                <span className="font-mono text-[11px]">Job {f.job_id.slice(0, 8)}</span>
+                <span className="text-muted-foreground">{f.count} flagged messages</span>
+              </div>
+              {f.latest.snippet && <p className="text-muted-foreground italic mt-1 truncate">"{f.latest.snippet}"</p>}
+            </Link>
+          ))}
+        </div>
+      )}
+
       <div className="flex gap-2">
         {(["open", "resolved", "all"] as Filter[]).map((f) => (
           <button

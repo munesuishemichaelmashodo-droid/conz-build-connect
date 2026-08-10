@@ -88,6 +88,51 @@ export type Database = {
           },
         ]
       }
+      chat_flags: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string
+          message_id: string
+          pattern_type: string
+          sender_id: string
+          snippet: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id: string
+          message_id: string
+          pattern_type: string
+          sender_id: string
+          snippet?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string
+          message_id?: string
+          pattern_type?: string
+          sender_id?: string
+          snippet?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_flags_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_flags_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cancellation_events: {
         Row: {
           created_at: string
@@ -616,6 +661,7 @@ export type Database = {
           pickup_photo_taken_at: string | null
           pickup_photo_url: string | null
           preferred_date: string | null
+          preferred_driver_id: string | null
           quantity_m3: number
           receiver_name: string | null
           status: Database["public"]["Enums"]["job_status"]
@@ -656,6 +702,7 @@ export type Database = {
           pickup_photo_taken_at?: string | null
           pickup_photo_url?: string | null
           preferred_date?: string | null
+          preferred_driver_id?: string | null
           quantity_m3: number
           receiver_name?: string | null
           status?: Database["public"]["Enums"]["job_status"]
@@ -696,6 +743,7 @@ export type Database = {
           pickup_photo_taken_at?: string | null
           pickup_photo_url?: string | null
           preferred_date?: string | null
+          preferred_driver_id?: string | null
           quantity_m3?: number
           receiver_name?: string | null
           status?: Database["public"]["Enums"]["job_status"]

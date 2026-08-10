@@ -493,6 +493,23 @@ function JobDetail() {
             <RateCustomerForm jobId={id} customerId={job.customer_id} onSaved={() => qc.invalidateQueries({ queryKey: ["my-rating", id, userId] })} />
           )
         )}
+
+        {isOwner && job.status === "completed" && job.driver_id && (
+          <Link
+            to="/customer/book"
+            search={{
+              material: job.material,
+              quantity: job.quantity_m3,
+              address: job.delivery_address,
+              lat: job.delivery_lat ?? undefined,
+              lng: job.delivery_lng ?? undefined,
+              driverId: job.driver_id,
+            }}
+            className="block w-full text-center rounded-xl bg-primary text-primary-foreground font-display font-bold uppercase tracking-wide py-3"
+          >
+            Book this driver again
+          </Link>
+        )}
       </div>
     </AppShell>
   );
