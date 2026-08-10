@@ -255,6 +255,33 @@ function JobDetail() {
     qc.invalidateQueries({ queryKey: ["bids", id] });
   };
 
+  const counterBid = async (bidId: string, price: number) => {
+    const { error } = await supabase.rpc("counter_bid", { _bid_id: bidId, _price: price });
+    if (error) return toast.error(error.message);
+    toast.success("Counter-offer sent to the driver");
+    qc.invalidateQueries({ queryKey: ["bids", id] });
+  };
+
+  const acceptCounter = async (bidId: string) => {
+    const { error } = await supabase.rpc("accept_counter", { _bid_id: bidId });
+    if (error) {
+      if (/insufficient wallet balance/i.test(error.message)) {
+        return toast.error("You can no longer accept — top up your wallet first.");
+      }
+      return toast.error(error.message);
+    }
+    toast.success("Price agreed — job is yours!");
+    qc.invalidateQueries({ queryKey: ["job", id] });
+    qc.invalidateQueries({ queryKey: ["bids", id] });
+  };
+
+  const rejectCounter = async (bidId: string) => {
+    const { error } = await supabase.rpc("reject_counter", { _bid_id: bidId });
+    if (error) return toast.error(error.message);
+    toast.success("Counter-offer declined");
+    qc.invalidateQueries({ queryKey: ["bids", id] });
+  };
+
   const completeJob = async () => {
     const { error } = await supabase.rpc("complete_job", { _job_id: id });
     if (error) { toast.error(error.message); return; }
@@ -406,6 +433,26 @@ function JobDetail() {
           <BidForm jobId={id} existing={myBid} onSaved={() => qc.invalidateQueries({ queryKey: ["bids", id] })} />
         )}
 
+        {is("driver") && !isOwner && job.status === "open" && myBid?.counter_status === "countered" && (
+          <div className="rounded-2xl bg-primary/5 border border-primary/30 p-4 space-y-3">
+            <div className="font-display font-bold uppercase text-sm tracking-wide text-primary">
+              Customer proposed a new price
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-display font-bold">{money(Number(myBid.customer_counter_price))}</span>
+              <span className="text-xs text-muted-foreground line-through">{money(Number(myBid.price))}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button onClick={() => acceptCounter(myBid.id)} className="w-full">
+                Accept
+              </Button>
+              <Button variant="outline" onClick={() => rejectCounter(myBid.id)} className="w-full">
+                Decline
+              </Button>
+            </div>
+          </div>
+        )}
+
         {isOwner && (job.status === "open" || job.status === "accepted" || job.status === "in_progress") && (
           <CancelJobDialog jobId={id} status={job.status} onCancelled={() => nav({ to: "/jobs" })} />
         )}
@@ -455,10 +502,30 @@ function JobDetail() {
                       </div>
                     </div>
                     {b.message && <p className="text-sm text-muted-foreground mt-2">{b.message}</p>}
-                    {isOwner && job.status === "open" && (
-                      <Button size="sm" onClick={() => acceptBid(b.id)} className="w-full mt-3">
-                        Accept this bid
-                      </Button>
+
+                    {b.counter_status === "countered" && (
+                      <div className="mt-2 rounded-lg bg-primary/5 border border-primary/30 p-2.5 text-xs space-y-1">
+                        <div className="font-semibold text-primary">
+                          Your counter-offer: {money(Number(b.customer_counter_price))}
+                        </div>
+                        <div className="text-muted-foreground">Waiting for the driver to respond.</div>
+                      </div>
+                    )}
+                    {b.counter_status === "driver_rejected" && (
+                      <p className="mt-2 text-xs text-muted-foreground italic">
+                        Driver declined your counter of {money(Number(b.customer_counter_price))} — their original price still stands.
+                      </p>
+                    )}
+
+                    {isOwner && job.status === "open" && b.status === "pending" && (
+                      <div className="mt-3 space-y-2">
+                        <Button size="sm" onClick={() => acceptBid(b.id)} className="w-full">
+                          Accept this bid
+                        </Button>
+                        {b.counter_status !== "countered" && (
+                          <CounterOfferRow bidPrice={Number(b.price)} onSubmit={(price) => counterBid(b.id, price)} />
+                        )}
+                      </div>
                     )}
                     {b.status === "accepted" && (
                       <StatusBadge label="Accepted" className="bg-success/15 text-success border-success/30 mt-2" />
@@ -512,6 +579,46 @@ function JobDetail() {
         )}
       </div>
     </AppShell>
+  );
+}
+
+function CounterOfferRow({ bidPrice, onSubmit }: { bidPrice: number; onSubmit: (price: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const [price, setPrice] = useState(String(Math.max(1, Math.round(bidPrice * 0.9))));
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="w-full text-center text-xs font-semibold text-primary underline underline-offset-2">
+        Propose a different price
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="relative flex-1">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+        <Input
+          type="number"
+          inputMode="decimal"
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          className="pl-6"
+        />
+      </div>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => {
+          const v = Number(price);
+          if (!v || v <= 0) return;
+          onSubmit(v);
+          setOpen(false);
+        }}
+      >
+        Send offer
+      </Button>
+    </div>
   );
 }
 

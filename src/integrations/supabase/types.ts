@@ -49,7 +49,9 @@ export type Database = {
       }
       bids: {
         Row: {
+          counter_status: string
           created_at: string
+          customer_counter_price: number | null
           delivery_date: string | null
           driver_id: string
           id: string
@@ -59,7 +61,9 @@ export type Database = {
           status: Database["public"]["Enums"]["bid_status"]
         }
         Insert: {
+          counter_status?: string
           created_at?: string
+          customer_counter_price?: number | null
           delivery_date?: string | null
           driver_id: string
           id?: string
@@ -69,7 +73,9 @@ export type Database = {
           status?: Database["public"]["Enums"]["bid_status"]
         }
         Update: {
+          counter_status?: string
           created_at?: string
+          customer_counter_price?: number | null
           delivery_date?: string | null
           driver_id?: string
           id?: string
@@ -1412,6 +1418,16 @@ export type Database = {
         }
       }
       accept_dispatch_offer: { Args: { _offer_id: string }; Returns: string }
+      accept_counter: {
+        Args: { _bid_id: string }
+        Returns: Database["public"]["Tables"]["jobs"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "jobs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       admin_approve_topup: {
         Args: { _id: string }
         Returns: {
@@ -1790,6 +1806,16 @@ export type Database = {
         Args: { _job_id: string }
         Returns: number
       }
+      counter_bid: {
+        Args: { _bid_id: string; _price: number }
+        Returns: Database["public"]["Tables"]["bids"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "bids"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_dispatch_wave: {
         Args: { _job_id: string; _limit?: number }
         Returns: number
@@ -1991,6 +2017,16 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "job_evidence"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reject_counter: {
+        Args: { _bid_id: string }
+        Returns: Database["public"]["Tables"]["bids"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "bids"
           isOneToOne: true
           isSetofReturn: false
         }
