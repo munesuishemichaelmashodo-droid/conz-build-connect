@@ -67,7 +67,9 @@ function AdminSettings() {
   const save = async () => {
     const v = Number(value);
     if (isNaN(v) || v < 0 || v > 100) return toast.error("Rate must be 0-100");
-    const { error } = await supabase.rpc("admin_set_commission", { _rate: v });
+    const reason = window.prompt("Why is the commission rate changing? (recorded in the audit log)") ?? undefined;
+    if (!reason?.trim() || reason.trim().length < 5) return toast.error("Give a reason (at least 5 characters)");
+    const { error } = await supabase.rpc("admin_set_commission", { _rate: v, _reason: reason.trim() });
     if (error) return toast.error(error.message);
     toast.success(`Commission set to ${v}%`);
     qc.invalidateQueries({ queryKey: ["commission-rate"] });
