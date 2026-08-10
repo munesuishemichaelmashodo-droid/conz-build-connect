@@ -269,6 +269,7 @@ export type Database = {
           against: string | null
           category: Database["public"]["Enums"]["dispute_category"]
           created_at: string
+          escalated_at: string | null
           id: string
           job_id: string
           outcome: Database["public"]["Enums"]["dispute_outcome"] | null
@@ -284,6 +285,7 @@ export type Database = {
           against?: string | null
           category?: Database["public"]["Enums"]["dispute_category"]
           created_at?: string
+          escalated_at?: string | null
           id?: string
           job_id: string
           outcome?: Database["public"]["Enums"]["dispute_outcome"] | null
@@ -299,6 +301,7 @@ export type Database = {
           against?: string | null
           category?: Database["public"]["Enums"]["dispute_category"]
           created_at?: string
+          escalated_at?: string | null
           id?: string
           job_id?: string
           outcome?: Database["public"]["Enums"]["dispute_outcome"] | null
@@ -1825,6 +1828,7 @@ export type Database = {
         }
         Returns: Json
       }
+      escalate_overdue_disputes: { Args: never; Returns: number }
       evidence_distance_m: {
         Args: { _job_id: string; _kind: string }
         Returns: number

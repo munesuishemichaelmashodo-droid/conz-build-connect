@@ -39,7 +39,7 @@ function AdminDisputes() {
     queryFn: async () => {
       const { data: disputes } = await supabase
         .from("disputes")
-        .select("id,job_id,raised_by,against,reason,category,status,outcome,resolution,created_at,resolved_at")
+        .select("id,job_id,raised_by,against,reason,category,status,outcome,resolution,created_at,resolved_at,review_due_at,escalated_at")
         .eq("status", filter)
         .order("created_at", { ascending: false });
       const userIds = Array.from(
@@ -128,6 +128,17 @@ function AdminDisputes() {
                           : "bg-muted text-muted-foreground border-border"
                     }
                   />
+                  {(d.status === "open" || d.status === "investigating") && d.review_due_at && (
+                    d.escalated_at ? (
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-destructive flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" /> Overdue
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground">
+                        Due {new Date(d.review_due_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                      </span>
+                    )
+                  )}
                   {d.category && (
                     <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                       {CATEGORY_LABEL[d.category] ?? d.category}
