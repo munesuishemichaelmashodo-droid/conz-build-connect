@@ -10,8 +10,17 @@ import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui-bits";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2, ShieldCheck, Truck, KeyRound, Camera, Image as ImageIcon } from "lucide-react";
+import { Loader2, ShieldCheck, Truck, KeyRound, Camera, Image as ImageIcon, AlertTriangle } from "lucide-react";
 import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
+import { deleteMyAccount } from "@/lib/account-deletion";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
@@ -127,6 +136,8 @@ function ProfilePage() {
         <SetPasswordCard />
 
         <LocationPrivacyCard />
+
+        <DeleteAccountCard />
       </div>
     </AppShell>
   );
@@ -231,6 +242,72 @@ function AddTruckForm({ userId, onSaved }: { userId: string; onSaved: () => void
       <Input placeholder="m³" type="number" inputMode="decimal" min={1} value={cap} onChange={(e) => setCap(e.target.value)} />
       <Button type="submit" disabled={saving} size="sm">{saving ? "…" : "Add"}</Button>
     </form>
+  );
+}
+
+function DeleteAccountCard() {
+  const [open, setOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    setLoading(true);
+    try {
+      await deleteMyAccount();
+      toast.success("Your account has been deleted.");
+      await supabase.auth.signOut();
+      window.location.href = "/";
+    } catch (err) {
+      setLoading(false);
+      toast.error(err instanceof Error ? err.message : "Could not delete account");
+    }
+  };
+
+  return (
+    <section className="rounded-2xl bg-card border border-destructive/30 p-4 shadow-soft space-y-3">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="w-4 h-4 text-destructive" />
+        <h2 className="font-display font-bold uppercase tracking-wide text-destructive">Delete account</h2>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Permanently removes your personal info (name, phone, email, ID documents) and blocks this account from
+        ever logging in again. This cannot be undone.
+      </p>
+      <Button variant="outline" className="w-full border-destructive text-destructive hover:bg-destructive/10" onClick={() => setOpen(true)}>
+        Delete my account
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-sm rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Delete your account?</DialogTitle>
+            <DialogDescription>
+              This permanently deletes your personal information and disables this account. Job and payment
+              history tied to completed deliveries is kept for legal/accounting purposes, with your name
+              replaced by "Deleted user". Type <b>DELETE</b> to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder="Type DELETE"
+            autoCapitalize="characters"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={confirmText !== "DELETE" || loading}
+              onClick={submit}
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Permanently delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </section>
   );
 }
 
