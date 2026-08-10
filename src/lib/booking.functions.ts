@@ -100,6 +100,54 @@ export const computeOffer = createServerFn({ method: "POST" })
     };
   });
 
+/**
+ * Public, no-signup instant quote — same pricing engine as computeOffer,
+ * but callable by anonymous visitors so "how much would this cost" is
+ * answerable in seconds, before anyone has to create an account. Pure
+ * read-only pricing lookup, so no auth is required or desired here.
+ */
+export const computePublicOffer = createServerFn({ method: "POST" })
+  .inputValidator(parseOfferInput)
+  .handler(async ({ data }): Promise<OfferResult> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const distanceKm = data.distanceKm ?? 15;
+
+    const { data: guide, error } = await supabaseAdmin.rpc("compute_material_offer", {
+      _material: data.material,
+      _quantity: data.quantity,
+      _distance_km: distanceKm,
+    } as any);
+    if (error) throw new Error(error.message);
+    const g = guide as {
+      offer: number | null;
+      min: number | null;
+      max: number | null;
+      step: number;
+      label?: string;
+      unit?: string;
+      enforced: boolean;
+    };
+
+    const offer = Number(g.offer ?? 0);
+    const min = Number(g.min ?? 0);
+    const max = Number(g.max ?? 0);
+    const etaMinutes = Math.max(10, Math.round((distanceKm / 40) * 60) + 20);
+    const label = g.label ?? data.material.replace("_", " ");
+
+    return {
+      offer,
+      min,
+      max,
+      step: Number(g.step ?? 5),
+      label,
+      unit: g.unit ?? "10-15 m³ load",
+      enforced: Boolean(g.enforced),
+      etaMinutes,
+      distanceKm: Math.round(distanceKm),
+      explanation: `Fair rate for ${label} — ${data.quantity} m³, ${Math.round(distanceKm)} km.`,
+    };
+  });
+
 const ExplainInput = z.object({
   material: z.string().max(50),
   quantity: z.number().positive().max(50),

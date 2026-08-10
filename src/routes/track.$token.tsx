@@ -8,7 +8,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { materialLabel, statusInfo, type MaterialCategory } from "@/lib/domain";
 import { StatusBadge } from "@/components/ui-bits";
 import { RouteMap } from "@/components/RouteMap";
-import { Calendar, CheckCircle2, Loader2, MapPin, Navigation2, Package } from "lucide-react";
+import { Calendar, CheckCircle2, Loader2, MapPin, Navigation2, Package, Receipt } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { getPublicPod } from "@/lib/pod.functions";
+import { money } from "@/lib/domain";
 
 // Public, login-free live tracking page.
 // Access is gated by the job's unguessable tracking_token (the URL itself is the key).
@@ -78,6 +81,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function PublicTrackPage() {
   const { token } = Route.useParams();
+  const runGetPod = useServerFn(getPublicPod);
 
   const { data, isLoading } = useQuery({
     queryKey: ["public-track", token],
@@ -88,6 +92,12 @@ function PublicTrackPage() {
       if (error) throw error;
       return (data ?? null) as TrackPayload | null;
     },
+  });
+
+  const { data: pod } = useQuery({
+    queryKey: ["public-pod", token],
+    enabled: data?.status === "completed",
+    queryFn: async () => runGetPod({ data: { token } }),
   });
 
   if (isLoading) {
@@ -156,9 +166,57 @@ function PublicTrackPage() {
       </div>
 
       {data.status === "completed" ? (
-        <div className="rounded-2xl border border-success/40 bg-success/10 p-4 flex items-center gap-2 text-sm">
-          <CheckCircle2 className="w-5 h-5 text-success" />
-          <span><strong>Delivered.</strong> This delivery is complete.</span>
+        <div className="rounded-2xl border border-success/40 bg-success/10 p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm">
+            <CheckCircle2 className="w-5 h-5 text-success shrink-0" />
+            <span><strong>Delivered.</strong> This delivery is complete.</span>
+          </div>
+          {pod && (
+            <div className="rounded-xl bg-card border p-4 space-y-3">
+              <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
+                <Receipt className="w-4 h-4 text-primary" /> Proof of delivery
+              </div>
+              <div className="grid grid-cols-2 gap-y-2 text-xs">
+                {pod.finalPrice != null && (
+                  <>
+                    <span className="text-muted-foreground">Price</span>
+                    <span className="font-semibold text-right">{money(pod.finalPrice)}</span>
+                  </>
+                )}
+                {pod.completedAt && (
+                  <>
+                    <span className="text-muted-foreground">Completed</span>
+                    <span className="text-right">{new Date(pod.completedAt).toLocaleString()}</span>
+                  </>
+                )}
+                {pod.driverName && (
+                  <>
+                    <span className="text-muted-foreground">Driver</span>
+                    <span className="text-right">{pod.driverName}</span>
+                  </>
+                )}
+              </div>
+              {(pod.pickupPhotos.length > 0 || pod.deliveryPhotos.length > 0) && (
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  {pod.pickupPhotos.length > 0 && (
+                    <figure className="space-y-1">
+                      <img src={pod.pickupPhotos[0].url} alt="Load confirmed" className="w-full aspect-square object-cover rounded-lg border" />
+                      <figcaption className="text-[10px] text-muted-foreground text-center">Pickup</figcaption>
+                    </figure>
+                  )}
+                  {pod.deliveryPhotos.length > 0 && (
+                    <figure className="space-y-1">
+                      <img src={pod.deliveryPhotos[0].url} alt="Delivery confirmed" className="w-full aspect-square object-cover rounded-lg border" />
+                      <figcaption className="text-[10px] text-muted-foreground text-center">Delivered</figcaption>
+                    </figure>
+                  )}
+                </div>
+              )}
+              <p className="text-[10px] text-muted-foreground pt-1 border-t">
+                This receipt is permanently available at this link — save or share it for your records.
+              </p>
+            </div>
+          )}
         </div>
       ) : (
         <>

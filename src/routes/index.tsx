@@ -79,6 +79,9 @@ function Welcome() {
         </div>
 
         <div className="mt-8 space-y-3">
+          <Link to="/quote" className="flex items-center justify-center gap-2 w-full h-12 rounded-xl bg-white/10 border border-white/20 font-display font-bold uppercase tracking-wider">
+            Check a price — no sign-up
+          </Link>
           <Link to="/auth" search={{ mode: "register" } as never} className="flex items-center justify-center gap-2 w-full h-12 rounded-xl bg-gradient-primary font-display font-bold uppercase tracking-wider shadow-lift">
             Get started <ArrowRight className="w-4 h-4" />
           </Link>
