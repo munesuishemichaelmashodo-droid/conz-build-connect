@@ -116,6 +116,27 @@ export function NotificationsBell() {
       await supabase.from("notifications").update({ read: true }).eq("id", n.id);
     }
     setOpen(false);
+
+    // Route by notification type first — many notifications (admin actions,
+    // wallet events, disputes/reports) have no job_id at all, so relying on
+    // job_id alone left most of these going nowhere when tapped.
+    switch (n.type) {
+      case "dispute_raised":
+      case "dispute_overdue":
+        return nav({ to: "/admin/disputes" });
+      case "report_filed":
+        return nav({ to: "/admin/reports" });
+      case "wallet_topup":
+      case "wallet_withdrawal":
+        return nav({ to: "/wallet" });
+      case "driver_verification":
+        return nav({ to: "/profile" });
+      case "user_status_changed":
+        return nav({ to: "/profile" });
+      default:
+        break;
+    }
+
     if (n.job_id) nav({ to: "/jobs/$id", params: { id: n.job_id } });
   };
 

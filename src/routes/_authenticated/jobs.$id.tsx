@@ -190,6 +190,35 @@ function JobDetail() {
 
   const showRadar = !!job && job.customer_id === userId && job.status === "open" && (bids?.length ?? 0) === 0;
 
+  // Both rating tables have a unique constraint per job — without this check
+  // the form re-renders on every visit to a completed job and a second
+  // submit throws a raw "duplicate key" database error instead of anything
+  // useful. Fetch whether a rating already exists so we can show a summary
+  // instead of a live form the second time.
+  const { data: myRating } = useQuery({
+    queryKey: ["my-rating", id, userId],
+    enabled: !!job && job.status === "completed" && !!userId,
+    queryFn: async () => {
+      if (job!.customer_id === userId) {
+        const { data } = await supabase
+          .from("ratings")
+          .select("quality,communication,reliability,delivery_time,comment")
+          .eq("job_id", id)
+          .maybeSingle();
+        return data;
+      }
+      if (job!.driver_id === userId) {
+        const { data } = await (supabase.from("customer_ratings") as any)
+          .select("punctuality,communication,payment,overall,comment")
+          .eq("job_id", id)
+          .eq("driver_id", userId)
+          .maybeSingle();
+        return data;
+      }
+      return null;
+    },
+  });
+
   const { data: nearbyDrivers } = useQuery({
     queryKey: ["nearby-drivers", id],
     enabled: showRadar,
@@ -442,11 +471,27 @@ function JobDetail() {
         )}
 
         {isOwner && job.status === "completed" && (
-          <RateForm jobId={id} driverId={job.driver_id!} onSaved={() => nav({ to: "/jobs" })} />
+          myRating ? (
+            <RatingSummary
+              title="Your rating for this driver"
+              stars={((myRating as any).quality + (myRating as any).communication + (myRating as any).reliability + (myRating as any).delivery_time) / 4}
+              comment={(myRating as any).comment}
+            />
+          ) : (
+            <RateForm jobId={id} driverId={job.driver_id!} onSaved={() => qc.invalidateQueries({ queryKey: ["my-rating", id, userId] })} />
+          )
         )}
 
         {isAssignedDriver && job.status === "completed" && (
-          <RateCustomerForm jobId={id} customerId={job.customer_id} onSaved={() => nav({ to: "/jobs" })} />
+          myRating ? (
+            <RatingSummary
+              title="Your rating for this customer"
+              stars={(myRating as any).overall}
+              comment={(myRating as any).comment}
+            />
+          ) : (
+            <RateCustomerForm jobId={id} customerId={job.customer_id} onSaved={() => qc.invalidateQueries({ queryKey: ["my-rating", id, userId] })} />
+          )
         )}
       </div>
     </AppShell>
@@ -569,6 +614,24 @@ function BidForm({ jobId, existing, onSaved }: { jobId: string; existing?: any; 
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : existing ? "Update bid" : "Submit bid"}
       </Button>
       </form>
+    </div>
+  );
+}
+
+function RatingSummary({ title, stars, comment }: { title: string; stars: number; comment?: string | null }) {
+  const rounded = Math.round(stars);
+  return (
+    <div className="rounded-2xl bg-card border p-4 space-y-2">
+      <div className="font-display font-bold uppercase text-sm tracking-wide">{title}</div>
+      <div className="flex items-center gap-2">
+        <div className="flex gap-1">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <Star key={n} className={`w-5 h-5 ${n <= rounded ? "fill-warning text-warning" : "text-muted-foreground"}`} />
+          ))}
+        </div>
+        <span className="text-sm text-muted-foreground">{stars.toFixed(1)}</span>
+      </div>
+      {comment && <p className="text-sm text-muted-foreground italic">"{comment}"</p>}
     </div>
   );
 }
