@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { signedEvidenceUrl } from "@/lib/upload-evidence";
 import { ChevronDown, ChevronUp, ImageOff, MapPin, MessageSquare } from "lucide-react";
-import { ChatImage, ChatAudio } from "@/routes/_authenticated/chat.$jobId";
+import { ChatImage, ChatAudio } from "@/components/ChatMedia";
 
 type EvidenceRow = {
   id?: string;
