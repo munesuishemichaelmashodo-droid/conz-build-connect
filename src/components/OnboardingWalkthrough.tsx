@@ -2,53 +2,33 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Package, Users, ShieldCheck, MapPin, Briefcase, Wallet, TrendingUp, X, type LucideIcon } from "lucide-react";
+import { Package, Users, Briefcase, Wallet, X, type LucideIcon } from "lucide-react";
 
 type Slide = { icon: LucideIcon; title: string; body: string };
 
 const CUSTOMER_SLIDES: Slide[] = [
   {
     icon: Package,
-    title: "Book construction materials",
-    body: "Pick a material — sand, stone, soil — set your quantity, and drop a pin where it needs to go.",
+    title: "Welcome to Con Z",
+    body: "Book construction materials — sand, stone, soil — and get them delivered by a verified driver, tracked the whole way.",
   },
   {
     icon: Users,
-    title: "Verified drivers bid on your job",
-    body: "Nearby verified drivers see your job and bid their own price. You pick whichever offer works for you — or propose a different price yourself.",
-  },
-  {
-    icon: MapPin,
-    title: "Track your delivery live",
-    body: "Once a driver accepts, watch them move on the map in real time, right up to your door.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Pay however feels right",
-    body: "Pay the driver directly, or use Con Z Pay to have us hold the money safely until you confirm delivery — good for paying on someone else's behalf.",
+    title: "You're in control",
+    body: "Set your quantity and location, drivers bid their price, you pick the offer that works. As you use the app, we'll point out what each new screen does.",
   },
 ];
 
 const DRIVER_SLIDES: Slide[] = [
   {
     icon: Briefcase,
-    title: "Find jobs near you",
-    body: "Browse open delivery jobs and bid your own price — you choose what to take, nobody assigns it to you.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Get verified once, use it forever",
-    body: "Upload your ID, selfie, and truck photo. Most drivers are approved within 24 hours. Your first job is always commission-free.",
+    title: "Welcome to Con Z",
+    body: "Find delivery jobs near you and bid your own price — no one assigns work to you, you choose what to take.",
   },
   {
     icon: Wallet,
-    title: "Get paid, protected",
-    body: "Commission comes out automatically — no chasing customers for your cut, no surprises.",
-  },
-  {
-    icon: TrendingUp,
-    title: "Level up for real rewards",
-    body: "More completed jobs and good ratings move you up — Silver, Gold, Platinum drivers get up to 20% off commission, automatically.",
+    title: "You're in control",
+    body: "Your first job is commission-free, and you get paid automatically once delivery is confirmed. As you use the app, we'll point out what each new screen does.",
   },
 ];
 

@@ -22,6 +22,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
 import { ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SpotlightCallout } from "@/components/SpotlightCallout";
 
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
   component: JobDetail,
@@ -525,7 +526,14 @@ function JobDetail() {
         {isOwner && (job.status === "accepted" || job.status === "in_progress") && <CustomerTrackMap jobId={id} />}
 
         {is("driver") && !isOwner && job.status === "open" && (
-          <BidForm jobId={id} existing={myBid} onSaved={() => qc.invalidateQueries({ queryKey: ["bids", id] })} />
+          <>
+            <SpotlightCallout
+              id="driver-bidding"
+              title="Bid your own price"
+              body="Enter what you'd charge for this delivery. If the customer likes it, they'll accept — or they might propose a different price back to you."
+            />
+            <BidForm jobId={id} existing={myBid} onSaved={() => qc.invalidateQueries({ queryKey: ["bids", id] })} />
+          </>
         )}
 
         {is("driver") && !isOwner && job.status === "open" && myBid?.counter_status === "countered" && (
@@ -657,14 +665,21 @@ function JobDetail() {
         )}
 
         {isOwner && job.status === "completed" && job.tracking_token && (
-          <a
-            href={`${SITE_URL}/track/${job.tracking_token}`}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center justify-center gap-2 w-full text-center rounded-xl border font-semibold py-3 text-sm"
-          >
-            <Receipt className="w-4 h-4" /> View your receipt
-          </a>
+          <>
+            <SpotlightCallout
+              id="receipt-button"
+              title="Your receipt is one tap away"
+              body="Every completed delivery gets a receipt with price, photos, and a downloadable PDF for your records — find it here anytime."
+            />
+            <a
+              href={`${SITE_URL}/track/${job.tracking_token}`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center gap-2 w-full text-center rounded-xl border font-semibold py-3 text-sm"
+            >
+              <Receipt className="w-4 h-4" /> View your receipt
+            </a>
+          </>
         )}
 
         {isOwner && job.status === "completed" && job.driver_id && (

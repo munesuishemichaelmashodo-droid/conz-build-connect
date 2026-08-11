@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { AddressPicker } from "@/components/AddressPicker";
+import { SpotlightCallout } from "@/components/SpotlightCallout";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -605,7 +606,12 @@ function BookDelivery() {
               <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">
                 How will you pay?
               </div>
-              <div className="space-y-2">
+              <SpotlightCallout
+                id="conz-pay-choice"
+                title="Two ways to pay"
+                body="Pay the driver directly like usual, or choose Con Z Pay to have us hold the money until you confirm delivery — good if you're paying on someone else's behalf."
+              />
+              <div className="space-y-2 mt-2">
                 <button
                   type="button"
                   onClick={() => setPaymentMethod("direct")}

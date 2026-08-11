@@ -970,6 +970,7 @@ export type Database = {
           status: Database["public"]["Enums"]["account_status"]
           terms_accepted_at: string | null
           onboarding_completed_at: string | null
+          spotlights_seen: Json
           updated_at: string
         }
         Insert: {
@@ -985,6 +986,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["account_status"]
           terms_accepted_at?: string | null
           onboarding_completed_at?: string | null
+          spotlights_seen?: Json
           updated_at?: string
         }
         Update: {
@@ -1000,6 +1002,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["account_status"]
           terms_accepted_at?: string | null
           onboarding_completed_at?: string | null
+          spotlights_seen?: Json
           updated_at?: string
         }
         Relationships: []
@@ -1654,6 +1657,7 @@ export type Database = {
           status: Database["public"]["Enums"]["account_status"]
           terms_accepted_at: string | null
           onboarding_completed_at: string | null
+          spotlights_seen: Json
           updated_at: string
         }
         SetofOptions: {

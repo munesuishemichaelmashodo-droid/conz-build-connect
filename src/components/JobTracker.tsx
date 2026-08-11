@@ -8,6 +8,7 @@ import { MapPin, Navigation2, Square, Loader2, ShieldOff } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
 import { useLocationSharingEnabled } from "@/lib/location-privacy";
+import { SpotlightCallout } from "@/components/SpotlightCallout";
 import { RouteMap } from "@/components/RouteMap";
 
 // Fix default marker icons (Vite breaks Leaflet's default path resolution)
@@ -178,6 +179,11 @@ export function CustomerTrackMap({ jobId }: { jobId: string }) {
 
   return (
     <div className="space-y-3">
+      <SpotlightCallout
+        id="live-tracking"
+        title="Watch your driver in real time"
+        body="Once your driver starts sharing their location, you'll see them move on this map right up to your delivery point."
+      />
       <div className="rounded-2xl bg-card border overflow-hidden">
         <div className="flex items-center gap-2 px-4 pt-4 pb-2 font-display font-bold uppercase text-sm tracking-wide">
           <MapPin className="w-4 h-4 text-primary" /> Live driver location
