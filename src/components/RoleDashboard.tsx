@@ -95,6 +95,34 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
           </Link>
         )}
 
+        {isDriver && driver && (
+          <div className="rounded-2xl border bg-card p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="font-display font-bold uppercase text-sm tracking-wide">
+                {levelInfo(driver.level).label} perks
+              </div>
+              <StatusBadge label={levelInfo(driver.level).label} className={levelInfo(driver.level).className} />
+            </div>
+            {levelInfo(driver.level).discountPct > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                You get <span className="font-semibold text-foreground">{levelInfo(driver.level).discountPct}% off commission</span> on
+                every completed job, plus priority when new jobs are offered to drivers.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Higher levels get a commission discount and priority when jobs are offered — complete{" "}
+                {levelInfo(driver.level).nextAt} jobs to reach Silver.
+              </p>
+            )}
+            {levelInfo(driver.level).nextAt != null && (
+              <p className="text-xs text-muted-foreground">
+                {Math.max(0, levelInfo(driver.level).nextAt! - driver.jobs_completed)} more completed job
+                {levelInfo(driver.level).nextAt! - driver.jobs_completed === 1 ? "" : "s"} to level up.
+              </p>
+            )}
+          </div>
+        )}
+
         <LocalLocator />
 
         {isCustomer && (() => {

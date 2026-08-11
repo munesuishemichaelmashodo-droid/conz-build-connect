@@ -31,10 +31,10 @@ export const money = (n: number | null | undefined) =>
 
 export const levelInfo = (l: string) => {
   switch (l) {
-    case "platinum": return { label: "Platinum", className: "bg-secondary text-secondary-foreground" };
-    case "gold": return { label: "Gold", className: "bg-warning text-warning-foreground" };
-    case "silver": return { label: "Silver", className: "bg-muted text-muted-foreground" };
-    default: return { label: "Bronze", className: "bg-accent text-accent-foreground" };
+    case "platinum": return { label: "Platinum", className: "bg-secondary text-secondary-foreground", discountPct: 20, nextAt: null as number | null };
+    case "gold": return { label: "Gold", className: "bg-warning text-warning-foreground", discountPct: 10, nextAt: 500 };
+    case "silver": return { label: "Silver", className: "bg-muted text-muted-foreground", discountPct: 5, nextAt: 101 };
+    default: return { label: "Bronze", className: "bg-accent text-accent-foreground", discountPct: 0, nextAt: 21 };
   }
 };
 
