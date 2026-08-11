@@ -106,11 +106,11 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
             {levelInfo(driver.level).discountPct > 0 ? (
               <p className="text-sm text-muted-foreground">
                 You get <span className="font-semibold text-foreground">{levelInfo(driver.level).discountPct}% off commission</span> on
-                every completed job, plus priority when new jobs are offered to drivers.
+                every completed job.
               </p>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Higher levels get a commission discount and priority when jobs are offered — complete{" "}
+                Higher levels get a bigger commission discount — complete{" "}
                 {levelInfo(driver.level).nextAt} jobs to reach Silver.
               </p>
             )}
