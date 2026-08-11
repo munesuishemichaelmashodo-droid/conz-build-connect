@@ -10,8 +10,110 @@ import { StatusBadge } from "@/components/ui-bits";
 import { RouteMap } from "@/components/RouteMap";
 import { Calendar, CheckCircle2, Loader2, MapPin, Navigation2, Package, Receipt } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { getPublicPod } from "@/lib/pod.functions";
+import { getPublicPod, type PodResult } from "@/lib/pod.functions";
 import { money } from "@/lib/domain";
+import { useState } from "react";
+import jsPDF from "jspdf";
+
+async function toDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function downloadReceiptPdf(pod: NonNullable<PodResult>, jobIdShort: string) {
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const marginX = 48;
+  let y = 56;
+
+  doc.setFontSize(18);
+  doc.setFont("helvetica", "bold");
+  doc.text("Con Z — Delivery Receipt", marginX, y);
+  y += 22;
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(120);
+  doc.text(`Job ref: ${jobIdShort}`, marginX, y);
+  doc.setTextColor(0);
+  y += 28;
+
+  doc.setDrawColor(220);
+  doc.line(marginX, y, 547, y);
+  y += 24;
+
+  const row = (label: string, value: string) => {
+    doc.setFontSize(10);
+    doc.setTextColor(110);
+    doc.text(label, marginX, y);
+    doc.setTextColor(0);
+    doc.setFont("helvetica", "bold");
+    doc.text(value, 547, y, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    y += 20;
+  };
+
+  const materialLabelText = pod.customMaterial || pod.material.replace("_", " ");
+  row("Material", `${materialLabelText} — ${pod.quantityM3} m³`);
+  if (pod.deliveryAddress) row("Delivered to", pod.deliveryAddress);
+  if (pod.driverName) row("Driver", pod.driverName);
+  if (pod.completedAt) row("Completed", new Date(pod.completedAt).toLocaleString());
+  y += 8;
+  doc.line(marginX, y, 547, y);
+  y += 24;
+
+  if (pod.finalPrice != null) {
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Total paid", marginX, y);
+    doc.text(money(pod.finalPrice), 547, y, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    y += 32;
+  }
+
+  const photos = [pod.pickupPhotos[0], pod.deliveryPhotos[0]].filter(Boolean) as { url: string }[];
+  const labels = ["Pickup", "Delivered"];
+  if (photos.length > 0) {
+    doc.setFontSize(10);
+    doc.setTextColor(110);
+    doc.text("Photo evidence", marginX, y);
+    doc.setTextColor(0);
+    y += 12;
+    const imgSize = 220;
+    let x = marginX;
+    for (let i = 0; i < photos.length; i++) {
+      const dataUrl = await toDataUrl(photos[i].url);
+      if (dataUrl) {
+        try {
+          doc.addImage(dataUrl, "JPEG", x, y, imgSize, imgSize, undefined, "FAST");
+        } catch {
+          /* skip if the image can't be embedded */
+        }
+      }
+      doc.setFontSize(8);
+      doc.setTextColor(120);
+      doc.text(labels[i], x, y + imgSize + 12);
+      doc.setTextColor(0);
+      x += imgSize + 24;
+    }
+    y += imgSize + 32;
+  }
+
+  doc.setFontSize(8);
+  doc.setTextColor(150);
+  doc.text("Con Z Connect (Pvt) Ltd — conz.co.zw", marginX, 780);
+
+  doc.save(`Con Z receipt — ${jobIdShort}.pdf`);
+}
+
 
 // Public, login-free live tracking page.
 // Access is gated by the job's unguessable tracking_token (the URL itself is the key).
@@ -82,6 +184,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 function PublicTrackPage() {
   const { token } = Route.useParams();
   const runGetPod = useServerFn(getPublicPod);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["public-track", token],
@@ -212,6 +315,23 @@ function PublicTrackPage() {
                   )}
                 </div>
               )}
+              <button
+                type="button"
+                disabled={downloadingPdf}
+                onClick={async () => {
+                  setDownloadingPdf(true);
+                  try {
+                    await downloadReceiptPdf(pod, token.slice(0, 8));
+                  } catch {
+                    // if photo embedding fails partway, the text-only receipt still saves
+                  } finally {
+                    setDownloadingPdf(false);
+                  }
+                }}
+                className="w-full flex items-center justify-center gap-2 rounded-lg border font-semibold text-sm py-2 disabled:opacity-60"
+              >
+                {downloadingPdf ? "Preparing…" : "Download PDF receipt"}
+              </button>
               <p className="text-[10px] text-muted-foreground pt-1 border-t">
                 This receipt is permanently available at this link — save or share it for your records.
               </p>

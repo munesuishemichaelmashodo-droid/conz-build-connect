@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { signedEvidenceUrl } from "@/lib/upload-evidence";
-import { ChevronDown, ChevronUp, ImageOff, MapPin } from "lucide-react";
+import { ChevronDown, ChevronUp, ImageOff, MapPin, MessageSquare } from "lucide-react";
+import { ChatImage, ChatAudio } from "@/routes/_authenticated/chat.$jobId";
 
 type EvidenceRow = {
   id?: string;
@@ -42,6 +43,7 @@ function EvidencePhoto({ path, alt }: { path: string; alt: string }) {
 
 export function DisputeEvidence({ jobId }: { jobId: string }) {
   const [open, setOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["dispute-evidence", jobId],
@@ -63,6 +65,31 @@ export function DisputeEvidence({ jobId }: { jobId: string }) {
         deliveryDistance = Number.isFinite(n) ? n : null;
       }
       return { evidence, deliveryDistance };
+    },
+  });
+
+  const { data: chatData, isLoading: chatLoading } = useQuery({
+    queryKey: ["dispute-chat", jobId],
+    enabled: chatOpen,
+    queryFn: async () => {
+      const { data: job } = await supabase.from("jobs").select("customer_id,driver_id").eq("id", jobId).maybeSingle();
+      const { data: msgs } = await supabase
+        .from("messages")
+        .select("id,sender_id,body,image_url,audio_url,audio_duration_seconds,created_at")
+        .eq("job_id", jobId)
+        .order("created_at", { ascending: true });
+
+      const ids = [job?.customer_id, job?.driver_id].filter(Boolean) as string[];
+      const { data: profiles } = ids.length
+        ? await supabase.from("profiles").select("id,full_name").in("id", ids)
+        : { data: [] as { id: string; full_name: string }[] };
+      const nameOf = (id: string) => profiles?.find((p) => p.id === id)?.full_name ?? "Unknown";
+
+      return {
+        messages: msgs ?? [],
+        customerId: job?.customer_id ?? null,
+        nameOf,
+      };
     },
   });
 
@@ -110,6 +137,47 @@ export function DisputeEvidence({ jobId }: { jobId: string }) {
                 ))}
               </div>
             </>
+          )}
+        </div>
+      )}
+
+      <button
+        onClick={() => setChatOpen((o) => !o)}
+        className="flex w-full items-center justify-between text-[11px] font-semibold uppercase text-muted-foreground mt-3 pt-2 border-t"
+      >
+        <span className="flex items-center gap-1">
+          <MessageSquare className="w-3.5 h-3.5" /> Chat transcript
+        </span>
+        {chatOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+      </button>
+
+      {chatOpen && (
+        <div className="pt-2 space-y-2 max-h-96 overflow-y-auto">
+          {chatLoading ? (
+            <p className="text-xs text-muted-foreground">Loading chat…</p>
+          ) : !chatData?.messages.length ? (
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <MessageSquare className="w-3.5 h-3.5" /> No messages were sent for this job.
+            </p>
+          ) : (
+            chatData.messages.map((m) => {
+              const isCustomer = m.sender_id === chatData.customerId;
+              return (
+                <div key={m.id} className={`flex ${isCustomer ? "justify-start" : "justify-end"}`}>
+                  <div className={`max-w-[75%] rounded-xl px-2.5 py-1.5 text-xs ${isCustomer ? "bg-muted" : "bg-primary/10"}`}>
+                    <div className="text-[9px] font-semibold uppercase text-muted-foreground mb-0.5">
+                      {chatData.nameOf(m.sender_id)} ({isCustomer ? "customer" : "driver"})
+                    </div>
+                    {m.image_url && <ChatImage path={m.image_url} />}
+                    {m.audio_url && <ChatAudio path={m.audio_url} duration={m.audio_duration_seconds} />}
+                    {m.body && <div className="whitespace-pre-wrap break-words">{m.body}</div>}
+                    <div className="text-[9px] text-muted-foreground mt-0.5">
+                      {new Date(m.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
       )}

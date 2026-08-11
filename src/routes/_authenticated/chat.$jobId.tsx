@@ -41,7 +41,7 @@ function dayLabel(iso: string): string {
   return d.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
 }
 
-function ChatImage({ path }: { path: string }) {
+export function ChatImage({ path }: { path: string }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
@@ -58,7 +58,7 @@ function ChatImage({ path }: { path: string }) {
   );
 }
 
-function ChatAudio({ path, duration }: { path: string; duration: number | null }) {
+export function ChatAudio({ path, duration }: { path: string; duration: number | null }) {
   const [url, setUrl] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);

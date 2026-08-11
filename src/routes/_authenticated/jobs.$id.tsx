@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge, Section } from "@/components/ui-bits";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, MessageCircle, Share2, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle, Wallet } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, MessageCircle, Share2, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle, Wallet, Receipt } from "lucide-react";
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { SITE_URL } from "@/lib/site";
 import { useState, useEffect } from "react";
@@ -654,6 +654,17 @@ function JobDetail() {
           ) : (
             <RateCustomerForm jobId={id} customerId={job.customer_id} onSaved={() => qc.invalidateQueries({ queryKey: ["my-rating", id, userId] })} />
           )
+        )}
+
+        {isOwner && job.status === "completed" && job.tracking_token && (
+          <a
+            href={`${SITE_URL}/track/${job.tracking_token}`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-center gap-2 w-full text-center rounded-xl border font-semibold py-3 text-sm"
+          >
+            <Receipt className="w-4 h-4" /> View your receipt
+          </a>
         )}
 
         {isOwner && job.status === "completed" && job.driver_id && (
