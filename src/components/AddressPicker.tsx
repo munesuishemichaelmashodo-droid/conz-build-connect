@@ -250,6 +250,13 @@ export function AddressPicker({
                   {r.label}
                 </button>
               ))}
+              {results.length > 0 && (
+                <div className="px-3 py-1.5 border-t text-[10px] text-muted-foreground text-right">
+                  <a href="https://locationiq.com" target="_blank" rel="noreferrer" className="hover:underline">
+                    Search by LocationIQ.com
+                  </a>
+                </div>
+              )}
             </div>
           )}
         </div>
