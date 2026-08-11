@@ -6,8 +6,10 @@ import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Send, Check, CheckCheck, AlertTriangle, RotateCcw } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCheck, AlertTriangle, RotateCcw, Camera, Mic, Square, Play, Pause, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { compressImage } from "@/lib/compress-image";
+import { signedChatMediaUrl } from "@/lib/chat-media";
 
 export const Route = createFileRoute("/_authenticated/chat/$jobId")({
   component: ChatPage,
@@ -19,6 +21,8 @@ type Msg = {
   sender_id: string;
   body: string | null;
   image_url: string | null;
+  audio_url: string | null;
+  audio_duration_seconds: number | null;
   created_at: string;
   read_at: string | null;
   // Local-only state for optimistic sending — never persisted.
@@ -36,6 +40,74 @@ function dayLabel(iso: string): string {
   if (sameDay(d, yesterday)) return "Yesterday";
   return d.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
 }
+
+function ChatImage({ path }: { path: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    signedChatMediaUrl(path).then((u) => alive && setUrl(u));
+    return () => {
+      alive = false;
+    };
+  }, [path]);
+  if (!url) return <div className="w-40 h-40 rounded-lg bg-black/10 animate-pulse" />;
+  return (
+    <a href={url} target="_blank" rel="noreferrer">
+      <img src={url} alt="Shared photo" className="max-w-[240px] max-h-[320px] rounded-lg object-cover" />
+    </a>
+  );
+}
+
+function ChatAudio({ path, duration }: { path: string; duration: number | null }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    signedChatMediaUrl(path).then((u) => alive && setUrl(u));
+    return () => {
+      alive = false;
+    };
+  }, [path]);
+
+  const toggle = () => {
+    if (!audioRef.current) return;
+    if (playing) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+  };
+
+  const fmt = (s: number | null) => {
+    if (!s && s !== 0) return "";
+    const m = Math.floor(s / 60);
+    const sec = Math.round(s % 60);
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
+
+  if (!url) return <div className="w-48 h-10 rounded-full bg-black/10 animate-pulse" />;
+
+  return (
+    <div className="flex items-center gap-2 w-48">
+      <audio
+        ref={audioRef}
+        src={url}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        className="hidden"
+      />
+      <button type="button" onClick={toggle} className="w-8 h-8 rounded-full bg-current/10 flex items-center justify-center shrink-0">
+        {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+      </button>
+      <div className="flex-1 h-1 rounded-full bg-current/20" />
+      <span className="text-[10px] shrink-0">{fmt(duration)}</span>
+    </div>
+  );
+}
+
 
 function ChatPage() {
   const { jobId } = Route.useParams();
@@ -120,14 +192,21 @@ function ChatPage() {
     scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = async (text: string) => {
+  const sendMessage = async (payload: {
+    text?: string;
+    imagePath?: string;
+    audioPath?: string;
+    audioDuration?: number;
+  }) => {
     const tempId = `temp-${crypto.randomUUID()}`;
     const optimistic: Msg = {
       id: tempId,
       job_id: jobId,
       sender_id: userId!,
-      body: text,
-      image_url: null,
+      body: payload.text ?? null,
+      image_url: payload.imagePath ?? null,
+      audio_url: payload.audioPath ?? null,
+      audio_duration_seconds: payload.audioDuration ?? null,
       created_at: new Date().toISOString(),
       read_at: null,
       pending: true,
@@ -137,7 +216,14 @@ function ChatPage() {
 
     const { data, error } = await supabase
       .from("messages")
-      .insert({ job_id: jobId, sender_id: userId!, body: text })
+      .insert({
+        job_id: jobId,
+        sender_id: userId!,
+        body: payload.text ?? null,
+        image_url: payload.imagePath ?? null,
+        audio_url: payload.audioPath ?? null,
+        audio_duration_seconds: payload.audioDuration ?? null,
+      } as any)
       .select()
       .single();
 
@@ -152,7 +238,88 @@ function ChatPage() {
 
   const retry = async (m: Msg) => {
     setMessages((prev) => prev.filter((x) => x.id !== m.id));
-    await sendMessage(m.body ?? "");
+    await sendMessage({
+      text: m.body ?? undefined,
+      imagePath: m.image_url ?? undefined,
+      audioPath: m.audio_url ?? undefined,
+      audioDuration: m.audio_duration_seconds ?? undefined,
+    });
+  };
+
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const sendPhoto = async (file: File) => {
+    setUploadingPhoto(true);
+    try {
+      const compressed = await compressImage(file);
+      const path = `${jobId}/${userId}/${Date.now()}-${compressed.name.replace(/[^a-z0-9.]/gi, "_")}`;
+      const { error: uploadErr } = await supabase.storage.from("chat-media").upload(path, compressed, {
+        contentType: compressed.type || "image/jpeg",
+      });
+      if (uploadErr) throw new Error(uploadErr.message);
+      await sendMessage({ imagePath: path });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not send photo");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const [recording, setRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
+      const recorder = new MediaRecorder(stream, { mimeType });
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setRecording(true);
+      setRecordSeconds(0);
+      recordTimerRef.current = setInterval(() => setRecordSeconds((s) => s + 1), 1000);
+    } catch {
+      toast.error("Could not access microphone — check your browser permissions.");
+    }
+  };
+
+  const stopRecording = async (send: boolean) => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) return;
+    if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+    const duration = recordSeconds;
+    setRecording(false);
+
+    const blob: Blob = await new Promise((resolve) => {
+      recorder.addEventListener("stop", () => resolve(new Blob(audioChunksRef.current, { type: recorder.mimeType })), { once: true });
+      recorder.stop();
+    });
+    mediaRecorderRef.current = null;
+
+    if (!send || duration < 1) return; // treat as cancelled
+
+    setUploadingAudio(true);
+    try {
+      const ext = blob.type.includes("webm") ? "webm" : "m4a";
+      const path = `${jobId}/${userId}/${Date.now()}-voice.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from("chat-media").upload(path, blob, { contentType: blob.type });
+      if (uploadErr) throw new Error(uploadErr.message);
+      await sendMessage({ audioPath: path, audioDuration: duration });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not send voice note");
+    } finally {
+      setUploadingAudio(false);
+    }
   };
 
   const send = async (e: React.FormEvent) => {
@@ -160,11 +327,11 @@ function ChatPage() {
     const text = body.trim();
     if (!text) return;
     setBody("");
-    await sendMessage(text);
+    await sendMessage({ text });
   };
 
   const quickSend = async (text: string) => {
-    await sendMessage(text);
+    await sendMessage({ text });
   };
 
   const grouped = useMemo(() => {
@@ -209,7 +376,9 @@ function ChatPage() {
                           mine ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted rounded-bl-sm"
                         } ${m.failed ? "opacity-60 border-2 border-destructive" : m.pending ? "opacity-60" : ""}`}
                       >
-                        <div className="whitespace-pre-wrap break-words">{m.body}</div>
+                        {m.image_url && <ChatImage path={m.image_url} />}
+                        {m.audio_url && <ChatAudio path={m.audio_url} duration={m.audio_duration_seconds} />}
+                        {m.body && <div className="whitespace-pre-wrap break-words">{m.body}</div>}
                         <div className={`flex items-center gap-1 text-[10px] mt-1 ${mine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                           <span>{new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                           {mine && !m.failed && !m.pending && (
@@ -248,9 +417,52 @@ function ChatPage() {
             </Button>
           </div>
         )}
-        <form onSubmit={send} className="border-t p-2 flex gap-2">
-          <Input value={body} onChange={(e) => setBody(e.target.value)} placeholder="Type a message…" maxLength={1000} />
-          <Button type="submit" disabled={sending || !body.trim()} size="icon"><Send className="w-4 h-4" /></Button>
+        <form onSubmit={send} className="border-t p-2 flex items-center gap-2">
+          <input
+            id="chat-photo-input"
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) sendPhoto(f);
+              e.target.value = "";
+            }}
+          />
+          {recording ? (
+            <div className="flex-1 flex items-center gap-2 rounded-xl border border-destructive bg-destructive/5 px-3 py-2">
+              <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+              <span className="text-sm text-destructive font-medium flex-1">
+                Recording… {Math.floor(recordSeconds / 60)}:{(recordSeconds % 60).toString().padStart(2, "0")}
+              </span>
+              <button type="button" onClick={() => stopRecording(false)} className="text-xs text-muted-foreground">
+                Cancel
+              </button>
+              <Button type="button" size="icon" onClick={() => stopRecording(true)} className="bg-destructive hover:bg-destructive/90">
+                <Square className="w-4 h-4" />
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={uploadingPhoto || uploadingAudio}
+                onClick={() => document.getElementById("chat-photo-input")?.click()}
+              >
+                {uploadingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+              </Button>
+              <Input value={body} onChange={(e) => setBody(e.target.value)} placeholder="Type a message…" maxLength={1000} />
+              {body.trim() ? (
+                <Button type="submit" disabled={sending} size="icon"><Send className="w-4 h-4" /></Button>
+              ) : (
+                <Button type="button" variant="outline" size="icon" disabled={uploadingAudio || uploadingPhoto} onClick={startRecording}>
+                  {uploadingAudio ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+                </Button>
+              )}
+            </>
+          )}
         </form>
       </div>
     </AppShell>
