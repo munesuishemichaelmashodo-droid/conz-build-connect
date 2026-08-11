@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { MATERIALS, money, type MaterialCategory } from "@/lib/domain";
 import { AddressPicker } from "@/components/AddressPicker";
+import { supabase } from "@/integrations/supabase/client";
 import { computePublicOffer } from "@/lib/booking.functions";
 import { getRoute } from "@/lib/routing.functions";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,18 @@ function PublicQuotePage() {
   const [loading, setLoading] = useState(false);
   const [offer, setOffer] = useState<OfferResult | null>(null);
 
+  const [materialPickups, setMaterialPickups] = useState<Record<string, { lat: number | null; lng: number | null; label: string | null }>>({});
+  useEffect(() => {
+    (supabase.rpc as unknown as (f: string) => Promise<{ data: unknown }>)("public_material_pickups")
+      .then(({ data }) => setMaterialPickups((data ?? {}) as typeof materialPickups))
+      .catch(() => {});
+  }, []);
+  const pickupPoint = useMemo(() => {
+    const p = materialPickups[material];
+    if (p?.lat != null && p?.lng != null) return { lat: p.lat, lng: p.lng };
+    return PICKUP_POINT;
+  }, [materialPickups, material]);
+
   const checkPrice = async () => {
     if (!coords) return;
     setLoading(true);
@@ -53,7 +66,7 @@ function PublicQuotePage() {
       let distanceKm = 15;
       try {
         const route = await runRoute({
-          data: { startLat: PICKUP_POINT.lat, startLng: PICKUP_POINT.lng, destLat: coords.lat, destLng: coords.lng },
+          data: { startLat: pickupPoint.lat, startLng: pickupPoint.lng, destLat: coords.lat, destLng: coords.lng },
         });
         if (route?.distanceKm) distanceKm = route.distanceKm;
       } catch {

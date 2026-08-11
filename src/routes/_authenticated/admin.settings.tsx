@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { Percent, Save, ShieldAlert, Fuel, Package } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { AddressPicker } from "@/components/AddressPicker";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
   component: AdminSettings,
@@ -52,6 +53,9 @@ function AdminSettings() {
         max_price: number | null;
         enforced: boolean;
         unit: string;
+        pickup_lat: number | null;
+        pickup_lng: number | null;
+        pickup_label: string | null;
       }>;
     },
   });
@@ -219,7 +223,16 @@ function MaterialPriceRow({
   isSuper,
   onSaved,
 }: {
-  material: { material: string; label: string; min_price: number | null; max_price: number | null; enforced: boolean };
+  material: {
+    material: string;
+    label: string;
+    min_price: number | null;
+    max_price: number | null;
+    enforced: boolean;
+    pickup_lat?: number | null;
+    pickup_lng?: number | null;
+    pickup_label?: string | null;
+  };
   isSuper: boolean;
   onSaved: () => void;
 }) {
@@ -229,6 +242,37 @@ function MaterialPriceRow({
   const [enforced, setEnforced] = useState(material.enforced);
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
+  const [pickupLabel, setPickupLabel] = useState(material.pickup_label ?? "");
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(
+    material.pickup_lat != null && material.pickup_lng != null
+      ? { lat: material.pickup_lat, lng: material.pickup_lng }
+      : null,
+  );
+  const [pickupReason, setPickupReason] = useState("");
+  const [savingPickup, setSavingPickup] = useState(false);
+
+  const savePickup = async () => {
+    if (!pickupCoords) return toast.error("Pick a location on the map first");
+    if (pickupReason.trim().length < 5) {
+      return toast.error("Give a reason (at least 5 characters) — it is recorded in the audit log.");
+    }
+    setSavingPickup(true);
+    const { error } = await (supabase.rpc as unknown as (
+      f: string,
+      a: Record<string, unknown>,
+    ) => Promise<{ error: { message: string } | null }>)("admin_set_material_pickup", {
+      _material: material.material,
+      _lat: pickupCoords.lat,
+      _lng: pickupCoords.lng,
+      _label: pickupLabel.trim() || null,
+      _reason: pickupReason.trim(),
+    });
+    setSavingPickup(false);
+    if (error) return toast.error(error.message);
+    toast.success(`${material.label} pickup location updated`);
+    setPickupReason("");
+    onSaved();
+  };
 
   const save = async () => {
     const minV = Number(min);
@@ -326,6 +370,38 @@ function MaterialPriceRow({
           >
             {saving ? "Saving…" : "Save"}
           </button>
+
+          <div className="pt-3 mt-1 border-t space-y-2">
+            <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
+              Actual pickup location for {material.label}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Distance/price for this material is calculated from here.{" "}
+              {pickupCoords ? "Currently set." : "Not set yet — falls back to the default Harare point."}
+            </p>
+            <AddressPicker
+              value={pickupLabel}
+              onChange={(addr, coords) => {
+                setPickupLabel(addr);
+                if (coords) setPickupCoords(coords);
+              }}
+            />
+            <input
+              type="text"
+              value={pickupReason}
+              onChange={(e) => setPickupReason(e.target.value)}
+              disabled={!isSuper}
+              placeholder="Reason (required, recorded in the audit log)"
+              className="w-full px-2 py-1.5 rounded-lg border bg-background text-xs disabled:opacity-50"
+            />
+            <button
+              onClick={savePickup}
+              disabled={!isSuper || savingPickup || !pickupCoords}
+              className="w-full rounded-lg border font-semibold py-2 text-sm disabled:opacity-50"
+            >
+              {savingPickup ? "Saving…" : "Save pickup location"}
+            </button>
+          </div>
         </div>
       )}
     </div>

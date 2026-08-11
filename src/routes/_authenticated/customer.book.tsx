@@ -93,6 +93,26 @@ function BookDelivery() {
   const [paymentMethod, setPaymentMethod] = useState<"direct" | "escrow">("direct");
   const [roadDistanceKm, setRoadDistanceKm] = useState<number | null>(null);
 
+  const { data: materialPickups } = useQuery({
+    queryKey: ["material-pickups"],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data } = await (supabase.rpc as unknown as (f: string) => Promise<{ data: unknown }>)("public_material_pickups");
+      return (data ?? {}) as Record<string, { lat: number | null; lng: number | null; label: string | null }>;
+    },
+  });
+
+  // Distance/price used to always be measured from one hardcoded Harare
+  // point regardless of material — but different materials genuinely come
+  // from different real pickup sites. Use the material-specific one where
+  // an admin has set it, falling back to the Harare default otherwise.
+  const pickupPoint = useMemo(() => {
+    const p = materialPickups?.[material];
+    if (p?.lat != null && p?.lng != null) return { lat: p.lat, lng: p.lng };
+    return PICKUP_POINT;
+  }, [materialPickups, material]);
+  const pickupLabel = materialPickups?.[material]?.label ?? null;
+
   useEffect(() => {
     if (!coords) {
       setRoadDistanceKm(null);
@@ -108,8 +128,8 @@ function BookDelivery() {
 
         const r = await getRoute({
           data: {
-            startLat: PICKUP_POINT.lat,
-            startLng: PICKUP_POINT.lng,
+            startLat: pickupPoint.lat,
+            startLng: pickupPoint.lng,
             destLat: dest.lat,
             destLng: dest.lng,
           },
@@ -128,7 +148,7 @@ function BookDelivery() {
     return () => {
       cancelled = true;
     };
-  }, [coords]);
+  }, [coords, pickupPoint.lat, pickupPoint.lng]);
 
   const { data: matPrice } = useQuery({
     queryKey: ["material-price", material],
@@ -172,7 +192,7 @@ function BookDelivery() {
   const suggestion = useMemo(() => {
     if (!matPrice || !coords) return null;
 
-    const distanceKm = roadDistanceKm ?? haversineKm(PICKUP_POINT, coords);
+    const distanceKm = roadDistanceKm ?? haversineKm(pickupPoint, coords);
     const midMaterial = (Number(matPrice.min_price) + Number(matPrice.max_price)) / 2;
     const fuelCost =
       distanceKm * (FUEL_LITRES_PER_100KM / 100) * Number(dieselPrice ?? 1.87);
@@ -231,7 +251,7 @@ function BookDelivery() {
 
     try {
       const distanceKm =
-        roadDistanceKm ?? (coords ? haversineKm(PICKUP_POINT, coords) : 15);
+        roadDistanceKm ?? (coords ? haversineKm(pickupPoint, coords) : 15);
 
       const result = await runOffer({
         data: { material, quantity, distanceKm, address },
@@ -300,8 +320,8 @@ function BookDelivery() {
         delivery_lng: coords.lng,
 
         pickup_address: PICKUP_ADDRESS,
-        pickup_lat: PICKUP_POINT.lat,
-        pickup_lng: PICKUP_POINT.lng,
+        pickup_lat: pickupPoint.lat,
+        pickup_lng: pickupPoint.lng,
 
 
         budget: offer,
@@ -572,6 +592,7 @@ function BookDelivery() {
 
             <div className="rounded-2xl bg-card border p-4 space-y-2 text-sm">
               <Row icon={Package} label={offerData.label} value={`${quantity} m³`} />
+              {pickupLabel && <Row icon={MapPin} label="Picked up from" value={pickupLabel} />}
               <Row icon={MapPin} label="Delivery to" value={address} />
               <Row
                 icon={Truck}
