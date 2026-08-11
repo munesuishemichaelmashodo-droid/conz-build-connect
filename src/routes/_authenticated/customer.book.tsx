@@ -21,6 +21,8 @@ import {
   CheckCircle2,
   Calendar as CalendarIcon,
   StickyNote,
+  ShieldCheck,
+  HandCoins,
   type LucideIcon,
 } from "lucide-react";
 import { MATERIALS, type MaterialCategory, money } from "@/lib/domain";
@@ -88,6 +90,7 @@ function BookDelivery() {
   const [offerData, setOfferData] = useState<OfferResult | null>(null);
   const [offer, setOffer] = useState<number>(0);
   const [posting, setPosting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"direct" | "escrow">("direct");
   const [roadDistanceKm, setRoadDistanceKm] = useState<number | null>(null);
 
   useEffect(() => {
@@ -305,6 +308,7 @@ function BookDelivery() {
         preferred_date: date || null,
         notes: notes.trim() || null,
         preferred_driver_id: search.driverId || null,
+        payment_method: paymentMethod,
       } as any)
       .select()
       .single();
@@ -574,6 +578,49 @@ function BookDelivery() {
                 label="Estimated distance"
                 value={`${offerData.distanceKm} km`}
               />
+            </div>
+
+            <div>
+              <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">
+                How will you pay?
+              </div>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("direct")}
+                  className={cn(
+                    "w-full flex items-start gap-3 rounded-2xl border p-3 text-left transition",
+                    paymentMethod === "direct" ? "border-primary bg-primary/5" : "hover:border-primary/40",
+                  )}
+                >
+                  <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                    <HandCoins className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold">Pay the driver directly</div>
+                    <div className="text-xs text-muted-foreground">Cash or EcoCash on delivery, arranged between you.</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("escrow")}
+                  className={cn(
+                    "w-full flex items-start gap-3 rounded-2xl border p-3 text-left transition",
+                    paymentMethod === "escrow" ? "border-primary bg-primary/5" : "hover:border-primary/40",
+                  )}
+                >
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold">Con Z Pay <span className="text-[10px] font-normal text-muted-foreground">— pay now, held safely</span></div>
+                    <div className="text-xs text-muted-foreground">
+                      Pay {money(offer)} now through Con Z. We hold it and only release it to the
+                      driver once you confirm delivery — good for paying on someone else's behalf.
+                    </div>
+                  </div>
+                </button>
+              </div>
             </div>
 
             <Button

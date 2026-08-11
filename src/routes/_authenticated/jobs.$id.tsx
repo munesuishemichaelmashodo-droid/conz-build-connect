@@ -18,6 +18,10 @@ import { DriverShareLocation, CustomerTrackMap, DriverRouteView } from "@/compon
 import { RadarSearch } from "@/components/RadarSearch";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { uploadJobEvidence, signedEvidenceUrl } from "@/lib/upload-evidence";
+import { useServerFn } from "@tanstack/react-start";
+import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
+import { ShieldCheck } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
   component: JobDetail,
@@ -242,6 +246,61 @@ function JobDetail() {
   const s = statusInfo(job.status);
   const myBid = bids?.find((b: any) => b.driver_id === userId);
 
+  const runEscrowPayment = useServerFn(initiateEscrowPayment);
+  const runReconcile = useServerFn(reconcilePendingPaynowPayments);
+  const [payingEscrow, setPayingEscrow] = useState(false);
+
+  const isEscrow = job.payment_method === "escrow";
+  const { data: escrowPayment } = useQuery({
+    queryKey: ["escrow-payment", id],
+    enabled: isEscrow,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("payments")
+        .select("id,status,amount")
+        .eq("job_id", id)
+        .eq("type", "escrow")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data as { id: string; status: string; amount: number } | null;
+    },
+  });
+  const escrowPaid = escrowPayment?.status === "paid" || escrowPayment?.status === "released";
+
+  // Returning from Paynow lands back on this page — reconcile any pending
+  // escrow payment via the poll URL rather than only relying on the webhook.
+  useEffect(() => {
+    if (!isEscrow || !userId) return;
+    runReconcile()
+      .then((res) => {
+        if (res.credited > 0) {
+          qc.invalidateQueries({ queryKey: ["escrow-payment", id] });
+          toast.success("Payment confirmed — held safely until delivery is confirmed.");
+        }
+      })
+      .catch(() => {});
+  }, [isEscrow, userId]);
+
+  const payEscrow = async () => {
+    setPayingEscrow(true);
+    try {
+      const res = await runEscrowPayment({ data: { jobId: id } });
+      if (!res.ok) {
+        setPayingEscrow(false);
+        if (res.error === "already_paid") {
+          qc.invalidateQueries({ queryKey: ["escrow-payment", id] });
+          return toast.success("This job is already paid for.");
+        }
+        return toast.error(res.error || "Could not start payment");
+      }
+      window.location.href = res.redirectUrl;
+    } catch (err) {
+      setPayingEscrow(false);
+      toast.error(err instanceof Error ? err.message : "Could not start payment");
+    }
+  };
+
   const acceptBid = async (bidId: string) => {
     const { error } = await supabase.rpc("accept_bid", { _bid_id: bidId });
     if (error) {
@@ -297,6 +356,38 @@ function JobDetail() {
 
       <div className="space-y-4">
         <JobTimeline job={job} />
+
+        {isEscrow && ["accepted", "in_progress"].includes(job.status) && (
+          <div className={cn(
+            "rounded-2xl border p-4 space-y-2",
+            escrowPaid ? "border-success/40 bg-success/10" : "border-primary/40 bg-primary/5",
+          )}>
+            <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
+              <ShieldCheck className={cn("w-4 h-4", escrowPaid ? "text-success" : "text-primary")} />
+              Con Z Pay
+            </div>
+            {escrowPaid ? (
+              <p className="text-sm text-muted-foreground">
+                {isOwner
+                  ? "Payment received and held safely. It'll be released to the driver once you confirm delivery."
+                  : "The customer has paid. Funds are held and will be released to your wallet once delivery is confirmed — or automatically after 72 hours."}
+              </p>
+            ) : isOwner ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  This job is set up to pay through Con Z Pay. Pay now — we'll hold the money until you confirm delivery.
+                </p>
+                <Button onClick={payEscrow} disabled={payingEscrow} className="w-full">
+                  {payingEscrow ? <Loader2 className="w-4 h-4 animate-spin" /> : `Pay ${money(Number(job.final_price ?? job.budget))} now`}
+                </Button>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Waiting for the customer to pay through Con Z Pay before you're guaranteed payment on delivery.
+              </p>
+            )}
+          </div>
+        )}
 
         {isOwner && job.status === "open" && (bids?.length ?? 0) === 0 && <RadarSearch etaMinutes={5} nearbyDrivers={nearbyDrivers} />}
 
@@ -412,11 +503,15 @@ function JobDetail() {
         {isOwner && (job.status === "accepted" || job.status === "in_progress") && (
           <Button
             onClick={completeJob}
-            disabled={!job.delivery_photo_url}
+            disabled={!job.delivery_photo_url || (isEscrow && !escrowPaid)}
             className="w-full bg-success text-success-foreground hover:bg-success/90"
           >
             <CheckCircle2 className="w-4 h-4 mr-2" />
-            {job.delivery_photo_url ? "Confirm delivery" : "Waiting for driver's delivery photo"}
+            {isEscrow && !escrowPaid
+              ? "Pay through Con Z Pay above first"
+              : job.delivery_photo_url
+                ? "Confirm delivery"
+                : "Waiting for driver's delivery photo"}
           </Button>
         )}
 

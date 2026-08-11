@@ -668,6 +668,7 @@ export type Database = {
           pickup_photo_url: string | null
           preferred_date: string | null
           preferred_driver_id: string | null
+          payment_method: string
           quantity_m3: number
           receiver_name: string | null
           status: Database["public"]["Enums"]["job_status"]
@@ -709,6 +710,7 @@ export type Database = {
           pickup_photo_url?: string | null
           preferred_date?: string | null
           preferred_driver_id?: string | null
+          payment_method?: string
           quantity_m3: number
           receiver_name?: string | null
           status?: Database["public"]["Enums"]["job_status"]
@@ -750,6 +752,7 @@ export type Database = {
           pickup_photo_url?: string | null
           preferred_date?: string | null
           preferred_driver_id?: string | null
+          payment_method?: string
           quantity_m3?: number
           receiver_name?: string | null
           status?: Database["public"]["Enums"]["job_status"]

@@ -67,6 +67,92 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
     return { ok: true, paymentId: payment.id, redirectUrl: result.browserUrl };
   });
 
+export type InitiateEscrowResult =
+  | { ok: true; paymentId: string; redirectUrl: string }
+  | { ok: false; error: "paynow_not_configured" | "job_not_found" | "not_your_job" | "already_paid" | string };
+
+/**
+ * Con Z Pay — customer pays for a specific job into escrow, held until
+ * delivery is confirmed (or auto-released after 72h). Separate from
+ * initiatePaynowTopup: this payment is tied to a job (job_id set, type
+ * 'escrow') and never credits any wallet directly — see
+ * mark_escrow_payment_paid / release_escrow_and_complete.
+ */
+export const initiateEscrowPayment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { jobId: string }) => {
+    if (!data?.jobId) throw new Error("Missing job");
+    return { jobId: data.jobId };
+  })
+  .handler(async ({ data, context }): Promise<InitiateEscrowResult> => {
+    const { getPaynowCredentials, initiatePaynowTransaction } = await import("@/lib/paynow.server");
+    if (!getPaynowCredentials()) return { ok: false, error: "paynow_not_configured" };
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = supabaseAdmin as any;
+
+    const { data: job } = await db
+      .from("jobs")
+      .select("id,customer_id,payment_method,status,final_price,budget,material")
+      .eq("id", data.jobId)
+      .maybeSingle();
+    if (!job) return { ok: false, error: "job_not_found" };
+    if (job.customer_id !== context.userId) return { ok: false, error: "not_your_job" };
+    if (job.payment_method !== "escrow") return { ok: false, error: "job_not_found" };
+
+    const { data: existing } = await db
+      .from("payments")
+      .select("id")
+      .eq("job_id", data.jobId)
+      .eq("type", "escrow")
+      .eq("status", "paid")
+      .maybeSingle();
+    if (existing) return { ok: false, error: "already_paid" };
+
+    const amount = Number(job.final_price ?? job.budget ?? 0);
+    if (!amount || amount <= 0) return { ok: false, error: "job_not_found" };
+
+    const { data: payment, error } = await db
+      .from("payments")
+      .insert({
+        user_id: context.userId,
+        job_id: data.jobId,
+        type: "escrow",
+        amount,
+        currency: "USD",
+        method: "paynow",
+        status: "initiated",
+      })
+      .select("id")
+      .single();
+    if (error || !payment) return { ok: false, error: error?.message ?? "payment_create_failed" };
+
+    const origin = new URL(getRequestUrl()).origin;
+    const CANONICAL_ORIGIN = "https://conz-build-connect.vercel.app";
+    const email = (context.claims as { email?: string })?.email ?? "noreply@conz.co.zw";
+
+    const result = await initiatePaynowTransaction({
+      reference: payment.id,
+      amount,
+      authEmail: email,
+      returnUrl: `${origin}/jobs/${data.jobId}`,
+      resultUrl: `${CANONICAL_ORIGIN}/api/public/paynow-ipn`,
+      additionalInfo: `Con Z Pay — ${job.material} delivery`,
+    });
+
+    if (!result.ok) {
+      await db.from("payments").update({ status: "failed" }).eq("id", payment.id);
+      return { ok: false, error: result.error };
+    }
+
+    await db
+      .from("payments")
+      .update({ paynow_poll_url: result.pollUrl, paynow_reference: payment.id })
+      .eq("id", payment.id);
+
+    return { ok: true, paymentId: payment.id, redirectUrl: result.browserUrl };
+  });
+
 const SUCCESS_STATUSES = new Set(["paid", "awaiting delivery", "delivered"]);
 const FAILED_STATUSES = new Set(["cancelled", "failed", "disputed", "refunded"]);
 
@@ -87,9 +173,9 @@ export const reconcilePendingPaynowPayments = createServerFn({ method: "POST" })
 
     const { data: pending } = await db
       .from("payments")
-      .select("id, paynow_poll_url")
+      .select("id, paynow_poll_url, type")
       .eq("user_id", context.userId)
-      .eq("type", "topup")
+      .in("type", ["topup", "escrow"])
       .eq("status", "initiated")
       .not("paynow_poll_url", "is", null)
       .order("created_at", { ascending: false })
@@ -100,12 +186,13 @@ export const reconcilePendingPaynowPayments = createServerFn({ method: "POST" })
       const result = await pollPaynowStatus(p.paynow_poll_url);
       if (!result.ok) continue;
       if (SUCCESS_STATUSES.has(result.status)) {
-        // Do NOT pre-set status to "paid" — the RPC uses that as its own
+        // Do NOT pre-set status to "paid" — the RPCs use that as their own
         // idempotency guard and would skip crediting if already set.
         if (result.paynowReference) {
           await db.from("payments").update({ paynow_reference: result.paynowReference }).eq("id", p.id);
         }
-        const { error } = await db.rpc("credit_wallet_from_payment", { _payment_id: p.id });
+        const rpcName = p.type === "escrow" ? "mark_escrow_payment_paid" : "credit_wallet_from_payment";
+        const { error } = await db.rpc(rpcName, { _payment_id: p.id });
         if (!error) credited += 1;
       } else if (FAILED_STATUSES.has(result.status)) {
         await db.from("payments").update({ status: "failed" }).eq("id", p.id).eq("status", "initiated");
