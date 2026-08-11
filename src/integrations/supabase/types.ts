@@ -649,6 +649,7 @@ export type Database = {
           delivery_address: string
           delivery_lat: number | null
           delivery_lng: number | null
+          delivery_pin: string | null
           delivery_photo_taken_at: string | null
           delivery_photo_url: string | null
           driver_id: string | null
@@ -691,6 +692,7 @@ export type Database = {
           delivery_address: string
           delivery_lat?: number | null
           delivery_lng?: number | null
+          delivery_pin?: string | null
           delivery_photo_taken_at?: string | null
           delivery_photo_url?: string | null
           driver_id?: string | null
@@ -733,6 +735,7 @@ export type Database = {
           delivery_address?: string
           delivery_lat?: number | null
           delivery_lng?: number | null
+          delivery_pin?: string | null
           delivery_photo_taken_at?: string | null
           delivery_photo_url?: string | null
           driver_id?: string | null
@@ -1404,6 +1407,7 @@ export type Database = {
           delivery_address: string
           delivery_lat: number | null
           delivery_lng: number | null
+          delivery_pin: string | null
           delivery_photo_taken_at: string | null
           delivery_photo_url: string | null
           driver_id: string | null
@@ -1689,6 +1693,7 @@ export type Database = {
           delivery_address: string
           delivery_lat: number | null
           delivery_lng: number | null
+          delivery_pin: string | null
           delivery_photo_taken_at: string | null
           delivery_photo_url: string | null
           driver_id: string | null
@@ -1783,6 +1788,7 @@ export type Database = {
           delivery_address: string
           delivery_lat: number | null
           delivery_lng: number | null
+          delivery_pin: string | null
           delivery_photo_taken_at: string | null
           delivery_photo_url: string | null
           driver_id: string | null
@@ -2144,6 +2150,7 @@ export type Database = {
           delivery_address: string
           delivery_lat: number | null
           delivery_lng: number | null
+          delivery_pin: string | null
           delivery_photo_taken_at: string | null
           delivery_photo_url: string | null
           driver_id: string | null

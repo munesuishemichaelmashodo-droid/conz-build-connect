@@ -501,19 +501,31 @@ function JobDetail() {
           />
         )}
 
-        {isOwner && (job.status === "accepted" || job.status === "in_progress") && (
+        {isOwner && isEscrow && ["accepted", "in_progress"].includes(job.status) && job.delivery_pin && (
+          <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4 space-y-2 text-center">
+            <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
+              Delivery confirmation code
+            </div>
+            <div className="font-display font-bold text-4xl tracking-[0.2em]">{job.delivery_pin}</div>
+            <p className="text-xs text-muted-foreground">
+              Give this code to your driver when they arrive with your delivery. They'll enter it to confirm and release payment — don't share it before then.
+            </p>
+          </div>
+        )}
+
+        {isOwner && !isEscrow && (job.status === "accepted" || job.status === "in_progress") && (
           <Button
             onClick={completeJob}
-            disabled={!job.delivery_photo_url || (isEscrow && !escrowPaid)}
+            disabled={!job.delivery_photo_url}
             className="w-full bg-success text-success-foreground hover:bg-success/90"
           >
             <CheckCircle2 className="w-4 h-4 mr-2" />
-            {isEscrow && !escrowPaid
-              ? "Pay through Con Z Pay above first"
-              : job.delivery_photo_url
-                ? "Confirm delivery"
-                : "Waiting for driver's delivery photo"}
+            {job.delivery_photo_url ? "Confirm delivery" : "Waiting for driver's delivery photo"}
           </Button>
+        )}
+
+        {isAssignedDriver && isEscrow && (job.status === "accepted" || job.status === "in_progress") && job.delivery_photo_url && (
+          <DeliveryPinEntry jobId={id} onConfirmed={() => qc.invalidateQueries({ queryKey: ["job", id] })} />
         )}
 
         {isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && (
@@ -1049,6 +1061,52 @@ function SignedProofPhoto({ path, alt }: { path: string; alt: string }) {
     />
   ) : (
     <div className="w-full aspect-square rounded-lg border bg-muted animate-pulse" />
+  );
+}
+
+function DeliveryPinEntry({ jobId, onConfirmed }: { jobId: string; onConfirmed: () => void }) {
+  const [pin, setPin] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    if (pin.trim().length < 4) return toast.error("Enter the code the customer gave you");
+    setSubmitting(true);
+    const { error } = await (supabase.rpc as unknown as (
+      f: string,
+      a: Record<string, unknown>,
+    ) => Promise<{ error: { message: string } | null }>)("driver_confirm_delivery_pin", {
+      _job_id: jobId,
+      _pin: pin.trim(),
+    });
+    setSubmitting(false);
+    if (error) {
+      if (/incorrect code/i.test(error.message)) return toast.error("That code doesn't match — double check with the customer.");
+      if (/no confirmed escrow payment/i.test(error.message)) return toast.error("The customer hasn't paid through Con Z Pay yet.");
+      return toast.error(error.message);
+    }
+    toast.success("Delivery confirmed — payment released to your wallet!");
+    setPin("");
+    onConfirmed();
+  };
+
+  return (
+    <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4 space-y-3">
+      <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
+        Enter delivery confirmation code
+      </div>
+      <p className="text-xs text-muted-foreground">Ask the customer for their 6-digit code to confirm delivery and release your payment.</p>
+      <Input
+        value={pin}
+        onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+        inputMode="numeric"
+        placeholder="123456"
+        className="text-center text-2xl tracking-[0.3em] font-display font-bold"
+        maxLength={6}
+      />
+      <Button onClick={submit} disabled={submitting || pin.trim().length < 4} className="w-full">
+        {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm delivery"}
+      </Button>
+    </div>
   );
 }
 
