@@ -111,6 +111,11 @@ export function DriverShareLocation({ jobId, driverId }: { jobId: string; driver
 
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
+      <SpotlightCallout
+        id="driver-gps-share"
+        title="Don't forget to turn this on"
+        body="The customer can't see your progress at all until you tap 'Start sharing location' — do this every time you begin a delivery, or they'll have no idea where their order is."
+      />
       <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
         <Navigation2 className="w-4 h-4 text-primary" /> Live GPS
       </div>

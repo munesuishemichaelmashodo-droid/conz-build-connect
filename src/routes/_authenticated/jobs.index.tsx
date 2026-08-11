@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Briefcase, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { JobCard } from "./home";
+import { JobCard } from "@/components/JobCard";
 
 export const Route = createFileRoute("/_authenticated/jobs/")({
   component: JobsPage,

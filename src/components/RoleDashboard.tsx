@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Briefcase, Plus, Truck, Wallet as WalletIcon, ShieldAlert, Star } from "lucide-react";
 import { money, levelInfo } from "@/lib/domain";
-import { JobCard } from "@/routes/_authenticated/home";
+import { JobCard } from "@/components/JobCard";
 import { LocalLocator } from "@/components/LocalLocator";
 import { JobOfferListener } from "@/components/JobOfferListener";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
