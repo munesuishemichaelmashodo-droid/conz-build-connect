@@ -133,6 +133,9 @@ export function NotificationsBell() {
         return nav({ to: "/profile" });
       case "user_status_changed":
         return nav({ to: "/profile" });
+      case "new_message":
+        if (n.job_id) return nav({ to: "/chat/$jobId", params: { jobId: n.job_id } });
+        break;
       default:
         break;
     }
