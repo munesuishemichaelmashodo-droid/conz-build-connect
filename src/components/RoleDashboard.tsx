@@ -11,6 +11,7 @@ import { JobCard } from "@/routes/_authenticated/home";
 import { LocalLocator } from "@/components/LocalLocator";
 import { JobOfferListener } from "@/components/JobOfferListener";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
+import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
 
 
 
@@ -61,6 +62,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
 
   return (
     <AppShell title={isDriver ? "Driver" : "Customer"}>
+      {userId && <OnboardingWalkthrough userId={userId} role={role} />}
       <div className="space-y-6">
         {isDriver && <JobOfferListener />}
         <div className="rounded-2xl bg-gradient-dark text-white p-5 shadow-lift">
