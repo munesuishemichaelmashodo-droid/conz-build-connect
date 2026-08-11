@@ -10,6 +10,7 @@ import { money, levelInfo } from "@/lib/domain";
 import { JobCard } from "@/routes/_authenticated/home";
 import { LocalLocator } from "@/components/LocalLocator";
 import { JobOfferListener } from "@/components/JobOfferListener";
+import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 
 
 
@@ -124,6 +125,8 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
         )}
 
         <LocalLocator />
+
+        <PushNotificationPrompt />
 
         {isCustomer && (() => {
           const restrictedUntil = (profile as any)?.restricted_until as string | null | undefined;

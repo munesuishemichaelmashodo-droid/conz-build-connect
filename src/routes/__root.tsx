@@ -122,6 +122,14 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    // Register the service worker up front (no permission prompt yet — that
+    // only happens when someone taps "Enable notifications"). Registering
+    // early means it's ready the moment they do.
+    import("@/lib/push").then(({ registerServiceWorker }) => registerServiceWorker());
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
