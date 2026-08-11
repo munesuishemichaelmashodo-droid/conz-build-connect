@@ -60,7 +60,7 @@ export function NotificationsBell() {
         .from("notifications")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(30);
+        .limit(10);
       if (active && data) setItems(data as Notification[]);
     };
     load();
@@ -158,7 +158,15 @@ export function NotificationsBell() {
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0">
+      {open && (
+        // Radix Popover has no backdrop by default, so page content bled
+        // through behind it and it looked like it was overlapping the rest
+        // of the screen instead of sitting cleanly on top. This dims the
+        // background and closes the dropdown on tap, same as any other
+        // overlay in the app.
+        <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setOpen(false)} />
+      )}
+      <PopoverContent align="end" className="z-50 w-[calc(100vw-1.5rem)] max-w-sm p-0">
         <div className="flex items-center justify-between px-3 py-2 border-b">
           <div className="font-semibold text-sm">Notifications</div>
           <button
@@ -169,7 +177,7 @@ export function NotificationsBell() {
             <Check className="w-3 h-3" /> Mark all read
           </button>
         </div>
-        <div className="max-h-96 overflow-auto">
+        <div className="max-h-[70vh] overflow-auto">
           {items.length === 0 ? (
             <div className="p-6 text-center text-sm text-muted-foreground">
               You're all caught up

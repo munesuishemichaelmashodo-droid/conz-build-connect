@@ -1,24 +1,48 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { money } from "@/lib/domain";
-import { Users, Truck, Briefcase, DollarSign, AlertOctagon, ShieldCheck } from "lucide-react";
+import { Users, Truck, Briefcase, DollarSign, AlertOctagon, ShieldCheck, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
   component: AdminDashboard,
 });
 
-function Stat({ icon: Icon, label, value, sub }: { icon: typeof Users; label: string; value: string; sub?: string }) {
-  return (
-    <div className="rounded-2xl border bg-card p-4 shadow-card">
+function Stat({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  to,
+}: {
+  icon: typeof Users;
+  label: string;
+  value: string;
+  sub?: string;
+  to?: "/admin/users" | "/admin/verifications" | "/admin/disputes";
+}) {
+  const content = (
+    <>
       <div className="flex items-center justify-between">
         <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</span>
         <Icon className="w-4 h-4 text-primary" />
       </div>
-      <div className="font-display font-bold text-2xl mt-1">{value}</div>
+      <div className="flex items-end justify-between mt-1">
+        <div className="font-display font-bold text-2xl">{value}</div>
+        {to && <ChevronRight className="w-4 h-4 text-muted-foreground mb-1" />}
+      </div>
       {sub && <div className="text-[11px] text-muted-foreground mt-0.5">{sub}</div>}
-    </div>
+    </>
   );
+
+  if (to) {
+    return (
+      <Link to={to} className="rounded-2xl border bg-card p-4 shadow-card block active:opacity-70 transition">
+        {content}
+      </Link>
+    );
+  }
+  return <div className="rounded-2xl border bg-card p-4 shadow-card">{content}</div>;
 }
 
 function AdminDashboard() {
@@ -52,10 +76,10 @@ function AdminDashboard() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <Stat icon={Users} label="Users" value={String(data?.users ?? 0)} sub={`${data?.drivers ?? 0} drivers`} />
+        <Stat icon={Users} label="Users" value={String(data?.users ?? 0)} sub={`${data?.drivers ?? 0} drivers`} to="/admin/users" />
         <Stat icon={Briefcase} label="Open jobs" value={String(data?.jobsOpen ?? 0)} sub={`${data?.jobsDone ?? 0} completed`} />
-        <Stat icon={ShieldCheck} label="Pending verify" value={String(data?.pendingV ?? 0)} />
-        <Stat icon={AlertOctagon} label="Open disputes" value={String(data?.disputes ?? 0)} />
+        <Stat icon={ShieldCheck} label="Pending verify" value={String(data?.pendingV ?? 0)} to="/admin/verifications" />
+        <Stat icon={AlertOctagon} label="Open disputes" value={String(data?.disputes ?? 0)} to="/admin/disputes" />
       </div>
       <div className="rounded-2xl bg-gradient-dark text-white p-5 shadow-lift">
         <div className="flex items-center gap-2 text-white/70 text-[11px] uppercase tracking-widest">
