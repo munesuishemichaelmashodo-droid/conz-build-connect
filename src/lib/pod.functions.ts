@@ -11,6 +11,8 @@ export type PodResult = {
   deliveryAddress: string | null;
   completedAt: string | null;
   driverName: string | null;
+  paymentMethod: "direct" | "escrow";
+  receiptNo: string;
   pickupPhotos: PodEvidencePhoto[];
   deliveryPhotos: PodEvidencePhoto[];
 } | null;
@@ -32,7 +34,7 @@ export const getPublicPod = createServerFn({ method: "GET" })
 
     const { data: job } = await db
       .from("jobs")
-      .select("id,material,custom_material,quantity_m3,final_price,delivery_address,completed_at,driver_id,status")
+      .select("id,material,custom_material,quantity_m3,final_price,delivery_address,completed_at,driver_id,status,payment_method")
       .eq("tracking_token", data.token)
       .maybeSingle();
 
@@ -69,6 +71,8 @@ export const getPublicPod = createServerFn({ method: "GET" })
       deliveryAddress: job.delivery_address,
       completedAt: job.completed_at,
       driverName: driver?.full_name ?? null,
+      paymentMethod: job.payment_method === "escrow" ? "escrow" : "direct",
+      receiptNo: `CONZ-${job.id.slice(0, 8).toUpperCase()}`,
       pickupPhotos: await withSignedUrl(pickupRows),
       deliveryPhotos: await withSignedUrl(deliveryRows),
     };

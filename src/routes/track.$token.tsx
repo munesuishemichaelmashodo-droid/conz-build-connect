@@ -30,25 +30,52 @@ async function toDataUrl(url: string): Promise<string | null> {
   }
 }
 
-async function downloadReceiptPdf(pod: NonNullable<PodResult>, jobIdShort: string) {
+async function downloadReceiptPdf(pod: NonNullable<PodResult>) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pageW = 595;
   const marginX = 48;
+  const rightX = pageW - marginX;
   let y = 56;
 
-  doc.setFontSize(18);
+  // Header: logo (if it loads) + company identity, receipt number + issue
+  // date on the right — the layout a real business receipt/invoice uses,
+  // not just a plain title.
+  const logoDataUrl = await toDataUrl("/conz-logo.png");
+  if (logoDataUrl) {
+    try {
+      doc.addImage(logoDataUrl, "PNG", marginX, y - 14, 32, 32);
+    } catch {
+      /* skip logo if it can't be embedded, rest of the receipt still renders */
+    }
+  }
+  doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("Con Z — Delivery Receipt", marginX, y);
-  y += 22;
-  doc.setFontSize(9);
+  doc.text("Con Z", marginX + (logoDataUrl ? 40 : 0), y + 8);
+  doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(120);
-  doc.text(`Job ref: ${jobIdShort}`, marginX, y);
-  doc.setTextColor(0);
-  y += 28;
+  doc.text("Zimbabwe's Construction Marketplace", marginX + (logoDataUrl ? 40 : 0), y + 20);
 
+  doc.setFontSize(9);
+  doc.setTextColor(0);
+  doc.setFont("helvetica", "bold");
+  doc.text("DELIVERY RECEIPT", rightX, y, { align: "right" });
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(110);
+  doc.text(`Receipt No: ${pod.receiptNo}`, rightX, y + 14, { align: "right" });
+  doc.text(`Issued: ${new Date().toLocaleDateString()}`, rightX, y + 26, { align: "right" });
+  doc.setTextColor(0);
+
+  y += 50;
   doc.setDrawColor(220);
-  doc.line(marginX, y, 547, y);
-  y += 24;
+  doc.line(marginX, y, rightX, y);
+  y += 20;
+
+  doc.setFontSize(8);
+  doc.setTextColor(140);
+  doc.text("All amounts in USD", marginX, y);
+  doc.setTextColor(0);
+  y += 20;
 
   const row = (label: string, value: string) => {
     doc.setFontSize(10);
@@ -56,7 +83,7 @@ async function downloadReceiptPdf(pod: NonNullable<PodResult>, jobIdShort: strin
     doc.text(label, marginX, y);
     doc.setTextColor(0);
     doc.setFont("helvetica", "bold");
-    doc.text(value, 547, y, { align: "right" });
+    doc.text(value, rightX, y, { align: "right" });
     doc.setFont("helvetica", "normal");
     y += 20;
   };
@@ -65,16 +92,20 @@ async function downloadReceiptPdf(pod: NonNullable<PodResult>, jobIdShort: strin
   row("Material", `${materialLabelText} — ${pod.quantityM3} m³`);
   if (pod.deliveryAddress) row("Delivered to", pod.deliveryAddress);
   if (pod.driverName) row("Driver", pod.driverName);
+  row("Payment method", pod.paymentMethod === "escrow" ? "Con Z Pay (held & released on confirmation)" : "Paid directly to driver");
   if (pod.completedAt) row("Completed", new Date(pod.completedAt).toLocaleString());
   y += 8;
-  doc.line(marginX, y, 547, y);
-  y += 24;
+  doc.line(marginX, y, rightX, y);
+  y += 8;
 
   if (pod.finalPrice != null) {
+    y += 16;
+    doc.setFillColor(245, 245, 245);
+    doc.roundedRect(marginX, y - 20, rightX - marginX, 32, 4, 4, "F");
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text("Total paid", marginX, y);
-    doc.text(money(pod.finalPrice), 547, y, { align: "right" });
+    doc.text("Total paid", marginX + 12, y);
+    doc.text(money(pod.finalPrice), rightX - 12, y, { align: "right" });
     doc.setFont("helvetica", "normal");
     y += 32;
   }
@@ -82,6 +113,7 @@ async function downloadReceiptPdf(pod: NonNullable<PodResult>, jobIdShort: strin
   const photos = [pod.pickupPhotos[0], pod.deliveryPhotos[0]].filter(Boolean) as { url: string }[];
   const labels = ["Pickup", "Delivered"];
   if (photos.length > 0) {
+    y += 12;
     doc.setFontSize(10);
     doc.setTextColor(110);
     doc.text("Photo evidence", marginX, y);
@@ -107,11 +139,14 @@ async function downloadReceiptPdf(pod: NonNullable<PodResult>, jobIdShort: strin
     y += imgSize + 32;
   }
 
+  doc.setDrawColor(230);
+  doc.line(marginX, 760, rightX, 760);
   doc.setFontSize(8);
   doc.setTextColor(150);
-  doc.text("Con Z Connect (Pvt) Ltd — conz.co.zw", marginX, 780);
+  doc.text("Con Z Connect (Pvt) Ltd  ·  conz.co.zw  ·  support@conz.co.zw", marginX, 774);
+  doc.text("This is a computer-generated receipt and requires no signature.", marginX, 786);
 
-  doc.save(`Con Z receipt — ${jobIdShort}.pdf`);
+  doc.save(`${pod.receiptNo}.pdf`);
 }
 
 
@@ -276,16 +311,21 @@ function PublicTrackPage() {
           </div>
           {pod && (
             <div className="rounded-xl bg-card border p-4 space-y-3">
-              <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
-                <Receipt className="w-4 h-4 text-primary" /> Proof of delivery
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
+                  <Receipt className="w-4 h-4 text-primary" /> Receipt
+                </div>
+                <span className="text-[10px] font-mono text-muted-foreground">{pod.receiptNo}</span>
               </div>
               <div className="grid grid-cols-2 gap-y-2 text-xs">
                 {pod.finalPrice != null && (
                   <>
-                    <span className="text-muted-foreground">Price</span>
+                    <span className="text-muted-foreground">Total paid (USD)</span>
                     <span className="font-semibold text-right">{money(pod.finalPrice)}</span>
                   </>
                 )}
+                <span className="text-muted-foreground">Payment method</span>
+                <span className="text-right">{pod.paymentMethod === "escrow" ? "Con Z Pay" : "Direct to driver"}</span>
                 {pod.completedAt && (
                   <>
                     <span className="text-muted-foreground">Completed</span>
@@ -321,7 +361,7 @@ function PublicTrackPage() {
                 onClick={async () => {
                   setDownloadingPdf(true);
                   try {
-                    await downloadReceiptPdf(pod, token.slice(0, 8));
+                    await downloadReceiptPdf(pod);
                   } catch {
                     // if photo embedding fails partway, the text-only receipt still saves
                   } finally {
