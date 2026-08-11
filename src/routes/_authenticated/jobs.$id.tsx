@@ -234,26 +234,14 @@ function JobDetail() {
     },
   });
 
-  if (isLoading || !job)
-    return (
-      <AppShell>
-        <div className="text-center text-muted-foreground py-10">Loading…</div>
-      </AppShell>
-    );
-
-  const isOwner = job.customer_id === userId;
-  const isAssignedDriver = job.driver_id === userId;
-  const s = statusInfo(job.status);
-  const myBid = bids?.find((b: any) => b.driver_id === userId);
-
   const runEscrowPayment = useServerFn(initiateEscrowPayment);
   const runReconcile = useServerFn(reconcilePendingPaynowPayments);
   const [payingEscrow, setPayingEscrow] = useState(false);
 
-  const isEscrow = job.payment_method === "escrow";
+  const isEscrow = job?.payment_method === "escrow";
   const { data: escrowPayment } = useQuery({
     queryKey: ["escrow-payment", id],
-    enabled: isEscrow,
+    enabled: !!job && isEscrow,
     queryFn: async () => {
       const { data } = await supabase
         .from("payments")
@@ -271,7 +259,7 @@ function JobDetail() {
   // Returning from Paynow lands back on this page — reconcile any pending
   // escrow payment via the poll URL rather than only relying on the webhook.
   useEffect(() => {
-    if (!isEscrow || !userId) return;
+    if (!job || !isEscrow || !userId) return;
     runReconcile()
       .then((res) => {
         if (res.credited > 0) {
@@ -280,7 +268,19 @@ function JobDetail() {
         }
       })
       .catch(() => {});
-  }, [isEscrow, userId]);
+  }, [job, isEscrow, userId]);
+
+  if (isLoading || !job)
+    return (
+      <AppShell>
+        <div className="text-center text-muted-foreground py-10">Loading…</div>
+      </AppShell>
+    );
+
+  const isOwner = job.customer_id === userId;
+  const isAssignedDriver = job.driver_id === userId;
+  const s = statusInfo(job.status);
+  const myBid = bids?.find((b: any) => b.driver_id === userId);
 
   const payEscrow = async () => {
     setPayingEscrow(true);
