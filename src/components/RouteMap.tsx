@@ -8,14 +8,14 @@ import { toast } from "sonner";
 import { RouteStats } from "@/components/RouteStats";
 const truckIcon = L.divIcon({
   className: "",
-  html: `<div style="background:hsl(var(--primary));color:hsl(var(--primary-foreground));width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px">ðŸš›</div>`,
+  html: `<div style="background:hsl(var(--primary));color:hsl(var(--primary-foreground));width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px">🚛</div>`,
   iconSize: [32, 32],
   iconAnchor: [16, 16],
 });
 
 const destIcon = L.divIcon({
   className: "",
-  html: `<div style="background:hsl(var(--foreground));color:hsl(var(--background));width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><span style="transform:rotate(45deg);font-size:14px">ðŸ“</span></div>`,
+  html: `<div style="background:hsl(var(--foreground));color:hsl(var(--background));width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><span style="transform:rotate(45deg);font-size:14px">📍</span></div>`,
   iconSize: [28, 28],
   iconAnchor: [14, 28],
 });
@@ -104,7 +104,12 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
   style={{ height: "100%", width: "100%" }}
 > 
   <ResizeFix />
-  <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                    subdomains="abcd"
+                    maxZoom={20}
+                  />
   {!locked && <ClickHandler />}
           <Marker position={[driverLocation.lat, driverLocation.lng]} icon={truckIcon}>
             <Popup>Driver</Popup>

@@ -450,7 +450,7 @@ function BookDelivery() {
 
                 <p className="text-xs text-muted-foreground">
                   Based on {matPrice?.label} pricing, ~{suggestion.distanceKm.toFixed(1)} km from pickup,
-                  fuel at {FUEL_LITRES_PER_100KM} L/100 km Ã— $
+                  fuel at {FUEL_LITRES_PER_100KM} L/100 km × $
                   {Number(dieselPrice ?? 1.87).toFixed(2)}/L, plus {commissionRate ?? 7}% platform commission.
                 </p>
               </div>

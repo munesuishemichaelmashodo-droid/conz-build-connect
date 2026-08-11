@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 
 export function StatusBadge({ label, className }: { label: string; className?: string }) {
   return (
-    <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wide", className)}>
+    <span className={cn("select-none inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wide", className)}>
       {label}
     </span>
   );

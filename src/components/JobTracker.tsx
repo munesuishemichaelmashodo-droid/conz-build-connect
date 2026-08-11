@@ -190,7 +190,12 @@ export function CustomerTrackMap({ jobId }: { jobId: string }) {
               <MapContainer center={[loc.lat, loc.lng]} zoom={15} scrollWheelZoom={false} style={{ height: "100%", width: "100%" }}>
                 <ResizeFix />
                 <Follow lat={loc.lat} lng={loc.lng} />
-                <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                    subdomains="abcd"
+                    maxZoom={20}
+                  />
                 <Marker position={[loc.lat, loc.lng]} icon={truckIcon}>
                   <Popup>Updated {new Date(loc.updated_at).toLocaleTimeString()}</Popup>
                 </Marker>
@@ -203,7 +208,7 @@ export function CustomerTrackMap({ jobId }: { jobId: string }) {
           </>
         )}
       </div>
-      {loc && <RouteMap driverLocation={{ lat: loc.lat, lng: loc.lng }} initialDestination={destination} />}
+      {loc && <RouteMap driverLocation={{ lat: loc.lat, lng: loc.lng }} initialDestination={destination} showNavigateButton />}
     </div>
   );
 }

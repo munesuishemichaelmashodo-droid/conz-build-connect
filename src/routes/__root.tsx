@@ -127,7 +127,7 @@ function RootComponent() {
       <AuthProvider>
         <ViewModeProvider>
           <Outlet />
-          <Toaster position="top-center" richColors />
+          <Toaster position="top-center" richColors closeButton visibleToasts={3} />
         </ViewModeProvider>
       </AuthProvider>
     </QueryClientProvider>

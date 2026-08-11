@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LocateFixed, MapPin, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ export function LocalLocator() {
   const [coords, setCoords] = useState<{ lat: number; lng: number; acc?: number } | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const autoLocatedRef = useRef(false);
 
   const locate = async () => {
     setLoading(true);
@@ -26,21 +27,31 @@ export function LocalLocator() {
       const addr = await reverseGeocode(c.lat, c.lng);
       setAddress(addr);
       setLoading(false);
-      toast.success("Location captured");
+      // Stable id: a second call (e.g. tapping locate again quickly) updates
+      // this same toast in place instead of stacking a new one on top —
+      // stacked toasts at top-center were covering the wallet card for
+      // several seconds with no way to dismiss them.
+      toast.success("Location captured", { id: "local-locator" });
     } catch (e: any) {
       setLoading(false);
       setError(e.message);
-      toast.error(e.message);
+      toast.error(e.message, { id: "local-locator" });
     }
   };
 
-  // Auto-locate once on mount if permission already granted
+  // Auto-locate once on mount if permission already granted. Guarded so
+  // this can only ever fire once per component instance, even if the
+  // effect somehow re-runs.
   useEffect(() => {
+    if (autoLocatedRef.current) return;
     if (typeof navigator === "undefined" || !("permissions" in navigator)) return;
     (navigator as any).permissions
       ?.query({ name: "geolocation" })
       .then((res: PermissionStatus) => {
-        if (res.state === "granted") locate();
+        if (res.state === "granted" && !autoLocatedRef.current) {
+          autoLocatedRef.current = true;
+          locate();
+        }
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps

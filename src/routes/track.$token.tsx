@@ -235,7 +235,12 @@ function PublicTrackPage() {
                     style={{ height: "100%", width: "100%" }}
                   >
                     <Follow lat={live.lat} lng={live.lng} />
-                    <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                    <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                    subdomains="abcd"
+                    maxZoom={20}
+                  />
                     <Marker position={[live.lat, live.lng]} icon={truckIcon}>
                       <Popup>Updated {new Date(live.updated_at).toLocaleTimeString()}</Popup>
                     </Marker>
