@@ -14,7 +14,7 @@ export function ChatImage({ path }: { path: string }) {
   if (!url) return <div className="w-40 h-40 rounded-lg bg-black/10 animate-pulse" />;
   return (
     <a href={url} target="_blank" rel="noreferrer">
-      <img src={url} alt="Shared photo" className="max-w-[240px] max-h-[320px] rounded-lg object-cover" />
+      <img src={url} alt="Shared photo" className="block w-full max-w-[280px] max-h-[360px] object-cover" />
     </a>
   );
 }

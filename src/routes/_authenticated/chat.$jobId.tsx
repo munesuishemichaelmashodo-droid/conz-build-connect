@@ -396,18 +396,33 @@ function ChatPage() {
               (() => {
                 const m = item.m;
                 const mine = m.sender_id === userId;
+                const isImageOnly = !!m.image_url && !m.audio_url && !m.body;
                 return (
                   <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                     <div className="max-w-[75%]">
                       <div
-                        className={`rounded-2xl px-3 py-2 text-sm ${
-                          mine ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted rounded-bl-sm"
-                        } ${m.failed ? "opacity-60 border-2 border-destructive" : m.pending ? "opacity-60" : ""}`}
+                        className={
+                          isImageOnly
+                            ? `rounded-2xl overflow-hidden ${mine ? "rounded-br-sm" : "rounded-bl-sm"} ${
+                                m.failed ? "opacity-60 border-2 border-destructive" : m.pending ? "opacity-60" : ""
+                              }`
+                            : `rounded-2xl px-3 py-2 text-sm ${
+                                mine ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted rounded-bl-sm"
+                              } ${m.failed ? "opacity-60 border-2 border-destructive" : m.pending ? "opacity-60" : ""}`
+                        }
                       >
                         {m.image_url && <ChatImage path={m.image_url} />}
                         {m.audio_url && <ChatAudio path={m.audio_url} duration={m.audio_duration_seconds} />}
                         {m.body && <div className="whitespace-pre-wrap break-words">{m.body}</div>}
-                        <div className={`flex items-center gap-1 text-[10px] mt-1 ${mine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                        <div
+                          className={`flex items-center gap-1 text-[10px] mt-1 ${
+                            isImageOnly
+                              ? `px-2 pb-1.5 ${mine ? "justify-end text-white drop-shadow" : "text-muted-foreground"}`
+                              : mine
+                              ? "text-primary-foreground/70"
+                              : "text-muted-foreground"
+                          }`}
+                        >
                           <span>{new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                           {mine && !m.failed && !m.pending && (
                             m.read_at ? <CheckCheck className="w-3 h-3" /> : <Check className="w-3 h-3" />
