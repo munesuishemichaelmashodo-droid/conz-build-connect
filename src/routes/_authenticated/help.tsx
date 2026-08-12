@@ -35,7 +35,7 @@ const SECTIONS: FaqSection[] = [
       },
       {
         q: "Can I share the tracking link with someone else?",
-        a: "Yes — on any active job, tap 'Share this delivery on WhatsApp' or 'Copy live tracking link'. Anyone you send it to can watch the truck move in real time — no Con Z account or login needed on their end.",
+        a: "Yes — on any active job, tap 'Share live tracking link'. It opens your phone's normal share options (or copies the link) so you can send it anywhere. Anyone you send it to can watch the truck move in real time — no Con Z account or login needed on their end.",
       },
     ],
   },

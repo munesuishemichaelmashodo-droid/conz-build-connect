@@ -28,23 +28,9 @@ export const Route = createFileRoute("/_authenticated/jobs/$id")({
   component: JobDetail,
 });
 
-// Build a wa.me deep link with a pre-filled message.
-// Normalizes ZW numbers: 0772123456 -> 263772123456.
-const waLink = (phone: string | null | undefined, text: string) => {
-  if (!phone) return null;
-  let p = phone.replace(/[^\d+]/g, "");
-  if (p.startsWith("+")) p = p.slice(1);
-  if (p.startsWith("00")) p = p.slice(2);
-  if (p.startsWith("0")) p = "263" + p.slice(1);
-  if (p.length < 9) return null;
-  return `https://wa.me/${p}?text=${encodeURIComponent(text)}`;
-};
-
-// Plain tap-to-dial link — opens the phone's own dialer. Same number
-// normalization as waLink, just formatted as tel:+263... instead of a
-// wa.me URL. Deliberately not a masked/in-app call: it's simple, free,
-// and needs no calling provider, at the cost of showing each party the
-// other's real phone number (which the WhatsApp button already does).
+// Plain tap-to-dial link — opens the phone's own dialer. Deliberately not a
+// masked/in-app call: it's simple, free, and needs no calling provider, at
+// the cost of showing each party the other's real phone number.
 const telLink = (phone: string | null | undefined) => {
   if (!phone) return null;
   let p = phone.replace(/[^\d+]/g, "");
@@ -55,9 +41,13 @@ const telLink = (phone: string | null | undefined) => {
   return `tel:+${p}`;
 };
 
-// WhatsApp panel: direct contact with the other party + shareable delivery summary.
-// "Share" needs no phone number — it forwards a formatted summary to any
-// WhatsApp contact or group (e.g. the foreman waiting on site).
+// Live-tracking share panel — lets either party hand off a login-free
+// tracking link to someone outside Con Z (e.g. a foreman waiting on site).
+// Direct WhatsApp contact/messaging was removed by product decision: it
+// pulled conversations off-platform, out of Con Z chat's dispute-evidence
+// trail. Only the Call button (native dialer) and the tracking-link share
+// remain — the share uses the device's native share sheet, not WhatsApp
+// specifically, so it works with whatever the person actually has.
 function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
   const otherId = isOwner ? job.driver_id : job.customer_id;
   const material = materialLabel(job.material as any, job.custom_material);
@@ -87,23 +77,22 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
     (job.final_price ? ` Agreed price: ${money(Number(job.final_price))}.` : "") +
     (isOwner && other?.full_name ? ` Driver: ${other.full_name}.` : "");
 
-  const directText = isOwner
-    ? `Hi ${name}, about my ConZ delivery ${ref} (${material}).`
-    : `Hi ${name}, I'm your ConZ driver for delivery ${ref} (${material}).`;
-
-  const direct = waLink(other?.phone, directText);
   const call = telLink(other?.phone);
-  const arrivedPickup = waLink(other?.phone, `${summary} I've arrived at the pickup point and I'm loading now.`);
-  const outsideNow = waLink(other?.phone, `${summary} I'm outside with your delivery — please send someone to receive it.`);
 
-  // Public live-tracking link (Batch 6): included in the WhatsApp share message
-  // so the recipient can watch the truck without a Con Z account.
+  // Public live-tracking link: shareable without a Con Z account.
   const trackUrl = job.tracking_token ? `${SITE_URL}/track/${job.tracking_token}` : null;
   const shareText = trackUrl ? `${summary} Track live: ${trackUrl}` : summary;
-  const share = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
 
-  const copyTrackLink = async () => {
+  const shareTrackLink = async () => {
     if (!trackUrl) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({ text: shareText, url: trackUrl });
+        return;
+      } catch {
+        // user cancelled the native share sheet — fall through to copy instead
+      }
+    }
     try {
       await navigator.clipboard.writeText(trackUrl);
       toast.success("Tracking link copied");
@@ -118,63 +107,30 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
         <MessageCircle className="w-4 h-4 text-success" /> Contact {name}
       </div>
       <p className="text-xs text-muted-foreground -mt-2">
-        Con Z chat can be used as evidence if there's a dispute — WhatsApp and calls can't.
+        Con Z chat can be used as evidence if there's a dispute — calls can't.
       </p>
 
-      {direct ? (
-        <div className="space-y-2">
-          {call && (
-            <Button asChild variant="outline" className="w-full">
-              <a href={call}>
-                <Phone className="w-4 h-4 mr-2" />
-                Call {name}
-              </a>
-            </Button>
-          )}
-          <Button asChild variant="outline" className="w-full">
-            <a href={direct} target="_blank" rel="noreferrer">
-              <MessageCircle className="w-4 h-4 mr-2" />
-              Message {name} on WhatsApp
-            </a>
-          </Button>
-          {!isOwner && job.status === "accepted" && arrivedPickup && (
-            <Button asChild className="w-full bg-success text-success-foreground hover:bg-success/90">
-              <a href={arrivedPickup} target="_blank" rel="noreferrer">
-                I've arrived at pickup
-              </a>
-            </Button>
-          )}
-          {!isOwner && job.status === "in_progress" && outsideNow && (
-            <Button asChild className="w-full bg-success text-success-foreground hover:bg-success/90">
-              <a href={outsideNow} target="_blank" rel="noreferrer">
-                I'm outside with the delivery
-              </a>
-            </Button>
-          )}
-        </div>
+      {call ? (
+        <Button asChild variant="outline" className="w-full">
+          <a href={call}>
+            <Phone className="w-4 h-4 mr-2" />
+            Call {name}
+          </a>
+        </Button>
       ) : (
         <p className="text-xs text-muted-foreground">
           No phone number on their profile yet — use in-app chat above.
         </p>
       )}
 
-      <Button asChild variant="secondary" className="w-full">
-        <a href={share} target="_blank" rel="noreferrer">
-          <Share2 className="w-4 h-4 mr-2" />
-          Share this delivery on WhatsApp
-        </a>
-      </Button>
       {trackUrl && (
-        <button
-          type="button"
-          onClick={copyTrackLink}
-          className="w-full text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-        >
-          Copy live tracking link
-        </button>
+        <Button type="button" variant="secondary" className="w-full" onClick={shareTrackLink}>
+          <Share2 className="w-4 h-4 mr-2" />
+          Share live tracking link
+        </Button>
       )}
       <p className="text-[11px] text-muted-foreground">
-        Share forwards a delivery summary and live tracking link to any WhatsApp contact or group — no Con Z account needed to watch the truck.
+        Share this link with anyone — no Con Z account needed for them to watch the truck.
       </p>
     </div>
   );
