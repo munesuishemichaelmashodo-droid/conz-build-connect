@@ -377,29 +377,35 @@ export type Database = {
       driver_locations: {
         Row: {
           accuracy: number | null
+          anomaly_alerted_at: string | null
           driver_id: string
           heading: number | null
           job_id: string
           lat: number
           lng: number
+          stationary_since: string | null
           updated_at: string
         }
         Insert: {
           accuracy?: number | null
+          anomaly_alerted_at?: string | null
           driver_id: string
           heading?: number | null
           job_id: string
           lat: number
           lng: number
+          stationary_since?: string | null
           updated_at?: string
         }
         Update: {
           accuracy?: number | null
+          anomaly_alerted_at?: string | null
           driver_id?: string
           heading?: number | null
           job_id?: string
           lat?: number
           lng?: number
+          stationary_since?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -407,6 +413,47 @@ export type Database = {
             foreignKeyName: "driver_locations_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: true
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_anomalies: {
+        Row: {
+          created_at: string
+          driver_id: string
+          id: string
+          job_id: string
+          kind: string
+          lat: number
+          lng: number
+          stationary_minutes: number
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          id?: string
+          job_id: string
+          kind: string
+          lat: number
+          lng: number
+          stationary_minutes: number
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          id?: string
+          job_id?: string
+          kind?: string
+          lat?: number
+          lng?: number
+          stationary_minutes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_anomalies_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },

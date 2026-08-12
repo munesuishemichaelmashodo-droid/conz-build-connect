@@ -4,7 +4,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { MapPin, Navigation2, Square, Loader2, ShieldOff } from "lucide-react";
+import { MapPin, Navigation2, Square, Loader2, ShieldOff, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
 import { useLocationSharingEnabled } from "@/lib/location-privacy";
@@ -43,7 +43,7 @@ function ResizeFix() {
   return null;
 }
 
-type Loc = { lat: number; lng: number; updated_at: string; heading: number | null; accuracy: number | null };
+type Loc = { lat: number; lng: number; updated_at: string; heading: number | null; accuracy: number | null; stationary_since: string | null; anomaly_alerted_at: string | null };
 
 export function DriverShareLocation({ jobId, driverId }: { jobId: string; driverId: string }) {
   const [sharing, setSharing] = useState(false);
@@ -197,6 +197,12 @@ export function CustomerTrackMap({ jobId }: { jobId: string }) {
           <p className="px-4 pb-4 text-xs text-muted-foreground">Driver hasn't started sharing location yet.</p>
         ) : (
           <>
+            {loc.anomaly_alerted_at && (
+              <div className="mx-4 mb-2 rounded-lg border border-warning/40 bg-warning/10 p-2.5 text-xs flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+                <span>Your driver hasn't moved in a while — this has been logged. If something's wrong, use chat or raise a dispute.</span>
+              </div>
+            )}
             <div className="h-64 w-full">
               <MapContainer center={[loc.lat, loc.lng]} zoom={15} scrollWheelZoom={false} style={{ height: "100%", width: "100%" }}>
                 <ResizeFix />
