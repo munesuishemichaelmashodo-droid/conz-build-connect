@@ -100,6 +100,22 @@ function ProfilePage() {
               <h2 className="font-display font-bold uppercase tracking-wide">Driver verification</h2>
               <StatusBadge label={driver?.verification_status ?? "pending"} className={driver?.verification_status === "verified" ? "bg-success/15 text-success border-success/30" : driver?.verification_status === "rejected" ? "bg-destructive/15 text-destructive border-destructive/30" : "bg-warning/15 text-warning border-warning/30"} />
             </div>
+            {driver?.verification_status === "verified" && driver?.reverify_due_at && (() => {
+              const dueAt = new Date(driver.reverify_due_at as string);
+              const daysLeft = Math.ceil((dueAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+              if (daysLeft > 14) return null;
+              const overdue = daysLeft <= 0;
+              return (
+                <div className={`rounded-lg border p-3 flex items-start gap-2 text-xs ${overdue ? "border-destructive/40 bg-destructive/10" : "border-warning/40 bg-warning/10"}`}>
+                  <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${overdue ? "text-destructive" : "text-warning"}`} />
+                  <span>
+                    {overdue
+                      ? "Your verification has expired — retake your selfie below to keep bidding on jobs. You won't see new job alerts or be able to bid until you do."
+                      : `Time to re-verify — retake your selfie below within ${daysLeft} day${daysLeft === 1 ? "" : "s"} to avoid losing access to bidding.`}
+                  </span>
+                </div>
+              );
+            })()}
             <p className="text-xs text-muted-foreground">Take each photo with your phone camera. Make sure your face and documents are clearly visible.</p>
             <DocUpload field="selfie_url" label="Selfie (face photo)" hint="Front camera • Look at the camera in good light" cameraFacing="user" userId={userId!} current={driver?.selfie_url} refresh={() => qc.invalidateQueries({ queryKey: ["driver-profile", userId] })} />
             <DocUpload field="license_url" label="Driver's licence" hint="Back camera • Full licence card, all corners visible" cameraFacing="environment" userId={userId!} current={driver?.license_url} refresh={() => qc.invalidateQueries({ queryKey: ["driver-profile", userId] })} />
@@ -117,7 +133,8 @@ function ProfilePage() {
           </section>
         )}
 
-        {activeRole === "driver" && is("driver") && driver?.verification_status === "verified" && (
+        {activeRole === "driver" && is("driver") && driver?.verification_status === "verified" &&
+          (!driver?.reverify_due_at || new Date(driver.reverify_due_at as string).getTime() > Date.now()) && (
           <div className="rounded-xl bg-success/10 border border-success/30 p-3 flex items-center gap-3">
             <ShieldCheck className="w-5 h-5 text-success" />
             <div className="text-sm"><div className="font-semibold">You're verified</div><div className="text-muted-foreground text-xs">You can bid on any open job.</div></div>

@@ -474,7 +474,9 @@ export type Database = {
           operator_license_url: string | null
           rating_avg: number
           rating_count: number
+          reverify_due_at: string | null
           selfie_url: string | null
+          verified_at: string | null
           tipper_photo_url: string | null
           updated_at: string
           user_id: string
@@ -497,7 +499,9 @@ export type Database = {
           operator_license_url?: string | null
           rating_avg?: number
           rating_count?: number
+          reverify_due_at?: string | null
           selfie_url?: string | null
+          verified_at?: string | null
           tipper_photo_url?: string | null
           updated_at?: string
           user_id: string
@@ -520,7 +524,9 @@ export type Database = {
           operator_license_url?: string | null
           rating_avg?: number
           rating_count?: number
+          reverify_due_at?: string | null
           selfie_url?: string | null
+          verified_at?: string | null
           tipper_photo_url?: string | null
           updated_at?: string
           user_id?: string
