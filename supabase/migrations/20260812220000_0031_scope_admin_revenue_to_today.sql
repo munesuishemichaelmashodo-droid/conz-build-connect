@@ -1,4 +1,4 @@
--- 0030: Restrict non-super admins to today's wallet_transactions only.
+-- 0031: Restrict non-super admins to today's wallet_transactions only.
 -- Previously any 'admin' or 'super_admin' could read the full history of
 -- wallet_transactions (all revenue/commission/top-up rows, forever).
 -- Employee admins should only ever see today's activity; super_admin keeps
