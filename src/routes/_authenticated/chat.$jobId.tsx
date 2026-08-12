@@ -10,6 +10,7 @@ import { ArrowLeft, Send, Check, CheckCheck, AlertTriangle, RotateCcw, Camera, M
 import { toast } from "sonner";
 import { compressImage } from "@/lib/compress-image";
 import { ChatImage, ChatAudio } from "@/components/ChatMedia";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/chat/$jobId")({
   component: ChatPage,
@@ -64,11 +65,36 @@ function ChatPage() {
   const { data: otherProfile } = useQuery({
     queryKey: ["chat-peer", otherId],
     enabled: !!otherId,
+    // Poll rather than realtime-subscribe: presence is inherently a bit
+    // stale, and a 30s refetch keeps "Online"/"Last seen" close enough
+    // without an extra channel subscription per chat.
+    refetchInterval: 30_000,
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("full_name,avatar_url").eq("id", otherId!).maybeSingle();
+      const { data } = await supabase.from("profiles").select("full_name,avatar_url,last_active_at").eq("id", otherId!).maybeSingle();
       return data;
     },
   });
+
+  // Re-render every 30s purely to keep "Last seen 2 minutes ago" fresh even
+  // if nothing else on the page changes.
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    const t = window.setInterval(() => forceTick((n) => n + 1), 30_000);
+    return () => window.clearInterval(t);
+  }, []);
+
+  const presence = useMemo(() => {
+    const lastActive = otherProfile?.last_active_at;
+    if (!lastActive) return { online: false, label: null as string | null };
+    const diffMs = Date.now() - new Date(lastActive).getTime();
+    if (diffMs < 2 * 60 * 1000) return { online: true, label: "Online" };
+    const mins = Math.floor(diffMs / 60_000);
+    if (mins < 60) return { online: false, label: `Last seen ${mins}m ago` };
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return { online: false, label: `Last seen ${hrs}h ago` };
+    const days = Math.floor(hrs / 24);
+    return { online: false, label: `Last seen ${days}d ago` };
+  }, [otherProfile?.last_active_at]);
 
   useEffect(() => {
     let mounted = true;
@@ -285,9 +311,17 @@ function ChatPage() {
 
   return (
     <AppShell title={otherProfile?.full_name ? `Chat · ${otherProfile.full_name}` : "Chat"}>
-      <Link to="/jobs/$id" params={{ id: jobId }} className="inline-flex items-center gap-1 text-sm text-muted-foreground mb-3">
-        <ArrowLeft className="w-4 h-4" /> Back to job
-      </Link>
+      <div className="flex items-center justify-between mb-3">
+        <Link to="/jobs/$id" params={{ id: jobId }} className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+          <ArrowLeft className="w-4 h-4" /> Back to job
+        </Link>
+        {presence.label && (
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className={cn("w-2 h-2 rounded-full", presence.online ? "bg-green-500" : "bg-muted-foreground/40")} />
+            {presence.label}
+          </span>
+        )}
+      </div>
 
       <div className="flex flex-col h-[calc(100vh-220px)] rounded-2xl bg-card border overflow-hidden">
         <div ref={scrollerRef} className="flex-1 overflow-y-auto p-4 space-y-2">

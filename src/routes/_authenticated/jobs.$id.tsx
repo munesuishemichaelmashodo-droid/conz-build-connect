@@ -235,6 +235,24 @@ function JobDetail() {
     },
   });
 
+  // Unread-message badge on the "Open chat" button — without this the
+  // button looks identical whether a reply is waiting or not, and the
+  // customer/driver has to remember to check chat on their own.
+  const { data: unreadCount } = useQuery({
+    queryKey: ["chat-unread", id, userId],
+    enabled: !!job && !!userId && job.status !== "open",
+    refetchInterval: 15000,
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("job_id", id)
+        .is("read_at", null)
+        .neq("sender_id", userId!);
+      return count ?? 0;
+    },
+  });
+
   const runEscrowPayment = useServerFn(initiateEscrowPayment);
   const runReconcile = useServerFn(reconcilePendingPaynowPayments);
   const [payingEscrow, setPayingEscrow] = useState(false);
@@ -436,10 +454,15 @@ function JobDetail() {
         </div>
 
         {(isOwner || isAssignedDriver) && job.status !== "open" && (
-          <Button asChild variant="outline" className="w-full">
+          <Button asChild variant="outline" className="w-full relative">
             <Link to="/chat/$jobId" params={{ jobId: id }}>
               <MessageSquare className="w-4 h-4 mr-2" />
               Open chat
+              {!!unreadCount && (
+                <span className="ml-2 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-semibold">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
             </Link>
           </Button>
         )}

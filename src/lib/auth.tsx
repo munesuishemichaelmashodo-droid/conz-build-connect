@@ -93,6 +93,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Presence heartbeat: while signed in and the tab is visible, touch
+  // last_active_at every ~45s so other users can see "Online" / "Last seen".
+  // Also fires immediately on sign-in and whenever the tab regains focus,
+  // so a quick app switch doesn't show a stale "last seen 40s ago".
+  useEffect(() => {
+    if (!userId) return;
+    const beat = () => {
+      if (document.visibilityState !== "visible") return;
+      void supabase.from("profiles").update({ last_active_at: new Date().toISOString() }).eq("id", userId);
+    };
+    beat();
+    const interval = window.setInterval(beat, 45_000);
+    document.addEventListener("visibilitychange", beat);
+    window.addEventListener("focus", beat);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", beat);
+      window.removeEventListener("focus", beat);
+    };
+  }, [userId]);
+
   const value: AuthState = {
     loading,
     userId,

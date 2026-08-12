@@ -974,6 +974,7 @@ export type Database = {
           terms_accepted_at: string | null
           onboarding_completed_at: string | null
           spotlights_seen: Json
+          last_active_at: string | null
           updated_at: string
         }
         Insert: {
@@ -990,6 +991,7 @@ export type Database = {
           terms_accepted_at?: string | null
           onboarding_completed_at?: string | null
           spotlights_seen?: Json
+          last_active_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -1006,6 +1008,7 @@ export type Database = {
           terms_accepted_at?: string | null
           onboarding_completed_at?: string | null
           spotlights_seen?: Json
+          last_active_at?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1662,6 +1665,7 @@ export type Database = {
           terms_accepted_at: string | null
           onboarding_completed_at: string | null
           spotlights_seen: Json
+          last_active_at: string | null
           updated_at: string
         }
         SetofOptions: {
