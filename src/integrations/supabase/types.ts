@@ -1387,6 +1387,7 @@ export type Database = {
           rating_avg: number | null
           rating_count: number | null
           user_id: string | null
+          verification_status: Database["public"]["Enums"]["verification_status"] | null
         }
         Relationships: []
       }

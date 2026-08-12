@@ -209,7 +209,7 @@ function JobDetail() {
         supabase.from("profiles").select("id,full_name,avatar_url").in("id", driverIds),
         supabase
           .from("driver_public_profiles")
-          .select("user_id,rating_avg,rating_count,level,jobs_completed")
+          .select("user_id,rating_avg,rating_count,level,jobs_completed,verification_status")
           .in("user_id", driverIds),
       ]);
       return bids.map((b) => ({
@@ -648,6 +648,11 @@ function JobDetail() {
                         <div className="min-w-0">
                           <div className="font-semibold truncate">{b.profile?.full_name ?? "Driver"}</div>
                           <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                            {b.driver?.verification_status === "verified" && (
+                              <span className="inline-flex items-center gap-0.5 text-success font-semibold">
+                                <ShieldCheck className="w-3 h-3" /> Verified
+                              </span>
+                            )}
                             {b.driver && (
                               <>
                                 <StatusBadge
