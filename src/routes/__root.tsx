@@ -59,6 +59,25 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           </button>
           <a href="/" className="inline-flex items-center justify-center rounded-md border bg-background px-4 py-2 text-sm font-medium hover:bg-accent">Go home</a>
         </div>
+        {/* Visible error detail — this screen used to hide the actual
+            error, making every crash impossible to diagnose from a
+            screenshot alone. Showing it here isn't a security risk (it's
+            a JS error message/stack, not secrets) and is the single
+            fastest way to actually fix the next one of these. */}
+        <div className="mt-8 text-left rounded-lg border bg-muted/40 p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+            Technical details (screenshot this)
+          </p>
+          <p className="text-[11px] font-mono break-words text-muted-foreground mb-1">
+            {typeof window !== "undefined" ? window.location.pathname : ""}
+          </p>
+          <p className="text-xs font-mono break-words text-destructive">{error?.message || String(error)}</p>
+          {error?.stack && (
+            <pre className="mt-2 text-[10px] font-mono whitespace-pre-wrap break-words text-muted-foreground max-h-40 overflow-y-auto">
+              {error.stack}
+            </pre>
+          )}
+        </div>
       </div>
     </div>
   );
