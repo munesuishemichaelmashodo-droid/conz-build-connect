@@ -33,6 +33,10 @@ const SECTIONS: FaqSection[] = [
         q: "How does live tracking work?",
         a: "Once a driver accepts, you can watch their real-time location on the map, plus a 'Navigate with Google Maps' shortcut to the delivery address.",
       },
+      {
+        q: "Can I share the tracking link with someone else?",
+        a: "Yes — on any active job, tap 'Share this delivery on WhatsApp' or 'Copy live tracking link'. Anyone you send it to can watch the truck move in real time — no Con Z account or login needed on their end.",
+      },
     ],
   },
   {
@@ -79,11 +83,19 @@ const SECTIONS: FaqSection[] = [
         q: "Do I need to upload transport compliance documents?",
         a: "It's optional but recommended — drivers with an Operator's Licence, Certificate of Fitness, insurance, and ZINARA registration on file get priority consideration and are better protected if ever asked for proof.",
       },
+      {
+        q: "What does the 'Verified' badge on a driver mean?",
+        a: "It means that driver's ID, licence, and truck photo have been checked and approved by Con Z admins, and their verification is current (re-checked every 90 days). Customers see this badge on bids so they know who they're dealing with before accepting.",
+      },
     ],
   },
   {
     title: "Trust & safety",
     items: [
+      {
+        q: "Why does Con Z ask for notification and location access when I first sign up?",
+        a: "Location lets nearby drivers find your job (or lets customers see you on the way, if you're a driver) and powers live tracking. Notifications keep you updated on bids, messages, and delivery status even when the app isn't open. You can grant these at signup or later from your phone's app settings.",
+      },
       {
         q: "What happens if something goes wrong with a delivery?",
         a: "Raise a dispute from the job page. Admins review the evidence — pickup/delivery photos, GPS, and the chat history — and decide an outcome, which can include a refund, a strike, or another resolution.",
