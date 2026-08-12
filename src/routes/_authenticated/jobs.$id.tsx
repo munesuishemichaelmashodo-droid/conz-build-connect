@@ -117,6 +117,9 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
       <div className="font-display font-bold uppercase text-sm tracking-wide flex items-center gap-2">
         <MessageCircle className="w-4 h-4 text-success" /> Contact {name}
       </div>
+      <p className="text-xs text-muted-foreground -mt-2">
+        Con Z chat can be used as evidence if there's a dispute — WhatsApp and calls can't.
+      </p>
 
       {direct ? (
         <div className="space-y-2">
@@ -151,7 +154,7 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          No phone number on their profile yet — use in-app chat below.
+          No phone number on their profile yet — use in-app chat above.
         </p>
       )}
 
@@ -496,6 +499,10 @@ function JobDetail() {
             jobId={id}
             against={isOwner ? job.driver_id : job.customer_id}
           />
+        )}
+
+        {(isOwner || isAssignedDriver) && job.status !== "open" && (
+          <WhatsAppPanel job={job} isOwner={isOwner} />
         )}
 
         {(job.pickup_photo_url || job.delivery_photo_url) && (
