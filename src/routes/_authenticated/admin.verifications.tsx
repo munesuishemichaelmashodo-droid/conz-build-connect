@@ -21,7 +21,7 @@ function AdminVerifications() {
     queryFn: async () => {
       const { data: drivers } = await supabase
         .from("driver_profiles")
-        .select("user_id,national_id,national_id_url,selfie_url,license_url,tipper_photo_url,operator_license_url,certificate_of_fitness_url,git_insurance_url,zinara_url,nationality,verification_status,verification_notes,created_at")
+        .select("user_id,national_id,national_id_url,selfie_url,license_url,tipper_photo_url,tipper_photo_side_url,tipper_photo_back_url,operator_license_url,certificate_of_fitness_url,git_insurance_url,zinara_url,nationality,verification_status,verification_notes,created_at")
         .eq("verification_status", filter)
         .order("created_at", { ascending: false });
       const ids = (drivers ?? []).map((d) => d.user_id);
@@ -112,7 +112,13 @@ function AdminVerifications() {
                   <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Licence
                 </button>
                 <button onClick={() => view((d as any).tipper_photo_url)} disabled={!(d as any).tipper_photo_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
-                  <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Tipper
+                  <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Tipper (front)
+                </button>
+                <button onClick={() => view((d as any).tipper_photo_side_url)} disabled={!(d as any).tipper_photo_side_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                  <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Tipper (side)
+                </button>
+                <button onClick={() => view((d as any).tipper_photo_back_url)} disabled={!(d as any).tipper_photo_back_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                  <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Tipper (back)
                 </button>
               </div>
 

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, ShieldOff, ShieldCheck, Ban, Wallet, X } from "lucide-react";
+import { Search, ShieldOff, ShieldCheck, Ban, Wallet, X, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { StatusBadge, EmptyState } from "@/components/ui-bits";
 import { money } from "@/lib/domain";
@@ -101,7 +101,12 @@ function AdminUsers() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold truncate">{r.full_name || "Unnamed"}</div>
-                  <div className="text-[11px] text-muted-foreground truncate">{r.email ?? r.phone ?? "—"}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">{r.email ?? "—"}</div>
+                  {r.phone && (
+                    <div className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
+                      <Phone className="w-3 h-3 shrink-0" /> {r.phone}
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-1 mt-1.5">
                     {r.roles.map((role) => (
                       <StatusBadge
@@ -202,7 +207,14 @@ function UserSheet({
         <div className="flex items-start justify-between">
           <div>
             <h3 className="font-display font-bold text-lg">{row.full_name}</h3>
-            <p className="text-xs text-muted-foreground">{row.email ?? row.phone}</p>
+            <p className="text-xs text-muted-foreground">{row.email ?? "No email on file"}</p>
+            {row.phone ? (
+              <a href={`tel:${row.phone}`} className="text-xs text-primary font-semibold flex items-center gap-1 mt-0.5">
+                <Phone className="w-3 h-3" /> {row.phone}
+              </a>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-0.5">No phone on file</p>
+            )}
           </div>
           <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted">
             <X className="w-4 h-4" />

@@ -478,6 +478,8 @@ export type Database = {
           selfie_url: string | null
           verified_at: string | null
           tipper_photo_url: string | null
+          tipper_photo_side_url: string | null
+          tipper_photo_back_url: string | null
           updated_at: string
           user_id: string
           verification_notes: string | null
@@ -503,6 +505,8 @@ export type Database = {
           selfie_url?: string | null
           verified_at?: string | null
           tipper_photo_url?: string | null
+          tipper_photo_side_url?: string | null
+          tipper_photo_back_url?: string | null
           updated_at?: string
           user_id: string
           verification_notes?: string | null
@@ -528,6 +532,8 @@ export type Database = {
           selfie_url?: string | null
           verified_at?: string | null
           tipper_photo_url?: string | null
+          tipper_photo_side_url?: string | null
+          tipper_photo_back_url?: string | null
           updated_at?: string
           user_id?: string
           verification_notes?: string | null

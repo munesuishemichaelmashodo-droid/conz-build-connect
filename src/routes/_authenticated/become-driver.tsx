@@ -18,11 +18,22 @@ export const Route = createFileRoute("/_authenticated/become-driver")({
   component: BecomeDriverPage,
 });
 
-type DocField = "selfie_url" | "license_url" | "tipper_photo_url" | "operator_license_url" | "certificate_of_fitness_url" | "git_insurance_url" | "zinara_url";
+type DocField =
+  | "selfie_url"
+  | "national_id_url"
+  | "license_url"
+  | "tipper_photo_url"
+  | "tipper_photo_side_url"
+  | "tipper_photo_back_url"
+  | "operator_license_url"
+  | "certificate_of_fitness_url"
+  | "git_insurance_url"
+  | "zinara_url";
 
 const STEPS = [
   { key: "identity", title: "Your details" },
   { key: "selfie", title: "Selfie photo" },
+  { key: "national_id", title: "National ID" },
   { key: "license", title: "Driver's licence" },
   { key: "truck", title: "Your truck" },
   { key: "compliance", title: "Transport documents" },
@@ -37,8 +48,11 @@ function BecomeDriverPage() {
   const [name, setName] = useState(profile?.full_name ?? "");
   const [emailInput, setEmailInput] = useState(email ?? "");
   const [selfie, setSelfie] = useState<string | null>(null);
+  const [nationalId, setNationalId] = useState<string | null>(null);
   const [license, setLicense] = useState<string | null>(null);
   const [truckPhoto, setTruckPhoto] = useState<string | null>(null);
+  const [truckPhotoSide, setTruckPhotoSide] = useState<string | null>(null);
+  const [truckPhotoBack, setTruckPhotoBack] = useState<string | null>(null);
   const [operatorLicense, setOperatorLicense] = useState<string | null>(null);
   const [certOfFitness, setCertOfFitness] = useState<string | null>(null);
   const [gitInsurance, setGitInsurance] = useState<string | null>(null);
@@ -54,19 +68,31 @@ function BecomeDriverPage() {
       await supabase.from("driver_profiles").upsert({ user_id: userId }, { onConflict: "user_id", ignoreDuplicates: true });
       const { data } = await supabase
         .from("driver_profiles")
-        .select("selfie_url,license_url,tipper_photo_url,operator_license_url,certificate_of_fitness_url,git_insurance_url,zinara_url,nationality,verification_status")
+        .select("selfie_url,national_id_url,license_url,tipper_photo_url,tipper_photo_side_url,tipper_photo_back_url,operator_license_url,certificate_of_fitness_url,git_insurance_url,zinara_url,nationality,verification_status")
         .eq("user_id", userId)
         .maybeSingle();
       if (data) {
         setSelfie(data.selfie_url ?? null);
+        setNationalId((data as any).national_id_url ?? null);
         setLicense(data.license_url ?? null);
         setTruckPhoto(data.tipper_photo_url ?? null);
+        setTruckPhotoSide((data as any).tipper_photo_side_url ?? null);
+        setTruckPhotoBack((data as any).tipper_photo_back_url ?? null);
         setOperatorLicense((data as any).operator_license_url ?? null);
         setCertOfFitness((data as any).certificate_of_fitness_url ?? null);
         setGitInsurance((data as any).git_insurance_url ?? null);
         setZinara((data as any).zinara_url ?? null);
         if (data.nationality) setNationality(data.nationality);
-        if (data.verification_status === "pending" && data.selfie_url && data.license_url && data.tipper_photo_url && data.nationality) {
+        if (
+          data.verification_status === "pending" &&
+          data.selfie_url &&
+          (data as any).national_id_url &&
+          data.license_url &&
+          data.tipper_photo_url &&
+          (data as any).tipper_photo_side_url &&
+          (data as any).tipper_photo_back_url &&
+          data.nationality
+        ) {
           setDone(true);
         }
       }
@@ -76,10 +102,11 @@ function BecomeDriverPage() {
   const canNext = () => {
     if (step === 0) return name.trim().length > 1 && !!emailInput.trim();
     if (step === 1) return !!selfie;
-    if (step === 2) return !!license;
-    if (step === 3) return !!truckPhoto;
-    if (step === 4) return true; // compliance docs are recommended, not blocking
-    if (step === 5) return !!nationality;
+    if (step === 2) return !!nationalId;
+    if (step === 3) return !!license;
+    if (step === 4) return !!truckPhoto && !!truckPhotoSide && !!truckPhotoBack;
+    if (step === 5) return true; // compliance docs are recommended, not blocking
+    if (step === 6) return !!nationality;
     return false;
   };
 
@@ -95,10 +122,12 @@ function BecomeDriverPage() {
       if (!is("driver")) {
         await supabase.from("user_roles").insert({ user_id: userId, role: "driver" });
       }
-      // Persist nationality + ensure pending status.
+      // Persist nationality, ensure pending status (explicit here since truck-photo
+      // uploads below use ComplianceDocRow, which doesn't flip status like PhotoStep
+      // does — this matters for a driver resubmitting after a rejection).
       await supabase
         .from("driver_profiles")
-        .update({ nationality })
+        .update({ nationality, verification_status: "pending" })
         .eq("user_id", userId);
       // Ensure wallet exists.
       await supabase.from("wallets").upsert({ user_id: userId, balance: 0 }, { onConflict: "user_id", ignoreDuplicates: true });
@@ -169,12 +198,21 @@ function BecomeDriverPage() {
             <PhotoStep title="Take a clear selfie" hint="Front camera • Face centered, good lighting." field="selfie_url" cameraFacing="user" userId={userId!} current={selfie} onDone={setSelfie} />
           )}
           {step === 2 && (
-            <PhotoStep title="Photo of your driver's licence" hint="Back camera • Whole card, all four corners visible." field="license_url" cameraFacing="environment" userId={userId!} current={license} onDone={setLicense} />
+            <PhotoStep title="Photo of your National ID" hint="Back camera • Whole card, all four corners visible." field="national_id_url" cameraFacing="environment" userId={userId!} current={nationalId} onDone={setNationalId} />
           )}
           {step === 3 && (
-            <PhotoStep title="Photo of your tipper truck" hint="Back camera • Full truck including number plate." field="tipper_photo_url" cameraFacing="environment" userId={userId!} current={truckPhoto} onDone={setTruckPhoto} />
+            <PhotoStep title="Photo of your driver's licence" hint="Back camera • Whole card, all four corners visible." field="license_url" cameraFacing="environment" userId={userId!} current={license} onDone={setLicense} />
           )}
           {step === 4 && (
+            <div className="space-y-3">
+              <h2 className="font-display font-bold text-xl">Photos of your tipper truck</h2>
+              <p className="text-sm text-muted-foreground">All three angles are required — this is how admins confirm it's a real, roadworthy tipper.</p>
+              <ComplianceDocRow label="Front (with number plate)" userId={userId!} field="tipper_photo_url" current={truckPhoto} onDone={setTruckPhoto} />
+              <ComplianceDocRow label="Side" userId={userId!} field="tipper_photo_side_url" current={truckPhotoSide} onDone={setTruckPhotoSide} />
+              <ComplianceDocRow label="Back (with tipper bin visible)" userId={userId!} field="tipper_photo_back_url" current={truckPhotoBack} onDone={setTruckPhotoBack} />
+            </div>
+          )}
+          {step === 5 && (
             <div className="space-y-3">
               <h2 className="font-display font-bold text-xl">Transport compliance documents</h2>
               <p className="text-sm text-muted-foreground">
@@ -187,7 +225,7 @@ function BecomeDriverPage() {
               <ComplianceDocRow label="ZINARA registration" userId={userId!} field="zinara_url" current={zinara} onDone={setZinara} />
             </div>
           )}
-          {step === 5 && (
+          {step === 6 && (
             <div className="space-y-3">
               <h2 className="font-display font-bold text-xl">Your nationality</h2>
               <p className="text-sm text-muted-foreground">Where is your citizenship from?</p>
