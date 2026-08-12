@@ -83,7 +83,62 @@ function ChatPage() {
     return () => window.clearInterval(t);
   }, []);
 
+  // Typing / recording indicator: a plain realtime broadcast, not stored
+  // anywhere — the other party's browser sees the event live, nothing to
+  // clean up if it's missed. We send our own status; peerStatus below is
+  // what we've heard from them.
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const [peerStatus, setPeerStatus] = useState<"idle" | "typing" | "recording">("idle");
+  const peerIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!jobId) return;
+    const ch = supabase
+      .channel(`typing:${jobId}`)
+      .on("broadcast", { event: "status" }, (payload) => {
+        const p = payload.payload as { userId: string; state: "idle" | "typing" | "recording" };
+        if (p.userId === userId) return;
+        setPeerStatus(p.state);
+        // Safety net: if a "stopped typing" broadcast is ever dropped
+        // (tab closed mid-type, flaky connection), don't leave the peer
+        // stuck showing "Typing…" forever — clear it after a few seconds
+        // of silence.
+        if (peerIdleTimerRef.current) clearTimeout(peerIdleTimerRef.current);
+        if (p.state !== "idle") {
+          peerIdleTimerRef.current = setTimeout(() => setPeerStatus("idle"), 6000);
+        }
+      })
+      .subscribe();
+    typingChannelRef.current = ch;
+    return () => {
+      if (peerIdleTimerRef.current) clearTimeout(peerIdleTimerRef.current);
+      if (typingIdleTimerRef.current) clearTimeout(typingIdleTimerRef.current);
+      // Let the peer know we're gone so they don't see a frozen "Typing…"
+      // after we navigate away mid-message.
+      ch.send({ type: "broadcast", event: "status", payload: { userId, state: "idle" } });
+      supabase.removeChannel(ch);
+      typingChannelRef.current = null;
+    };
+  }, [jobId, userId]);
+
+  const sendStatus = (state: "idle" | "typing" | "recording") => {
+    typingChannelRef.current?.send({ type: "broadcast", event: "status", payload: { userId, state } });
+  };
+
+  // Debounced typing broadcast: fire "typing" immediately on the first
+  // keystroke, then "idle" 2s after the person stops, rather than one
+  // broadcast per keystroke.
+  const onBodyChange = (value: string) => {
+    setBody(value);
+    sendStatus("typing");
+    if (typingIdleTimerRef.current) clearTimeout(typingIdleTimerRef.current);
+    typingIdleTimerRef.current = setTimeout(() => sendStatus("idle"), 2000);
+  };
+
   const presence = useMemo(() => {
+    if (peerStatus === "typing") return { online: true, label: "Typing…" };
+    if (peerStatus === "recording") return { online: true, label: "Recording a voice note…" };
     const lastActive = otherProfile?.last_active_at;
     if (!lastActive) return { online: false, label: null as string | null };
     const diffMs = Date.now() - new Date(lastActive).getTime();
@@ -94,7 +149,7 @@ function ChatPage() {
     if (hrs < 24) return { online: false, label: `Last seen ${hrs}h ago` };
     const days = Math.floor(hrs / 24);
     return { online: false, label: `Last seen ${days}d ago` };
-  }, [otherProfile?.last_active_at]);
+  }, [otherProfile?.last_active_at, peerStatus]);
 
   useEffect(() => {
     let mounted = true;
@@ -248,6 +303,7 @@ function ChatPage() {
       mediaRecorderRef.current = recorder;
       setRecording(true);
       setRecordSeconds(0);
+      sendStatus("recording");
       recordTimerRef.current = setInterval(() => setRecordSeconds((s) => s + 1), 1000);
     } catch {
       toast.error("Could not access microphone — check your browser permissions.");
@@ -260,6 +316,7 @@ function ChatPage() {
     if (recordTimerRef.current) clearInterval(recordTimerRef.current);
     const duration = recordSeconds;
     setRecording(false);
+    sendStatus("idle");
 
     const blob: Blob = await new Promise((resolve) => {
       recorder.addEventListener("stop", () => resolve(new Blob(audioChunksRef.current, { type: recorder.mimeType })), { once: true });
@@ -288,6 +345,8 @@ function ChatPage() {
     const text = body.trim();
     if (!text) return;
     setBody("");
+    if (typingIdleTimerRef.current) clearTimeout(typingIdleTimerRef.current);
+    sendStatus("idle");
     await sendMessage({ text });
   };
 
@@ -422,7 +481,7 @@ function ChatPage() {
               >
                 {uploadingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
               </Button>
-              <Input value={body} onChange={(e) => setBody(e.target.value)} placeholder="Type a message…" maxLength={1000} />
+              <Input value={body} onChange={(e) => onBodyChange(e.target.value)} placeholder="Type a message…" maxLength={1000} />
               {body.trim() ? (
                 <Button type="submit" disabled={sending} size="icon"><Send className="w-4 h-4" /></Button>
               ) : (

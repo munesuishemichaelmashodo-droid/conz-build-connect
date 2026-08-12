@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge, Section } from "@/components/ui-bits";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, MessageCircle, Share2, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle, Wallet, Receipt } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, MessageCircle, Share2, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle, Wallet, Receipt, Phone } from "lucide-react";
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { SITE_URL } from "@/lib/site";
 import { useState, useEffect } from "react";
@@ -38,6 +38,21 @@ const waLink = (phone: string | null | undefined, text: string) => {
   if (p.startsWith("0")) p = "263" + p.slice(1);
   if (p.length < 9) return null;
   return `https://wa.me/${p}?text=${encodeURIComponent(text)}`;
+};
+
+// Plain tap-to-dial link — opens the phone's own dialer. Same number
+// normalization as waLink, just formatted as tel:+263... instead of a
+// wa.me URL. Deliberately not a masked/in-app call: it's simple, free,
+// and needs no calling provider, at the cost of showing each party the
+// other's real phone number (which the WhatsApp button already does).
+const telLink = (phone: string | null | undefined) => {
+  if (!phone) return null;
+  let p = phone.replace(/[^\d+]/g, "");
+  if (p.startsWith("+")) p = p.slice(1);
+  if (p.startsWith("00")) p = p.slice(2);
+  if (p.startsWith("0")) p = "263" + p.slice(1);
+  if (p.length < 9) return null;
+  return `tel:+${p}`;
 };
 
 // WhatsApp panel: direct contact with the other party + shareable delivery summary.
@@ -77,6 +92,7 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
     : `Hi ${name}, I'm your ConZ driver for delivery ${ref} (${material}).`;
 
   const direct = waLink(other?.phone, directText);
+  const call = telLink(other?.phone);
   const arrivedPickup = waLink(other?.phone, `${summary} I've arrived at the pickup point and I'm loading now.`);
   const outsideNow = waLink(other?.phone, `${summary} I'm outside with your delivery — please send someone to receive it.`);
 
@@ -99,11 +115,19 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
       <div className="font-display font-bold uppercase text-sm tracking-wide flex items-center gap-2">
-        <MessageCircle className="w-4 h-4 text-success" /> WhatsApp
+        <MessageCircle className="w-4 h-4 text-success" /> Contact {name}
       </div>
 
       {direct ? (
         <div className="space-y-2">
+          {call && (
+            <Button asChild variant="outline" className="w-full">
+              <a href={call}>
+                <Phone className="w-4 h-4 mr-2" />
+                Call {name}
+              </a>
+            </Button>
+          )}
           <Button asChild variant="outline" className="w-full">
             <a href={direct} target="_blank" rel="noreferrer">
               <MessageCircle className="w-4 h-4 mr-2" />
@@ -127,7 +151,7 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          No WhatsApp number on their profile yet — use in-app chat below.
+          No phone number on their profile yet — use in-app chat below.
         </p>
       )}
 
