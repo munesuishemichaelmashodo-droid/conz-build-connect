@@ -52,6 +52,8 @@ export type OfferResult = {
   etaMinutes: number;
   distanceKm: number;
   explanation: string;
+  materialCost: number;
+  transportCost: number;
 };
 
 /**
@@ -78,6 +80,8 @@ export const computeOffer = createServerFn({ method: "POST" })
       label?: string;
       unit?: string;
       enforced: boolean;
+      materialCost?: number;
+      transportCost?: number;
     };
 
     const offer = Number(g.offer ?? 0);
@@ -97,6 +101,8 @@ export const computeOffer = createServerFn({ method: "POST" })
       etaMinutes,
       distanceKm: Math.round(distanceKm),
       explanation: `Fair rate for ${label} — ${data.quantity} m³, ${Math.round(distanceKm)} km.`,
+      materialCost: Number(g.materialCost ?? 0),
+      transportCost: Number(g.transportCost ?? 0),
     };
   });
 
@@ -126,6 +132,8 @@ export const computePublicOffer = createServerFn({ method: "POST" })
       label?: string;
       unit?: string;
       enforced: boolean;
+      materialCost?: number;
+      transportCost?: number;
     };
 
     const offer = Number(g.offer ?? 0);
@@ -145,6 +153,8 @@ export const computePublicOffer = createServerFn({ method: "POST" })
       etaMinutes,
       distanceKm: Math.round(distanceKm),
       explanation: `Fair rate for ${label} — ${data.quantity} m³, ${Math.round(distanceKm)} km.`,
+      materialCost: Number(g.materialCost ?? 0),
+      transportCost: Number(g.transportCost ?? 0),
     };
   });
 

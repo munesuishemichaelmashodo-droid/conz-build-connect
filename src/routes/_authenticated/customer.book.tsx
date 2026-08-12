@@ -194,14 +194,23 @@ function BookDelivery() {
     if (!matPrice || !coords) return null;
 
     const distanceKm = roadDistanceKm ?? haversineKm(pickupPoint, coords);
-    const midMaterial = (Number(matPrice.min_price) + Number(matPrice.max_price)) / 2;
-    // Scale material cost with actual load size against the nominal
-    // 12.5m³ (10-15m³) band the admin's min/max range is set for — a
-    // 50m³ job needs ~4x the material, not the same price as 15m³.
-    const qtyRatio = Math.max(quantity, 1) / 12.5;
-    const materialCost = midMaterial * qtyRatio;
+    // matPrice.min_price/max_price are now true per-m³ rates (matches how
+    // Zimbabwe tipper operators actually quote — "$18/cubic" — rather
+    // than a fixed price for a nominal load band).
+    const midPerM3 = (Number(matPrice.min_price) + Number(matPrice.max_price)) / 2;
+    const materialCost = midPerM3 * Math.max(quantity, 1);
+    // Zone-banded transport cost, matching how operators actually price
+    // a trip (a flat local rate, not a raw distance × fuel calculation)
+    // — past 50km, where no standard band exists, the marginal rate
+    // comes from the real diesel price (32L/100km × diesel price ×
+    // 1.5x markup for driver time/wear), matching the server formula.
+    const longHaulRate = (FUEL_LITRES_PER_100KM / 100) * Number(dieselPrice ?? 1.87) * 1.5;
     const fuelCost =
-      distanceKm * (FUEL_LITRES_PER_100KM / 100) * Number(dieselPrice ?? 1.87);
+      distanceKm <= 10 ? 20 :
+      distanceKm <= 20 ? 30 :
+      distanceKm <= 30 ? 40 :
+      distanceKm <= 50 ? 60 :
+      60 + (distanceKm - 50) * longHaulRate;
     const commission = (materialCost + fuelCost) * (Number(commissionRate ?? 7) / 100);
     const total = materialCost + fuelCost + commission;
     // Floor only — deliberately no ceiling at matPrice.max_price. That
@@ -209,7 +218,8 @@ function BookDelivery() {
     // job back down to the same price as a small nearby one, which is
     // exactly backwards: those are the jobs where real fuel/material
     // cost matters most.
-    const low = Math.max(Number(matPrice.min_price), Math.round(total * 0.9));
+    const floor = Number(matPrice.min_price) * Math.max(quantity, 1);
+    const low = Math.max(floor, Math.round(total * 0.9));
     const high = Math.max(low, Math.round(total * 1.1));
 
     return {
@@ -480,9 +490,8 @@ function BookDelivery() {
                 </div>
 
                 <p className="text-xs text-muted-foreground">
-                  Based on {matPrice?.label} pricing, ~{suggestion.distanceKm.toFixed(1)} km from pickup,
-                  fuel at {FUEL_LITRES_PER_100KM} L/100 km × $
-                  {Number(dieselPrice ?? 1.87).toFixed(2)}/L, plus {commissionRate ?? 7}% platform commission.
+                  Based on {matPrice?.label} pricing, ~{suggestion.distanceKm.toFixed(1)} km from pickup
+                  (transport ~{money(suggestion.fuelCost)}), plus {commissionRate ?? 7}% platform commission.
                 </p>
               </div>
             )}
@@ -610,6 +619,12 @@ function BookDelivery() {
                 label="Estimated distance"
                 value={`${offerData.distanceKm} km`}
               />
+              {offerData.materialCost > 0 && (
+                <Row icon={Package} label="Material cost" value={money(offerData.materialCost)} />
+              )}
+              {offerData.transportCost > 0 && (
+                <Row icon={Truck} label="Transport cost" value={money(offerData.transportCost)} />
+              )}
             </div>
 
             <div>
