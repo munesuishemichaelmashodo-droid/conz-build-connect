@@ -195,12 +195,22 @@ function BookDelivery() {
 
     const distanceKm = roadDistanceKm ?? haversineKm(pickupPoint, coords);
     const midMaterial = (Number(matPrice.min_price) + Number(matPrice.max_price)) / 2;
+    // Scale material cost with actual load size against the nominal
+    // 12.5m³ (10-15m³) band the admin's min/max range is set for — a
+    // 50m³ job needs ~4x the material, not the same price as 15m³.
+    const qtyRatio = Math.max(quantity, 1) / 12.5;
+    const materialCost = midMaterial * qtyRatio;
     const fuelCost =
       distanceKm * (FUEL_LITRES_PER_100KM / 100) * Number(dieselPrice ?? 1.87);
-    const commission = (midMaterial + fuelCost) * (Number(commissionRate ?? 7) / 100);
-    const total = midMaterial + fuelCost + commission;
+    const commission = (materialCost + fuelCost) * (Number(commissionRate ?? 7) / 100);
+    const total = materialCost + fuelCost + commission;
+    // Floor only — deliberately no ceiling at matPrice.max_price. That
+    // clamp used to silently discount every long-distance or large-load
+    // job back down to the same price as a small nearby one, which is
+    // exactly backwards: those are the jobs where real fuel/material
+    // cost matters most.
     const low = Math.max(Number(matPrice.min_price), Math.round(total * 0.9));
-    const high = Math.min(Number(matPrice.max_price), Math.round(total * 1.1));
+    const high = Math.max(low, Math.round(total * 1.1));
 
     return {
       low,
@@ -210,7 +220,7 @@ function BookDelivery() {
       commission,
       total: Math.round(total),
     };
-  }, [matPrice, coords, dieselPrice, commissionRate, roadDistanceKm]);
+  }, [matPrice, coords, dieselPrice, commissionRate, roadDistanceKm, quantity]);
 
   useEffect(() => {
     void suggestion;
