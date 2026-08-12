@@ -219,7 +219,9 @@ export function CustomerTrackMap({ jobId }: { jobId: string }) {
               </MapContainer>
             </div>
             <div className="px-4 py-2 text-[11px] text-muted-foreground flex justify-between">
-              <span>{loc.lat.toFixed(5)}, {loc.lng.toFixed(5)}</span>
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" /> Live
+              </span>
               <span>Updated {new Date(loc.updated_at).toLocaleTimeString()}</span>
             </div>
           </>
