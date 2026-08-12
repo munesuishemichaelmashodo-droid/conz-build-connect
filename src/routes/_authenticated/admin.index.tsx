@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { money } from "@/lib/domain";
+import { useAuth } from "@/lib/auth";
 import { Users, Truck, Briefcase, DollarSign, AlertOctagon, ShieldCheck, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
@@ -46,9 +47,18 @@ function Stat({
 }
 
 function AdminDashboard() {
+  const { is } = useAuth();
+  const isSuper = is("super_admin");
+
   const { data } = useQuery({
-    queryKey: ["admin-dash"],
+    queryKey: ["admin-dash", isSuper],
     queryFn: async () => {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const commissionQuery = supabase.from("wallet_transactions").select("amount").eq("type", "commission");
+      if (!isSuper) commissionQuery.gte("created_at", todayStart.toISOString());
+
       const [users, drivers, jobsOpen, jobsDone, pendingV, disputes, commissionRows, rate] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }),
         supabase.from("user_roles").select("user_id", { count: "exact", head: true }).eq("role", "driver"),
@@ -56,10 +66,13 @@ function AdminDashboard() {
         supabase.from("jobs").select("id", { count: "exact", head: true }).eq("status", "completed"),
         supabase.from("driver_profiles").select("user_id", { count: "exact", head: true }).eq("verification_status", "pending"),
         supabase.from("disputes").select("id", { count: "exact", head: true }).in("status", ["open", "investigating"]),
-        supabase.from("wallet_transactions").select("amount").eq("type", "commission"),
-        supabase.from("system_settings").select("value").eq("key", "commission_rate").maybeSingle(),
+        commissionQuery,
+        // Non-super admins don't need the commission rate surfaced on the dashboard.
+        isSuper
+          ? supabase.from("system_settings").select("value").eq("key", "commission_rate").maybeSingle()
+          : Promise.resolve({ data: null as { value: string } | null }),
       ]);
-      const totalCommission = (commissionRows.data ?? []).reduce((a, r) => a + Math.abs(Number(r.amount)), 0);
+      const commission = (commissionRows.data ?? []).reduce((a, r) => a + Math.abs(Number(r.amount)), 0);
       return {
         users: users.count ?? 0,
         drivers: drivers.count ?? 0,
@@ -67,8 +80,8 @@ function AdminDashboard() {
         jobsDone: jobsDone.count ?? 0,
         pendingV: pendingV.count ?? 0,
         disputes: disputes.count ?? 0,
-        totalCommission,
-        rate: Number(rate.data?.value ?? 7),
+        commission,
+        rate: rate.data?.value != null ? Number(rate.data.value) : null,
       };
     },
   });
@@ -83,14 +96,18 @@ function AdminDashboard() {
       </div>
       <div className="rounded-2xl bg-gradient-dark text-white p-5 shadow-lift">
         <div className="flex items-center gap-2 text-white/70 text-[11px] uppercase tracking-widest">
-          <DollarSign className="w-3.5 h-3.5" /> Platform revenue
+          <DollarSign className="w-3.5 h-3.5" /> {isSuper ? "Platform revenue" : "Today's revenue"}
         </div>
-        <div className="font-display font-bold text-4xl text-primary mt-1">{money(data?.totalCommission ?? 0)}</div>
-        <div className="text-xs text-white/60 mt-1">Total commission collected at {data?.rate ?? 7}%</div>
+        <div className="font-display font-bold text-4xl text-primary mt-1">{money(data?.commission ?? 0)}</div>
+        <div className="text-xs text-white/60 mt-1">
+          {isSuper
+            ? `Total commission collected at ${data?.rate ?? 7}%`
+            : "Resets at midnight — resets daily, no historical figures shown here"}
+        </div>
       </div>
       <div className="rounded-xl border bg-muted/30 p-4 text-xs text-muted-foreground flex items-start gap-2">
         <Truck className="w-4 h-4 mt-0.5 text-primary" />
-        <span>Use the tabs above to manage users, approve drivers, settle disputes, and adjust the platform commission.</span>
+        <span>Use the tabs above to manage users, approve drivers, and settle disputes.</span>
       </div>
     </div>
   );
