@@ -110,9 +110,11 @@ function ChatPage() {
   useEffect(() => {
     if (!jobId || !userId) return;
     const markRead = () => {
-      (supabase.rpc as unknown as (f: string, a: Record<string, unknown>) => Promise<unknown>)(
-        "mark_messages_read",
-        { _job_id: jobId },
+      Promise.resolve(
+        (supabase.rpc as unknown as (f: string, a: Record<string, unknown>) => Promise<unknown>)(
+          "mark_messages_read",
+          { _job_id: jobId },
+        ),
       ).catch(() => {});
     };
     markRead();
