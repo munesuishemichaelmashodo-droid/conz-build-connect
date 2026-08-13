@@ -23,19 +23,6 @@ function AdminSettings() {
   const isSuper = is("super_admin");
   const qc = useQueryClient();
 
-  const { data: rate } = useQuery({
-    queryKey: ["commission-rate"],
-    queryFn: async () => {
-      const { data } = await supabase.from("system_settings").select("value").eq("key", "commission_rate").maybeSingle();
-      return Number(data?.value ?? 7);
-    },
-  });
-
-  const [value, setValue] = useState("");
-  useEffect(() => {
-    if (rate != null) setValue(String(rate));
-  }, [rate]);
-
   const { data: diesel } = useQuery({
     queryKey: ["diesel-price"],
     queryFn: async () => {
@@ -83,18 +70,6 @@ function AdminSettings() {
     },
   });
 
-  const save = async () => {
-    const v = Number(value);
-    if (isNaN(v) || v < 0 || v > 100) return toast.error("Rate must be 0-100");
-    const reason = window.prompt("Why is the commission rate changing? (recorded in the audit log)") ?? undefined;
-    if (!reason?.trim() || reason.trim().length < 5) return toast.error("Give a reason (at least 5 characters)");
-    const { error } = await supabase.rpc("admin_set_commission", { _rate: v, _reason: reason.trim() });
-    if (error) return toast.error(error.message);
-    toast.success(`Commission set to ${v}%`);
-    qc.invalidateQueries({ queryKey: ["commission-rate"] });
-    qc.invalidateQueries({ queryKey: ["admin-dash"] });
-  };
-
   const saveDiesel = async () => {
     const v = Number(dieselValue);
     if (isNaN(v) || v <= 0 || v > 100) return toast.error("Diesel price must be between 0 and 100");
@@ -127,39 +102,6 @@ function AdminSettings() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border bg-card p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <Percent className="w-5 h-5 text-primary" />
-          <h3 className="font-display font-bold text-lg uppercase tracking-wide">Commission rate</h3>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Percentage deducted from a driver's wallet each time a job is completed.
-        </p>
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            min={0}
-            max={100}
-            step={0.5}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            disabled={!isSuper}
-            className="flex-1 px-3 py-2.5 rounded-xl border bg-background text-lg font-display font-bold disabled:opacity-50"
-          />
-          <span className="font-display font-bold text-2xl text-muted-foreground">%</span>
-        </div>
-        <button
-          onClick={save}
-          disabled={!isSuper}
-          className="w-full rounded-xl bg-primary text-primary-foreground font-semibold py-3 disabled:opacity-50"
-        >
-          <Save className="w-4 h-4 inline mr-1" /> Save commission
-        </button>
-        {!isSuper && (
-          <p className="text-xs text-muted-foreground text-center">Only super admins can change the commission rate.</p>
-        )}
-      </div>
-
       <div className="rounded-2xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Fuel className="w-5 h-5 text-primary" />
