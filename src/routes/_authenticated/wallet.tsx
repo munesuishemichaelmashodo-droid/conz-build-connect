@@ -11,10 +11,7 @@ import {
   History,
   ArrowUpRight,
   ArrowDownLeft,
-  Shield,
   Zap,
-  CheckCircle2,
-  AlertTriangle,
   Building2,
   Smartphone,
   CreditCard,
@@ -266,27 +263,20 @@ function WalletPage() {
             <SummaryRow label="Minimum Balance" value={money(MIN_BALANCE)} hint="Required to stay online" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Feature icon={Shield} title="Bank-grade security" hint="Encrypted, auditable transactions." />
-            <Feature icon={Zap} title="Instant top-ups" hint="EcoCash, OneMoney, ZIPIT." />
-            <Feature icon={CheckCircle2} title="Real payments only" hint="No fake receipts, verified." />
-            <Feature icon={AlertTriangle} title="Low-balance alerts" hint="We warn before you go offline." />
-          </div>
+          {veryLow && (
+            <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+              <div className="font-display font-bold uppercase text-xs tracking-wide">Top up now</div>
+              <p className="text-[13px] mt-1 opacity-90">
+                Your balance is below {money(MIN_BALANCE)}. You won't receive new jobs until you top up.
+              </p>
+            </div>
+          )}
 
           {!driver?.withdrawal_pin_hash && (
             <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4 text-sm">
               <div className="font-display font-bold uppercase text-xs tracking-wide text-warning">Set a withdrawal PIN</div>
               <p className="text-[13px] mt-1 opacity-90">
                 A 4–8 digit PIN protects your withdrawals. Set it from your Profile.
-              </p>
-            </div>
-          )}
-
-          {veryLow && (
-            <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-              <div className="font-display font-bold uppercase text-xs tracking-wide">Top up now</div>
-              <p className="text-[13px] mt-1 opacity-90">
-                Your balance is below {money(MIN_BALANCE)}. You won't receive new jobs until you top up.
               </p>
             </div>
           )}
@@ -470,18 +460,6 @@ function SummaryRow({ label, value, tone, hint }: { label: string; value: string
         {hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}
       </div>
       <div className={cn("font-display font-bold text-sm", tone)}>{value}</div>
-    </div>
-  );
-}
-
-function Feature({ icon: Icon, title, hint }: { icon: typeof Shield; title: string; hint: string }) {
-  return (
-    <div className="rounded-2xl border bg-card p-3">
-      <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-2">
-        <Icon className="w-4 h-4" />
-      </div>
-      <div className="text-xs font-display font-bold">{title}</div>
-      <div className="text-[11px] text-muted-foreground leading-snug mt-0.5">{hint}</div>
     </div>
   );
 }
