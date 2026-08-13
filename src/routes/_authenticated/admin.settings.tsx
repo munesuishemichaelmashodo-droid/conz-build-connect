@@ -58,6 +58,7 @@ function AdminSettings() {
         label: string;
         min_price: number | null;
         max_price: number | null;
+        multiplier: number | null;
         enforced: boolean;
         unit: string;
         pickup_lat: number | null;
@@ -66,6 +67,13 @@ function AdminSettings() {
       }>;
     },
   });
+
+  const [multiplierValue, setMultiplierValue] = useState("");
+  useEffect(() => {
+    if (!materials?.length) return;
+    const current = materials.find((m) => m.enforced)?.multiplier;
+    if (current != null) setMultiplierValue(String(current));
+  }, [materials]);
 
   const { data: superCount } = useQuery({
     queryKey: ["super-count"],
@@ -89,14 +97,25 @@ function AdminSettings() {
 
   const saveDiesel = async () => {
     const v = Number(dieselValue);
-   if (isNaN(v) || v < 0.5 || v > 2.0) return toast.error("Multiplier must be between 0.50 and 2.00");
-    const { error } = await supabase.rpc("admin_set_demand_multiplier", {
-  _multiplier: v,
-  _reason: "Price adjustment",
-});
+    if (isNaN(v) || v <= 0 || v > 100) return toast.error("Diesel price must be between 0 and 100");
+    const { error } = await supabase.rpc("admin_set_diesel_price", { _price: v });
     if (error) return toast.error(error.message);
-toast.success(`Price multiplier set to ${v.toFixed(2)}`);
+    toast.success(`Diesel price set to $${v.toFixed(2)}/liter`);
     qc.invalidateQueries({ queryKey: ["diesel-price"] });
+  };
+
+  const saveMultiplier = async () => {
+    const v = Number(multiplierValue);
+    if (isNaN(v) || v <= 0 || v > 3.0) return toast.error("Multiplier must be between 0 and 3.0");
+    const reason = window.prompt('Why is the price multiplier changing? e.g. "material costs up 8%" (recorded in the audit log)') ?? undefined;
+    if (!reason?.trim() || reason.trim().length < 5) return toast.error("Give a reason (at least 5 characters)");
+    const { error } = await supabase.rpc("admin_set_demand_multiplier", {
+      _multiplier: v,
+      _reason: reason.trim(),
+    });
+    if (error) return toast.error(error.message);
+    toast.success(`Price multiplier set to ${v.toFixed(2)}`);
+    qc.invalidateQueries({ queryKey: ["admin-material-prices-full"] });
   };
 
   const claim = async () => {
@@ -144,34 +163,67 @@ toast.success(`Price multiplier set to ${v.toFixed(2)}`);
       <div className="rounded-2xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Fuel className="w-5 h-5 text-primary" />
-          <h3 className="font-display font-bold text-lg uppercase tracking-wide">Price multiplier</h3>
+          <h3 className="font-display font-bold text-lg uppercase tracking-wide">Diesel price</h3>
         </div>
         <p className="text-sm text-muted-foreground">
-          Moves every enforced material price at once. 1.00 = no change, 1.08 = +8%.
+          Price per liter, used to calculate long-distance transport cost.
         </p>
         <div className="flex items-center gap-2">
-          <span className="font-display font-bold text-2xl text-muted-foreground">×</span>
+          <span className="font-display font-bold text-2xl text-muted-foreground">$</span>
           <input
             type="number"
-            min={0.5}
-            max={2.0}
+            min={0}
+            max={100}
             step={0.01}
             value={dieselValue}
             onChange={(e) => setDieselValue(e.target.value)}
             disabled={!isSuper}
             className="flex-1 px-3 py-2.5 rounded-xl border bg-background text-lg font-display font-bold disabled:opacity-50"
           />
-         
+          <span className="text-sm text-muted-foreground">/ liter</span>
         </div>
         <button
           onClick={saveDiesel}
           disabled={!isSuper}
           className="w-full rounded-xl bg-primary text-primary-foreground font-semibold py-3 disabled:opacity-50"
         >
-          <Save className="w-4 h-4 inline mr-1" /> Apply multiplier
+          <Save className="w-4 h-4 inline mr-1" /> Save diesel price
         </button>
         {!isSuper && (
           <p className="text-xs text-muted-foreground text-center">Only super admins can change the diesel price.</p>
+        )}
+      </div>
+
+      <div className="rounded-2xl border bg-card p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Percent className="w-5 h-5 text-primary" />
+          <h3 className="font-display font-bold text-lg uppercase tracking-wide">Price multiplier</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Moves every enforced material's cost at once, separate from diesel price. 1.00 = no change, 1.08 = +8%.
+        </p>
+        <div className="flex items-center gap-2">
+          <span className="font-display font-bold text-2xl text-muted-foreground">×</span>
+          <input
+            type="number"
+            min={0.1}
+            max={3.0}
+            step={0.01}
+            value={multiplierValue}
+            onChange={(e) => setMultiplierValue(e.target.value)}
+            disabled={!isSuper}
+            className="flex-1 px-3 py-2.5 rounded-xl border bg-background text-lg font-display font-bold disabled:opacity-50"
+          />
+        </div>
+        <button
+          onClick={saveMultiplier}
+          disabled={!isSuper}
+          className="w-full rounded-xl bg-primary text-primary-foreground font-semibold py-3 disabled:opacity-50"
+        >
+          <Save className="w-4 h-4 inline mr-1" /> Apply multiplier
+        </button>
+        {!isSuper && (
+          <p className="text-xs text-muted-foreground text-center">Only super admins can change the price multiplier.</p>
         )}
       </div>
 

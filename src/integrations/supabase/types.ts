@@ -1635,6 +1635,7 @@ export type Database = {
         Args: { _multiplier: number; _reason: string }
         Returns: number
       }
+      admin_set_diesel_price: { Args: { _price: number }; Returns: Json }
       admin_set_driver_verification: {
         Args: { _notes?: string; _status: string; _user_id: string }
         Returns: {
