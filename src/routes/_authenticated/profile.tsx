@@ -182,13 +182,6 @@ function ProfilePage() {
           </section>
         )}
 
-        {activeRole === "customer" && is("customer") && (
-          <section className="rounded-2xl bg-card border p-4 shadow-soft space-y-2">
-            <h2 className="font-display font-bold uppercase tracking-wide">Customer account</h2>
-            <p className="text-sm text-muted-foreground">Post jobs, review bids, and track deliveries live on the map.</p>
-          </section>
-        )}
-
         {activeRole === "driver" && is("driver") && <WithdrawalPinCard />}
 
         <SetPasswordCard />
