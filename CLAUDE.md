@@ -36,17 +36,35 @@ files from early development. Always:
 2. Write the migration file first, then apply it live, then `tsc`+build,
    then commit+push.
 
-**Known issue — git/DB drift:** Multiple parallel sessions (this repo gets
-worked on from both a chat interface with computer-use and from Claude Code
-sessions, sometimes concurrently) have applied migrations directly to the
-live Supabase project without ever committing the corresponding `.sql` file.
-Confirmed live-only migrations not in git as of 13/08/2026:
-`drop_legacy_admin_set_material_price_text_overload`,
-`restrict_admin_from_settings_and_topups`. **Before starting any DB work,
-compare the live migration list against `supabase/migrations/` and
-reconcile any live-only ones into committed files** so this doesn't keep
-compounding. If you have Supabase MCP/CLI access, list applied migrations
-and diff against the repo first.
+**Hard rule, effective 13/08/2026, applies to every session (chat
+computer-use and Claude Code alike): a migration is never applied to the
+live Supabase project without its `.sql` file committed to git in the same
+sitting.** "I'll commit it later" is how the drift below happened, twice.
+If you apply something live, the commit (or at least the file, staged) must
+exist before you consider the task done — no exceptions for hotfixes,
+one-liners, or "just a grant/RLS tweak."
+
+**Known issue — git/DB drift (now reconciled):** Multiple parallel sessions
+(this repo gets worked on from both a chat interface with computer-use and
+from Claude Code sessions, sometimes concurrently) applied migrations
+directly to the live Supabase project without ever committing the
+corresponding `.sql` file. As of 13/08/2026 this had grown to ~50 live-only
+migrations — not just the two originally flagged
+(`drop_legacy_admin_set_material_price_text_overload`,
+`restrict_admin_from_settings_and_topups`) but an entire block from
+01–11/08/2026 that never made it into git at all, plus `0030`, a second
+`0033`, and `0034b`. Rather than reconstruct each one individually (not
+reliably recoverable), the whole live schema was snapshotted via
+introspection and committed as
+`supabase/migrations/20260813999999_baseline_reconcile_with_live.sql` —
+tables, constraints, indexes, functions, triggers, views, RLS policies, and
+grants, exactly as they stand live, written defensively (safe to replay
+against either a fresh DB or the current live one). `supabase/config.toml`
+was also fixed — it pointed at the wrong project ref
+(`nyivrhdpxsrxyfmexxkn`) and now correctly points at `ovwrsocjmkpiygipmrdk`.
+**Before starting any DB work, still compare the live migration list
+against `supabase/migrations/` and diff** — the hard rule above is meant to
+stop this recurring, but verify rather than assume.
 
 ## What's been fixed recently (13/08/2026, today)
 
@@ -56,7 +74,15 @@ and diff against the repo first.
   without a `driver_profiles` row; fixed via upsert.
 - **UI decluttering pass** (reorg only, no functional changes) —
   `jobs.$id.tsx`, `wallet.tsx`, `RoleDashboard.tsx`, `profile.tsx`,
-  `admin.settings.tsx`, `admin.revenue.tsx` all regrouped for clarity.
+  `admin.settings.tsx`, `admin.revenue.tsx`, `admin.ledger.tsx`,
+  `admin.disputes.tsx`, `admin.audit.tsx`, `admin.reports.tsx`, and
+  `admin.verifications.tsx` all regrouped for clarity.
+- **Migration drift reconciled** — git's migration history had fallen ~50
+  migrations behind live (see "Migration workflow" below for the full
+  story). Closed with a single introspected baseline migration
+  (`20260813999999_baseline_reconcile_with_live.sql`) plus a hard rule
+  going forward: no live migration without its `.sql` committed in the same
+  sitting.
 - **Critical live pricing bug** — the booking budget-validation trigger
   (`tg_validate_job_budget`) was comparing the total job price against
   stale/mis-scaled numbers instead of the same bucket+distance pricing the
@@ -108,6 +134,8 @@ and diff against the repo first.
 
 ## Admin screens not yet decluttered
 
-`admin.ledger.tsx` (646 lines, largest remaining), `admin.disputes.tsx`,
-`admin.audit.tsx`, `admin.reports.tsx`, `admin.verifications.tsx`, the
-post-a-job flow (`jobs.new.tsx`, `customer.book.tsx`), `chat.$jobId.tsx`.
+`admin.ledger.tsx`, `admin.disputes.tsx`, `admin.audit.tsx`,
+`admin.reports.tsx`, and `admin.verifications.tsx` were done 13/08/2026
+(reorg only, no functional changes — see "What's been fixed recently").
+Still remaining: the post-a-job flow (`jobs.new.tsx`, `customer.book.tsx`),
+`chat.$jobId.tsx`.
