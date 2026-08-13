@@ -58,13 +58,51 @@ export function DisputeEvidence({ jobId }: { jobId: string }) {
 
       const evidence = (rows ?? []) as EvidenceRow[];
 
+      // The actual pickup/delivery confirmation photos drivers take live on
+      // the job row itself (pickup_photo_url / delivery_photo_url), not in
+      // job_evidence -- that table is a separate, mostly-unused stream.
+      // Without this, disputes always showed "no photos" even when the job
+      // had proof-of-delivery photos the customer and driver could both see.
+      const { data: job } = await supabase
+        .from("jobs")
+        .select("pickup_photo_url,delivery_photo_url,pickup_photo_taken_at,delivery_photo_taken_at")
+        .eq("id", jobId)
+        .maybeSingle();
+
+      const jobPhotos: EvidenceRow[] = [];
+      if (job?.pickup_photo_url) {
+        jobPhotos.push({
+          job_id: jobId,
+          kind: "pickup (delivery confirmation)",
+          storage_path: job.pickup_photo_url,
+          uploaded_at: job.pickup_photo_taken_at,
+          device_lat: null,
+          device_lng: null,
+          device_accuracy_m: null,
+          location_status: null,
+        });
+      }
+      if (job?.delivery_photo_url) {
+        jobPhotos.push({
+          job_id: jobId,
+          kind: "delivery (delivery confirmation)",
+          storage_path: job.delivery_photo_url,
+          uploaded_at: job.delivery_photo_taken_at,
+          device_lat: null,
+          device_lng: null,
+          device_accuracy_m: null,
+          location_status: null,
+        });
+      }
+      const combined = [...jobPhotos, ...evidence];
+
       let deliveryDistance: number | null = null;
       if (evidence.some((e) => e.kind === "delivery")) {
         const { data: dist } = await looseRpc("evidence_distance_m", { _job_id: jobId, _kind: "delivery" });
         const n = Number(dist);
         deliveryDistance = Number.isFinite(n) ? n : null;
       }
-      return { evidence, deliveryDistance };
+      return { evidence: combined, deliveryDistance };
     },
   });
 

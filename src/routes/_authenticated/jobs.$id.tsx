@@ -151,6 +151,39 @@ function JobDetail() {
     },
   });
 
+  // Without this, a driver who had this page open when their bid got
+  // accepted (or a customer watching a job change status) kept seeing the
+  // stale "open" job -- bid form and all -- until they navigated away and
+  // back to force a refetch. Subscribe so status/price changes on this job
+  // apply instantly to whoever's looking at it.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`job-detail:${id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "jobs", filter: `id=eq.${id}` },
+        () => qc.invalidateQueries({ queryKey: ["job", id] }),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [id, qc]);
+
+  // Realtime on top of the poll below: the 15s poll alone was the visible
+  // "delay" -- a driver's new bid or a customer's counter-offer could take
+  // up to 15s to appear on the other side. This makes it instant while the
+  // poll stays as a safety net if a realtime event is ever missed.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`job-bids:${id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bids", filter: `job_id=eq.${id}` },
+        () => qc.invalidateQueries({ queryKey: ["bids", id] }),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [id, qc]);
+
   const { data: bids } = useQuery({
     queryKey: ["bids", id],
     enabled: !!job,

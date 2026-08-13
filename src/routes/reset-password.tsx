@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,47 @@ export const Route = createFileRoute("/reset-password")({
   component: ResetPasswordPage,
 });
 
+// Recovery links only put the session token in the URL fragment (#...),
+// which the Supabase client parses on load and turns into a real session by
+// firing a PASSWORD_RECOVERY auth event. If that never fires -- expired
+// link, link already used, or the redirect URL isn't on Supabase's allow
+// list so the tokens get silently dropped -- updateUser() below has no
+// session to act on. Previously we called updateUser() unconditionally,
+// which could report success-looking UI while nothing was actually saved,
+// then leave the person unable to log in with the "new" password. Now we
+// wait for a confirmed recovery session before allowing submission at all,
+// and show a clear expired/invalid state instead of a silent dead end.
 function ResetPasswordPage() {
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [saving, setSaving] = useState(false);
+  const [sessionState, setSessionState] = useState<"checking" | "ready" | "invalid">("checking");
+
+  useEffect(() => {
+    let settled = false;
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        settled = true;
+        setSessionState("ready");
+      }
+    });
+    // If a recovery session was already established before this listener
+    // attached, onAuthStateChange won't fire again -- check directly too.
+    supabase.auth.getSession().then(({ data }) => {
+      if (!settled && data.session) {
+        settled = true;
+        setSessionState("ready");
+      }
+    });
+    const timeout = setTimeout(() => {
+      if (!settled) setSessionState("invalid");
+    }, 4000);
+    return () => {
+      sub.subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +80,22 @@ function ResetPasswordPage() {
               <p className="text-xs text-muted-foreground">Set a new Con Z login password.</p>
             </div>
           </div>
-          <form onSubmit={submit} className="space-y-3">
+          {sessionState === "checking" && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-6 justify-center">
+              <Loader2 className="w-4 h-4 animate-spin" /> Verifying your reset link…
+            </div>
+          )}
+          {sessionState === "invalid" && (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-destructive font-semibold">
+                <AlertTriangle className="w-4 h-4" /> This reset link is invalid or expired
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Reset links only work once and expire after a while. Go back and request a new one.
+              </p>
+            </div>
+          )}
+          <form onSubmit={submit} className={`space-y-3 ${sessionState !== "ready" ? "hidden" : ""}`}>
             <div>
               <Label htmlFor="newPassword">New password</Label>
               <Input id="newPassword" type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} autoComplete="new-password" required />
