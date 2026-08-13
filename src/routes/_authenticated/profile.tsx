@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui-bits";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2, ShieldCheck, Truck, KeyRound, Camera, Image as ImageIcon, AlertTriangle } from "lucide-react";
+import { Loader2, ShieldCheck, Truck, KeyRound, Camera, Image as ImageIcon, AlertTriangle, Check } from "lucide-react";
 import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
 import { deleteMyAccount } from "@/lib/account-deletion";
 import {
@@ -45,6 +45,20 @@ function ProfilePage() {
     enabled: !!userId && is("driver"),
     queryFn: async () => (await supabase.from("trucks").select("*").eq("driver_id", userId!)).data ?? [],
   });
+
+  const [docsExpanded, setDocsExpanded] = useState(false);
+  const isVerified = driver?.verification_status === "verified";
+  const reverifyDueAt = driver?.reverify_due_at ? new Date(driver.reverify_due_at as string) : null;
+  const daysLeft = reverifyDueAt ? Math.ceil((reverifyDueAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)) : null;
+  const reverifyDueSoon = daysLeft !== null && daysLeft <= 14;
+  const reverifyOverdue = daysLeft !== null && daysLeft <= 0;
+  const showFullDocs = !isVerified || reverifyDueSoon || docsExpanded;
+  const DOC_ITEMS: { field: DocField; label: string; hint: string; cameraFacing: "user" | "environment" }[] = [
+    { field: "selfie_url", label: "Selfie (face photo)", hint: "Front camera • Look at the camera in good light", cameraFacing: "user" },
+    { field: "license_url", label: "Driver's licence", hint: "Back camera • Full licence card, all corners visible", cameraFacing: "environment" },
+    { field: "tipper_photo_url", label: "Tipper truck photo", hint: "Back camera • Whole truck with number plate visible", cameraFacing: "environment" },
+    { field: "national_id_url", label: "National ID", hint: "Back camera • Front side of your ID card", cameraFacing: "environment" },
+  ];
 
   const saveProfile = async () => {
     if (!name.trim()) return toast.error("Name required");
@@ -98,47 +112,74 @@ function ProfilePage() {
           <section className="rounded-2xl bg-card border p-4 shadow-soft space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold uppercase tracking-wide">Driver verification</h2>
-              <StatusBadge label={driver?.verification_status ?? "pending"} className={driver?.verification_status === "verified" ? "bg-success/15 text-success border-success/30" : driver?.verification_status === "rejected" ? "bg-destructive/15 text-destructive border-destructive/30" : "bg-warning/15 text-warning border-warning/30"} />
+              <StatusBadge label={driver?.verification_status ?? "pending"} className={isVerified ? "bg-success/15 text-success border-success/30" : driver?.verification_status === "rejected" ? "bg-destructive/15 text-destructive border-destructive/30" : "bg-warning/15 text-warning border-warning/30"} />
             </div>
-            {driver?.verification_status === "verified" && driver?.reverify_due_at && (() => {
-              const dueAt = new Date(driver.reverify_due_at as string);
-              const daysLeft = Math.ceil((dueAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
-              if (daysLeft > 14) return null;
-              const overdue = daysLeft <= 0;
-              return (
-                <div className={`rounded-lg border p-3 flex items-start gap-2 text-xs ${overdue ? "border-destructive/40 bg-destructive/10" : "border-warning/40 bg-warning/10"}`}>
-                  <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${overdue ? "text-destructive" : "text-warning"}`} />
-                  <span>
-                    {overdue
-                      ? "Your verification has expired — retake your selfie below to keep bidding on jobs. You won't see new job alerts or be able to bid until you do."
-                      : `Time to re-verify — retake your selfie below within ${daysLeft} day${daysLeft === 1 ? "" : "s"} to avoid losing access to bidding.`}
-                  </span>
-                </div>
-              );
-            })()}
-            <p className="text-xs text-muted-foreground">Take each photo with your phone camera. Make sure your face and documents are clearly visible.</p>
-            <DocUpload field="selfie_url" label="Selfie (face photo)" hint="Front camera • Look at the camera in good light" cameraFacing="user" userId={userId!} current={driver?.selfie_url} refresh={() => qc.invalidateQueries({ queryKey: ["driver-profile", userId] })} />
-            <DocUpload field="license_url" label="Driver's licence" hint="Back camera • Full licence card, all corners visible" cameraFacing="environment" userId={userId!} current={driver?.license_url} refresh={() => qc.invalidateQueries({ queryKey: ["driver-profile", userId] })} />
-            <DocUpload field="tipper_photo_url" label="Tipper truck photo" hint="Back camera • Whole truck with number plate visible" cameraFacing="environment" userId={userId!} current={driver?.tipper_photo_url} refresh={() => qc.invalidateQueries({ queryKey: ["driver-profile", userId] })} />
-            <DocUpload field="national_id_url" label="National ID" hint="Back camera • Front side of your ID card" cameraFacing="environment" userId={userId!} current={driver?.national_id_url} refresh={() => qc.invalidateQueries({ queryKey: ["driver-profile", userId] })} />
-            {driver?.verification_notes && <p className="text-xs text-muted-foreground bg-muted p-2 rounded">Admin note: {driver.verification_notes}</p>}
 
-            <div className="border-t pt-3 mt-3">
-              <div className="flex items-center gap-2 text-sm font-semibold mb-2"><Truck className="w-4 h-4" />My trucks</div>
-              {trucks?.map((t) => (
-                <div key={t.id} className="text-sm border rounded p-2 mb-1">{t.registration} • {Number(t.capacity_m3)} m³</div>
-              ))}
-              <AddTruckForm userId={userId!} onSaved={() => qc.invalidateQueries({ queryKey: ["trucks", userId] })} />
-            </div>
+            {isVerified && !reverifyDueSoon && (
+              <div className="rounded-xl bg-success/10 border border-success/30 p-3 flex items-center gap-3">
+                <ShieldCheck className="w-5 h-5 text-success shrink-0" />
+                <div className="text-sm"><div className="font-semibold">You're verified</div><div className="text-muted-foreground text-xs">You can bid on any open job.</div></div>
+              </div>
+            )}
+
+            {isVerified && reverifyDueSoon && (
+              <div className={`rounded-lg border p-3 flex items-start gap-2 text-xs ${reverifyOverdue ? "border-destructive/40 bg-destructive/10" : "border-warning/40 bg-warning/10"}`}>
+                <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${reverifyOverdue ? "text-destructive" : "text-warning"}`} />
+                <span>
+                  {reverifyOverdue
+                    ? "Your verification has expired — retake your selfie below to keep bidding on jobs. You won't see new job alerts or be able to bid until you do."
+                    : `Time to re-verify — retake your selfie below within ${daysLeft} day${daysLeft === 1 ? "" : "s"} to avoid losing access to bidding.`}
+                </span>
+              </div>
+            )}
+
+            {driver?.verification_status === "pending" && (
+              <p className="text-xs text-muted-foreground">Your documents are with our team — most drivers are reviewed within 24 hours.</p>
+            )}
+
+            {showFullDocs ? (
+              <>
+                <p className="text-xs text-muted-foreground">Take each photo with your phone camera. Make sure your face and documents are clearly visible.</p>
+                {DOC_ITEMS.map((d) => (
+                  <DocUpload
+                    key={d.field}
+                    field={d.field}
+                    label={d.label}
+                    hint={d.hint}
+                    cameraFacing={d.cameraFacing}
+                    userId={userId!}
+                    current={driver?.[d.field] as string | undefined}
+                    refresh={() => qc.invalidateQueries({ queryKey: ["driver-profile", userId] })}
+                  />
+                ))}
+                {isVerified && !reverifyDueSoon && (
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => setDocsExpanded(false)}>Hide documents</Button>
+                )}
+              </>
+            ) : (
+              <div className="space-y-1.5">
+                {DOC_ITEMS.map((d) => (
+                  <div key={d.field} className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Check className="w-3.5 h-3.5 text-success shrink-0" />
+                    <span>{d.label}</span>
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" className="w-full mt-1" onClick={() => setDocsExpanded(true)}>Update documents</Button>
+              </div>
+            )}
+
+            {driver?.verification_notes && <p className="text-xs text-muted-foreground bg-muted p-2 rounded">Admin note: {driver.verification_notes}</p>}
           </section>
         )}
 
-        {activeRole === "driver" && is("driver") && driver?.verification_status === "verified" &&
-          (!driver?.reverify_due_at || new Date(driver.reverify_due_at as string).getTime() > Date.now()) && (
-          <div className="rounded-xl bg-success/10 border border-success/30 p-3 flex items-center gap-3">
-            <ShieldCheck className="w-5 h-5 text-success" />
-            <div className="text-sm"><div className="font-semibold">You're verified</div><div className="text-muted-foreground text-xs">You can bid on any open job.</div></div>
-          </div>
+        {activeRole === "driver" && is("driver") && (
+          <section className="rounded-2xl bg-card border p-4 shadow-soft space-y-2">
+            <div className="flex items-center gap-2 text-sm font-semibold"><Truck className="w-4 h-4" />My trucks</div>
+            {trucks?.map((t) => (
+              <div key={t.id} className="text-sm border rounded p-2">{t.registration} • {Number(t.capacity_m3)} m³</div>
+            ))}
+            <AddTruckForm userId={userId!} onSaved={() => qc.invalidateQueries({ queryKey: ["trucks", userId] })} />
+          </section>
         )}
 
         {activeRole === "customer" && is("customer") && (
@@ -214,7 +255,7 @@ function DocUpload({ field, label, hint, cameraFacing = "environment", userId, c
     const { error } = await supabase.from("driver_profiles").update(patch as never).eq("user_id", userId);
     setUploading(false);
     if (error) return toast.error(error.message);
-    toast.success(`${label} uploaded`);
+    toast.success(`${label} uploaded — usually reviewed within 24 hours`);
     refresh();
   };
   return (
