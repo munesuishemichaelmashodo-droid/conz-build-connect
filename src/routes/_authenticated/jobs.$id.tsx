@@ -350,236 +350,281 @@ function JobDetail() {
     qc.invalidateQueries({ queryKey: ["job", id] });
   };
 
+  const showEscrowBanner = isEscrow && ["accepted", "in_progress"].includes(job.status);
+  const showBidForm = is("driver") && !isOwner && job.status === "open";
+  const showCounterResponse = showBidForm && myBid?.counter_status === "countered";
+  const showPickupUpload = isAssignedDriver && job.status === "accepted" && !job.pickup_photo_url;
+  const showDeliveryUpload = isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && !!job.pickup_photo_url && !job.delivery_photo_url;
+  const showDeliveryPinDisplay = isOwner && isEscrow && ["accepted", "in_progress"].includes(job.status) && !!job.delivery_pin;
+  const showCompleteButton = isOwner && !isEscrow && (job.status === "accepted" || job.status === "in_progress");
+  const showDeliveryPinEntry = isAssignedDriver && isEscrow && (job.status === "accepted" || job.status === "in_progress") && !!job.delivery_photo_url;
+  const showCancel = isOwner && (job.status === "open" || job.status === "accepted" || job.status === "in_progress");
+  const showActionSection = showRadar || showEscrowBanner || showBidForm || showPickupUpload || showDeliveryUpload || showDeliveryPinDisplay || showCompleteButton || showDeliveryPinEntry || showCancel;
+
+  const showProofPhotos = !!(job.pickup_photo_url || job.delivery_photo_url);
+  const showDriverRoute = isAssignedDriver && (job.status === "accepted" || job.status === "in_progress");
+  const showCustomerMap = isOwner && (job.status === "accepted" || job.status === "in_progress");
+  const showTrackingSection = showProofPhotos || showDriverRoute || showCustomerMap;
+
+  const showChat = (isOwner || isAssignedDriver) && job.status !== "open";
+  const showDispute = (isOwner || isAssignedDriver) && ["accepted", "in_progress", "completed"].includes(job.status);
+  const showWhatsapp = (isOwner || isAssignedDriver) && job.status !== "open";
+  const showCommsSection = showChat || showDispute || showWhatsapp;
+
+  const showRatingOwner = isOwner && job.status === "completed";
+  const showRatingDriver = isAssignedDriver && job.status === "completed";
+  const showReceipt = isOwner && job.status === "completed" && !!job.tracking_token;
+  const showBookAgain = isOwner && job.status === "completed" && !!job.driver_id;
+  const showWrapSection = showRatingOwner || showRatingDriver || showReceipt || showBookAgain;
+
   return (
     <AppShell title="Job">
       <Link to="/jobs" className="inline-flex items-center gap-1 text-sm text-muted-foreground mb-4">
         <ArrowLeft className="w-4 h-4" /> Back
       </Link>
 
-      <div className="space-y-4">
-        <JobTimeline job={job} />
+      <div className="space-y-5">
+        <div className="space-y-4">
+          <JobTimeline job={job} />
 
-        {isEscrow && ["accepted", "in_progress"].includes(job.status) && (
-          <div className={cn(
-            "rounded-2xl border p-4 space-y-2",
-            escrowPaid ? "border-success/40 bg-success/10" : "border-primary/40 bg-primary/5",
-          )}>
-            <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
-              <ShieldCheck className={cn("w-4 h-4", escrowPaid ? "text-success" : "text-primary")} />
-              Con Z Pay
+          <div className="rounded-2xl bg-card border p-5 shadow-soft">
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="font-display font-bold text-2xl">
+                {materialLabel(job.material as any, job.custom_material)}
+              </h1>
+              <StatusBadge label={s.label} className={s.className} />
             </div>
-            {escrowPaid ? (
-              <p className="text-sm text-muted-foreground">
-                {isOwner
-                  ? "Payment received and held safely. It'll be released to the driver once you confirm delivery."
-                  : "The customer has paid. Funds are held and will be released to your wallet once delivery is confirmed — or automatically after 72 hours."}
-              </p>
-            ) : isOwner ? (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  This job is set up to pay through Con Z Pay. Pay now — we'll hold the money until you confirm delivery.
-                </p>
-                <Button onClick={payEscrow} disabled={payingEscrow} className="w-full">
-                  {payingEscrow ? <Loader2 className="w-4 h-4 animate-spin" /> : `Pay ${money(Number(job.final_price ?? job.budget))} now`}
-                </Button>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Waiting for the customer to pay through Con Z Pay before you're guaranteed payment on delivery.
-              </p>
+
+            <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <div className="text-[11px] uppercase text-muted-foreground tracking-widest">Quantity</div>
+                <div className="font-semibold">{Number(job.quantity_m3)} m³</div>
+              </div>
+              <div>
+                <div className="text-[11px] uppercase text-muted-foreground tracking-widest">
+                  {isOwner ? "Your offer" : "Offer"}
+                </div>
+                <div className="font-display font-bold text-primary text-lg">{money(Number(job.budget))}</div>
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-start gap-2 text-sm">
+              <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
+              <span>{job.delivery_address}</span>
+            </div>
+
+            {job.preferred_date && (
+              <div className="mt-2 flex items-center gap-2 text-sm">
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <span>{job.preferred_date}</span>
+              </div>
+            )}
+
+            {job.notes && <p className="mt-3 text-sm text-muted-foreground border-t pt-3">{job.notes}</p>}
+
+            {job.final_price && (
+              <div className="mt-3 pt-3 border-t text-sm flex justify-between">
+                <span className="text-muted-foreground">Agreed price</span>
+                <span className="font-display font-bold text-primary">{money(Number(job.final_price))}</span>
+              </div>
             )}
           </div>
-        )}
-
-        {isOwner && job.status === "open" && (bids?.length ?? 0) === 0 && <RadarSearch etaMinutes={5} nearbyDrivers={nearbyDrivers} />}
-
-        <div className="rounded-2xl bg-card border p-5 shadow-soft">
-          <div className="flex items-start justify-between gap-3">
-            <h1 className="font-display font-bold text-2xl">
-              {materialLabel(job.material as any, job.custom_material)}
-            </h1>
-            <StatusBadge label={s.label} className={s.className} />
-          </div>
-
-          <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <div className="text-[11px] uppercase text-muted-foreground tracking-widest">Quantity</div>
-              <div className="font-semibold">{Number(job.quantity_m3)} m³</div>
-            </div>
-            <div>
-              <div className="text-[11px] uppercase text-muted-foreground tracking-widest">
-                {isOwner ? "Your offer" : "Offer"}
-              </div>
-              <div className="font-display font-bold text-primary text-lg">{money(Number(job.budget))}</div>
-            </div>
-          </div>
-
-          <div className="mt-3 flex items-start gap-2 text-sm">
-            <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
-            <span>{job.delivery_address}</span>
-          </div>
-
-          {job.preferred_date && (
-            <div className="mt-2 flex items-center gap-2 text-sm">
-              <Calendar className="w-4 h-4 text-muted-foreground" />
-              <span>{job.preferred_date}</span>
-            </div>
-          )}
-
-          {job.notes && <p className="mt-3 text-sm text-muted-foreground border-t pt-3">{job.notes}</p>}
-
-          {job.final_price && (
-            <div className="mt-3 pt-3 border-t text-sm flex justify-between">
-              <span className="text-muted-foreground">Agreed price</span>
-              <span className="font-display font-bold text-primary">{money(Number(job.final_price))}</span>
-            </div>
-          )}
         </div>
 
-        {(isOwner || isAssignedDriver) && job.status !== "open" && (
-          <Button asChild variant="outline" className="w-full relative">
-            <Link to="/chat/$jobId" params={{ jobId: id }}>
-              <MessageSquare className="w-4 h-4 mr-2" />
-              Open chat
-              {!!unreadCount && (
-                <span className="ml-2 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-semibold">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
+        {showActionSection && (
+          <Section title="What's next">
+            <div className="space-y-4">
+              {showRadar && <RadarSearch etaMinutes={5} nearbyDrivers={nearbyDrivers} />}
+
+              {showEscrowBanner && (
+                <div className={cn(
+                  "rounded-2xl border p-4 space-y-2",
+                  escrowPaid ? "border-success/40 bg-success/10" : "border-primary/40 bg-primary/5",
+                )}>
+                  <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
+                    <ShieldCheck className={cn("w-4 h-4", escrowPaid ? "text-success" : "text-primary")} />
+                    Con Z Pay
+                  </div>
+                  {escrowPaid ? (
+                    <p className="text-sm text-muted-foreground">
+                      {isOwner
+                        ? "Payment received and held safely. It'll be released to the driver once you confirm delivery."
+                        : "The customer has paid. Funds are held and will be released to your wallet once delivery is confirmed — or automatically after 72 hours."}
+                    </p>
+                  ) : isOwner ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">
+                        This job is set up to pay through Con Z Pay. Pay now — we'll hold the money until you confirm delivery.
+                      </p>
+                      <Button onClick={payEscrow} disabled={payingEscrow} className="w-full">
+                        {payingEscrow ? <Loader2 className="w-4 h-4 animate-spin" /> : `Pay ${money(Number(job.final_price ?? job.budget))} now`}
+                      </Button>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Waiting for the customer to pay through Con Z Pay before you're guaranteed payment on delivery.
+                    </p>
+                  )}
+                </div>
               )}
-            </Link>
-          </Button>
-        )}
 
-        {(isOwner || isAssignedDriver) && ["accepted", "in_progress", "completed"].includes(job.status) && (
-          <RaiseDisputeDialog
-            jobId={id}
-            against={isOwner ? job.driver_id : job.customer_id}
-          />
-        )}
-
-        {(isOwner || isAssignedDriver) && job.status !== "open" && (
-          <WhatsAppPanel job={job} isOwner={isOwner} />
-        )}
-
-        {(job.pickup_photo_url || job.delivery_photo_url) && (
-          <div className="rounded-2xl bg-card border p-4 space-y-3">
-            <div className="font-display font-bold uppercase text-sm tracking-wide">Proof of delivery</div>
-            <div className="grid grid-cols-2 gap-3">
-              {job.pickup_photo_url && (
-                <figure className="space-y-1">
-                  <SignedProofPhoto path={job.pickup_photo_url} alt="Load confirmed" />
-                  <figcaption className="text-xs font-semibold text-success flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> Load confirmed
-                  </figcaption>
-                </figure>
+              {showBidForm && (
+                <>
+                  <SpotlightCallout
+                    id="driver-bidding"
+                    title="Bid your own price"
+                    body="Enter what you'd charge for this delivery. If the customer likes it, they'll accept — or they might propose a different price back to you."
+                  />
+                  <BidForm jobId={id} existing={myBid} onSaved={() => qc.invalidateQueries({ queryKey: ["bids", id] })} />
+                </>
               )}
-              {job.delivery_photo_url && (
-                <figure className="space-y-1">
-                  <SignedProofPhoto path={job.delivery_photo_url} alt="Delivery confirmed" />
-                  <figcaption className="text-xs font-semibold text-success flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> Delivery confirmed
-                  </figcaption>
-                </figure>
+
+              {showCounterResponse && (
+                <div className="rounded-2xl bg-primary/5 border border-primary/30 p-4 space-y-3">
+                  <div className="font-display font-bold uppercase text-sm tracking-wide text-primary">
+                    Customer proposed a new price
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-display font-bold">{money(Number(myBid.customer_counter_price))}</span>
+                    <span className="text-xs text-muted-foreground line-through">{money(Number(myBid.price))}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button onClick={() => acceptCounter(myBid.id)} className="w-full">
+                      Accept
+                    </Button>
+                    <Button variant="outline" onClick={() => rejectCounter(myBid.id)} className="w-full">
+                      Decline
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {showPickupUpload && (
+                <ProofUpload
+                  jobId={id}
+                  kind="pickup"
+                  label="Confirm Pickup"
+                  hint="Take a photo of the loaded truck to start the trip."
+                  onUploaded={async () => {
+                  const { error } = await supabase.rpc("start_trip", { _job_id: id });
+                  if (error) { toast.error(error.message); return; }
+                  qc.invalidateQueries({ queryKey: ["job", id] });
+                  }}
+                />
+              )}
+
+              {showDeliveryUpload && (
+                <ProofUpload
+                  jobId={id}
+                  kind="delivery"
+                  label="Confirm Delivery"
+                  hint="Take a photo at the delivery point. The customer can then confirm."
+                  onUploaded={async () => {
+                    qc.invalidateQueries({ queryKey: ["job", id] });
+                  }}
+                />
+              )}
+
+              {showDeliveryPinDisplay && (
+                <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4 space-y-2 text-center">
+                  <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
+                    Delivery confirmation code
+                  </div>
+                  <div className="font-display font-bold text-4xl tracking-[0.2em]">{job.delivery_pin}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Give this code to your driver when they arrive with your delivery. They'll enter it to confirm and release payment — don't share it before then.
+                  </p>
+                </div>
+              )}
+
+              {showCompleteButton && (
+                <Button
+                  onClick={completeJob}
+                  disabled={!job.delivery_photo_url}
+                  className="w-full bg-success text-success-foreground hover:bg-success/90"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  {job.delivery_photo_url ? "Confirm delivery" : "Waiting for driver's delivery photo"}
+                </Button>
+              )}
+
+              {showDeliveryPinEntry && (
+                <DeliveryPinEntry jobId={id} onConfirmed={() => qc.invalidateQueries({ queryKey: ["job", id] })} />
+              )}
+
+              {showCancel && (
+                <CancelJobDialog jobId={id} status={job.status} onCancelled={() => nav({ to: "/jobs" })} />
               )}
             </div>
-          </div>
+          </Section>
         )}
 
-        {isAssignedDriver && job.status === "accepted" && !job.pickup_photo_url && (
-          <ProofUpload
-            jobId={id}
-            kind="pickup"
-            label="Confirm Pickup"
-            hint="Take a photo of the loaded truck to start the trip."
-            onUploaded={async () => {
-            const { error } = await supabase.rpc("start_trip", { _job_id: id });
-            if (error) { toast.error(error.message); return; }
-            qc.invalidateQueries({ queryKey: ["job", id] });
-            }}
-          />
-        )}
+        {showTrackingSection && (
+          <Section title="Tracking">
+            <div className="space-y-4">
+              {showProofPhotos && (
+                <div className="rounded-2xl bg-card border p-4 space-y-3">
+                  <div className="font-display font-bold uppercase text-sm tracking-wide">Proof of delivery</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {job.pickup_photo_url && (
+                      <figure className="space-y-1">
+                        <SignedProofPhoto path={job.pickup_photo_url} alt="Load confirmed" />
+                        <figcaption className="text-xs font-semibold text-success flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Load confirmed
+                        </figcaption>
+                      </figure>
+                    )}
+                    {job.delivery_photo_url && (
+                      <figure className="space-y-1">
+                        <SignedProofPhoto path={job.delivery_photo_url} alt="Delivery confirmed" />
+                        <figcaption className="text-xs font-semibold text-success flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Delivery confirmed
+                        </figcaption>
+                      </figure>
+                    )}
+                  </div>
+                </div>
+              )}
 
-        {isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && job.pickup_photo_url && !job.delivery_photo_url && (
-          <ProofUpload
-            jobId={id}
-            kind="delivery"
-            label="Confirm Delivery"
-            hint="Take a photo at the delivery point. The customer can then confirm."
-            onUploaded={async () => {
-              qc.invalidateQueries({ queryKey: ["job", id] });
-            }}
-          />
-        )}
+              {showDriverRoute && (
+                <>
+                  <DriverRouteView jobId={id} />
+                  <DriverShareLocation jobId={id} driverId={userId!} />
+                </>
+              )}
 
-        {isOwner && isEscrow && ["accepted", "in_progress"].includes(job.status) && job.delivery_pin && (
-          <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4 space-y-2 text-center">
-            <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
-              Delivery confirmation code
+              {showCustomerMap && <CustomerTrackMap jobId={id} />}
             </div>
-            <div className="font-display font-bold text-4xl tracking-[0.2em]">{job.delivery_pin}</div>
-            <p className="text-xs text-muted-foreground">
-              Give this code to your driver when they arrive with your delivery. They'll enter it to confirm and release payment — don't share it before then.
-            </p>
-          </div>
+          </Section>
         )}
 
-        {isOwner && !isEscrow && (job.status === "accepted" || job.status === "in_progress") && (
-          <Button
-            onClick={completeJob}
-            disabled={!job.delivery_photo_url}
-            className="w-full bg-success text-success-foreground hover:bg-success/90"
-          >
-            <CheckCircle2 className="w-4 h-4 mr-2" />
-            {job.delivery_photo_url ? "Confirm delivery" : "Waiting for driver's delivery photo"}
-          </Button>
-        )}
+        {showCommsSection && (
+          <Section title="Communication">
+            <div className="space-y-3">
+              {showChat && (
+                <Button asChild variant="outline" className="w-full relative">
+                  <Link to="/chat/$jobId" params={{ jobId: id }}>
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Open chat
+                    {!!unreadCount && (
+                      <span className="ml-2 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-semibold">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+                  </Link>
+                </Button>
+              )}
 
-        {isAssignedDriver && isEscrow && (job.status === "accepted" || job.status === "in_progress") && job.delivery_photo_url && (
-          <DeliveryPinEntry jobId={id} onConfirmed={() => qc.invalidateQueries({ queryKey: ["job", id] })} />
-        )}
+              {showWhatsapp && <WhatsAppPanel job={job} isOwner={isOwner} />}
 
-        {isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && (
-          <>
-            <DriverRouteView jobId={id} />
-            <DriverShareLocation jobId={id} driverId={userId!} />
-          </>
-        )}
-
-        {isOwner && (job.status === "accepted" || job.status === "in_progress") && <CustomerTrackMap jobId={id} />}
-
-        {is("driver") && !isOwner && job.status === "open" && (
-          <>
-            <SpotlightCallout
-              id="driver-bidding"
-              title="Bid your own price"
-              body="Enter what you'd charge for this delivery. If the customer likes it, they'll accept — or they might propose a different price back to you."
-            />
-            <BidForm jobId={id} existing={myBid} onSaved={() => qc.invalidateQueries({ queryKey: ["bids", id] })} />
-          </>
-        )}
-
-        {is("driver") && !isOwner && job.status === "open" && myBid?.counter_status === "countered" && (
-          <div className="rounded-2xl bg-primary/5 border border-primary/30 p-4 space-y-3">
-            <div className="font-display font-bold uppercase text-sm tracking-wide text-primary">
-              Customer proposed a new price
+              {showDispute && (
+                <RaiseDisputeDialog
+                  jobId={id}
+                  against={isOwner ? job.driver_id : job.customer_id}
+                />
+              )}
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-display font-bold">{money(Number(myBid.customer_counter_price))}</span>
-              <span className="text-xs text-muted-foreground line-through">{money(Number(myBid.price))}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button onClick={() => acceptCounter(myBid.id)} className="w-full">
-                Accept
-              </Button>
-              <Button variant="outline" onClick={() => rejectCounter(myBid.id)} className="w-full">
-                Decline
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {isOwner && (job.status === "open" || job.status === "accepted" || job.status === "in_progress") && (
-          <CancelJobDialog jobId={id} status={job.status} onCancelled={() => nav({ to: "/jobs" })} />
+          </Section>
         )}
 
         {(isOwner || is("admin") || is("super_admin")) && (
@@ -667,63 +712,69 @@ function JobDetail() {
           </Section>
         )}
 
-        {isOwner && job.status === "completed" && (
-          myRating ? (
-            <RatingSummary
-              title="Your rating for this driver"
-              stars={((myRating as any).quality + (myRating as any).communication + (myRating as any).reliability + (myRating as any).delivery_time) / 4}
-              comment={(myRating as any).comment}
-            />
-          ) : (
-            <RateForm jobId={id} driverId={job.driver_id!} onSaved={() => qc.invalidateQueries({ queryKey: ["my-rating", id, userId] })} />
-          )
-        )}
+        {showWrapSection && (
+          <Section title="Wrap up">
+            <div className="space-y-3">
+              {showRatingOwner && (
+                myRating ? (
+                  <RatingSummary
+                    title="Your rating for this driver"
+                    stars={((myRating as any).quality + (myRating as any).communication + (myRating as any).reliability + (myRating as any).delivery_time) / 4}
+                    comment={(myRating as any).comment}
+                  />
+                ) : (
+                  <RateForm jobId={id} driverId={job.driver_id!} onSaved={() => qc.invalidateQueries({ queryKey: ["my-rating", id, userId] })} />
+                )
+              )}
 
-        {isAssignedDriver && job.status === "completed" && (
-          myRating ? (
-            <RatingSummary
-              title="Your rating for this customer"
-              stars={(myRating as any).overall}
-              comment={(myRating as any).comment}
-            />
-          ) : (
-            <RateCustomerForm jobId={id} customerId={job.customer_id} onSaved={() => qc.invalidateQueries({ queryKey: ["my-rating", id, userId] })} />
-          )
-        )}
+              {showRatingDriver && (
+                myRating ? (
+                  <RatingSummary
+                    title="Your rating for this customer"
+                    stars={(myRating as any).overall}
+                    comment={(myRating as any).comment}
+                  />
+                ) : (
+                  <RateCustomerForm jobId={id} customerId={job.customer_id} onSaved={() => qc.invalidateQueries({ queryKey: ["my-rating", id, userId] })} />
+                )
+              )}
 
-        {isOwner && job.status === "completed" && job.tracking_token && (
-          <>
-            <SpotlightCallout
-              id="receipt-button"
-              title="Your receipt is one tap away"
-              body="Every completed delivery gets a receipt with price, photos, and a downloadable PDF for your records — find it here anytime."
-            />
-            <a
-              href={`${SITE_URL}/track/${job.tracking_token}`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center justify-center gap-2 w-full text-center rounded-xl border font-semibold py-3 text-sm"
-            >
-              <Receipt className="w-4 h-4" /> View your receipt
-            </a>
-          </>
-        )}
+              {showReceipt && (
+                <>
+                  <SpotlightCallout
+                    id="receipt-button"
+                    title="Your receipt is one tap away"
+                    body="Every completed delivery gets a receipt with price, photos, and a downloadable PDF for your records — find it here anytime."
+                  />
+                  <a
+                    href={`${SITE_URL}/track/${job.tracking_token}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-center gap-2 w-full text-center rounded-xl border font-semibold py-3 text-sm"
+                  >
+                    <Receipt className="w-4 h-4" /> View your receipt
+                  </a>
+                </>
+              )}
 
-        {isOwner && job.status === "completed" && job.driver_id && (
-          <Link
-            to="/customer/book"
-            search={{
-              material: job.material,
-              quantity: job.quantity_m3,
-              address: job.delivery_address,
-              lat: job.delivery_lat ?? undefined,
-              lng: job.delivery_lng ?? undefined,
-              driverId: job.driver_id,
-            }}
-            className="block w-full text-center rounded-xl bg-primary text-primary-foreground font-display font-bold uppercase tracking-wide py-3"
-          >
-            Book this driver again
-          </Link>
+              {showBookAgain && (
+                <Link
+                  to="/customer/book"
+                  search={{
+                    material: job.material,
+                    quantity: job.quantity_m3,
+                    address: job.delivery_address,
+                    lat: job.delivery_lat ?? undefined,
+                    lng: job.delivery_lng ?? undefined,
+                    driverId: job.driver_id!,
+                  }}
+                  className="block w-full text-center rounded-xl bg-primary text-primary-foreground font-display font-bold uppercase tracking-wide py-3"
+                >
+                  Book this driver again
+                </Link>
+              )}
+            </div>
+          </Section>
         )}
       </div>
     </AppShell>
