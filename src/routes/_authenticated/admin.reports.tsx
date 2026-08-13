@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState, StatusBadge } from "@/components/ui-bits";
-import { MessageSquareWarning, ShieldAlert } from "lucide-react";
+import { MessageSquareWarning, ShieldAlert, Phone, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/reports")({
@@ -48,7 +48,7 @@ function AdminReports() {
       const { data: rows } = await q;
       const userIds = Array.from(new Set((rows ?? []).map((r) => r.user_id)));
       const { data: profs } = userIds.length
-        ? await supabase.from("profiles").select("id,full_name,email").in("id", userIds)
+        ? await supabase.from("profiles").select("id,full_name,email,phone").in("id", userIds)
         : { data: [] };
       const pmap = new Map((profs ?? []).map((p) => [p.id, p]));
       return (rows ?? []).map((r) => ({ ...r, profile: pmap.get(r.user_id) }));
@@ -118,7 +118,18 @@ function ReportCard({ r, onUpdate }: { r: any; onUpdate: (id: string, patch: { s
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="font-semibold">{r.profile?.full_name ?? "Unknown user"}</div>
-          <div className="text-xs text-muted-foreground truncate">{r.profile?.email}</div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-0.5">
+            {r.profile?.phone && (
+              <a href={`tel:${r.profile.phone}`} className="text-xs text-primary font-semibold flex items-center gap-1">
+                <Phone className="w-3 h-3" /> {r.profile.phone}
+              </a>
+            )}
+            {r.profile?.email && (
+              <a href={`mailto:${r.profile.email}`} className="text-xs text-primary font-semibold flex items-center gap-1 truncate">
+                <Mail className="w-3 h-3 shrink-0" /> {r.profile.email}
+              </a>
+            )}
+          </div>
         </div>
         <StatusBadge
           label={r.status}

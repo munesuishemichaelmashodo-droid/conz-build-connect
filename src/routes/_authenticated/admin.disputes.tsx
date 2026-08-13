@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Gavel, XCircle, Search as SearchIcon, RefreshCcw, ShieldOff, AlertTriangle, Check, Ban } from "lucide-react";
+import { Gavel, XCircle, Search as SearchIcon, RefreshCcw, ShieldOff, AlertTriangle, Check, Ban, Phone, Mail } from "lucide-react";
 import { StatusBadge, EmptyState } from "@/components/ui-bits";
 import { DisputeEvidence } from "@/components/DisputeEvidence";
 import { toast } from "sonner";
@@ -30,6 +30,25 @@ const OUTCOMES: { value: string; label: string; icon: typeof Check; className: s
   { value: "account_suspended", label: "Suspend account", icon: ShieldOff, className: "bg-destructive text-destructive-foreground" },
 ];
 
+function ContactLinks({ label, profile }: { label: string; profile?: { full_name?: string | null; email?: string | null; phone?: string | null } }) {
+  if (!profile || (!profile.email && !profile.phone)) return null;
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] text-muted-foreground">{label}:</span>
+      {profile.phone && (
+        <a href={`tel:${profile.phone}`} className="text-[10px] text-primary font-semibold flex items-center gap-0.5">
+          <Phone className="w-2.5 h-2.5" /> Call
+        </a>
+      )}
+      {profile.email && (
+        <a href={`mailto:${profile.email}`} className="text-[10px] text-primary font-semibold flex items-center gap-0.5">
+          <Mail className="w-2.5 h-2.5" /> Email
+        </a>
+      )}
+    </div>
+  );
+}
+
 function AdminDisputes() {
   const [filter, setFilter] = useState<Filter>("open");
   const qc = useQueryClient();
@@ -46,13 +65,13 @@ function AdminDisputes() {
         new Set((disputes ?? []).flatMap((d) => [d.raised_by, d.against].filter(Boolean) as string[])),
       );
       const { data: profiles } = userIds.length
-        ? await supabase.from("profiles").select("id,full_name").in("id", userIds)
-        : { data: [] as { id: string; full_name: string }[] };
-      const pmap = new Map(profiles?.map((p) => [p.id, p.full_name]) ?? []);
+        ? await supabase.from("profiles").select("id,full_name,email,phone").in("id", userIds)
+        : { data: [] as { id: string; full_name: string; email: string | null; phone: string | null }[] };
+      const pmap = new Map(profiles?.map((p) => [p.id, p]) ?? []);
       return (disputes ?? []).map((d) => ({
         ...d,
-        raised_by_name: pmap.get(d.raised_by) ?? "—",
-        against_name: d.against ? (pmap.get(d.against) ?? "—") : "—",
+        raised_by_profile: pmap.get(d.raised_by),
+        against_profile: d.against ? pmap.get(d.against) : undefined,
       }));
     },
   });
@@ -114,8 +133,12 @@ function AdminDisputes() {
             <div key={d.id} className="rounded-xl border bg-card p-4 space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="text-xs">
-                  <div className="font-semibold">{d.raised_by_name} <span className="text-muted-foreground">vs</span> {d.against_name}</div>
+                  <div className="font-semibold">{d.raised_by_profile?.full_name ?? "—"} <span className="text-muted-foreground">vs</span> {d.against_profile?.full_name ?? "—"}</div>
                   <div className="text-[10px] text-muted-foreground mt-0.5">Job {d.job_id.slice(0, 8)} · {new Date(d.created_at).toLocaleString()}</div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
+                    <ContactLinks label="Raised by" profile={d.raised_by_profile} />
+                    <ContactLinks label="Against" profile={d.against_profile} />
+                  </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <StatusBadge
