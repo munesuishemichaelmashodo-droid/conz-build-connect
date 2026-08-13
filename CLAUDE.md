@@ -99,8 +99,7 @@ and diff against the repo first.
 
 ## Open questions — need the owner's answer, don't act unilaterally
 
-- **Customer "Call support" button on `help.tsx`** needs a real phone
-  number from the owner — not urgent, owner said they can wait.
+(none currently open)
 - Owner reported changing password from Account Settings (logged in via
   Google) "didn't apply" — the code in `profile.tsx`'s `SetPasswordCard`
   looks correct (calls `supabase.auth.updateUser` with proper error
