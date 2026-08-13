@@ -64,6 +64,8 @@ function AdminReports() {
 
   return (
     <div className="space-y-3">
+      {/* Off-platform contact alert — auto-detected, surfaced above the
+          filter/list below since it needs no user report to be actionable */}
       {!!flags?.length && (
         <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 space-y-2">
           <div className="flex items-center gap-2 text-xs font-semibold text-warning uppercase tracking-wide">
@@ -86,6 +88,7 @@ function AdminReports() {
         </div>
       )}
 
+      {/* Status filter — defaults to "open" */}
       <div className="flex gap-2">
         {(["open", "resolved", "all"] as Filter[]).map((f) => (
           <button
@@ -100,6 +103,7 @@ function AdminReports() {
         ))}
       </div>
 
+      {/* User-submitted reports */}
       {!data?.length ? (
         <EmptyState icon={MessageSquareWarning} title={`No ${filter} reports`} hint="User-submitted reports will appear here." />
       ) : (
@@ -115,6 +119,7 @@ function ReportCard({ r, onUpdate }: { r: any; onUpdate: (id: string, patch: { s
   const [note, setNote] = useState(r.admin_notes ?? "");
   return (
     <div className="rounded-xl border bg-card p-4 space-y-3">
+      {/* Reporter identity + contact */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="font-semibold">{r.profile?.full_name ?? "Unknown user"}</div>
@@ -136,9 +141,13 @@ function ReportCard({ r, onUpdate }: { r: any; onUpdate: (id: string, patch: { s
           className={r.status === "resolved" ? "bg-success/15 text-success border-success/30" : "bg-warning/15 text-warning border-warning/30"}
         />
       </div>
+
+      {/* Report details */}
       <p className="text-sm whitespace-pre-wrap">{r.description}</p>
       {r.job_id && <p className="text-[11px] text-muted-foreground">Related job: <code>{r.job_id}</code></p>}
       <p className="text-[11px] text-muted-foreground">{new Date(r.created_at).toLocaleString()}</p>
+
+      {/* Admin note + resolve/reopen */}
       <div className="space-y-2 pt-2 border-t">
         <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Admin reply / internal note…" rows={2} />
         <div className="grid grid-cols-2 gap-2">
