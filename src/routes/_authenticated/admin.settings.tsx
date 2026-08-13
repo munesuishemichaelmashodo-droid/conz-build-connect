@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -8,6 +8,13 @@ import { toast } from "sonner";
 import { AddressPicker } from "@/components/AddressPicker";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
+  beforeLoad: async () => {
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) throw redirect({ to: "/auth" });
+    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
+    const list = (roles ?? []).map((r: { role: string }) => r.role);
+    if (!list.includes("super_admin")) throw redirect({ to: "/admin" });
+  },
   component: AdminSettings,
 });
 

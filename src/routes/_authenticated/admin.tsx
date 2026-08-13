@@ -30,7 +30,7 @@ const TABS: { to: string; label: string; icon: typeof Users; exact?: boolean; su
   { to: "/admin/reports", label: "Reports", icon: MessageSquareWarning },
   { to: "/admin/audit", label: "Audit", icon: ScrollText, superOnly: true },
   { to: "/admin/ledger", label: "Ledger", icon: BookOpen, superOnly: true },
-  { to: "/admin/settings", label: "Settings", icon: SettingsIcon },
+  { to: "/admin/settings", label: "Settings", icon: SettingsIcon, superOnly: true },
 ];
 
 function AdminLayout() {
