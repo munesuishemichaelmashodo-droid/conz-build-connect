@@ -217,10 +217,12 @@ toast.success(`Price multiplier set to ${v.toFixed(2)}`);
         </div>
       )}
 
-      <div className="rounded-xl border bg-muted/30 p-4 text-xs text-muted-foreground space-y-1">
-        <div>Signed in as: <span className="font-mono">{userId?.slice(0, 8)}</span></div>
-        <div>Super admins on platform: {superCount ?? 0}</div>
-      </div>
+      {isSuper && (
+        <div className="rounded-xl border bg-muted/30 p-4 text-xs text-muted-foreground space-y-1">
+          <div>Signed in as: <span className="font-mono">{userId?.slice(0, 8)}</span></div>
+          <div>Super admins on platform: {superCount ?? 0}</div>
+        </div>
+      )}
     </div>
   );
 }

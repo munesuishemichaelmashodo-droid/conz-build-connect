@@ -183,6 +183,10 @@ function RevenueDashboard() {
         </div>
       </div>
 
+      {/* Wallet approvals -- an action queue, so it sits near the top rather
+          than nested inside the revenue report card below it. */}
+      <ApprovalsSection profiles={profiles} />
+
       {/* Commission rate editor */}
       <div className="rounded-2xl border bg-card p-5 space-y-3">
         <div className="flex items-center gap-2">
@@ -241,8 +245,6 @@ function RevenueDashboard() {
         <div className="text-xs text-muted-foreground">
           {filtered.length} events • {money(filtered.reduce((a, t) => a + Math.abs(Number(t.amount)), 0))} collected
         </div>
-
-        <ApprovalsSection profiles={profiles} />
       </div>
 
       {/* Top drivers by commission */}
