@@ -13,18 +13,11 @@ import { JobOfferListener } from "@/components/JobOfferListener";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
 
-
-
-
 export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
   const { userId, profile, is } = useAuth();
   const isDriver = role === "driver";
   const isCustomer = role === "customer";
   void is;
-
-  
-  
-
 
   const { data: jobs } = useQuery({
     queryKey: ["role-dash-jobs", userId, role],
@@ -39,8 +32,6 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
       return data;
     },
   });
-
-
 
   const { data: wallet } = useQuery({
     queryKey: ["wallet", userId],
@@ -59,6 +50,10 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
       return data;
     },
   });
+
+  const restrictedUntil = (profile as any)?.restricted_until as string | null | undefined;
+  const restricted = isCustomer && !!restrictedUntil ? new Date(restrictedUntil) > new Date() : false;
+  const showVerificationWarning = isDriver && driver?.verification_status !== "verified";
 
   return (
     <AppShell title={isDriver ? "Driver" : "Customer"}>
@@ -88,7 +83,13 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
           )}
         </div>
 
-        {isDriver && driver?.verification_status !== "verified" && (
+        {/* Anything needing the person's attention right now, grouped together
+            instead of scattered between unrelated cards. PushNotificationPrompt
+            manages its own visibility (dismissible / permission-based) and
+            renders nothing when there's nothing to ask. */}
+        <PushNotificationPrompt />
+
+        {showVerificationWarning && (
           <Link to="/profile" className="flex items-center gap-3 rounded-xl border border-warning/40 bg-warning/10 p-3">
             <ShieldAlert className="w-5 h-5 text-warning shrink-0" />
             <div className="text-sm">
@@ -98,6 +99,47 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
           </Link>
         )}
 
+        {restricted && (
+          <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm">
+            <div className="font-semibold text-destructive">Posting temporarily restricted</div>
+            <div className="text-muted-foreground text-xs mt-1">
+              Your account is temporarily restricted from posting new jobs until{" "}
+              {new Date(restrictedUntil!).toLocaleString()} due to cancellation history.
+            </div>
+          </div>
+        )}
+
+        {/* Primary actions -- what the person is here to do. */}
+        {isCustomer && !restricted && (
+          <div className="space-y-2">
+            <Link to="/customer/book" className="block rounded-xl bg-gradient-primary text-primary-foreground p-4 shadow-lift">
+              <Plus className="w-6 h-6" />
+              <div className="font-display font-bold mt-2 uppercase">Book delivery</div>
+              <div className="text-xs opacity-80">AI-priced in seconds</div>
+            </Link>
+            <p className="text-[11px] text-muted-foreground px-1">
+              Cancelling jobs after a driver accepts may affect your account — see our cancellation policy.
+            </p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <Link to="/jobs" className="rounded-xl bg-card border p-4 shadow-soft">
+            <Briefcase className="w-6 h-6 text-primary" />
+            <div className="font-display font-bold mt-2 uppercase">{isDriver ? "Find jobs" : "My jobs"}</div>
+            <div className="text-xs text-muted-foreground">{isDriver ? "Open requests" : "Track progress"}</div>
+          </Link>
+          {isDriver && (
+            <Link to="/wallet" className="rounded-xl bg-card border p-4 shadow-soft">
+              <WalletIcon className="w-6 h-6 text-primary" />
+              <div className="font-display font-bold mt-2 uppercase">Wallet</div>
+              <div className="text-xs text-muted-foreground">Top-ups & fees</div>
+            </Link>
+          )}
+        </div>
+
+        {/* Secondary status -- real but not urgent, so it sits below the
+            primary actions rather than competing with them. */}
         {isDriver && driver && (
           <div className="rounded-2xl border bg-card p-4 space-y-2">
             <div className="flex items-center justify-between">
@@ -127,51 +169,6 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
         )}
 
         <LocalLocator />
-
-        <PushNotificationPrompt />
-
-        {isCustomer && (() => {
-          const restrictedUntil = (profile as any)?.restricted_until as string | null | undefined;
-          const restricted = restrictedUntil ? new Date(restrictedUntil) > new Date() : false;
-          return (
-            <div className="space-y-2">
-              {restricted && (
-                <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm">
-                  <div className="font-semibold text-destructive">Posting temporarily restricted</div>
-                  <div className="text-muted-foreground text-xs mt-1">
-                    Your account is temporarily restricted from posting new jobs until{" "}
-                    {new Date(restrictedUntil!).toLocaleString()} due to cancellation history.
-                  </div>
-                </div>
-              )}
-              {!restricted && (
-                <Link to="/customer/book" className="block rounded-xl bg-gradient-primary text-primary-foreground p-4 shadow-lift">
-                  <Plus className="w-6 h-6" />
-                  <div className="font-display font-bold mt-2 uppercase">Book delivery</div>
-                  <div className="text-xs opacity-80">AI-priced in seconds</div>
-                </Link>
-              )}
-              <p className="text-[11px] text-muted-foreground px-1">
-                Cancelling jobs after a driver accepts may affect your account — see our cancellation policy.
-              </p>
-            </div>
-          );
-        })()}
-
-        <div className="grid grid-cols-2 gap-3">
-          <Link to="/jobs" className="rounded-xl bg-card border p-4 shadow-soft">
-            <Briefcase className="w-6 h-6 text-primary" />
-            <div className="font-display font-bold mt-2 uppercase">{isDriver ? "Find jobs" : "My jobs"}</div>
-            <div className="text-xs text-muted-foreground">{isDriver ? "Open requests" : "Track progress"}</div>
-          </Link>
-          {isDriver && (
-            <Link to="/wallet" className="rounded-xl bg-card border p-4 shadow-soft">
-              <WalletIcon className="w-6 h-6 text-primary" />
-              <div className="font-display font-bold mt-2 uppercase">Wallet</div>
-              <div className="text-xs text-muted-foreground">Top-ups & fees</div>
-            </Link>
-          )}
-        </div>
 
 <Section
   title={isDriver ? "Open jobs" : "Recent jobs"}
