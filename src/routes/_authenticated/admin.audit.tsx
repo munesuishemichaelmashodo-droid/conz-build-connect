@@ -104,6 +104,7 @@ function AuditLogPage() {
 
   return (
     <div className="space-y-4">
+      {/* Header */}
       <Card className="p-4 flex items-center gap-3">
         <div className="p-2 rounded-lg bg-primary/15 text-primary">
           <ScrollText className="w-5 h-5" />
@@ -116,6 +117,7 @@ function AuditLogPage() {
         </div>
       </Card>
 
+      {/* Log entries — most recent action first */}
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : !data || data.rows.length === 0 ? (
@@ -132,6 +134,7 @@ function AuditLogPage() {
             const metaEntries = Object.entries(row.meta ?? {});
             return (
               <Card key={row.id} className="p-3 space-y-1.5">
+                {/* Action + when */}
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <Badge
                     variant="outline"
@@ -143,6 +146,8 @@ function AuditLogPage() {
                     {formatDistanceToNow(new Date(row.created_at), { addSuffix: true })}
                   </span>
                 </div>
+
+                {/* Who did it, to whom */}
                 <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
                   <User className="w-3 h-3" />
                   <span className="font-medium text-foreground">{actorName}</span>
@@ -153,6 +158,8 @@ function AuditLogPage() {
                     </>
                   )}
                 </div>
+
+                {/* Structured details (job/dispute id, amounts, status changes, etc.) */}
                 {metaEntries.length > 0 && (
                   <div className="text-xs bg-muted rounded-lg p-2 grid grid-cols-[auto,1fr] gap-x-3 gap-y-1">
                     {metaEntries.map(([key, value]) => (
@@ -163,6 +170,8 @@ function AuditLogPage() {
                     ))}
                   </div>
                 )}
+
+                {/* Free-text reason the admin gave, if any */}
                 {row.reason && (
                   <p className="text-xs italic text-muted-foreground">"{row.reason}"</p>
                 )}
