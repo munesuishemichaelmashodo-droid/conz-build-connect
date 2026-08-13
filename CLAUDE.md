@@ -81,19 +81,24 @@ and diff against the repo first.
   never populate (those live on `jobs.pickup_photo_url` /
   `delivery_photo_url`). Now pulls both.
 
+## Resolved since the above list was written
+
+- **`demand_multiplier` / diesel price conflation** — was a real code bug:
+  admin.settings.tsx's "Price multiplier" field loaded its value from
+  `diesel_price_per_liter` but saved via `admin_set_demand_multiplier` (a
+  different setting), so setting the diesel price silently applied an 87%
+  markup to every material cost. Fixed: split into two correctly-wired
+  cards (Diesel price -> `admin_set_diesel_price`, recreated after being
+  found missing live; Price multiplier -> `admin_set_demand_multiplier`,
+  now reads its own value). Migration `0034` reset `demand_multiplier` to
+  1.0 for all materials. Diesel price stays at $1.87/L (intentional, real
+  rate). Any job quoted between Paynow going live and this fix (~9h window
+  on 13/08) may have had an inflated material cost line.
+- **Duplicate commission-rate control** — removed from `admin.settings.tsx`;
+  it now lives only in `admin.revenue.tsx`. Rate stays at 7%.
+
 ## Open questions — need the owner's answer, don't act unilaterally
 
-- **`material_prices.demand_multiplier` is `1.87` for every enforced
-  material** (except 'custom' at 1.0) — suspiciously exactly matches the
-  diesel price per liter, strongly suggesting someone typed the diesel price
-  into the admin Settings "Price multiplier" field by mistake (that field's
-  own UI label says it should be ~1.00–1.08). This is currently inflating
-  every material cost quote by ~87%. **Asked the owner twice, no answer
-  yet** — don't reset this without explicit confirmation, it's a live
-  pricing/business number.
-- **Commission rate is editable from both `admin.settings.tsx` and
-  `admin.revenue.tsx`** (duplicate control) — asked owner whether to
-  consolidate, no answer yet.
 - **Customer "Call support" button on `help.tsx`** needs a real phone
   number from the owner — not urgent, owner said they can wait.
 - Owner reported changing password from Account Settings (logged in via
