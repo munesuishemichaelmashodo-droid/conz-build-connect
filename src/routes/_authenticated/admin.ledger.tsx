@@ -350,6 +350,7 @@ function LedgerPage() {
 
   return (
     <div className="space-y-4">
+      {/* Summary — settled totals for the selected range */}
       <div className="rounded-2xl bg-gradient-dark text-white p-5 shadow-lift">
         <div className="flex items-center gap-2 text-white/70 text-[11px] uppercase tracking-widest">
           <BookOpen className="w-3.5 h-3.5" /> Financial ledger
@@ -385,6 +386,7 @@ function LedgerPage() {
         <Card label="Adjustments" value={money(totals.adjustments)} icon={Sliders} />
       </div>
 
+      {/* View & range — which panel below is showing, and over what window */}
       <div className="flex gap-2 overflow-x-auto -mx-4 px-4">
         {(
           [
@@ -422,69 +424,7 @@ function LedgerPage() {
         ))}
       </div>
 
-      {tab === "charts" && <LedgerCharts data={series} />}
-
-      {tab === "reconcile" && (
-        <div className="rounded-2xl border bg-card p-4 space-y-2">
-          <h3 className="font-display font-bold uppercase tracking-wide text-sm">Reconciliation (all time)</h3>
-          {[
-            ["Total wallet balances held", reconcile?.walletTotal],
-            ["Total money deposited", reconcile?.deposited],
-            ["Total money withdrawn", reconcile?.withdrawn],
-            ["Total commissions earned", reconcile?.commissions],
-            ["Total refunds issued", reconcile?.refunds],
-            ["Manual adjustments", reconcile?.adjustments],
-            ["Expected wallet balance", reconcile?.expected],
-          ].map(([label, v]) => (
-            <div key={String(label)} className="flex items-center justify-between text-xs py-1.5 border-b">
-              <span className="text-muted-foreground">{label}</span>
-              <span className="font-semibold">{money(Number(v ?? 0))}</span>
-            </div>
-          ))}
-          <div
-            className={cn(
-              "rounded-xl border p-3 mt-2",
-              Math.abs(reconcile?.variance ?? 0) < 0.01
-                ? "bg-success/10 border-success/30"
-                : "bg-destructive/10 border-destructive/30",
-            )}
-          >
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Variance check</div>
-            <div className="font-display font-bold text-lg">{money(reconcile?.variance ?? 0)}</div>
-            <p className="text-[11px] text-muted-foreground mt-1">
-              {Math.abs(reconcile?.variance ?? 0) < 0.01
-                ? "Wallet balances match the transaction history exactly."
-                : "Wallet balances do not match the transaction history — investigate adjustments or direct balance edits."}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {tab === "audit" && (
-        <div className="rounded-2xl border bg-card divide-y">
-          <div className="p-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide">
-            <ScrollText className="w-3.5 h-3.5" /> Approvals, rejections, refunds & adjustments
-          </div>
-          {(auditLog ?? []).length === 0 ? (
-            <div className="p-6 text-center text-xs text-muted-foreground">No audit entries recorded yet.</div>
-          ) : (
-            (auditLog ?? []).map((a) => (
-              <div key={a.id} className="p-3">
-                <div className="text-sm font-semibold capitalize">{a.action.replace(/_/g, " ")}</div>
-                <div className="text-[11px] text-muted-foreground">
-                  by {a.actor ? (people?.get(a.actor)?.name ?? a.actor.slice(0, 8)) : "system"}
-                  {a.subject ? ` • on ${people?.get(a.subject)?.name ?? a.subject.slice(0, 8)}` : ""} •{" "}
-                  {new Date(a.created_at).toLocaleString()}
-                </div>
-                {a.detail && a.detail !== "{}" && (
-                  <p className="text-[11px] text-muted-foreground mt-1 break-all">{a.detail}</p>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
+      {/* Ledger tab — the default view: filterable transaction feed */}
       {tab === "ledger" && (
         <>
           <div className="rounded-2xl border bg-card p-4 space-y-3">
@@ -634,6 +574,72 @@ function LedgerPage() {
             </button>
           )}
         </>
+      )}
+
+      {/* Charts tab — revenue trend visualisation */}
+      {tab === "charts" && <LedgerCharts data={series} />}
+
+      {/* Reconcile tab — wallet balances vs. transaction history, flags drift */}
+      {tab === "reconcile" && (
+        <div className="rounded-2xl border bg-card p-4 space-y-2">
+          <h3 className="font-display font-bold uppercase tracking-wide text-sm">Reconciliation (all time)</h3>
+          {[
+            ["Total wallet balances held", reconcile?.walletTotal],
+            ["Total money deposited", reconcile?.deposited],
+            ["Total money withdrawn", reconcile?.withdrawn],
+            ["Total commissions earned", reconcile?.commissions],
+            ["Total refunds issued", reconcile?.refunds],
+            ["Manual adjustments", reconcile?.adjustments],
+            ["Expected wallet balance", reconcile?.expected],
+          ].map(([label, v]) => (
+            <div key={String(label)} className="flex items-center justify-between text-xs py-1.5 border-b">
+              <span className="text-muted-foreground">{label}</span>
+              <span className="font-semibold">{money(Number(v ?? 0))}</span>
+            </div>
+          ))}
+          <div
+            className={cn(
+              "rounded-xl border p-3 mt-2",
+              Math.abs(reconcile?.variance ?? 0) < 0.01
+                ? "bg-success/10 border-success/30"
+                : "bg-destructive/10 border-destructive/30",
+            )}
+          >
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Variance check</div>
+            <div className="font-display font-bold text-lg">{money(reconcile?.variance ?? 0)}</div>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {Math.abs(reconcile?.variance ?? 0) < 0.01
+                ? "Wallet balances match the transaction history exactly."
+                : "Wallet balances do not match the transaction history — investigate adjustments or direct balance edits."}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Audit tab — who approved/rejected/adjusted what */}
+      {tab === "audit" && (
+        <div className="rounded-2xl border bg-card divide-y">
+          <div className="p-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide">
+            <ScrollText className="w-3.5 h-3.5" /> Approvals, rejections, refunds & adjustments
+          </div>
+          {(auditLog ?? []).length === 0 ? (
+            <div className="p-6 text-center text-xs text-muted-foreground">No audit entries recorded yet.</div>
+          ) : (
+            (auditLog ?? []).map((a) => (
+              <div key={a.id} className="p-3">
+                <div className="text-sm font-semibold capitalize">{a.action.replace(/_/g, " ")}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  by {a.actor ? (people?.get(a.actor)?.name ?? a.actor.slice(0, 8)) : "system"}
+                  {a.subject ? ` • on ${people?.get(a.subject)?.name ?? a.subject.slice(0, 8)}` : ""} •{" "}
+                  {new Date(a.created_at).toLocaleString()}
+                </div>
+                {a.detail && a.detail !== "{}" && (
+                  <p className="text-[11px] text-muted-foreground mt-1 break-all">{a.detail}</p>
+                )}
+              </div>
+            ))
+          )}
+        </div>
       )}
 
       <Link to="/admin" className="block text-center text-xs text-muted-foreground underline py-2">
