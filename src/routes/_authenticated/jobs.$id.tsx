@@ -661,12 +661,18 @@ function JobDetail() {
         )}
 
         {(isOwner || is("admin") || is("super_admin")) && (
-          <Section title={`Bids (${bids?.length ?? 0})`}>
+          <Section
+            title={
+              job.status === "open"
+                ? `Bids (${bids?.length ?? 0})`
+                : "Bid"
+            }
+          >
             {!bids?.length ? (
               <p className="text-sm text-muted-foreground">No bids yet. Drivers are checking your request.</p>
             ) : (
               <div className="space-y-2">
-                {bids.map((b: any) => (
+                {(job.status === "open" ? bids : bids.filter((b: any) => b.status === "accepted")).map((b: any) => (
                   <div key={b.id} className="rounded-xl bg-card border p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-start gap-3 min-w-0">
@@ -740,6 +746,13 @@ function JobDetail() {
                     )}
                   </div>
                 ))}
+                {job.status !== "open" && bids.filter((b: any) => b.status === "rejected").length > 0 && (
+                  <p className="text-xs text-muted-foreground italic px-1">
+                    {bids.filter((b: any) => b.status === "rejected").length === 1
+                      ? "1 other bid was not selected."
+                      : `${bids.filter((b: any) => b.status === "rejected").length} other bids were not selected.`}
+                  </p>
+                )}
               </div>
             )}
           </Section>
