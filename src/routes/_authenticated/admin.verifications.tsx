@@ -57,6 +57,7 @@ function AdminVerifications() {
 
   return (
     <div className="space-y-3">
+      {/* Status filter — defaults to "pending", the queue needing a decision */}
       <div className="flex gap-2">
         {(["pending", "verified", "rejected"] as Filter[]).map((f) => (
           <button
@@ -77,6 +78,7 @@ function AdminVerifications() {
         <div className="space-y-3">
           {data.map((d) => (
             <div key={d.user_id} className="rounded-xl border bg-card p-4 space-y-3">
+              {/* Driver header — identity + current status */}
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="font-semibold truncate">{d.profile?.full_name ?? "Unnamed"}</div>
@@ -101,6 +103,8 @@ function AdminVerifications() {
                 <span className="text-muted-foreground">Nationality: </span>
                 <span>{(d as any).nationality ?? "—"}</span>
               </div>
+
+              {/* ID, licence & vehicle photos */}
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => view(d.national_id_url)} disabled={!d.national_id_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                   <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> National ID
@@ -122,6 +126,7 @@ function AdminVerifications() {
                 </button>
               </div>
 
+              {/* Transport compliance documents */}
               <div className="space-y-1.5">
                 <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
                   Transport compliance —{" "}
@@ -147,6 +152,8 @@ function AdminVerifications() {
                   </button>
                 </div>
               </div>
+
+              {/* Decision — only offered while pending */}
               {filter === "pending" && (
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <button
@@ -166,6 +173,8 @@ function AdminVerifications() {
                   </button>
                 </div>
               )}
+
+              {/* Prior decision note, if any */}
               {d.verification_notes && (
                 <p className="text-xs text-muted-foreground italic">Note: {d.verification_notes}</p>
               )}

@@ -111,6 +111,7 @@ function AdminDisputes() {
 
   return (
     <div className="space-y-3">
+      {/* Status filter — defaults to "open", the most actionable bucket */}
       <div className="grid grid-cols-4 gap-2">
         {(["open", "investigating", "resolved", "rejected"] as Filter[]).map((f) => (
           <button
@@ -131,6 +132,7 @@ function AdminDisputes() {
         <div className="space-y-3">
           {data.map((d) => (
             <div key={d.id} className="rounded-xl border bg-card p-4 space-y-2">
+              {/* Case header — parties, status, SLA due/overdue, category */}
               <div className="flex items-start justify-between gap-2">
                 <div className="text-xs">
                   <div className="font-semibold">{d.raised_by_profile?.full_name ?? "—"} <span className="text-muted-foreground">vs</span> {d.against_profile?.full_name ?? "—"}</div>
@@ -169,6 +171,8 @@ function AdminDisputes() {
                   )}
                 </div>
               </div>
+
+              {/* Case details — the complaint itself, plus any prior outcome/resolution */}
               <p className="text-sm">{d.reason}</p>
               {d.outcome && (
                 <p className="text-[11px] font-semibold text-foreground">
@@ -179,8 +183,10 @@ function AdminDisputes() {
                 <p className="text-xs italic text-muted-foreground border-l-2 border-primary/50 pl-2">{d.resolution}</p>
               )}
 
+              {/* Evidence — pickup/delivery photos + any uploaded proof */}
               <DisputeEvidence jobId={d.job_id} />
 
+              {/* Actions — only for cases still awaiting a decision */}
               {(filter === "open" || filter === "investigating") && (
                 <div className="space-y-2 pt-1">
                   <div className="grid grid-cols-2 gap-2">
