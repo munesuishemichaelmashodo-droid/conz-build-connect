@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui-bits";
 import { materialLabel, money, statusInfo } from "@/lib/domain";
 import { Button } from "@/components/ui/button";
 import { JobCard } from "@/components/JobCard";
+import { RouteLine } from "@/components/RouteLine";
 
 export const Route = createFileRoute("/_authenticated/home")({
   component: HomePage,
@@ -24,12 +25,15 @@ function HomePage() {
   const hasAny = is("driver") || is("customer");
   return (
     <AppShell title="Con Z">
-      <div className="space-y-4 py-6 text-center">
-        <div className="font-display font-bold text-xl">Welcome to Con Z</div>
-        <p className="text-sm text-muted-foreground">
-          {hasAny ? "Open the side menu to pick your view." : "Set up your account to get started."}
-        </p>
-        <Button asChild className="w-full"><Link to="/profile">Go to profile</Link></Button>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-dark text-white space-y-4 py-10 px-6 text-center">
+        <RouteLine opacity={0.18} animate />
+        <div className="relative">
+          <div className="font-display font-bold text-xl">Welcome to Con Z</div>
+          <p className="text-sm text-white/70 mt-2">
+            {hasAny ? "Open the side menu to pick your view." : "Set up your account to get started."}
+          </p>
+          <Button asChild className="w-full mt-4"><Link to="/profile">Go to profile</Link></Button>
+        </div>
       </div>
     </AppShell>
   );

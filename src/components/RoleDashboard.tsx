@@ -12,6 +12,8 @@ import { LocalLocator } from "@/components/LocalLocator";
 import { JobOfferListener } from "@/components/JobOfferListener";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
+import { RouteLine } from "@/components/RouteLine";
+import { ShieldCheck } from "lucide-react";
 
 export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
   const { userId, profile, is } = useAuth();
@@ -60,7 +62,14 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
       {userId && <OnboardingWalkthrough userId={userId} role={role} />}
       <div className="space-y-6">
         {isDriver && <JobOfferListener />}
-        <div className="rounded-2xl bg-gradient-dark text-white p-5 shadow-lift">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-dark text-white p-5 shadow-lift">
+          <RouteLine opacity={0.18} animate />
+          <div className="relative">
+          {isCustomer && (
+            <div className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider mb-3 bg-primary/15 text-primary border border-primary/30">
+              <ShieldCheck className="w-3 h-3" /> Escrow protected
+            </div>
+          )}
           <div className="text-xs uppercase tracking-widest text-white/60">Welcome back</div>
           <div className="font-display font-bold text-2xl mt-1">{profile?.full_name?.split(" ")[0] ?? "Builder"}</div>
           {isDriver && wallet && (
@@ -81,6 +90,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
               )}
             </div>
           )}
+          </div>
         </div>
 
         {/* Anything needing the person's attention right now, grouped together
