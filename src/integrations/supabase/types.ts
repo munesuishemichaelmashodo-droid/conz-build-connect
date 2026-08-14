@@ -1331,33 +1331,48 @@ export type Database = {
         Row: {
           amount: number
           balance_after: number
+          category: Database["public"]["Enums"]["wallet_adjustment_category"] | null
           created_at: string
           created_by: string | null
+          device_info: Json | null
           id: string
+          ip_address: string | null
           job_id: string | null
           note: string | null
+          previous_balance: number | null
+          reversal_of_transaction_id: string | null
           type: Database["public"]["Enums"]["tx_type"]
           user_id: string
         }
         Insert: {
           amount: number
           balance_after: number
+          category?: Database["public"]["Enums"]["wallet_adjustment_category"] | null
           created_at?: string
           created_by?: string | null
+          device_info?: Json | null
           id?: string
+          ip_address?: string | null
           job_id?: string | null
           note?: string | null
+          previous_balance?: number | null
+          reversal_of_transaction_id?: string | null
           type: Database["public"]["Enums"]["tx_type"]
           user_id: string
         }
         Update: {
           amount?: number
           balance_after?: number
+          category?: Database["public"]["Enums"]["wallet_adjustment_category"] | null
           created_at?: string
           created_by?: string | null
+          device_info?: Json | null
           id?: string
+          ip_address?: string | null
           job_id?: string | null
           note?: string | null
+          previous_balance?: number | null
+          reversal_of_transaction_id?: string | null
           type?: Database["public"]["Enums"]["tx_type"]
           user_id?: string
         }
@@ -1367,6 +1382,13 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_transactions_reversal_of_transaction_id_fkey"
+            columns: ["reversal_of_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_transactions"
             referencedColumns: ["id"]
           },
         ]
@@ -1559,6 +1581,51 @@ export type Database = {
           to: "wallets"
           isOneToOne: true
           isSetofReturn: false
+        }
+      }
+      admin_wallet_adjust: {
+        Args: {
+          _amount: number
+          _category: Database["public"]["Enums"]["wallet_adjustment_category"]
+          _device?: Json
+          _ip?: string
+          _reason: string
+          _user_id: string
+        }
+        Returns: {
+          amount: number
+          balance_after: number
+          category: Database["public"]["Enums"]["wallet_adjustment_category"] | null
+          created_at: string
+          created_by: string | null
+          device_info: Json | null
+          id: string
+          ip_address: string | null
+          job_id: string | null
+          note: string | null
+          previous_balance: number | null
+          reversal_of_transaction_id: string | null
+          type: Database["public"]["Enums"]["tx_type"]
+          user_id: string
+        }
+      }
+      admin_wallet_reverse: {
+        Args: { _reason: string; _transaction_id: string }
+        Returns: {
+          amount: number
+          balance_after: number
+          category: Database["public"]["Enums"]["wallet_adjustment_category"] | null
+          created_at: string
+          created_by: string | null
+          device_info: Json | null
+          id: string
+          ip_address: string | null
+          job_id: string | null
+          note: string | null
+          previous_balance: number | null
+          reversal_of_transaction_id: string | null
+          type: Database["public"]["Enums"]["tx_type"]
+          user_id: string
         }
       }
       admin_evidence_paths: {
@@ -2293,6 +2360,13 @@ export type Database = {
         | "custom"
       tx_type: "topup" | "commission" | "refund" | "adjustment" | "withdrawal"
       verification_status: "pending" | "verified" | "rejected"
+      wallet_adjustment_category:
+        | "refund"
+        | "promotion"
+        | "dispute_resolution"
+        | "payment_correction"
+        | "escrow_adjustment"
+        | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2461,6 +2535,14 @@ export const Constants = {
       ],
       tx_type: ["topup", "commission", "refund", "adjustment", "withdrawal"],
       verification_status: ["pending", "verified", "rejected"],
+      wallet_adjustment_category: [
+        "refund",
+        "promotion",
+        "dispute_resolution",
+        "payment_correction",
+        "escrow_adjustment",
+        "other",
+      ],
     },
   },
 } as const

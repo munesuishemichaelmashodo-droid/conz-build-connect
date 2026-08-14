@@ -121,7 +121,7 @@ function LedgerPage() {
     queryFn: async () => {
       let q = supabase
         .from("wallet_transactions")
-        .select("id,user_id,type,amount,balance_after,job_id,note,created_by,created_at")
+        .select("id,user_id,type,amount,balance_after,job_id,note,created_by,created_at,category,reversal_of_transaction_id")
         .order("created_at", { ascending: false })
         .range(0, pages * PAGE_SIZE - 1);
       const c = cutoffIso(range);
@@ -143,6 +143,8 @@ function LedgerPage() {
         method: null,
         created_by: r.created_by,
         created_at: r.created_at,
+        category: r.category,
+        reversal_of_transaction_id: r.reversal_of_transaction_id,
       }));
     },
   });
@@ -550,6 +552,16 @@ function LedgerPage() {
                       <span className={cn("inline-flex px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase", TYPE_TONE[r.type])}>
                         {r.type}
                       </span>
+                      {r.category && (
+                        <span className="inline-flex px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase bg-secondary/15 text-secondary-foreground border-secondary/30">
+                          {String(r.category).replace(/_/g, " ")}
+                        </span>
+                      )}
+                      {r.reversal_of_transaction_id && (
+                        <span className="inline-flex px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase bg-muted text-muted-foreground border-border">
+                          reversal
+                        </span>
+                      )}
                       <span className={cn("inline-flex px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase", STATUS_TONE[r.status])}>
                         {r.status}
                       </span>

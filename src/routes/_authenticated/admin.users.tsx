@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, ShieldOff, ShieldCheck, Ban, Wallet, X, Phone } from "lucide-react";
+import { Search, ShieldOff, ShieldCheck, Ban, Wallet, X, Phone, Undo2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { StatusBadge, EmptyState } from "@/components/ui-bits";
 import { money } from "@/lib/domain";
@@ -11,6 +11,52 @@ import { useAuth } from "@/lib/auth";
 export const Route = createFileRoute("/_authenticated/admin/users")({
   component: AdminUsers,
 });
+
+type AdjustCategory =
+  | "refund"
+  | "promotion"
+  | "dispute_resolution"
+  | "payment_correction"
+  | "escrow_adjustment"
+  | "other";
+
+const CATEGORIES: { value: AdjustCategory; label: string }[] = [
+  { value: "refund", label: "Refund" },
+  { value: "promotion", label: "Promotional credit" },
+  { value: "dispute_resolution", label: "Dispute resolution" },
+  { value: "payment_correction", label: "Payment correction" },
+  { value: "escrow_adjustment", label: "Escrow adjustment" },
+  { value: "other", label: "Other" },
+];
+
+const HIGH_VALUE_THRESHOLD = 500;
+
+type LedgerRow = {
+  id: string;
+  amount: number;
+  balance_after: number;
+  previous_balance: number | null;
+  category: AdjustCategory | null;
+  note: string | null;
+  created_at: string;
+  created_by: string | null;
+  reversal_of_transaction_id: string | null;
+};
+
+// Best-effort client-side public IP lookup for the audit trail. Never blocks the flow.
+async function getClientIp(): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch("https://api.ipify.org?format=json", { signal: controller.signal });
+    clearTimeout(t);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.ip ?? null;
+  } catch {
+    return null;
+  }
+}
 
 type Row = {
   id: string;
@@ -169,23 +215,78 @@ function UserSheet({
   onChanged: () => void;
 }) {
   const [amount, setAmount] = useState("");
-  const [note, setNote] = useState("");
+  const [category, setCategory] = useState<AdjustCategory | "">("");
+  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState<{ sign: 1 | -1; amount: number } | null>(null);
+  const qc = useQueryClient();
 
-  const credit = async (sign: 1 | -1) => {
+  const ledgerQuery = useQuery({
+    queryKey: ["wallet-ledger", row.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("wallet_transactions")
+        .select("id,amount,balance_after,previous_balance,category,note,created_at,created_by,reversal_of_transaction_id")
+        .eq("user_id", row.id)
+        .eq("type", "adjustment")
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return (data ?? []) as LedgerRow[];
+    },
+  });
+
+  const ledger = ledgerQuery.data ?? [];
+  const reversedIds = new Set(ledger.filter((t) => t.reversal_of_transaction_id).map((t) => t.reversal_of_transaction_id));
+
+  const startConfirm = (sign: 1 | -1) => {
     const v = Number(amount);
-    if (!v || isNaN(v)) return toast.error("Enter an amount");
+    if (!v || isNaN(v) || v <= 0) return toast.error("Enter an amount");
+    if (!category) return toast.error("Select a category");
+    if (!reason.trim()) return toast.error("A written reason is required");
+    if (Math.abs(v) > HIGH_VALUE_THRESHOLD && !isSuper) {
+      return toast.error(`Amounts over ${money(HIGH_VALUE_THRESHOLD)} require a super admin`);
+    }
+    setConfirming({ sign, amount: v });
+  };
+
+  const submitAdjustment = async () => {
+    if (!confirming) return;
     setBusy(true);
-    const { error } = await supabase.rpc("admin_credit_wallet", {
+    const ip = await getClientIp();
+    const { error } = await supabase.rpc("admin_wallet_adjust", {
       _user_id: row.id,
-      _amount: sign * Math.abs(v),
-      _note: note || (sign > 0 ? "Top-up" : "Deduction"),
+      _amount: confirming.sign * Math.abs(confirming.amount),
+      _category: category as AdjustCategory,
+      _reason: reason.trim(),
+      _ip: ip ?? undefined,
+      _device: { userAgent: navigator.userAgent } as never,
+    });
+    setBusy(false);
+    setConfirming(null);
+    if (error) return toast.error(error.message);
+    toast.success("Wallet updated — recorded in the audit log");
+    setAmount("");
+    setCategory("");
+    setReason("");
+    qc.invalidateQueries({ queryKey: ["wallet-ledger", row.id] });
+    onChanged();
+  };
+
+  const reverse = async (tx: LedgerRow) => {
+    const why = window.prompt(
+      `Reverse ${money(Math.abs(tx.amount))} (${tx.category ?? "adjustment"})? This creates a new offsetting transaction — it will not delete or edit the original.\n\nReason for reversal:`
+    );
+    if (!why?.trim()) return;
+    setBusy(true);
+    const { error } = await supabase.rpc("admin_wallet_reverse", {
+      _transaction_id: tx.id,
+      _reason: why.trim(),
     });
     setBusy(false);
     if (error) return toast.error(error.message);
-    toast.success("Wallet updated");
-    setAmount("");
-    setNote("");
+    toast.success("Transaction reversed");
+    qc.invalidateQueries({ queryKey: ["wallet-ledger", row.id] });
     onChanged();
   };
 
@@ -227,40 +328,155 @@ function UserSheet({
         </div>
 
         <div className="mt-4 space-y-2">
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Wallet top-up / deduct</div>
-          <div className="flex gap-2">
-            <input
-              type="number"
-              inputMode="decimal"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="Amount (USD)"
-              className="flex-1 px-3 py-2 rounded-lg border bg-background text-sm"
-            />
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+            Manual wallet adjustment
           </div>
+          <p className="text-[11px] text-muted-foreground">
+            Normal top-ups happen automatically via Paynow. Use this only for refunds, dispute resolutions,
+            promotions, or corrections — every adjustment is permanently logged.
+          </p>
           <input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Note (e.g. EcoCash ref ABC123)"
+            type="number"
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="Amount (USD)"
             className="w-full px-3 py-2 rounded-lg border bg-background text-sm"
           />
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value as AdjustCategory)}
+            className="w-full px-3 py-2 rounded-lg border bg-background text-sm"
+          >
+            <option value="">Select a category…</option>
+            {CATEGORIES.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Reason (required — shown to the user and kept in the audit log)"
+            rows={2}
+            className="w-full px-3 py-2 rounded-lg border bg-background text-sm resize-none"
+          />
+          {Number(amount) > HIGH_VALUE_THRESHOLD && !isSuper && (
+            <div className="flex items-center gap-1.5 text-[11px] text-warning font-medium">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              Amounts over {money(HIGH_VALUE_THRESHOLD)} need a super admin.
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <button
               disabled={busy}
-              onClick={() => credit(1)}
+              onClick={() => startConfirm(1)}
               className="rounded-lg bg-success text-success-foreground font-semibold py-2 text-sm disabled:opacity-50"
             >
               <Wallet className="w-4 h-4 inline mr-1" /> Credit
             </button>
             <button
               disabled={busy}
-              onClick={() => credit(-1)}
+              onClick={() => startConfirm(-1)}
               className="rounded-lg bg-destructive text-destructive-foreground font-semibold py-2 text-sm disabled:opacity-50"
             >
               Deduct
             </button>
           </div>
         </div>
+
+        <div className="mt-4 space-y-2">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+            Recent manual adjustments
+          </div>
+          {ledgerQuery.isLoading ? (
+            <p className="text-xs text-muted-foreground">Loading…</p>
+          ) : !ledger.length ? (
+            <p className="text-xs text-muted-foreground">No manual adjustments on record.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {ledger.map((tx) => {
+                const isReversal = !!tx.reversal_of_transaction_id;
+                const alreadyReversed = reversedIds.has(tx.id);
+                return (
+                  <div key={tx.id} className="rounded-lg border bg-muted/30 p-2.5 text-xs">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className={`font-semibold ${tx.amount > 0 ? "text-success" : "text-destructive"}`}>
+                          {tx.amount > 0 ? "+" : ""}{money(tx.amount)}
+                          {isReversal && <span className="ml-1.5 text-muted-foreground font-normal">(reversal)</span>}
+                        </div>
+                        <div className="text-muted-foreground truncate">
+                          {tx.category ? CATEGORIES.find((c) => c.value === tx.category)?.label ?? tx.category : "—"}
+                          {tx.note ? ` · ${tx.note}` : ""}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground/70 mt-0.5">
+                          {new Date(tx.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                      {isSuper && !isReversal && !alreadyReversed && (
+                        <button
+                          disabled={busy}
+                          onClick={() => reverse(tx)}
+                          className="shrink-0 flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold hover:bg-muted disabled:opacity-50"
+                          title="Reverse this transaction"
+                        >
+                          <Undo2 className="w-3 h-3" /> Reverse
+                        </button>
+                      )}
+                      {alreadyReversed && (
+                        <span className="shrink-0 text-[10px] text-muted-foreground italic">Reversed</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {confirming && (
+          <div
+            className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4"
+            onClick={() => !busy && setConfirming(null)}
+          >
+            <div
+              className="w-full max-w-sm rounded-2xl border bg-card p-5 shadow-lift"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h4 className="font-display font-bold text-base">Confirm adjustment</h4>
+              <p className="text-sm mt-2">
+                You are about to {confirming.sign > 0 ? "credit" : "deduct"}{" "}
+                <span className="font-semibold">{money(confirming.amount)}</span>
+                {confirming.sign > 0 ? " to " : " from "}
+                <span className="font-semibold">{row.full_name}</span>.
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Category: {CATEGORIES.find((c) => c.value === category)?.label}
+                <br />
+                Reason: {reason.trim()}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-2 italic">
+                This action will be permanently recorded in the audit log and cannot be edited or deleted.
+              </p>
+              <div className="grid grid-cols-2 gap-2 mt-4">
+                <button
+                  disabled={busy}
+                  onClick={() => setConfirming(null)}
+                  className="rounded-lg border py-2 text-sm font-semibold hover:bg-muted disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={submitAdjustment}
+                  className="rounded-lg bg-primary text-primary-foreground py-2 text-sm font-semibold disabled:opacity-50"
+                >
+                  {busy ? "Processing…" : "Confirm"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mt-5 space-y-2">
           <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Account status</div>

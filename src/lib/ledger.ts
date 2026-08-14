@@ -18,6 +18,9 @@ export type LedgerRow = {
   method: string | null;
   created_by: string | null;
   created_at: string;
+  /** Only set on manual admin adjustments (type === "adjustment"). */
+  category?: string | null;
+  reversal_of_transaction_id?: string | null;
 };
 
 export const TX_TYPES: TxType[] = ["topup", "commission", "refund", "adjustment", "withdrawal"];
