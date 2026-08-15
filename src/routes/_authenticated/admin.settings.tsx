@@ -55,6 +55,22 @@ function AdminSettings() {
     },
   });
 
+  const { data: buckets } = useQuery({
+    queryKey: ["admin-material-price-buckets"],
+    queryFn: async () => {
+      const { data } = await (supabase.rpc as unknown as (f: string) => Promise<{ data: unknown }>)(
+        "admin_material_price_buckets",
+      );
+      return (data ?? []) as Array<{
+        material: string;
+        label: string;
+        bucket_m3: number;
+        min_price: number;
+        max_price: number;
+      }>;
+    },
+  });
+
   const [multiplierValue, setMultiplierValue] = useState("");
   useEffect(() => {
     if (!materials?.length) return;
@@ -183,10 +199,12 @@ function AdminSettings() {
             <MaterialPriceRow
               key={m.material}
               material={m}
+              buckets={(buckets ?? []).filter((b) => b.material === m.material)}
               isSuper={isSuper}
               onSaved={() => {
                 qc.invalidateQueries({ queryKey: ["admin-material-prices-full"] });
                 qc.invalidateQueries({ queryKey: ["admin-material-prices"] });
+                qc.invalidateQueries({ queryKey: ["admin-material-price-buckets"] });
               }}
             />
           ))}
@@ -223,6 +241,7 @@ function AdminSettings() {
 
 function MaterialPriceRow({
   material,
+  buckets,
   isSuper,
   onSaved,
 }: {
@@ -236,6 +255,7 @@ function MaterialPriceRow({
     pickup_lng?: number | null;
     pickup_label?: string | null;
   };
+  buckets: Array<{ bucket_m3: number; min_price: number; max_price: number }>;
   isSuper: boolean;
   onSaved: () => void;
 }) {
@@ -376,6 +396,33 @@ function MaterialPriceRow({
 
           <div className="pt-3 mt-1 border-t space-y-2">
             <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
+              Price by load size for {material.label}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Separate min/max per truck load size. This is what actually drives job pricing and budget
+              enforcement — the range above is a fallback only.
+            </p>
+            <div className="space-y-2">
+              {[10, 12, 15, 20].map((bucketM3) => {
+                const existing = buckets.find((b) => b.bucket_m3 === bucketM3);
+                return (
+                  <BucketPriceRow
+                    key={bucketM3}
+                    materialId={material.material}
+                    materialLabel={material.label}
+                    bucketM3={bucketM3}
+                    minPrice={existing?.min_price ?? null}
+                    maxPrice={existing?.max_price ?? null}
+                    isSuper={isSuper}
+                    onSaved={onSaved}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="pt-3 mt-1 border-t space-y-2">
+            <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
               Actual pickup location for {material.label}
             </div>
             <p className="text-[11px] text-muted-foreground">
@@ -405,6 +452,125 @@ function MaterialPriceRow({
               {savingPickup ? "Saving…" : "Save pickup location"}
             </button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BucketPriceRow({
+  materialId,
+  materialLabel,
+  bucketM3,
+  minPrice,
+  maxPrice,
+  isSuper,
+  onSaved,
+}: {
+  materialId: string;
+  materialLabel: string;
+  bucketM3: number;
+  minPrice: number | null;
+  maxPrice: number | null;
+  isSuper: boolean;
+  onSaved: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [min, setMin] = useState(String(minPrice ?? ""));
+  const [max, setMax] = useState(String(maxPrice ?? ""));
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setMin(String(minPrice ?? ""));
+    setMax(String(maxPrice ?? ""));
+  }, [minPrice, maxPrice]);
+
+  const save = async () => {
+    const minV = Number(min);
+    const maxV = Number(max);
+    if (isNaN(minV) || isNaN(maxV) || minV < 0 || maxV < minV) {
+      return toast.error("Min must be ≥ 0, max must be ≥ min.");
+    }
+    if (reason.trim().length < 5) {
+      return toast.error("Give a reason (at least 5 characters) — it is recorded in the admin audit log.");
+    }
+    setSaving(true);
+    const { error } = await (supabase.rpc as unknown as (
+      f: string,
+      a: Record<string, unknown>,
+    ) => Promise<{ error: { message: string } | null }>)("admin_set_material_bucket_price", {
+      _material: materialId,
+      _bucket_m3: bucketM3,
+      _min_price: minV,
+      _max_price: maxV,
+      _reason: reason.trim(),
+    });
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success(`${materialLabel} — ${bucketM3}m³ price updated`);
+    setReason("");
+    setOpen(false);
+    onSaved();
+  };
+
+  const hasPrice = minPrice != null && maxPrice != null;
+
+  return (
+    <div className="rounded-lg border bg-background/50 p-2 space-y-2">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-2 text-left"
+      >
+        <span className="text-xs font-semibold">{bucketM3} m³ load</span>
+        <span className="text-xs text-muted-foreground font-mono">
+          {hasPrice ? `$${Number(minPrice).toFixed(0)}–$${Number(maxPrice).toFixed(0)}` : "Not set"}
+        </span>
+      </button>
+      {open && (
+        <div className="space-y-2 pt-2 border-t">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[11px] text-muted-foreground">Min ($)</label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={min}
+                onChange={(e) => setMin(e.target.value)}
+                disabled={!isSuper}
+                className="w-full px-2 py-1.5 rounded-lg border bg-background text-sm disabled:opacity-50"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-muted-foreground">Max ($)</label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={max}
+                onChange={(e) => setMax(e.target.value)}
+                disabled={!isSuper}
+                className="w-full px-2 py-1.5 rounded-lg border bg-background text-sm disabled:opacity-50"
+              />
+            </div>
+          </div>
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            disabled={!isSuper}
+            placeholder="Reason (required, recorded in the audit log)"
+            className="w-full px-2 py-1.5 rounded-lg border bg-background text-xs disabled:opacity-50"
+          />
+          <button
+            onClick={save}
+            disabled={!isSuper || saving}
+            className="w-full rounded-lg bg-primary text-primary-foreground font-semibold py-2 text-sm disabled:opacity-50"
+          >
+            {saving ? "Saving…" : `Save ${bucketM3}m³ price`}
+          </button>
         </div>
       )}
     </div>
