@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) throw redirect({ to: "/auth" });
     const { data: roles } = await supabase
@@ -16,6 +16,10 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const list = (roles ?? []).map((r: { role: string }) => r.role);
     if (!list.includes("admin") && !list.includes("super_admin")) {
       throw redirect({ to: "/home" });
+    }
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal?.currentLevel !== "aal2") {
+      throw redirect({ to: "/mfa", search: { next: location.pathname } });
     }
   },
   component: AdminLayout,

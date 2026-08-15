@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,6 +6,7 @@ import { Search, ShieldOff, ShieldCheck, Ban, Wallet, X, Phone, Undo2, AlertTria
 import { toast } from "sonner";
 import { StatusBadge, EmptyState } from "@/components/ui-bits";
 import { money } from "@/lib/domain";
+import { isMfaRequiredError } from "@/lib/mfa";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
@@ -220,6 +221,7 @@ function UserSheet({
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState<{ sign: 1 | -1; amount: number } | null>(null);
   const qc = useQueryClient();
+  const nav = useNavigate();
 
   const ledgerQuery = useQuery({
     queryKey: ["wallet-ledger", row.id],
@@ -264,7 +266,13 @@ function UserSheet({
     });
     setBusy(false);
     setConfirming(null);
-    if (error) return toast.error(error.message);
+    if (error) {
+      if (isMfaRequiredError(error)) {
+        toast.error("Your session needs a fresh MFA check");
+        return nav({ to: "/mfa", search: { next: "/admin/users" } });
+      }
+      return toast.error(error.message);
+    }
     toast.success("Wallet updated — recorded in the audit log");
     setAmount("");
     setCategory("");
@@ -284,7 +292,13 @@ function UserSheet({
       _reason: why.trim(),
     });
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      if (isMfaRequiredError(error)) {
+        toast.error("Your session needs a fresh MFA check");
+        return nav({ to: "/mfa", search: { next: "/admin/users" } });
+      }
+      return toast.error(error.message);
+    }
     toast.success("Transaction reversed");
     qc.invalidateQueries({ queryKey: ["wallet-ledger", row.id] });
     onChanged();
