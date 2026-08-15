@@ -453,7 +453,9 @@ function BookDelivery() {
               />
               <p className="text-xs text-muted-foreground mt-1">
                 Anything up to 20 m³ is automatically priced against the next load size up
-                (e.g. 13 m³ is priced as a 15 m³ load). Above 20 m³ needs a custom quote.
+                (e.g. 13 m³ is priced as a 15 m³ load). Above 20 m³, we price it from recent
+                driver bids on similar-sized loads once there's enough data — otherwise it's
+                routed to a custom quote.
               </p>
             </div>
           </motion.div>
