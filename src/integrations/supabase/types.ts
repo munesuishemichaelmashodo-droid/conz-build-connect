@@ -903,6 +903,33 @@ export type Database = {
           },
         ]
       }
+      mfa_recovery_log: {
+        Row: {
+          created_at: string
+          factors_removed: number
+          id: string
+          performed_by: string
+          reason: string
+          target_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          factors_removed?: number
+          id?: string
+          performed_by: string
+          reason: string
+          target_user_id: string
+        }
+        Update: {
+          created_at?: string
+          factors_removed?: number
+          id?: string
+          performed_by?: string
+          reason?: string
+          target_user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string | null
@@ -1797,6 +1824,20 @@ export type Database = {
           rejected_rewards: number
           total_referrals: number
           total_released_amount: number
+        }[]
+      }
+      admin_reset_mfa: {
+        Args: { _reason: string; _user_id: string }
+        Returns: number
+      }
+      admin_list_admins_mfa_status: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          email: string | null
+          full_name: string
+          has_verified_mfa: boolean
+          role: string
+          user_id: string
         }[]
       }
       admin_evidence_paths: {
