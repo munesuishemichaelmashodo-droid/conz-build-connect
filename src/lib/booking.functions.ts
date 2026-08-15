@@ -82,7 +82,14 @@ export const computeOffer = createServerFn({ method: "POST" })
       enforced: boolean;
       materialCost?: number;
       transportCost?: number;
+      requiresCustomQuote?: boolean;
     };
+
+    if (g.requiresCustomQuote) {
+      throw new Error(
+        `${data.quantity} m³ is above our largest standard load (20 m³) — please contact support for a custom quote on this size.`,
+      );
+    }
 
     const offer = Number(g.offer ?? 0);
     const min = Number(g.min ?? 0);
@@ -134,7 +141,14 @@ export const computePublicOffer = createServerFn({ method: "POST" })
       enforced: boolean;
       materialCost?: number;
       transportCost?: number;
+      requiresCustomQuote?: boolean;
     };
+
+    if (g.requiresCustomQuote) {
+      throw new Error(
+        `${data.quantity} m³ is above our largest standard load (20 m³) — please contact support for a custom quote on this size.`,
+      );
+    }
 
     const offer = Number(g.offer ?? 0);
     const min = Number(g.min ?? 0);

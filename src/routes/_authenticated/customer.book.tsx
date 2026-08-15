@@ -420,10 +420,10 @@ function BookDelivery() {
 
         {step === 1 && (
           <motion.div key="s-qty" {...anim} className="space-y-5 mt-6">
-            <Header icon={Truck} title="How much?" hint="One tipper load carries 10–15 m³." />
+            <Header icon={Truck} title="How much?" hint="Tipper loads come in 10, 15, or 20 m³." />
 
             <div className="flex gap-2">
-              {[10, 12, 14, 15].map((v) => (
+              {[10, 15, 20].map((v) => (
                 <button
                   key={v}
                   type="button"
@@ -451,6 +451,10 @@ function BookDelivery() {
                 value={quantity}
                 onChange={(e) => setQuantity(Number(e.target.value))}
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Anything up to 20 m³ is automatically priced against the next load size up
+                (e.g. 13 m³ is priced as a 15 m³ load). Above 20 m³ needs a custom quote.
+              </p>
             </div>
           </motion.div>
         )}
