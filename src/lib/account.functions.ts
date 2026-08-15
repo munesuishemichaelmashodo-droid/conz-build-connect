@@ -64,6 +64,20 @@ export const activateAccount = createServerFn({ method: "POST" })
       if (error) throw new Error("Could not activate your account access");
     }
 
+    // First-time activation with a referral code: redeem it. Non-fatal on failure
+    // (bad/expired code, self-referral, already redeemed) — signup must not be blocked.
+    const referralCode = typeof meta.referral_code === "string" ? meta.referral_code.trim() : "";
+    if (existingRoles.size === 0 && referralCode) {
+      try {
+        await context.supabase.rpc("record_referral", {
+          _code: referralCode,
+          _referred_role: requestedRole,
+        });
+      } catch (err) {
+        console.error("Referral redemption failed (non-fatal)", err);
+      }
+    }
+
     const needsDriverProfile = existingRoles.has("driver") || rolesToAdd.has("driver") || requestedRole === "driver";
     if (needsDriverProfile) {
       const [{ error: driverError }, { error: walletError }] = await Promise.all([

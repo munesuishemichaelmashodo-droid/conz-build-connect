@@ -19,6 +19,7 @@ const searchSchema = z.object({
   mode: z.enum(["login", "register"]).optional(),
   next: z.string().optional(),
   role: z.enum(["customer", "driver"]).optional(),
+  ref: z.string().optional(),
 });
 
 export const Route = createFileRoute("/auth")({
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
-  const { mode, next, role: initialRole } = Route.useSearch();
+  const { mode, next, role: initialRole, ref } = Route.useSearch();
   const nav = useNavigate();
   const [tab, setTab] = useState<"login" | "register">(mode ?? (initialRole ? "register" : "login"));
 
@@ -81,6 +82,7 @@ function AuthPage() {
   const [localPhone, setLocalPhone] = useState("");
   const phone = `${countryDialCode}${localPhone.replace(/\D/g, "")}`;
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [referralCode, setReferralCode] = useState((ref ?? "").toUpperCase());
 
   const supabaseUrl =
     (import.meta as unknown as { env: Record<string, string | undefined> }).env
@@ -181,7 +183,7 @@ function AuthPage() {
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/oauth-callback`,
-          data: { full_name: fullName, phone, role },
+          data: { full_name: fullName, phone, role, referral_code: referralCode.trim() || null },
         },
       });
       if (error) {
@@ -412,6 +414,16 @@ function AuthPage() {
                   <Label htmlFor="pw">Password</Label>
                   <PasswordInput id="pw" value={password} onChange={setPassword} show={showPassword} onToggle={() => setShowPassword((v) => !v)} autoComplete="new-password" minLength={8} />
                   <p className="text-[11px] text-muted-foreground mt-1">Minimum 8 characters.</p>
+                </div>
+                <div>
+                  <Label htmlFor="refcode">Referral code (optional)</Label>
+                  <Input
+                    id="refcode"
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                    placeholder="CONZ-AB123"
+                    maxLength={20}
+                  />
                 </div>
                 <label className="flex items-start gap-2 text-xs text-muted-foreground select-none">
                   <input

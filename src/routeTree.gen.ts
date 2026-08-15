@@ -22,6 +22,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as TrackTokenRouteImport } from './routes/track.$token'
 import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
 import { Route as AuthenticatedReportRouteImport } from './routes/_authenticated/report'
+import { Route as AuthenticatedReferRouteImport } from './routes/_authenticated/refer'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedHelpRouteImport } from './routes/_authenticated/help'
@@ -44,6 +45,7 @@ import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
 import { Route as AuthenticatedAdminRevenueRouteImport } from './routes/_authenticated/admin.revenue'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
+import { Route as AuthenticatedAdminReferralsRouteImport } from './routes/_authenticated/admin.referrals'
 import { Route as AuthenticatedAdminLedgerRouteImport } from './routes/_authenticated/admin.ledger'
 import { Route as AuthenticatedAdminDisputesRouteImport } from './routes/_authenticated/admin.disputes'
 import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin.audit'
@@ -112,6 +114,11 @@ const AuthenticatedWalletRoute = AuthenticatedWalletRouteImport.update({
 const AuthenticatedReportRoute = AuthenticatedReportRouteImport.update({
   id: '/report',
   path: '/report',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedReferRoute = AuthenticatedReferRouteImport.update({
+  id: '/refer',
+  path: '/refer',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
@@ -233,6 +240,12 @@ const AuthenticatedAdminReportsRoute =
     path: '/reports',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminReferralsRoute =
+  AuthenticatedAdminReferralsRouteImport.update({
+    id: '/referrals',
+    path: '/referrals',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminLedgerRoute =
   AuthenticatedAdminLedgerRouteImport.update({
     id: '/ledger',
@@ -281,6 +294,7 @@ export interface FileRoutesByFullPath {
   '/help': typeof AuthenticatedHelpRoute
   '/home': typeof AuthenticatedHomeRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/refer': typeof AuthenticatedReferRoute
   '/report': typeof AuthenticatedReportRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/track/$token': typeof TrackTokenRoute
@@ -289,6 +303,7 @@ export interface FileRoutesByFullPath {
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/disputes': typeof AuthenticatedAdminDisputesRoute
   '/admin/ledger': typeof AuthenticatedAdminLedgerRoute
+  '/admin/referrals': typeof AuthenticatedAdminReferralsRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/revenue': typeof AuthenticatedAdminRevenueRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
@@ -320,6 +335,7 @@ export interface FileRoutesByTo {
   '/help': typeof AuthenticatedHelpRoute
   '/home': typeof AuthenticatedHomeRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/refer': typeof AuthenticatedReferRoute
   '/report': typeof AuthenticatedReportRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/track/$token': typeof TrackTokenRoute
@@ -328,6 +344,7 @@ export interface FileRoutesByTo {
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/disputes': typeof AuthenticatedAdminDisputesRoute
   '/admin/ledger': typeof AuthenticatedAdminLedgerRoute
+  '/admin/referrals': typeof AuthenticatedAdminReferralsRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/revenue': typeof AuthenticatedAdminRevenueRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
@@ -363,6 +380,7 @@ export interface FileRoutesById {
   '/_authenticated/help': typeof AuthenticatedHelpRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/refer': typeof AuthenticatedReferRoute
   '/_authenticated/report': typeof AuthenticatedReportRoute
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
   '/track/$token': typeof TrackTokenRoute
@@ -371,6 +389,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/_authenticated/admin/disputes': typeof AuthenticatedAdminDisputesRoute
   '/_authenticated/admin/ledger': typeof AuthenticatedAdminLedgerRoute
+  '/_authenticated/admin/referrals': typeof AuthenticatedAdminReferralsRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/revenue': typeof AuthenticatedAdminRevenueRoute
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
@@ -406,6 +425,7 @@ export interface FileRouteTypes {
     | '/help'
     | '/home'
     | '/profile'
+    | '/refer'
     | '/report'
     | '/wallet'
     | '/track/$token'
@@ -414,6 +434,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/disputes'
     | '/admin/ledger'
+    | '/admin/referrals'
     | '/admin/reports'
     | '/admin/revenue'
     | '/admin/settings'
@@ -445,6 +466,7 @@ export interface FileRouteTypes {
     | '/help'
     | '/home'
     | '/profile'
+    | '/refer'
     | '/report'
     | '/wallet'
     | '/track/$token'
@@ -453,6 +475,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/disputes'
     | '/admin/ledger'
+    | '/admin/referrals'
     | '/admin/reports'
     | '/admin/revenue'
     | '/admin/settings'
@@ -487,6 +510,7 @@ export interface FileRouteTypes {
     | '/_authenticated/help'
     | '/_authenticated/home'
     | '/_authenticated/profile'
+    | '/_authenticated/refer'
     | '/_authenticated/report'
     | '/_authenticated/wallet'
     | '/track/$token'
@@ -495,6 +519,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/audit'
     | '/_authenticated/admin/disputes'
     | '/_authenticated/admin/ledger'
+    | '/_authenticated/admin/referrals'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/revenue'
     | '/_authenticated/admin/settings'
@@ -620,6 +645,13 @@ declare module '@tanstack/react-router' {
       path: '/report'
       fullPath: '/report'
       preLoaderRoute: typeof AuthenticatedReportRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/refer': {
+      id: '/_authenticated/refer'
+      path: '/refer'
+      fullPath: '/refer'
+      preLoaderRoute: typeof AuthenticatedReferRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/profile': {
@@ -776,6 +808,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminReportsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/referrals': {
+      id: '/_authenticated/admin/referrals'
+      path: '/referrals'
+      fullPath: '/admin/referrals'
+      preLoaderRoute: typeof AuthenticatedAdminReferralsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/ledger': {
       id: '/_authenticated/admin/ledger'
       path: '/ledger'
@@ -818,6 +857,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
   AuthenticatedAdminDisputesRoute: typeof AuthenticatedAdminDisputesRoute
   AuthenticatedAdminLedgerRoute: typeof AuthenticatedAdminLedgerRoute
+  AuthenticatedAdminReferralsRoute: typeof AuthenticatedAdminReferralsRoute
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
   AuthenticatedAdminRevenueRoute: typeof AuthenticatedAdminRevenueRoute
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
@@ -830,6 +870,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
   AuthenticatedAdminDisputesRoute: AuthenticatedAdminDisputesRoute,
   AuthenticatedAdminLedgerRoute: AuthenticatedAdminLedgerRoute,
+  AuthenticatedAdminReferralsRoute: AuthenticatedAdminReferralsRoute,
   AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
   AuthenticatedAdminRevenueRoute: AuthenticatedAdminRevenueRoute,
   AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
@@ -864,6 +905,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHelpRoute: typeof AuthenticatedHelpRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedReferRoute: typeof AuthenticatedReferRoute
   AuthenticatedReportRoute: typeof AuthenticatedReportRoute
   AuthenticatedWalletRoute: typeof AuthenticatedWalletRoute
   AuthenticatedChatJobIdRoute: typeof AuthenticatedChatJobIdRoute
@@ -880,6 +922,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHelpRoute: AuthenticatedHelpRoute,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedReferRoute: AuthenticatedReferRoute,
   AuthenticatedReportRoute: AuthenticatedReportRoute,
   AuthenticatedWalletRoute: AuthenticatedWalletRoute,
   AuthenticatedChatJobIdRoute: AuthenticatedChatJobIdRoute,

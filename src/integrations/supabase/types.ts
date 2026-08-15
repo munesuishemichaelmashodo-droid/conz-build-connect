@@ -1027,6 +1027,7 @@ export type Database = {
           full_name: string
           id: string
           phone: string | null
+          referral_code: string | null
           restricted_until: string | null
           restriction_reason: string | null
           status: Database["public"]["Enums"]["account_status"]
@@ -1044,6 +1045,7 @@ export type Database = {
           full_name: string
           id: string
           phone?: string | null
+          referral_code?: string | null
           restricted_until?: string | null
           restriction_reason?: string | null
           status?: Database["public"]["Enums"]["account_status"]
@@ -1061,6 +1063,7 @@ export type Database = {
           full_name?: string
           id?: string
           phone?: string | null
+          referral_code?: string | null
           restricted_until?: string | null
           restriction_reason?: string | null
           status?: Database["public"]["Enums"]["account_status"]
@@ -1118,6 +1121,111 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      referrals: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          device_fingerprint: string | null
+          fraud_flag: boolean
+          fraud_reason: string | null
+          hold_period_days: number
+          id: string
+          referral_code: string
+          referred_credit_transaction_id: string | null
+          referred_id: string
+          referred_role: string
+          referrer_id: string
+          registered_at: string
+          reward_amount: number | null
+          reward_release_at: string | null
+          reward_status: string
+          reward_transaction_id: string | null
+          updated_at: string
+          verification_status: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          device_fingerprint?: string | null
+          fraud_flag?: boolean
+          fraud_reason?: string | null
+          hold_period_days?: number
+          id?: string
+          referral_code: string
+          referred_credit_transaction_id?: string | null
+          referred_id: string
+          referred_role?: string
+          referrer_id: string
+          registered_at?: string
+          reward_amount?: number | null
+          reward_release_at?: string | null
+          reward_status?: string
+          reward_transaction_id?: string | null
+          updated_at?: string
+          verification_status?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          device_fingerprint?: string | null
+          fraud_flag?: boolean
+          fraud_reason?: string | null
+          hold_period_days?: number
+          id?: string
+          referral_code?: string
+          referred_credit_transaction_id?: string | null
+          referred_id?: string
+          referred_role?: string
+          referrer_id?: string
+          registered_at?: string
+          reward_amount?: number | null
+          reward_release_at?: string | null
+          reward_status?: string
+          reward_transaction_id?: string | null
+          updated_at?: string
+          verification_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referrals_reward_transaction_id_fkey"
+            columns: ["reward_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referred_credit_transaction_id_fkey"
+            columns: ["referred_credit_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_milestones_achieved: {
+        Row: {
+          achieved_at: string
+          milestone: number
+          user_id: string
+        }
+        Insert: {
+          achieved_at?: string
+          milestone: number
+          user_id: string
+        }
+        Update: {
+          achieved_at?: string
+          milestone?: number
+          user_id?: string
+        }
+        Relationships: []
       }
       reports: {
         Row: {
@@ -1627,6 +1735,69 @@ export type Database = {
           type: Database["public"]["Enums"]["tx_type"]
           user_id: string
         }
+      }
+      record_referral: {
+        Args: { _code: string; _device_fingerprint?: string; _referred_role?: string }
+        Returns: {
+          admin_notes: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          device_fingerprint: string | null
+          fraud_flag: boolean
+          fraud_reason: string | null
+          hold_period_days: number
+          id: string
+          referral_code: string
+          referred_credit_transaction_id: string | null
+          referred_id: string
+          referred_role: string
+          referrer_id: string
+          registered_at: string
+          reward_amount: number | null
+          reward_release_at: string | null
+          reward_status: string
+          reward_transaction_id: string | null
+          updated_at: string
+          verification_status: string
+        }
+      }
+      admin_referral_action: {
+        Args: { _action: string; _notes?: string; _referral_id: string }
+        Returns: {
+          admin_notes: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          device_fingerprint: string | null
+          fraud_flag: boolean
+          fraud_reason: string | null
+          hold_period_days: number
+          id: string
+          referral_code: string
+          referred_credit_transaction_id: string | null
+          referred_id: string
+          referred_role: string
+          referrer_id: string
+          registered_at: string
+          reward_amount: number | null
+          reward_release_at: string | null
+          reward_status: string
+          reward_transaction_id: string | null
+          updated_at: string
+          verification_status: string
+        }
+      }
+      admin_referral_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          fraud_alerts: number
+          pending_rewards: number
+          released_rewards: number
+          rejected_rewards: number
+          total_referrals: number
+          total_released_amount: number
+        }[]
       }
       admin_evidence_paths: {
         Args: { _job_id: string }

@@ -12,6 +12,7 @@ export type Profile = {
   email: string | null;
   avatar_url: string | null;
   status: "active" | "suspended" | "banned";
+  referral_code: string | null;
 };
 
 type AuthState = {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Moon, Sun, Truck, HardHat, User, Bell, Shield, Settings as SettingsIcon, LogOut, LifeBuoy, MessageSquareWarning, FileText, Lock } from "lucide-react";
+import { Menu, Moon, Sun, Truck, HardHat, User, Bell, Shield, Settings as SettingsIcon, LogOut, LifeBuoy, MessageSquareWarning, FileText, Lock, Gift } from "lucide-react";
 import { useViewMode } from "@/lib/view-mode";
 import { useAuth } from "@/lib/auth";
 import { useNavigate } from "@tanstack/react-router";
@@ -83,6 +83,7 @@ export function SidePanel() {
           {/* Settings shortcuts */}
           <Section label="Settings">
             <NavItem to="/profile" icon={User} label="Profile" onClick={close} />
+            <NavItem to="/refer" icon={Gift} label="Refer & Earn" onClick={close} />
             <NavItem to="/jobs" icon={Bell} label="Notifications & jobs" onClick={close} />
             {isAdmin && <NavItem to="/admin" icon={Shield} label="Admin dashboard" onClick={close} />}
             <NavItem to="/profile" icon={SettingsIcon} label="Account settings" onClick={close} />
