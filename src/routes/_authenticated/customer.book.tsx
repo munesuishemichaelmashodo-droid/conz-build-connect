@@ -401,6 +401,7 @@ function BookDelivery() {
                   key={m.value}
                   type="button"
                   onClick={() => setMaterial(m.value)}
+                  aria-pressed={material === m.value}
                   className={cn(
                     "rounded-2xl border p-3 text-left transition",
                     material === m.value
@@ -428,6 +429,7 @@ function BookDelivery() {
                   key={v}
                   type="button"
                   onClick={() => setQuantity(v)}
+                  aria-pressed={quantity === v}
                   className={cn(
                     "flex-1 rounded-xl border py-3 font-display font-bold",
                     quantity === v
@@ -646,6 +648,7 @@ function BookDelivery() {
                 <button
                   type="button"
                   onClick={() => setPaymentMethod("direct")}
+                  aria-pressed={paymentMethod === "direct"}
                   className={cn(
                     "w-full flex items-start gap-3 rounded-2xl border p-3 text-left transition",
                     paymentMethod === "direct" ? "border-primary bg-primary/5" : "hover:border-primary/40",
@@ -662,6 +665,7 @@ function BookDelivery() {
                 <button
                   type="button"
                   onClick={() => setPaymentMethod("escrow")}
+                  aria-pressed={paymentMethod === "escrow"}
                   className={cn(
                     "w-full flex items-start gap-3 rounded-2xl border p-3 text-left transition",
                     paymentMethod === "escrow" ? "border-primary bg-primary/5" : "hover:border-primary/40",
@@ -753,7 +757,14 @@ const anim = {
 
 function Stepper({ current, total }: { current: number; total: number }) {
   return (
-    <div className="flex items-center gap-2">
+    <div
+      className="flex items-center gap-2"
+      role="progressbar"
+      aria-valuenow={current + 1}
+      aria-valuemin={1}
+      aria-valuemax={total}
+      aria-label={`Step ${current + 1} of ${total}: ${STEPS[current].title}`}
+    >
       {Array.from({ length: total }).map((_, n) => (
         <div
           key={n}

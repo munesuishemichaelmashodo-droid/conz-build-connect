@@ -481,7 +481,13 @@ function ChatPage() {
               <button type="button" onClick={() => stopRecording(false)} className="text-xs text-muted-foreground">
                 Cancel
               </button>
-              <Button type="button" size="icon" onClick={() => stopRecording(true)} className="bg-destructive hover:bg-destructive/90">
+              <Button
+                type="button"
+                size="icon"
+                aria-label="Stop and send recording"
+                onClick={() => stopRecording(true)}
+                className="bg-destructive hover:bg-destructive/90"
+              >
                 <Square className="w-4 h-4" />
               </Button>
             </div>
@@ -491,16 +497,30 @@ function ChatPage() {
                 type="button"
                 variant="outline"
                 size="icon"
+                aria-label="Attach photo"
                 disabled={uploadingPhoto || uploadingAudio}
                 onClick={() => document.getElementById("chat-photo-input")?.click()}
               >
                 {uploadingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
               </Button>
-              <Input value={body} onChange={(e) => onBodyChange(e.target.value)} placeholder="Type a message…" maxLength={1000} />
+              <Input
+                value={body}
+                onChange={(e) => onBodyChange(e.target.value)}
+                placeholder="Type a message…"
+                aria-label="Message"
+                maxLength={1000}
+              />
               {body.trim() ? (
-                <Button type="submit" disabled={sending} size="icon"><Send className="w-4 h-4" /></Button>
+                <Button type="submit" disabled={sending} size="icon" aria-label="Send message"><Send className="w-4 h-4" /></Button>
               ) : (
-                <Button type="button" variant="outline" size="icon" disabled={uploadingAudio || uploadingPhoto} onClick={startRecording}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Record voice message"
+                  disabled={uploadingAudio || uploadingPhoto}
+                  onClick={startRecording}
+                >
                   {uploadingAudio ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
                 </Button>
               )}
