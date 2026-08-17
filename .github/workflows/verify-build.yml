@@ -38,6 +38,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Ensure Android assets directory exists
+        run: mkdir -p android/app/src/main/assets
+
       - name: Sync Capacitor Android project
         run: npx cap sync android
 
