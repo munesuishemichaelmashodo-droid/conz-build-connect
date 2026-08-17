@@ -109,7 +109,7 @@ function ProfilePage() {
         )}
 
         {activeRole === "driver" && is("driver") && (
-          <section className="rounded-2xl bg-card border p-4 shadow-soft space-y-3">
+          <section id="tour-driver-verification-section" className="rounded-2xl bg-card border p-4 shadow-soft space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold uppercase tracking-wide">Driver verification</h2>
               <StatusBadge label={driver?.verification_status ?? "pending"} className={isVerified ? "bg-success/15 text-success border-success/30" : driver?.verification_status === "rejected" ? "bg-destructive/15 text-destructive border-destructive/30" : "bg-warning/15 text-warning border-warning/30"} />
