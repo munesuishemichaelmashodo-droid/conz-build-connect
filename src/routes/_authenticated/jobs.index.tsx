@@ -37,13 +37,15 @@ function JobsPage() {
     <AppShell title="Jobs" action={isCustomer ? (
       <Button asChild size="sm" className="h-8"><Link to="/jobs/new"><Plus className="w-4 h-4 mr-1" />New</Link></Button>
     ) : undefined}>
-      {isLoading ? (
-        <div className="text-center text-muted-foreground py-10">Loading…</div>
-      ) : (jobs ?? []).length === 0 ? (
-        <EmptyState icon={Briefcase} title="No jobs yet" hint={isCustomer ? "Post your first delivery request." : "Check back soon for open requests."} />
-      ) : (
-        <div className="space-y-2">{jobs!.map((j) => <JobCard key={j.id} j={j} />)}</div>
-      )}
+      <div id="tour-jobs-list">
+        {isLoading ? (
+          <div className="text-center text-muted-foreground py-10">Loading…</div>
+        ) : (jobs ?? []).length === 0 ? (
+          <EmptyState icon={Briefcase} title="No jobs yet" hint={isCustomer ? "Post your first delivery request." : "Check back soon for open requests."} />
+        ) : (
+          <div className="space-y-2">{jobs!.map((j) => <JobCard key={j.id} j={j} />)}</div>
+        )}
+      </div>
     </AppShell>
   );
 }

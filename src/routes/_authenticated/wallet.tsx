@@ -195,6 +195,7 @@ function WalletPage() {
   return (
     <AppShell title="Driver Wallet">
       <motion.div
+        id="tour-wallet-balance"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative overflow-hidden rounded-3xl bg-gradient-dark text-white p-6 shadow-lift"

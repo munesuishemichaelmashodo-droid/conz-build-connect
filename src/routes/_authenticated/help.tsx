@@ -1,6 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { LifeBuoy, Mail, MessageSquareWarning } from "lucide-react";
+import { LifeBuoy, Mail, MessageSquareWarning, Compass, RotateCcw } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { useTour } from "@/components/GuidedTourProvider";
+import { customerTour } from "@/lib/tour/customer-tour";
+import { driverTour } from "@/lib/tour/driver-tour";
+import type { TourConfig } from "@/lib/tour/types";
 
 export const Route = createFileRoute("/_authenticated/help")({
   component: HelpPage,
@@ -117,6 +122,8 @@ const SECTIONS: FaqSection[] = [
 ];
 
 function HelpPage() {
+  const { is } = useAuth();
+
   return (
     <AppShell title="Help & support">
       <div className="space-y-6 max-w-2xl mx-auto">
@@ -125,6 +132,16 @@ function HelpPage() {
           <h1 className="font-display font-bold text-2xl mt-2">Need a hand?</h1>
           <p className="text-sm text-white/70 mt-1">Check the FAQ below or reach us directly.</p>
         </section>
+
+        {(is("customer") || is("driver")) && (
+          <section className="space-y-2">
+            <h2 className="font-display font-bold uppercase tracking-wide text-sm">How to use Con Z</h2>
+            <div className="space-y-2">
+              {is("customer") && <TourEntryCard config={customerTour} label="Customer walkthrough" />}
+              {is("driver") && <TourEntryCard config={driverTour} label="Driver walkthrough" />}
+            </div>
+          </section>
+        )}
 
         {SECTIONS.map((section) => (
           <section key={section.title} className="space-y-2">
@@ -161,5 +178,40 @@ function HelpPage() {
         </section>
       </div>
     </AppShell>
+  );
+}
+
+function TourEntryCard({ config, label }: { config: TourConfig; label: string }) {
+  const { startTour, progress } = useTour();
+  const saved = progress[config.key];
+
+  const buttonLabel = saved?.status === "in_progress" ? "Continue" : saved ? "Restart" : "Start";
+  const hint =
+    saved?.status === "completed"
+      ? "Completed — tap to go through it again."
+      : saved?.status === "in_progress"
+        ? `Paused at step ${saved.current_step_index + 1} of ${config.steps.length}.`
+        : saved?.status === "skipped"
+          ? "Skipped — tap to start it."
+          : `${config.steps.length} quick steps through the real app.`;
+
+  return (
+    <button
+      type="button"
+      onClick={() => startTour(config, { resume: true })}
+      aria-label={`${buttonLabel} ${label}`}
+      className="w-full flex items-center gap-3 rounded-2xl border bg-card p-4 text-left hover:bg-muted transition"
+    >
+      <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+        {saved?.status === "in_progress" ? <RotateCcw className="w-5 h-5" /> : <Compass className="w-5 h-5" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold">{label}</div>
+        <div className="text-xs text-muted-foreground">{hint}</div>
+      </div>
+      <span className="shrink-0 inline-flex items-center justify-center rounded-md border px-3 h-8 text-xs font-medium">
+        {buttonLabel}
+      </span>
+    </button>
   );
 }

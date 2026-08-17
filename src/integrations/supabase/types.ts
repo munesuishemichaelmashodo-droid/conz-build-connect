@@ -1345,6 +1345,69 @@ export type Database = {
           },
         ]
       }
+      tour_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: number
+          step_id: string | null
+          step_index: number | null
+          tour_key: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: never
+          step_id?: string | null
+          step_index?: number | null
+          tour_key: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: never
+          step_id?: string | null
+          step_index?: number | null
+          tour_key?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tour_progress: {
+        Row: {
+          completed_at: string | null
+          current_step_index: number
+          skipped_at: string | null
+          started_at: string
+          status: string
+          tour_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          current_step_index?: number
+          skipped_at?: string | null
+          started_at?: string
+          status?: string
+          tour_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          current_step_index?: number
+          skipped_at?: string | null
+          started_at?: string
+          status?: string
+          tour_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       trucks: {
         Row: {
           capacity_m3: number
