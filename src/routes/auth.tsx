@@ -240,6 +240,39 @@ function AuthPage() {
         }
       }
 
+      // Google actively blocks OAuth sign-in inside an embedded WebView
+      // (returns "Error 403: disallowed_useragent") -- this app runs
+      // wrapped in exactly that kind of WebView on Android via Capacitor.
+      // So on native, get the auth URL without letting Supabase navigate
+      // the WebView to it (skipBrowserRedirect), and open it in the
+      // system browser instead via the Capacitor Browser plugin, which
+      // Google does allow. The redirect back into the app is handled by
+      // capacitor-oauth-bridge.ts (registered at app startup), which
+      // converts the custom-scheme callback into the same web URL this
+      // page's polling logic already handles.
+      const { isNativePlatform } = await import("@/lib/capacitor-oauth-bridge");
+      if (isNativePlatform()) {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: "com.conz.app://oauth-callback",
+            skipBrowserRedirect: true,
+          },
+        });
+        if (error || !data?.url) {
+          setLoading(false);
+          return reportAuthError(
+            "Google sign-in",
+            error ?? new Error("No auth URL returned"),
+            endpoint,
+            "Check that Google provider is enabled and that com.conz.app://oauth-callback is in Supabase Auth Redirect URLs.",
+          );
+        }
+        const { Browser } = await import("@capacitor/browser");
+        await Browser.open({ url: data.url });
+        return;
+      }
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo: `${window.location.origin}/oauth-callback` },

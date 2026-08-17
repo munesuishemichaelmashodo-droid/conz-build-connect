@@ -14,6 +14,14 @@ const config: CapacitorConfig = {
   server: {
     url: 'https://conz-build-connect.vercel.app',
     cleartext: false,
+    // Capacitor restricts in-WebView navigation to the server.url origin
+    // by default. The Paynow payment flow navigates the same WebView
+    // (window.location.href, not a new tab) to Paynow's own hosted
+    // payment page and back — without this, that navigation would be
+    // blocked the moment someone actually tries to pay inside the
+    // Play Store app. Verify the exact hostname Paynow's live checkout
+    // actually uses and adjust if it differs.
+    allowNavigation: ['www.paynow.co.zw', 'paynow.co.zw'],
   },
   android: {
     allowMixedContent: false,

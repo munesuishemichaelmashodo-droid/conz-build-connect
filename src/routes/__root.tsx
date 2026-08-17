@@ -149,6 +149,15 @@ function RootComponent() {
     import("@/lib/push").then(({ registerServiceWorker }) => registerServiceWorker());
   }, []);
 
+  useEffect(() => {
+    // No-ops immediately on web (isNativePlatform() check inside). On
+    // native, catches the system-browser OAuth redirect coming back into
+    // the app — see capacitor-oauth-bridge.ts for why this exists.
+    import("@/lib/capacitor-oauth-bridge").then(({ registerOAuthRedirectListener }) =>
+      registerOAuthRedirectListener(),
+    );
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

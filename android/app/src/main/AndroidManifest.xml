@@ -18,6 +18,18 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Custom-scheme redirect for OAuth sign-in. Google blocks
+                 OAuth inside embedded WebViews, so Google sign-in opens in
+                 the system browser instead (see capacitor-oauth-bridge.ts)
+                 -- this intent-filter is how that redirect gets routed
+                 back into the app afterward. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.conz.app" android:host="oauth-callback" />
+            </intent-filter>
         </activity>
 
         <provider
@@ -40,4 +52,8 @@
     <!-- Location: live delivery tracking, GPS-tagged evidence photos -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Notifications: required at runtime on Android 13+ (API 33+) for
+         any notification to show at all, including web push. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>
