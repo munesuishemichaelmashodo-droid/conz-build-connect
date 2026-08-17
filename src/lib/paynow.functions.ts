@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestUrl } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { SITE_URL } from "@/lib/site";
 
 export type InitiateTopupResult =
   | { ok: true; paymentId: string; redirectUrl: string }
@@ -42,7 +43,7 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
     // resultUrl (Paynow's server-to-server webhook) must always hit the stable
     // production domain — deployment-specific *.vercel.app URLs can be gated by
     // Vercel deployment protection, silently blocking the callback.
-    const CANONICAL_ORIGIN = "https://conz-build-connect.vercel.app";
+    const CANONICAL_ORIGIN = SITE_URL;
     const email = (context.claims as { email?: string })?.email ?? "noreply@conz.co.zw";
 
     const result = await initiatePaynowTransaction({
@@ -128,7 +129,7 @@ export const initiateEscrowPayment = createServerFn({ method: "POST" })
     if (error || !payment) return { ok: false, error: error?.message ?? "payment_create_failed" };
 
     const origin = new URL(getRequestUrl()).origin;
-    const CANONICAL_ORIGIN = "https://conz-build-connect.vercel.app";
+    const CANONICAL_ORIGIN = SITE_URL;
     const email = (context.claims as { email?: string })?.email ?? "noreply@conz.co.zw";
 
     const result = await initiatePaynowTransaction({

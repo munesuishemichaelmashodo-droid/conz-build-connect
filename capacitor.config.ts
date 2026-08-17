@@ -12,7 +12,7 @@ const config: CapacitorConfig = {
   // camera/location — the actual app still runs against your real backend.
   webDir: 'dist/client',
   server: {
-    url: 'https://conz-build-connect.vercel.app',
+    url: 'https://conz.co.zw',
     cleartext: false,
     // Capacitor restricts in-WebView navigation to the server.url origin
     // by default. The Paynow payment flow navigates the same WebView

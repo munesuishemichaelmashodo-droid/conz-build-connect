@@ -15,10 +15,8 @@ import { AuthProvider } from "@/lib/auth";
 import { ViewModeProvider } from "@/lib/view-mode";
 import { Toaster } from "@/components/ui/sonner";
 import { GuidedTourProvider } from "@/components/GuidedTourProvider";
+import { SITE_URL } from "@/lib/site";
 
-// Public base URL of the live site — used for absolute Open Graph URLs.
-// Change this to your custom domain if/when you add one.
-const SITE_URL = "https://conz-build-connect.vercel.app";
 const SITE_NAME = "Con Z";
 const SITE_TITLE = "Con Z — Construction Made Easy";
 const SITE_DESCRIPTION = "Zimbabwe's construction marketplace. Post jobs. Get tipper trucks. Build.";

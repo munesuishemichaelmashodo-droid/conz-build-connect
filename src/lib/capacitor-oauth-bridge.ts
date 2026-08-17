@@ -12,8 +12,9 @@
 // WebView there reuses that logic completely unchanged.
 
 import { Capacitor } from "@capacitor/core";
+import { SITE_URL } from "@/lib/site";
 
-const PROD_ORIGIN = "https://conz-build-connect.vercel.app";
+const PROD_ORIGIN = SITE_URL;
 const CUSTOM_SCHEME_PREFIX = "com.conz.app://oauth-callback";
 
 export function isNativePlatform(): boolean {
