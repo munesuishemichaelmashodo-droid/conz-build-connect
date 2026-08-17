@@ -14,6 +14,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "@/lib/auth";
 import { ViewModeProvider } from "@/lib/view-mode";
 import { Toaster } from "@/components/ui/sonner";
+import { GuidedTourProvider } from "@/components/GuidedTourProvider";
 
 // Public base URL of the live site — used for absolute Open Graph URLs.
 // Change this to your custom domain if/when you add one.
@@ -162,8 +163,10 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ViewModeProvider>
-          <Outlet />
-          <Toaster position="top-center" richColors closeButton visibleToasts={3} />
+          <GuidedTourProvider>
+            <Outlet />
+            <Toaster position="top-center" richColors closeButton visibleToasts={3} />
+          </GuidedTourProvider>
         </ViewModeProvider>
       </AuthProvider>
     </QueryClientProvider>
