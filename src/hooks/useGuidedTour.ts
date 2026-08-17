@@ -60,9 +60,14 @@ export function useGuidedTour(options?: {
   );
 
   const start = useCallback((cfg: TourConfig, resumeAtIndex = 0) => {
+    const idx = Math.min(Math.max(0, resumeAtIndex), cfg.steps.length - 1);
     setConfig(cfg);
-    setStepIndex(Math.min(Math.max(0, resumeAtIndex), cfg.steps.length - 1));
+    setStepIndex(idx);
     setStatus("locating");
+    // Emitted directly off the arguments, not the `emit` helper — `config`
+    // in that helper's closure is still last render's value (null, on a
+    // fresh start) since setConfig above hasn't committed yet.
+    onEventRef.current?.("start", cfg.steps[idx] ?? null, idx, cfg.key);
   }, []);
 
   const finish = useCallback(
