@@ -31,8 +31,9 @@ function PrivacyPage() {
           <Section title="1. Who We Are">
             <p>
               Con Z Build Connect ("Con Z", "we") is operated as a sole proprietorship in
-              Zimbabwe by NavySky PVT. This policy explains what personal data
-              we collect through the app, how we use it, and how we protect it.
+              Zimbabwe, trading as "Con Z" (ZIMRA TIN 1014617149). This policy explains
+              what personal data we collect through the app, how we use it, and how we
+              protect it.
             </p>
           </Section>
 
@@ -151,7 +152,7 @@ function PrivacyPage() {
             See also our <Link to="/terms" className="underline">Terms and Conditions</Link>.
           </p>
           <p className="pt-2 text-[11px] text-muted-foreground">
-            © {new Date().getFullYear()} Con Z Connect (Pvt) Ltd. All rights reserved.
+            © {new Date().getFullYear()} Con Z. All rights reserved.
           </p>
         </div>
       </div>

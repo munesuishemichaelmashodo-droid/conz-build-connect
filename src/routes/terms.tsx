@@ -30,10 +30,10 @@ function TermsPage() {
         <div className="prose prose-sm dark:prose-invert max-w-none space-y-6">
           <Section title="1. About Con Z Build Connect">
             <p>
-              Con Z Build Connect is operated as a sole proprietorship in Zimbabwe by
-              NavySky Logistics (PVT). It operates a construction logistics marketplace
-              that connects customers requiring bulk material deliveries with independent
-              tipper truck drivers ("Drivers").
+              Con Z Build Connect is operated as a sole proprietorship in Zimbabwe,
+              trading as "Con Z" (ZIMRA TIN 1014617149). It operates a construction
+              logistics marketplace that connects customers requiring bulk material
+              deliveries with independent tipper truck drivers ("Drivers").
             </p>
           </Section>
 
@@ -152,7 +152,7 @@ function TermsPage() {
             See also our <Link to="/privacy" className="underline">Privacy Policy</Link>.
           </p>
           <p className="pt-2 text-[11px] text-muted-foreground">
-            © {new Date().getFullYear()} Con Z Connect (Pvt) Ltd. All rights reserved.
+            © {new Date().getFullYear()} Con Z. All rights reserved.
           </p>
         </div>
       </div>
