@@ -220,7 +220,14 @@ export function useGuidedTour(options?: {
     };
     check();
     const mo = new MutationObserver(check);
-    mo.observe(document.body, { attributes: true, subtree: true, attributeFilter: ["data-state"] });
+    // childList is required, not just attributes: Radix's Dialog/Sheet
+    // portal their content into the tree only while open — opening one
+    // *inserts* a fresh node with data-state="open" already set, it
+    // doesn't toggle that attribute on a node that was already there.
+    // attributes-only (the original config) would only ever catch the
+    // brief closing transition, never the open — confirmed by testing
+    // against a real insert, not just an attribute flip.
+    mo.observe(document.body, { attributes: true, childList: true, subtree: true, attributeFilter: ["data-state"] });
     return () => mo.disconnect();
   }, [active]);
 

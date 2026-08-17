@@ -57,9 +57,25 @@ export function GuidedTourOverlay({
     };
   }, []);
 
+  // Re-measure whenever the viewport changes, in case the same card's
+  // height reflows at the new width.
   useLayoutEffect(() => {
     if (cardRef.current) setCardHeight(cardRef.current.getBoundingClientRect().height);
-  }, [step?.id, viewport.w, viewport.h]);
+  }, [viewport.w, viewport.h]);
+
+  // Step-change measurement is deliberately a *callback* ref, not a
+  // useLayoutEffect keyed on step.id: AnimatePresence's mode="wait" keeps
+  // the outgoing card mounted until its exit finishes, so the incoming
+  // card's DOM node doesn't exist yet at the moment step.id changes and
+  // this component re-renders — an effect keyed on step.id fires too
+  // early (cardRef.current is still null or still the old node) and never
+  // re-fires once the new node actually mounts a beat later, leaving
+  // cardHeight stale for that step. Measuring at the moment React actually
+  // attaches the node sidesteps the race entirely.
+  const setCardRef = (el: HTMLDivElement | null) => {
+    cardRef.current = el;
+    if (el) setCardHeight(el.getBoundingClientRect().height);
+  };
 
   if (!mounted || !step || status === "idle" || status === "done") return null;
 
@@ -75,7 +91,15 @@ export function GuidedTourOverlay({
     : { top: viewport.h / 2 - cardHeight / 2, left: 16, width: Math.max(0, viewport.w - 32), placement: "bottom" as const };
 
   return createPortal(
-    <div className="fixed inset-0 z-40" aria-live="polite">
+    // pointer-events-none on the outer wrapper too, not just the band
+    // children below — this div is `fixed inset-0`, so even with no
+    // background it covers the *entire* viewport and would otherwise
+    // intercept every click on the page by default regardless of what
+    // its children do (pointer-events isn't something a none-parent
+    // can "leak through" — a child must opt back in explicitly). The
+    // card re-enables pointer-events-auto on itself so it's still
+    // genuinely interactive.
+    <div className="fixed inset-0 z-40 pointer-events-none" aria-live="polite">
       {/* Dimmed bands are pointer-events-none — purely visual darkening,
           not a click-blocker. Several real screens (the booking wizard,
           job detail's action row) have their own Next/Back controls that
@@ -105,21 +129,24 @@ export function GuidedTourOverlay({
       ) : (
         // Still locating (navigating / waiting for the target) — a plain
         // full-screen dim so the page underneath doesn't feel interactive
-        // mid-transition, with no false-positive highlight ring.
-        <div className="fixed inset-0 bg-black/70" />
+        // mid-transition, with no false-positive highlight ring. This one
+        // *does* block clicks (pointer-events-auto, unlike the bands
+        // above) — deliberately, since there's no known-good target yet
+        // to let the user interact around.
+        <div className="fixed inset-0 bg-black/70 pointer-events-auto" />
       )}
 
       <AnimatePresence mode="wait">
         <motion.div
           key={step.id}
-          ref={cardRef}
+          ref={setCardRef}
           role="region"
           aria-label={`Guided tour, step ${stepIndex + 1} of ${totalSteps}: ${step.title}`}
           initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: cardPos.placement === "bottom" ? -10 : 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: cardPos.placement === "bottom" ? -10 : 10 }}
           transition={{ duration: reduceMotion ? 0.12 : 0.22 }}
-          className="fixed rounded-2xl bg-card border shadow-lift p-4"
+          className="fixed rounded-2xl bg-card border shadow-lift p-4 pointer-events-auto"
           style={{ top: cardPos.top, left: cardPos.left, width: cardPos.width }}
         >
           <div className="flex items-center justify-between gap-2 mb-2">
