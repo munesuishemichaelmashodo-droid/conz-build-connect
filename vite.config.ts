@@ -13,11 +13,33 @@ export default defineConfig({
   },
   nitro: {
     preset: "vercel",
+    // Nitro's own Vercel-function bundling pass (which produces the
+    // `_libs/*` shared chunks) runs separately from Vite's SSR build and
+    // does NOT respect vite.config's `resolve.alias`/`ssr.noExternal`.
+    // Left external, transitive `import ... from "tslib"` inside those
+    // chunks (e.g. from @radix-ui packages) relies on tslib's conditional
+    // package.json "exports" map at runtime (-> ./modules/index.js), but
+    // Nitro's dependency trace only copies the specific tslib entry file
+    // it can statically see (tslib.es6.mjs, via the Vite alias below),
+    // so ./modules/index.js is missing from the deployed function and
+    // Node's ESM resolver throws ERR_MODULE_NOT_FOUND at request time.
+    // (Nitro v3 config key is `noExternals`, not the nitropack v2
+    // `externals.inline` shape.) Forcing tslib to never be treated as
+    // external removes the runtime node_modules resolution entirely.
+    noExternals: ["tslib"],
   },
   vite: {
     ssr: {
       // Belt and braces: also stop Vite externalising them during SSR build.
-      noExternal: [/^@supabase\//, "tslib"],
+      // @radix-ui packages re-export tslib helpers as bare `tslib` imports in
+      // their published .mjs files. When left external, Nitro/Vercel's build
+      // copies those packages into a separate `_libs/@radix-ui/...` chunk
+      // outside the main server bundle, and its runtime `tslib` resolution
+      // (via tslib's conditional "exports" map -> ./modules/index.js) fails
+      // in the deployed function even though tslib is a direct dependency.
+      // Force radix packages to be inlined too so this never hits runtime
+      // module resolution.
+      noExternal: [/^@supabase\//, /^@radix-ui\//, "tslib"],
     },
     resolve: {
       alias: [
