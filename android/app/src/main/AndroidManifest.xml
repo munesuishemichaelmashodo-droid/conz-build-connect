@@ -21,8 +21,8 @@
 
             <!-- Custom-scheme redirect for OAuth sign-in. Google blocks
                  OAuth inside embedded WebViews, so Google sign-in opens in
-                 the system browser instead (see capacitor-oauth-bridge.ts)
-                 -- this intent-filter is how that redirect gets routed
+                 the system browser instead (see capacitor-oauth-bridge.ts).
+                 This intent-filter is how that redirect gets routed
                  back into the app afterward. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
