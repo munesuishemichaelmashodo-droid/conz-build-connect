@@ -41,6 +41,16 @@ function parseOfferInput(input: unknown) {
   return result.data;
 }
 
+function customQuoteMessage(g: { enforced: boolean; requiresCustomQuote?: boolean }, quantity: number): string {
+  if (g.enforced === false) {
+    return `We don't have standard pricing for this material yet — please contact support for a custom quote.`;
+  }
+  if (quantity < 1) {
+    return `${quantity} m³ isn't available for this material yet — please contact support for a custom quote, or increase the quantity.`;
+  }
+  return `${quantity} m³ is above our largest standard load (20 m³) — please contact support for a custom quote on this size.`;
+}
+
 export type OfferResult = {
   offer: number;
   min: number;
@@ -86,9 +96,7 @@ export const computeOffer = createServerFn({ method: "POST" })
     };
 
     if (g.requiresCustomQuote) {
-      throw new Error(
-        `${data.quantity} m³ is above our largest standard load (20 m³) — please contact support for a custom quote on this size.`,
-      );
+      throw new Error(customQuoteMessage(g, data.quantity));
     }
 
     const offer = Number(g.offer ?? 0);
@@ -145,9 +153,7 @@ export const computePublicOffer = createServerFn({ method: "POST" })
     };
 
     if (g.requiresCustomQuote) {
-      throw new Error(
-        `${data.quantity} m³ is above our largest standard load (20 m³) — please contact support for a custom quote on this size.`,
-      );
+      throw new Error(customQuoteMessage(g, data.quantity));
     }
 
     const offer = Number(g.offer ?? 0);

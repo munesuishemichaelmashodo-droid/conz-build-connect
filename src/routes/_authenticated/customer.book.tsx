@@ -51,6 +51,10 @@ export const Route = createFileRoute("/_authenticated/customer/book")({
 });
 
 const BOOKABLE_MATERIALS = MATERIALS.filter((m) => m.value !== "custom");
+// Under 1m3, the pricing engine switches to a minimum-trip-charge model
+// (see compute_material_offer, mode "small_load") instead of rounding up
+// to a full truck-load bucket price.
+const MIN_QUANTITY_M3 = 0.25;
 
 // Average tipper truck fuel consumption, litres per 100 km.
 const FUEL_LITRES_PER_100KM = 32;
@@ -251,7 +255,7 @@ function BookDelivery() {
 
   const canNext = () => {
     if (step === 0) return !!material;
-    if (step === 1) return quantity >= 1 && quantity <= 30;
+    if (step === 1) return quantity >= MIN_QUANTITY_M3 && quantity <= 30;
     if (step === 2) return address.trim().length > 2 && !!coords;
     if (step === 3) return true;
     if (step === 4) return true;
@@ -266,7 +270,7 @@ function BookDelivery() {
       return toast.error("Select the delivery point on the map so the driver can navigate.");
     }
 
-    if (!quantity || quantity < 1) return toast.error("Enter quantity");
+    if (!quantity || quantity < MIN_QUANTITY_M3) return toast.error("Enter quantity");
 
     setComputing(true);
 
@@ -447,14 +451,15 @@ function BookDelivery() {
               <Input
                 id="qty"
                 type="number"
-                min={1}
+                min={MIN_QUANTITY_M3}
                 max={30}
-                step={0.5}
+                step={0.25}
                 value={quantity}
                 onChange={(e) => setQuantity(Number(e.target.value))}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Anything up to 20 m³ is automatically priced against the next load size up
+                Under 1 m³ includes a minimum trip charge that covers dispatch and the
+                driver's return trip. From 1–20 m³, we price against the next load size up
                 (e.g. 13 m³ is priced as a 15 m³ load). Above 20 m³, we price it from recent
                 driver bids on similar-sized loads once there's enough data — otherwise it's
                 routed to a custom quote.
