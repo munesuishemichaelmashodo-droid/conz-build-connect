@@ -76,15 +76,27 @@ export function GuidedTourOverlay({
 
   return createPortal(
     <div className="fixed inset-0 z-40" aria-live="polite">
-      {/* Dimmed bands — pointer-events auto so the rest of the page can't
-          be interacted with while the tour is up, except the target
-          itself, which simply has nothing painted over it. */}
+      {/* Dimmed bands are pointer-events-none — purely visual darkening,
+          not a click-blocker. Several real screens (the booking wizard,
+          job detail's action row) have their own Next/Back controls that
+          live outside whatever single element a given step highlights;
+          blocking clicks there would trap the user on one internal step
+          with no way to actually progress the real UI underneath, since
+          our card's own Next only advances the *tour's* step index, not
+          app state. Letting genuine interaction reach the real page means
+          a step describing "pick a material" still lets the person use
+          the wizard's own Next to move on, which then surfaces the next
+          tour step's target naturally — exactly the "tap the real
+          highlighted element where practical, Next as fallback"
+          requirement, just not limited to elements *inside* the highlight
+          box. The highlighted target itself is always genuinely tappable
+          regardless (never covered by a band to begin with). */}
       {bands ? (
         <>
-          <div className="fixed bg-black/70" style={rectStyle(bands.bands.top)} />
-          <div className="fixed bg-black/70" style={rectStyle(bands.bands.bottom)} />
-          <div className="fixed bg-black/70" style={rectStyle(bands.bands.left)} />
-          <div className="fixed bg-black/70" style={rectStyle(bands.bands.right)} />
+          <div className="fixed bg-black/70 pointer-events-none" style={rectStyle(bands.bands.top)} />
+          <div className="fixed bg-black/70 pointer-events-none" style={rectStyle(bands.bands.bottom)} />
+          <div className="fixed bg-black/70 pointer-events-none" style={rectStyle(bands.bands.left)} />
+          <div className="fixed bg-black/70 pointer-events-none" style={rectStyle(bands.bands.right)} />
           <div
             className="fixed rounded-lg ring-2 ring-primary pointer-events-none transition-all duration-200"
             style={rectStyle(bands.ring)}

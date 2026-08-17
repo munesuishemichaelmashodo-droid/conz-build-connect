@@ -9,9 +9,9 @@ export function StatusBadge({ label, className }: { label: string; className?: s
   );
 }
 
-export function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
+export function Section({ id, title, action, children }: { id?: string; title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="space-y-3">
+    <section id={id} className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="font-display font-bold text-lg uppercase tracking-wide">{title}</h2>
         {action}

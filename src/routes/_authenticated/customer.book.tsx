@@ -392,7 +392,7 @@ function BookDelivery() {
 
       <AnimatePresence mode="wait">
         {step === 0 && (
-          <motion.div key="s-material" {...anim} className="space-y-5 mt-6">
+          <motion.div id="tour-book-material" key="s-material" {...anim} className="space-y-5 mt-6">
             <Header icon={Package} title="What are we moving?" hint="Pick the material you need delivered." />
 
             <div className="grid grid-cols-2 gap-2">
@@ -464,7 +464,7 @@ function BookDelivery() {
         )}
 
         {step === 2 && (
-          <motion.div key="s-addr" {...anim} className="space-y-5 mt-6">
+          <motion.div id="tour-book-address" key="s-addr" {...anim} className="space-y-5 mt-6">
             <Header
               icon={MapPin}
               title="Where to?"
@@ -537,7 +537,7 @@ function BookDelivery() {
         )}
 
         {step === 4 && (
-          <motion.div key="s-notes" {...anim} className="space-y-5 mt-6">
+          <motion.div id="tour-book-review" key="s-notes" {...anim} className="space-y-5 mt-6">
             <Header
               icon={StickyNote}
               title="Anything else?"
@@ -574,7 +574,7 @@ function BookDelivery() {
 
         {step === 5 && offerData && (
           <motion.div key="s-offer" {...anim} className="space-y-5 mt-6">
-            <div className="rounded-3xl bg-gradient-dark text-white p-8 shadow-lift text-center">
+            <div id="tour-book-offer" className="rounded-3xl bg-gradient-dark text-white p-8 shadow-lift text-center">
               <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-primary font-semibold">
                 <Sparkles className="w-3 h-3" /> AI Recommended
               </div>
@@ -686,6 +686,7 @@ function BookDelivery() {
             </div>
 
             <Button
+              id="tour-book-confirm"
               onClick={confirm}
               disabled={posting}
               className="w-full h-14 rounded-2xl font-display uppercase tracking-wide text-base"

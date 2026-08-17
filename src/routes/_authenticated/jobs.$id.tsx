@@ -420,7 +420,7 @@ function JobDetail() {
         <div className="space-y-4">
           <JobTimeline job={job} />
 
-          <div className="rounded-2xl bg-card border p-5 shadow-soft">
+          <div id="tour-job-header" className="rounded-2xl bg-card border p-5 shadow-soft">
             <div className="flex items-start justify-between gap-3">
               <h1 className="font-display font-bold text-2xl">
                 {materialLabel(job.material as any, job.custom_material)}
@@ -465,7 +465,7 @@ function JobDetail() {
         </div>
 
         {showActionSection && (
-          <Section title="What's next">
+          <Section id="tour-next-steps" title="What's next">
             <div className="space-y-4">
               {showRadar && <RadarSearch etaMinutes={5} nearbyDrivers={nearbyDrivers} />}
 
@@ -502,14 +502,14 @@ function JobDetail() {
               )}
 
               {showBidForm && (
-                <>
+                <div id="tour-place-bid">
                   <SpotlightCallout
                     id="driver-bidding"
                     title="Bid your own price"
                     body="Enter what you'd charge for this delivery. If the customer likes it, they'll accept — or they might propose a different price back to you."
                   />
                   <BidForm jobId={id} existing={myBid} onSaved={() => qc.invalidateQueries({ queryKey: ["bids", id] })} />
-                </>
+                </div>
               )}
 
               {showCounterResponse && (
@@ -572,6 +572,7 @@ function JobDetail() {
 
               {showCompleteButton && (
                 <Button
+                  id="tour-confirm-delivery"
                   onClick={completeJob}
                   disabled={!job.delivery_photo_url}
                   className="w-full bg-success text-success-foreground hover:bg-success/90"
@@ -582,7 +583,9 @@ function JobDetail() {
               )}
 
               {showDeliveryPinEntry && (
-                <DeliveryPinEntry jobId={id} onConfirmed={() => qc.invalidateQueries({ queryKey: ["job", id] })} />
+                <div id="tour-delivery-pin-entry">
+                  <DeliveryPinEntry jobId={id} onConfirmed={() => qc.invalidateQueries({ queryKey: ["job", id] })} />
+                </div>
               )}
 
               {showCancel && (
@@ -593,7 +596,7 @@ function JobDetail() {
         )}
 
         {showTrackingSection && (
-          <Section title="Tracking">
+          <Section id="tour-tracking" title="Tracking">
             <div className="space-y-4">
               {showProofPhotos && (
                 <div className="rounded-2xl bg-card border p-4 space-y-3">
@@ -635,7 +638,7 @@ function JobDetail() {
           <Section title="Communication">
             <div className="space-y-3">
               {showChat && (
-                <Button asChild variant="outline" className="w-full relative">
+                <Button id="tour-chat-link" asChild variant="outline" className="w-full relative">
                   <Link to="/chat/$jobId" params={{ jobId: id }}>
                     <MessageSquare className="w-4 h-4 mr-2" />
                     Open chat
@@ -651,10 +654,12 @@ function JobDetail() {
               {showWhatsapp && <WhatsAppPanel job={job} isOwner={isOwner} />}
 
               {showDispute && (
-                <RaiseDisputeDialog
-                  jobId={id}
-                  against={isOwner ? job.driver_id : job.customer_id}
-                />
+                <div id="tour-dispute">
+                  <RaiseDisputeDialog
+                    jobId={id}
+                    against={isOwner ? job.driver_id : job.customer_id}
+                  />
+                </div>
               )}
             </div>
           </Section>
@@ -662,6 +667,7 @@ function JobDetail() {
 
         {(isOwner || is("admin") || is("super_admin")) && (
           <Section
+            id="tour-bids-received"
             title={
               job.status === "open"
                 ? `Bids (${bids?.length ?? 0})`
@@ -672,7 +678,7 @@ function JobDetail() {
               <p className="text-sm text-muted-foreground">No bids yet. Drivers are checking your request.</p>
             ) : (
               <div className="space-y-2">
-                {(job.status === "open" ? bids : bids.filter((b: any) => b.status === "accepted")).map((b: any) => (
+                {(job.status === "open" ? bids : bids.filter((b: any) => b.status === "accepted")).map((b: any, bIdx: number) => (
                   <div key={b.id} className="rounded-xl bg-card border p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-start gap-3 min-w-0">
@@ -733,7 +739,7 @@ function JobDetail() {
 
                     {isOwner && job.status === "open" && b.status === "pending" && (
                       <div className="mt-3 space-y-2">
-                        <Button size="sm" onClick={() => acceptBid(b.id)} className="w-full">
+                        <Button id={bIdx === 0 ? "tour-accept-bid" : undefined} size="sm" onClick={() => acceptBid(b.id)} className="w-full">
                           Accept this bid
                         </Button>
                         {b.counter_status !== "countered" && (
@@ -759,7 +765,7 @@ function JobDetail() {
         )}
 
         {showWrapSection && (
-          <Section title="Wrap up">
+          <Section id="tour-wrap-up" title="Wrap up">
             <div className="space-y-3">
               {showRatingOwner && (
                 myRating ? (
@@ -793,6 +799,7 @@ function JobDetail() {
                     body="Every completed delivery gets a receipt with price, photos, and a downloadable PDF for your records — find it here anytime."
                   />
                   <a
+                    id="tour-receipt-link"
                     href={`${SITE_URL}/track/${job.tracking_token}`}
                     target="_blank"
                     rel="noreferrer"

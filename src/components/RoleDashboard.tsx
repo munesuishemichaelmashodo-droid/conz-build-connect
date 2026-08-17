@@ -62,7 +62,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
       {userId && <OnboardingWalkthrough userId={userId} role={role} />}
       <div className="space-y-6">
         {isDriver && <JobOfferListener />}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-dark text-white p-5 shadow-lift">
+        <div id="tour-dashboard-hero" className="relative overflow-hidden rounded-2xl bg-gradient-dark text-white p-5 shadow-lift">
           <RouteLine opacity={0.18} animate />
           <div className="relative">
           {isCustomer && (
@@ -100,7 +100,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
         <PushNotificationPrompt />
 
         {showVerificationWarning && (
-          <Link to="/profile" className="flex items-center gap-3 rounded-xl border border-warning/40 bg-warning/10 p-3">
+          <Link id="tour-driver-verification" to="/profile" className="flex items-center gap-3 rounded-xl border border-warning/40 bg-warning/10 p-3">
             <ShieldAlert className="w-5 h-5 text-warning shrink-0" />
             <div className="text-sm">
               <div className="font-semibold">Complete your verification</div>
@@ -122,7 +122,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
         {/* Primary actions -- what the person is here to do. */}
         {isCustomer && !restricted && (
           <div className="space-y-2">
-            <Link to="/customer/book" className="block rounded-xl bg-gradient-primary text-primary-foreground p-4 shadow-lift">
+            <Link id="tour-book-delivery-cta" to="/customer/book" className="block rounded-xl bg-gradient-primary text-primary-foreground p-4 shadow-lift">
               <Plus className="w-6 h-6" />
               <div className="font-display font-bold mt-2 uppercase">Book delivery</div>
               <div className="text-xs opacity-80">AI-priced in seconds</div>
@@ -134,13 +134,13 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          <Link to="/jobs" className="rounded-xl bg-card border p-4 shadow-soft">
+          <Link id="tour-jobs-link" to="/jobs" className="rounded-xl bg-card border p-4 shadow-soft">
             <Briefcase className="w-6 h-6 text-primary" />
             <div className="font-display font-bold mt-2 uppercase">{isDriver ? "Find jobs" : "My jobs"}</div>
             <div className="text-xs text-muted-foreground">{isDriver ? "Open requests" : "Track progress"}</div>
           </Link>
           {isDriver && (
-            <Link to="/wallet" className="rounded-xl bg-card border p-4 shadow-soft">
+            <Link id="tour-wallet-link" to="/wallet" className="rounded-xl bg-card border p-4 shadow-soft">
               <WalletIcon className="w-6 h-6 text-primary" />
               <div className="font-display font-bold mt-2 uppercase">Wallet</div>
               <div className="text-xs text-muted-foreground">Top-ups & fees</div>
