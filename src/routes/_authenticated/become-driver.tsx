@@ -41,7 +41,7 @@ const STEPS = [
 ] as const;
 
 function BecomeDriverPage() {
-  const { userId, profile, email, is, refresh } = useAuth();
+  const { userId, profile, email, refresh } = useAuth();
   const qc = useQueryClient();
   const nav = useNavigate();
   const [step, setStep] = useState(0);
@@ -118,10 +118,13 @@ function BecomeDriverPage() {
       if (name.trim() && name.trim() !== profile?.full_name) {
         await supabase.from("profiles").update({ full_name: name.trim() }).eq("id", userId);
       }
-      // Ensure driver role.
-      if (!is("driver")) {
-        await supabase.from("user_roles").insert({ user_id: userId, role: "driver" });
-      }
+      // Note: the driver role is granted server-side when an admin
+      // approves verification (see admin_set_driver_verification RPC),
+      // not here — RLS only allows super_admins to insert into
+      // user_roles, so a self-insert from the applicant's own session
+      // would silently fail. Granting it at verification time also
+      // means an unverified applicant never shows up with driver-side
+      // access before they're actually cleared to accept jobs.
       // Persist nationality, ensure pending status (explicit here since truck-photo
       // uploads below use ComplianceDocRow, which doesn't flip status like PhotoStep
       // does — this matters for a driver resubmitting after a rejection).
