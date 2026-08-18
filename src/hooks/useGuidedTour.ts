@@ -108,10 +108,17 @@ export function useGuidedTour(options?: {
     const myRun = ++runId.current;
     let cancelled = false;
 
-    const skipThisStep = (why: string) => {
+    const skipThisStep = async (why: string) => {
       if (cancelled || myRun !== runId.current) return;
       console.info(`[guided-tour] skipping step "${step.id}" (${why})`);
       emit("skip_step", step, stepIndex);
+      // Brief pause before advancing: without this, a run of consecutive
+      // steps with no matching data (e.g. a fresh account with no jobs
+      // yet) skip in the same tick as each other, which reads as the tour
+      // rushing/flickering rather than guiding. This keeps the dim
+      // "locating" overlay on screen long enough to feel intentional.
+      await new Promise((r) => setTimeout(r, 350));
+      if (cancelled || myRun !== runId.current) return;
       if (stepIndex + 1 >= config.steps.length) {
         finish("complete");
       } else {
@@ -130,7 +137,10 @@ export function useGuidedTour(options?: {
         targetPath = null;
       }
       if (cancelled || myRun !== runId.current) return;
-      if (!targetPath) return skipThisStep("no matching real record for this step yet");
+      if (!targetPath) {
+        await skipThisStep("no matching real record for this step yet");
+        return;
+      }
 
       if (router.state.location.pathname !== targetPath) {
         router.navigate({ to: targetPath as never });
@@ -149,7 +159,10 @@ export function useGuidedTour(options?: {
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
         if (cancelled || myRun !== runId.current) return;
       }
-      if (!el) return skipThisStep(`target "${step.target}" never appeared`);
+      if (!el) {
+        await skipThisStep(`target "${step.target}" never appeared`);
+        return;
+      }
 
       // 3) Bring it into view (centered, no jarring full-page jump — only
       // scrolls if it's not already reasonably in view).
@@ -219,7 +232,24 @@ export function useGuidedTour(options?: {
       setDialogOpen(!!openDialog);
     };
     check();
-    const mo = new MutationObserver(check);
+    // Coalesce bursts of mutations into a single check per animation
+    // frame. Observing childList+subtree on document.body (required —
+    // see below) means this callback fires on *every* DOM change
+    // anywhere in the app, not just dialogs: live chat messages
+    // arriving, the tracking map updating, presence heartbeats, etc.
+    // Calling check() synchronously on each one was the freeze — on a
+    // busy screen (chat, live tracking) that could be dozens of
+    // querySelector calls per second. rAF-throttling collapses however
+    // many mutations land in a frame into one check.
+    let rafId: number | null = null;
+    const scheduleCheck = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        check();
+      });
+    };
+    const mo = new MutationObserver(scheduleCheck);
     // childList is required, not just attributes: Radix's Dialog/Sheet
     // portal their content into the tree only while open — opening one
     // *inserts* a fresh node with data-state="open" already set, it
@@ -228,7 +258,10 @@ export function useGuidedTour(options?: {
     // brief closing transition, never the open — confirmed by testing
     // against a real insert, not just an attribute flip.
     mo.observe(document.body, { attributes: true, childList: true, subtree: true, attributeFilter: ["data-state"] });
-    return () => mo.disconnect();
+    return () => {
+      mo.disconnect();
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, [active]);
 
   // --- Resume state if the tab was backgrounded mid-locate (rare, but a
