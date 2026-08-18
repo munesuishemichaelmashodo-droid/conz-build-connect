@@ -71,17 +71,16 @@ function ProfilePage() {
   };
 
   const becomeDriver = async () => {
-    const { error } = await supabase.from("user_roles").insert({ user_id: userId!, role: "driver" });
+    const { error } = await supabase.rpc("self_add_base_role", { _role: "driver" });
     if (error) return toast.error(error.message);
     await supabase.from("driver_profiles").upsert({ user_id: userId! }, { onConflict: "user_id" });
-    await supabase.from("wallets").upsert({ user_id: userId!, balance: 0 }, { onConflict: "user_id" });
     toast.success("You're now a driver. Complete verification to start bidding.");
     refresh();
     qc.invalidateQueries();
   };
 
   const becomeCustomer = async () => {
-    const { error } = await supabase.from("user_roles").insert({ user_id: userId!, role: "customer" });
+    const { error } = await supabase.rpc("self_add_base_role", { _role: "customer" });
     if (error) return toast.error(error.message);
     toast.success("Customer account active.");
     refresh();
