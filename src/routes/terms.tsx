@@ -144,7 +144,7 @@ function TermsPage() {
           <Section title="14. Contact">
             <p>
               For questions about these Terms, you can reach us at{" "}
-              <b>constructionz.zw@gmail.com</b>.
+              <b>constructionz.zw@gmail.com</b> or <b>+263 77 777 0557</b>.
             </p>
           </Section>
 

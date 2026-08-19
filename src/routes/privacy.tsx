@@ -144,7 +144,7 @@ function PrivacyPage() {
           <Section title="10. Contact">
             <p>
               For privacy questions or requests, you can reach us at{" "}
-              <b>constructionz.zw@gmail.com</b>
+              <b>constructionz.zw@gmail.com</b> or <b>+263 77 777 0557</b>
             </p>
           </Section>
 

@@ -98,7 +98,8 @@ function Welcome() {
 
         <p className="text-center text-[11px] text-white/50 mt-6">Founded in Zimbabwe • Built for the industry</p>
         <p className="text-center text-[11px] text-white/70 mt-2">
-          Contact: <a href="mailto: constructionz.zw@gmail.com" className="underline">constructionz.zw@gmail.com</a>
+          Contact: <a href="mailto: constructionz.zw@gmail.com" className="underline">constructionz.zw@gmail.com</a> ·{" "}
+          <a href="tel:+263777770557" className="underline">+263 77 777 0557</a>
         </p>
         <p className="text-center text-[11px] text-white/50 mt-3">
           <Link to="/terms" className="underline">Terms</Link> · <Link to="/privacy" className="underline">Privacy</Link>

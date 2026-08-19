@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { LifeBuoy, Mail, MessageSquareWarning, Compass, RotateCcw } from "lucide-react";
+import { LifeBuoy, Mail, Phone, MessageSquareWarning, Compass, RotateCcw } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTour } from "@/components/GuidedTourProvider";
 import { customerTour } from "@/lib/tour/customer-tour";
@@ -166,6 +166,13 @@ function HelpPage() {
             <div>
               <div className="font-semibold">Email support</div>
               <div className="text-xs text-muted-foreground">support@conz.co.zw — we usually reply within a day.</div>
+            </div>
+          </a>
+          <a href="tel:+263777770557" className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-muted transition">
+            <Phone className="w-5 h-5 text-primary" />
+            <div>
+              <div className="font-semibold">Call support</div>
+              <div className="text-xs text-muted-foreground">+263 77 777 0557</div>
             </div>
           </a>
           <Link to="/report" search={{jobId: undefined}} className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-muted transition">
