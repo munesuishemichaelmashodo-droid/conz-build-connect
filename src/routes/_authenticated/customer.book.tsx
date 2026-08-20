@@ -602,6 +602,20 @@ function BookDelivery() {
                 {offerData.explanation}
               </p>
 
+              <div className="flex items-center justify-center gap-4 mt-4 text-[11px] text-white/60">
+                <span>Low {money(offerData.low)}</span>
+                <span className="text-white/30">•</span>
+                <span>Recommended {money(offerData.recommended)}</span>
+                <span className="text-white/30">•</span>
+                <span>High {money(offerData.high)}</span>
+              </div>
+
+              {offerData.tripCount > 1 && (
+                <p className="text-[11px] text-white/50 mt-1">
+                  Estimated {offerData.tripCount} trips, based on a {offerData.referenceCapacityM3} m³ reference truck
+                </p>
+              )}
+
               <div className="mt-6 flex items-center justify-center gap-6">
                 <button
                   type="button"
@@ -632,6 +646,9 @@ function BookDelivery() {
                 label="Estimated distance"
                 value={`${offerData.distanceKm} km`}
               />
+              {offerData.tripCount > 1 && (
+                <Row icon={Truck} label="Estimated trips" value={`${offerData.tripCount}`} />
+              )}
               {offerData.materialCost > 0 && (
                 <Row icon={Package} label="Material cost" value={money(offerData.materialCost)} />
               )}
