@@ -209,12 +209,19 @@ function BookDelivery() {
     // comes from the real diesel price (32L/100km × diesel price ×
     // 1.5x markup for driver time/wear), matching the server formula.
     const longHaulRate = (FUEL_LITRES_PER_100KM / 100) * Number(dieselPrice ?? 1.87) * 1.5;
-    const fuelCost =
+    const zoneBandCost =
       distanceKm <= 10 ? 20 :
       distanceKm <= 20 ? 30 :
       distanceKm <= 30 ? 40 :
       distanceKm <= 50 ? 60 :
       60 + (distanceKm - 50) * longHaulRate;
+    // Above 20 m³ the reference truck (10 m³) needs multiple trips —
+    // mirrors compute_material_offer's Mode C: trip_count = ceil(qty / 10),
+    // transport = zone-band cost × trip_count. This preview is not the
+    // authoritative price (that's always computeOffer/compute_material_offer),
+    // but it must not understate it either.
+    const tripCount = quantity > 20 ? Math.ceil(quantity / 10) : 1;
+    const fuelCost = zoneBandCost * tripCount;
     const commission = (materialCost + fuelCost) * (Number(commissionRate ?? 7) / 100);
     const total = materialCost + fuelCost + commission;
     // Floor only — deliberately no ceiling at matPrice.max_price. That
