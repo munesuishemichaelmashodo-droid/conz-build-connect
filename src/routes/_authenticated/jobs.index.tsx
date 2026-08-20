@@ -12,10 +12,43 @@ export const Route = createFileRoute("/_authenticated/jobs/")({
   component: JobsPage,
 });
 
+const TIER_RANK: Record<string, number> = { excellent: 0, good: 1, oversized: 2, multiple_trips: 3 };
+
+// Client-side only: which tier the driver's BEST registered truck would get
+// for this job's quantity. Mirrors tg_stamp_bid_capacity's formula purely
+// for sorting/badging the job list — never authoritative, never affects
+// eligibility to bid; the server always recomputes the real match when a
+// bid is actually placed.
+function bestMatchTier(quantityM3: number, capacities: number[]): string | null {
+  if (!capacities.length || !quantityM3 || quantityM3 <= 0) return null;
+  let best: { tier: string; rank: number; trips: number } | null = null;
+  for (const cap of capacities) {
+    if (!cap || cap <= 0) continue;
+    const trips = Math.ceil(quantityM3 / cap);
+    const score = quantityM3 / (trips * cap);
+    const tier = trips > 1 ? "multiple_trips" : score >= 0.833 ? "excellent" : score >= 0.5 ? "good" : "oversized";
+    const rank = TIER_RANK[tier];
+    if (!best || rank < best.rank || (rank === best.rank && trips < best.trips)) {
+      best = { tier, rank, trips };
+    }
+  }
+  return best?.tier ?? null;
+}
+
 function JobsPage() {
   const { userId, is } = useAuth();
   const isDriver = is("driver");
   const isCustomer = is("customer");
+
+  const { data: myTrucks } = useQuery({
+    queryKey: ["my-trucks-capacities", userId],
+    enabled: !!userId && isDriver,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("trucks").select("capacity_m3").eq("driver_id", userId!);
+      if (error) throw error;
+      return (data ?? []).map((t) => Number(t.capacity_m3));
+    },
+  });
 
   const { data: jobs, isLoading } = useQuery({
     queryKey: ["jobs-list", userId, isDriver, isCustomer],
@@ -32,6 +65,23 @@ function JobsPage() {
     },
   });
 
+  // Best-matched-first for open jobs a driver hasn't bid on yet; jobs the
+  // driver already has (own bid/assigned) keep their normal recency order.
+  // Purely a display/ordering preference — every eligible job stays visible
+  // and biddable regardless of rank.
+  const orderedJobs =
+    isDriver && myTrucks?.length && jobs
+      ? [...jobs].sort((a, b) => {
+          const aOpen = a.status === "open" && a.driver_id !== userId;
+          const bOpen = b.status === "open" && b.driver_id !== userId;
+          if (aOpen && bOpen) {
+            const ra = TIER_RANK[bestMatchTier(Number(a.quantity_m3), myTrucks) ?? "oversized"] ?? 9;
+            const rb = TIER_RANK[bestMatchTier(Number(b.quantity_m3), myTrucks) ?? "oversized"] ?? 9;
+            if (ra !== rb) return ra - rb;
+          }
+          return 0;
+        })
+      : jobs;
 
   return (
     <AppShell title="Jobs" action={isCustomer ? (
@@ -40,10 +90,18 @@ function JobsPage() {
       <div id="tour-jobs-list">
         {isLoading ? (
           <div className="text-center text-muted-foreground py-10">Loading…</div>
-        ) : (jobs ?? []).length === 0 ? (
+        ) : (orderedJobs ?? []).length === 0 ? (
           <EmptyState icon={Briefcase} title="No jobs yet" hint={isCustomer ? "Post your first delivery request." : "Check back soon for open requests."} />
         ) : (
-          <div className="space-y-2">{jobs!.map((j) => <JobCard key={j.id} j={j} />)}</div>
+          <div className="space-y-2">
+            {orderedJobs!.map((j) => (
+              <JobCard
+                key={j.id}
+                j={j}
+                matchTier={isDriver && myTrucks?.length ? bestMatchTier(Number(j.quantity_m3), myTrucks) : undefined}
+              />
+            ))}
+          </div>
         )}
       </div>
     </AppShell>

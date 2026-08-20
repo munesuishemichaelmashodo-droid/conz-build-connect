@@ -194,17 +194,22 @@ function JobDetail() {
       const { data: bids } = await supabase.from("bids").select("*").eq("job_id", id).order("price");
       if (!bids?.length) return [] as any[];
       const driverIds = [...new Set(bids.map((b) => b.driver_id))];
-      const [{ data: profs }, { data: drvs }] = await Promise.all([
+      const truckIds = [...new Set(bids.map((b: any) => b.truck_id).filter(Boolean))];
+      const [{ data: profs }, { data: drvs }, { data: trucksData }] = await Promise.all([
         supabase.from("profiles").select("id,full_name,avatar_url").in("id", driverIds),
         supabase
           .from("driver_public_profiles")
           .select("user_id,rating_avg,rating_count,level,jobs_completed,verification_status")
           .in("user_id", driverIds),
+        truckIds.length
+          ? supabase.from("trucks").select("id,registration").in("id", truckIds)
+          : Promise.resolve({ data: [] as { id: string; registration: string }[] }),
       ]);
-      return bids.map((b) => ({
+      return bids.map((b: any) => ({
         ...b,
         profile: profs?.find((p) => p.id === b.driver_id),
         driver: drvs?.find((d) => d.user_id === b.driver_id),
+        truck_reg: trucksData?.find((t) => t.id === b.truck_id)?.registration,
       }));
     },
   });
@@ -508,7 +513,7 @@ function JobDetail() {
                     title="Bid your own price"
                     body="Enter what you'd charge for this delivery. If the customer likes it, they'll accept — or they might propose a different price back to you."
                   />
-                  <BidForm jobId={id} existing={myBid} onSaved={() => qc.invalidateQueries({ queryKey: ["bids", id] })} />
+                  <BidForm jobId={id} quantityM3={Number(job.quantity_m3)} existing={myBid} onSaved={() => qc.invalidateQueries({ queryKey: ["bids", id] })} />
                 </div>
               )}
 
@@ -723,6 +728,24 @@ function JobDetail() {
                     </div>
                     {b.message && <p className="text-sm text-muted-foreground mt-2">{b.message}</p>}
 
+                    {b.truck_reg && (
+                      <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
+                        <span className="inline-flex items-center gap-1 text-muted-foreground">
+                          <Truck className="w-3.5 h-3.5" />
+                          {b.truck_reg} · {b.capacity_m3_snapshot} m³ truck
+                        </span>
+                        {b.capacity_match_tier && (
+                          <StatusBadge
+                            label={MATCH_TIER_LABEL[b.capacity_match_tier]?.label ?? b.capacity_match_tier}
+                            className={MATCH_TIER_LABEL[b.capacity_match_tier]?.className ?? ""}
+                          />
+                        )}
+                        {b.estimated_trips > 1 && (
+                          <span className="text-muted-foreground">{b.estimated_trips} trips</span>
+                        )}
+                      </div>
+                    )}
+
                     {b.counter_status === "countered" && (
                       <div className="mt-2 rounded-lg bg-primary/5 border border-primary/30 p-2.5 text-xs space-y-1">
                         <div className="font-semibold text-primary">
@@ -874,12 +897,77 @@ function CounterOfferRow({ bidPrice, onSubmit }: { bidPrice: number; onSubmit: (
   );
 }
 
-function BidForm({ jobId, existing, onSaved }: { jobId: string; existing?: any; onSaved: () => void }) {
+// Client-side preview only — mirrors tg_stamp_bid_capacity's formula so the
+// driver sees an accurate match/trip estimate before submitting, but the
+// server always recomputes and overwrites these fields authoritatively from
+// the actual truck_id + job.quantity_m3 on insert/update. This preview can
+// never be what actually gets stored.
+function previewCapacityMatch(capacityM3: number, quantityM3: number) {
+  if (!capacityM3 || capacityM3 <= 0 || !quantityM3 || quantityM3 <= 0) return null;
+  const trips = Math.ceil(quantityM3 / capacityM3);
+  const score = quantityM3 / (trips * capacityM3);
+  const tier: "excellent" | "good" | "oversized" | "multiple_trips" =
+    trips > 1 ? "multiple_trips" : score >= 0.833 ? "excellent" : score >= 0.5 ? "good" : "oversized";
+  return { trips, tier };
+}
+
+const MATCH_TIER_LABEL: Record<string, { label: string; className: string }> = {
+  excellent: { label: "Excellent match", className: "bg-success/15 text-success border-success/30" },
+  good: { label: "Good match", className: "bg-primary/10 text-primary border-primary/30" },
+  oversized: { label: "Oversized", className: "bg-muted text-muted-foreground border-border" },
+  multiple_trips: { label: "Multiple trips", className: "bg-warning/15 text-warning border-warning/30" },
+};
+
+function BidForm({
+  jobId,
+  quantityM3,
+  existing,
+  onSaved,
+}: {
+  jobId: string;
+  quantityM3: number;
+  existing?: any;
+  onSaved: () => void;
+}) {
   const { userId } = useAuth();
   const [price, setPrice] = useState(existing?.price?.toString() ?? "");
   const [date, setDate] = useState(existing?.delivery_date ?? "");
   const [message, setMessage] = useState(existing?.message ?? "");
+  const [truckId, setTruckId] = useState<string>(existing?.truck_id ?? "");
   const [loading, setLoading] = useState(false);
+
+  const { data: trucks } = useQuery({
+    queryKey: ["my-trucks", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("trucks")
+        .select("id,registration,capacity_m3")
+        .eq("driver_id", userId!)
+        .order("capacity_m3");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  useEffect(() => {
+    // Default to the driver's single truck, or their best-matched truck if
+    // they have several and haven't bid on this job yet.
+    if (truckId || !trucks?.length) return;
+    if (trucks.length === 1) {
+      setTruckId(trucks[0].id);
+      return;
+    }
+    const best = [...trucks].sort((a, b) => {
+      const pa = previewCapacityMatch(Number(a.capacity_m3), quantityM3);
+      const pb = previewCapacityMatch(Number(b.capacity_m3), quantityM3);
+      return (pa?.trips ?? 99) - (pb?.trips ?? 99) || Number(a.capacity_m3) - Number(b.capacity_m3);
+    })[0];
+    if (best) setTruckId(best.id);
+  }, [trucks, truckId, quantityM3]);
+
+  const selectedTruck = trucks?.find((t) => t.id === truckId);
+  const preview = selectedTruck ? previewCapacityMatch(Number(selectedTruck.capacity_m3), quantityM3) : null;
 
   // Upfront commission-funds check so the driver learns about a shortfall
   // before bidding, not when the customer's acceptance fails.
@@ -910,6 +998,7 @@ function BidForm({ jobId, existing, onSaved }: { jobId: string; existing?: any; 
     e.preventDefault();
     const p = parseFloat(price);
     if (!p || p <= 0) return toast.error("Enter a valid price");
+    if (!truckId) return toast.error("Select which truck you're bidding with");
     setLoading(true);
     const { error } = await supabase.from("bids").upsert(
       {
@@ -918,7 +1007,8 @@ function BidForm({ jobId, existing, onSaved }: { jobId: string; existing?: any; 
         price: p,
         delivery_date: date || null,
         message: message.trim() || null,
-      },
+        truck_id: truckId,
+      } as any,
       { onConflict: "job_id,driver_id" },
     );
     setLoading(false);
@@ -929,6 +1019,11 @@ function BidForm({ jobId, existing, onSaved }: { jobId: string; existing?: any; 
 
   return (
     <div className="space-y-3">
+      {trucks && trucks.length === 0 && (
+        <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4 text-sm">
+          Register a truck on your profile before bidding — customers see which truck will do the job.
+        </div>
+      )}
       {showFundsWarning && (
         <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4 space-y-2">
           <div className="flex items-start gap-2">
@@ -956,6 +1051,36 @@ function BidForm({ jobId, existing, onSaved }: { jobId: string; existing?: any; 
       <div className="font-display font-bold uppercase text-sm tracking-wide">
         {existing ? "Update your bid" : "Submit a bid"}
       </div>
+      {trucks && trucks.length > 0 && (
+        <div>
+          <Label htmlFor="bt">Bidding with</Label>
+          <select
+            id="bt"
+            value={truckId}
+            onChange={(e) => setTruckId(e.target.value)}
+            className="w-full h-10 rounded-md border bg-background px-3 text-sm"
+            required
+          >
+            <option value="" disabled>Select a truck</option>
+            {trucks.map((t) => {
+              const p = previewCapacityMatch(Number(t.capacity_m3), quantityM3);
+              return (
+                <option key={t.id} value={t.id}>
+                  {t.registration} — {t.capacity_m3} m³{p ? ` (${MATCH_TIER_LABEL[p.tier].label}${p.trips > 1 ? `, ${p.trips} trips` : ""})` : ""}
+                </option>
+              );
+            })}
+          </select>
+          {preview && (
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              <StatusBadge label={MATCH_TIER_LABEL[preview.tier].label} className={MATCH_TIER_LABEL[preview.tier].className} />
+              <span className="text-xs text-muted-foreground">
+                {preview.trips > 1 ? `Estimated ${preview.trips} trips for this order` : "1 trip"}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label htmlFor="bp">Price ($)</Label>
@@ -986,7 +1111,7 @@ function BidForm({ jobId, existing, onSaved }: { jobId: string; existing?: any; 
           placeholder="e.g. Can deliver tomorrow morning"
         />
       </div>
-      <Button type="submit" disabled={loading || showFundsWarning} className="w-full">
+      <Button type="submit" disabled={loading || showFundsWarning || !trucks?.length} className="w-full">
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : existing ? "Update bid" : "Submit bid"}
       </Button>
       </form>
