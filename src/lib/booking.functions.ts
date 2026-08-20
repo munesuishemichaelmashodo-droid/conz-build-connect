@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { getRoute } from "@/lib/routing.functions";
 
 const MATERIALS = [
   "river_sand",
@@ -18,27 +19,103 @@ const MAX_SERVICE_KM = 900;
 const TOO_FAR_MESSAGE =
   "This delivery address is too far from our service area — please choose a closer address.";
 
-const OfferInput = z
-  .object({
-    material: z.enum(MATERIALS),
-    quantity: z.number().positive().max(50),
-    distanceKm: z.number().min(0).optional(),
-    address: z.string().max(200).optional(),
-  })
-  .superRefine((val, ctx) => {
-    if (val.distanceKm !== undefined && val.distanceKm > MAX_SERVICE_KM) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: TOO_FAR_MESSAGE, path: ["distanceKm"] });
-    }
-  });
+const OfferInput = z.object({
+  material: z.enum(MATERIALS),
+  quantity: z.number().positive().max(50),
+  // Client-provided distance is now only a last-resort fallback, used when
+  // pickup/delivery coordinates aren't supplied. Whenever coordinates ARE
+  // supplied, the server derives distance itself (see resolveDistance) —
+  // the client can no longer just send a favorable distanceKm number.
+  distanceKm: z.number().min(0).optional(),
+  pickupLat: z.number().optional(),
+  pickupLng: z.number().optional(),
+  deliveryLat: z.number().optional(),
+  deliveryLng: z.number().optional(),
+  address: z.string().max(200).optional(),
+});
 
 function parseOfferInput(input: unknown) {
   const result = OfferInput.safeParse(input);
   if (!result.success) {
-    const tooFar = result.error.issues.find((i) => i.message === TOO_FAR_MESSAGE);
-    if (tooFar) throw new Error(TOO_FAR_MESSAGE);
     throw new Error(result.error.issues[0]?.message ?? "Invalid booking details");
   }
   return result.data;
+}
+
+type DistanceSource = "osrm" | "haversine" | "client_provided";
+
+/**
+ * The single place distance is derived for pricing. Prefers a real
+ * server-side OSRM road-distance lookup (with getRoute's own haversine
+ * fallback if OSRM is slow/unreachable) computed from pickup/delivery
+ * coordinates; only falls back to a bare client-supplied distanceKm number
+ * when no coordinates were given at all. The client never determines the
+ * distance used for pricing when coordinates are available.
+ */
+async function resolveDistance(data: {
+  distanceKm?: number;
+  pickupLat?: number;
+  pickupLng?: number;
+  deliveryLat?: number;
+  deliveryLng?: number;
+}): Promise<{ distanceKm: number; source: DistanceSource }> {
+  if (
+    data.pickupLat != null &&
+    data.pickupLng != null &&
+    data.deliveryLat != null &&
+    data.deliveryLng != null
+  ) {
+    try {
+      const route = await getRoute({
+        data: {
+          startLat: data.pickupLat,
+          startLng: data.pickupLng,
+          destLat: data.deliveryLat,
+          destLng: data.deliveryLng,
+        },
+      });
+      return { distanceKm: route.distanceKm, source: route.source };
+    } catch {
+      // getRoute already falls back to haversine internally and shouldn't
+      // throw — but if it somehow does, fall through to the client-provided
+      // fallback below rather than failing the whole quote.
+    }
+  }
+  return { distanceKm: data.distanceKm ?? 15, source: "client_provided" };
+}
+
+/**
+ * Persists the server-derived distance as a single-use, tamper-proof quote
+ * the client can later reference (by opaque id) at job creation, so
+ * tg_validate_job_budget can use the SAME distance instead of recomputing a
+ * cheaper haversine straight-line figure. Never persists a bare
+ * client-provided distance as "trusted" — only real osrm/haversine
+ * server-side calculations from actual coordinates are eligible. Best
+ * effort: a failure here must never block the customer from seeing a quote,
+ * it just means that job falls back to the trigger's own haversine
+ * validation (unchanged prior behaviour), so we swallow errors.
+ */
+async function tryCreateQuote(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- create_price_quote isn't in the generated Supabase types (added via a fresh migration); matches this file's existing `as any` pattern for RPC calls.
+  sb: any,
+  material: string,
+  quantity: number,
+  distanceKm: number,
+  source: DistanceSource,
+): Promise<string | null> {
+  if (source === "client_provided") return null;
+  try {
+    const { data, error } = await sb.rpc("create_price_quote", {
+      _material: material,
+      _quantity_m3: quantity,
+      _distance_km: distanceKm,
+      _distance_source: source,
+    });
+    if (error) return null;
+    return typeof data === "string" ? data : null;
+  } catch {
+    return null;
+  }
 }
 
 function customQuoteMessage(
@@ -82,7 +159,73 @@ export type OfferResult = {
   tripCount: number;
   referenceCapacityM3: number;
   pricingVersion: string;
+  // Opaque reference to a server-computed, tamper-proof distance snapshot.
+  // Pass this back at job creation (jobs.quote_id) so the DB trigger uses
+  // the same road distance instead of recomputing a cheaper haversine
+  // figure. Null when no coordinates were supplied (falls back to the
+  // trigger's own haversine calculation, same as before this change).
+  quoteId: string | null;
 };
+
+type OfferGuide = {
+  offer: number | null;
+  min: number | null;
+  max: number | null;
+  low?: number | null;
+  recommended?: number | null;
+  high?: number | null;
+  step: number;
+  label?: string;
+  unit?: string;
+  enforced: boolean;
+  materialCost?: number;
+  transportCost?: number;
+  requiresCustomQuote?: boolean;
+  error?: string;
+  tripCount?: number;
+  referenceCapacityM3?: number;
+  pricingVersion?: string;
+};
+
+function buildOfferResult(
+  g: OfferGuide,
+  material: string,
+  quantity: number,
+  distanceKm: number,
+  quoteId: string | null,
+): OfferResult {
+  const offer = Number(g.offer ?? 0);
+  const min = Number(g.min ?? 0);
+  const max = Number(g.max ?? 0);
+  const etaMinutes = Math.max(10, Math.round((distanceKm / 40) * 60) + 20);
+  const label = g.label ?? material.replace("_", " ");
+  const tripCount = Number(g.tripCount ?? 1);
+
+  return {
+    offer,
+    min,
+    max,
+    low: Number(g.low ?? min),
+    recommended: Number(g.recommended ?? offer),
+    high: Number(g.high ?? max),
+    step: Number(g.step ?? 5),
+    label,
+    unit: g.unit ?? "10-15 m³ load",
+    enforced: Boolean(g.enforced),
+    etaMinutes,
+    distanceKm: Math.round(distanceKm),
+    explanation:
+      tripCount > 1
+        ? `Fair rate for ${label} — ${quantity} m³, ${Math.round(distanceKm)} km, ~${tripCount} trips.`
+        : `Fair rate for ${label} — ${quantity} m³, ${Math.round(distanceKm)} km.`,
+    materialCost: Number(g.materialCost ?? 0),
+    transportCost: Number(g.transportCost ?? 0),
+    tripCount,
+    referenceCapacityM3: Number(g.referenceCapacityM3 ?? 10),
+    pricingVersion: g.pricingVersion ?? "v1.1",
+    quoteId,
+  };
+}
 
 /**
  * Fast deterministic offer. No AI in the hot path — returns immediately from the price guide.
@@ -92,7 +235,16 @@ export const computeOffer = createServerFn({ method: "POST" })
   .inputValidator(parseOfferInput)
   .handler(async ({ data, context }): Promise<OfferResult> => {
     const { supabase } = context;
-    const distanceKm = data.distanceKm ?? 15;
+    const { distanceKm, source } = await resolveDistance(data);
+    if (distanceKm > MAX_SERVICE_KM) throw new Error(TOO_FAR_MESSAGE);
+
+    const quoteId = await tryCreateQuote(
+      supabase,
+      data.material,
+      data.quantity,
+      distanceKm,
+      source,
+    );
 
     const { data: guide, error } = await supabase.rpc("compute_material_offer", {
       _material: data.material,
@@ -100,60 +252,13 @@ export const computeOffer = createServerFn({ method: "POST" })
       _distance_km: distanceKm,
     });
     if (error) throw new Error(error.message);
-    const g = guide as {
-      offer: number | null;
-      min: number | null;
-      max: number | null;
-      low?: number | null;
-      recommended?: number | null;
-      high?: number | null;
-      step: number;
-      label?: string;
-      unit?: string;
-      enforced: boolean;
-      materialCost?: number;
-      transportCost?: number;
-      requiresCustomQuote?: boolean;
-      error?: string;
-      tripCount?: number;
-      referenceCapacityM3?: number;
-      pricingVersion?: string;
-    };
+    const g = guide as OfferGuide;
 
     if (g.requiresCustomQuote) {
       throw new Error(customQuoteMessage(g, data.quantity));
     }
 
-    const offer = Number(g.offer ?? 0);
-    const min = Number(g.min ?? 0);
-    const max = Number(g.max ?? 0);
-    const etaMinutes = Math.max(10, Math.round((distanceKm / 40) * 60) + 20);
-    const label = g.label ?? data.material.replace("_", " ");
-    const tripCount = Number(g.tripCount ?? 1);
-
-    return {
-      offer,
-      min,
-      max,
-      low: Number(g.low ?? min),
-      recommended: Number(g.recommended ?? offer),
-      high: Number(g.high ?? max),
-      step: Number(g.step ?? 5),
-      label,
-      unit: g.unit ?? "10-15 m³ load",
-      enforced: Boolean(g.enforced),
-      etaMinutes,
-      distanceKm: Math.round(distanceKm),
-      explanation:
-        tripCount > 1
-          ? `Fair rate for ${label} — ${data.quantity} m³, ${Math.round(distanceKm)} km, ~${tripCount} trips.`
-          : `Fair rate for ${label} — ${data.quantity} m³, ${Math.round(distanceKm)} km.`,
-      materialCost: Number(g.materialCost ?? 0),
-      transportCost: Number(g.transportCost ?? 0),
-      tripCount,
-      referenceCapacityM3: Number(g.referenceCapacityM3 ?? 10),
-      pricingVersion: g.pricingVersion ?? "v1.1",
-    };
+    return buildOfferResult(g, data.material, data.quantity, distanceKm, quoteId);
   });
 
 /**
@@ -166,7 +271,19 @@ export const computePublicOffer = createServerFn({ method: "POST" })
   .inputValidator(parseOfferInput)
   .handler(async ({ data }): Promise<OfferResult> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const distanceKm = data.distanceKm ?? 15;
+    const { distanceKm, source } = await resolveDistance(data);
+    if (distanceKm > MAX_SERVICE_KM) throw new Error(TOO_FAR_MESSAGE);
+
+    // Anonymous quotes aren't tied to a customer and never feed a real job
+    // insert from this page, but persisting them the same way keeps the
+    // pricing path identical and costs nothing (unused quotes just expire).
+    const quoteId = await tryCreateQuote(
+      supabaseAdmin,
+      data.material,
+      data.quantity,
+      distanceKm,
+      source,
+    );
 
     const { data: guide, error } = await supabaseAdmin.rpc("compute_material_offer", {
       _material: data.material,
@@ -174,60 +291,13 @@ export const computePublicOffer = createServerFn({ method: "POST" })
       _distance_km: distanceKm,
     } as any);
     if (error) throw new Error(error.message);
-    const g = guide as {
-      offer: number | null;
-      min: number | null;
-      max: number | null;
-      low?: number | null;
-      recommended?: number | null;
-      high?: number | null;
-      step: number;
-      label?: string;
-      unit?: string;
-      enforced: boolean;
-      materialCost?: number;
-      transportCost?: number;
-      requiresCustomQuote?: boolean;
-      error?: string;
-      tripCount?: number;
-      referenceCapacityM3?: number;
-      pricingVersion?: string;
-    };
+    const g = guide as OfferGuide;
 
     if (g.requiresCustomQuote) {
       throw new Error(customQuoteMessage(g, data.quantity));
     }
 
-    const offer = Number(g.offer ?? 0);
-    const min = Number(g.min ?? 0);
-    const max = Number(g.max ?? 0);
-    const etaMinutes = Math.max(10, Math.round((distanceKm / 40) * 60) + 20);
-    const label = g.label ?? data.material.replace("_", " ");
-    const tripCount = Number(g.tripCount ?? 1);
-
-    return {
-      offer,
-      min,
-      max,
-      low: Number(g.low ?? min),
-      recommended: Number(g.recommended ?? offer),
-      high: Number(g.high ?? max),
-      step: Number(g.step ?? 5),
-      label,
-      unit: g.unit ?? "10-15 m³ load",
-      enforced: Boolean(g.enforced),
-      etaMinutes,
-      distanceKm: Math.round(distanceKm),
-      explanation:
-        tripCount > 1
-          ? `Fair rate for ${label} — ${data.quantity} m³, ${Math.round(distanceKm)} km, ~${tripCount} trips.`
-          : `Fair rate for ${label} — ${data.quantity} m³, ${Math.round(distanceKm)} km.`,
-      materialCost: Number(g.materialCost ?? 0),
-      transportCost: Number(g.transportCost ?? 0),
-      tripCount,
-      referenceCapacityM3: Number(g.referenceCapacityM3 ?? 10),
-      pricingVersion: g.pricingVersion ?? "v1.1",
-    };
+    return buildOfferResult(g, data.material, data.quantity, distanceKm, quoteId);
   });
 
 const ExplainInput = z.object({
@@ -235,7 +305,10 @@ const ExplainInput = z.object({
   quantity: z.number().positive().max(50),
   // Clamp instead of hard-max so the AI blurb never becomes the source of a
   // raw Zod error surfaced to the customer.
-  distanceKm: z.number().min(0).transform((v) => Math.min(v, MAX_SERVICE_KM)),
+  distanceKm: z
+    .number()
+    .min(0)
+    .transform((v) => Math.min(v, MAX_SERVICE_KM)),
 });
 
 /**

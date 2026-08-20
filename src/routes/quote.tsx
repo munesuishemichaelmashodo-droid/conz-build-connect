@@ -5,7 +5,6 @@ import { MATERIALS, money, type MaterialCategory } from "@/lib/domain";
 import { AddressPicker } from "@/components/AddressPicker";
 import { supabase } from "@/integrations/supabase/client";
 import { computePublicOffer } from "@/lib/booking.functions";
-import { getRoute } from "@/lib/routing.functions";
 import { Button } from "@/components/ui/button";
 import { Minus, Plus, Loader2, Sparkles, ShieldCheck, Camera, MapPinned } from "lucide-react";
 import type { OfferResult } from "@/lib/booking.functions";
@@ -37,7 +36,6 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function PublicQuotePage() {
   const runOffer = useServerFn(computePublicOffer);
-  const runRoute = useServerFn(getRoute);
 
   const [material, setMaterial] = useState<MaterialCategory>("river_sand");
   const [quantity, setQuantity] = useState(12);
@@ -63,16 +61,17 @@ function PublicQuotePage() {
     setLoading(true);
     setOffer(null);
     try {
-      let distanceKm = 15;
-      try {
-        const route = await runRoute({
-          data: { startLat: pickupPoint.lat, startLng: pickupPoint.lng, destLat: coords.lat, destLng: coords.lng },
-        });
-        if (route?.distanceKm) distanceKm = route.distanceKm;
-      } catch {
-        // fall back to the default distance estimate
-      }
-      const result = await runOffer({ data: { material, quantity, distanceKm, address } });
+      const result = await runOffer({
+        data: {
+          material,
+          quantity,
+          pickupLat: pickupPoint.lat,
+          pickupLng: pickupPoint.lng,
+          deliveryLat: coords.lat,
+          deliveryLng: coords.lng,
+          address,
+        },
+      });
       setOffer(result);
     } finally {
       setLoading(false);

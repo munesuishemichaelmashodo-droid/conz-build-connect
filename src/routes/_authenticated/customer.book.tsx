@@ -286,14 +286,26 @@ function BookDelivery() {
         roadDistanceKm ?? (coords ? haversineKm(pickupPoint, coords) : 15);
 
       const result = await runOffer({
-        data: { material, quantity, distanceKm, address },
+        data: {
+          material,
+          quantity,
+          // Fallback only, used if coordinates below are somehow missing —
+          // the server derives the authoritative distance itself from
+          // pickupLat/pickupLng/deliveryLat/deliveryLng when present.
+          distanceKm,
+          pickupLat: pickupPoint.lat,
+          pickupLng: pickupPoint.lng,
+          deliveryLat: coords.lat,
+          deliveryLng: coords.lng,
+          address,
+        },
       });
 
       setOfferData(result);
       setOffer(result.offer);
       setStep(5);
 
-      runExplain({ data: { material, quantity, distanceKm } })
+      runExplain({ data: { material, quantity, distanceKm: result.distanceKm } })
         .then(({ explanation }) => {
           setOfferData((prev) => (prev ? { ...prev, explanation } : prev));
         })
@@ -346,6 +358,7 @@ function BookDelivery() {
         material,
         custom_material: null,
         quantity_m3: quantity,
+        quote_id: offerData.quoteId,
 
         delivery_address: address.trim(),
         delivery_lat: coords.lat,
