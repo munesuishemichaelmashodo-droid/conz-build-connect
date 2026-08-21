@@ -364,9 +364,9 @@ function BookDelivery() {
         delivery_lat: coords.lat,
         delivery_lng: coords.lng,
 
-        pickup_address: PICKUP_ADDRESS,
-        pickup_lat: pickupPoint.lat,
-        pickup_lng: pickupPoint.lng,
+        pickup_address: offerData.resolvedSource?.label ?? offerData.resolvedSource?.address ?? PICKUP_ADDRESS,
+        pickup_lat: offerData.resolvedSource?.lat ?? pickupPoint.lat,
+        pickup_lng: offerData.resolvedSource?.lng ?? pickupPoint.lng,
 
 
         budget: offer,

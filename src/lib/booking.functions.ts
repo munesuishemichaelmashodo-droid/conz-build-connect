@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getRoute } from "@/lib/routing.functions";
+import { resolveMaterialSource, type ResolvedMaterialSource } from "@/lib/materialSource.functions";
 
 const MATERIALS = [
   "river_sand",
@@ -85,6 +86,49 @@ async function resolveDistance(data: {
 }
 
 /**
+ * Server-authoritative: tries material-source resolution first (using ONLY
+ * material/quantity/delivery coordinates — never a client-supplied pickup
+ * coordinate). The legacy fallback (materialPickups[material] ??
+ * PICKUP_POINT, resolved client-side and passed in as
+ * data.pickupLat/pickupLng) is used ONLY for the "no_source_configured"
+ * case — a material with zero configured supply locations, i.e. unchanged
+ * from today. A genuine resolution failure ("source_resolution_failed")
+ * must NEVER fall back to the legacy pickup, since that material has real
+ * configured sources and silently substituting Harare (or anything else)
+ * would be exactly the wrong-location bug this feature exists to close —
+ * it throws a controlled, retryable error instead.
+ */
+async function resolvePickupAndDistance(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- resolve_material_source_candidates isn't in the generated Supabase types (added via a fresh, unapplied migration); matches this file's existing `as any` pattern for RPC calls.
+  sb: any,
+  data: {
+    material: string;
+    quantity: number;
+    distanceKm?: number;
+    pickupLat?: number;
+    pickupLng?: number;
+    deliveryLat?: number;
+    deliveryLng?: number;
+  },
+): Promise<{ distanceKm: number; source: DistanceSource; resolvedSource: ResolvedMaterialSource | null }> {
+  if (data.deliveryLat != null && data.deliveryLng != null) {
+    const resolution = await resolveMaterialSource(sb, data.material, data.quantity, data.deliveryLat, data.deliveryLng);
+
+    if (resolution.status === "source_resolved") {
+      return { distanceKm: resolution.source.distanceKm, source: resolution.source.distanceSource, resolvedSource: resolution.source };
+    }
+
+    if (resolution.status === "source_resolution_failed") {
+      throw new Error("Unable to determine a verified material pickup location. Please try again.");
+    }
+
+    // status === "no_source_configured" — fall through to the legacy path below.
+  }
+  const fallback = await resolveDistance(data);
+  return { ...fallback, resolvedSource: null };
+}
+
+/**
  * Persists the server-derived distance as a single-use, tamper-proof quote
  * the client can later reference (by opaque id) at job creation, so
  * tg_validate_job_budget can use the SAME distance instead of recomputing a
@@ -165,6 +209,14 @@ export type OfferResult = {
   // figure. Null when no coordinates were supplied (falls back to the
   // trigger's own haversine calculation, same as before this change).
   quoteId: string | null;
+  // Server-resolved material supply source, for transparency display only
+  // ("picked up from Pomona Stone Quarries") — the client never supplies
+  // or influences this; it's purely informational, mirroring how
+  // pricingVersion/tripCount are shown without being client-editable. Null
+  // whenever no eligible verified supply location was configured for this
+  // material (today's materialPickups/Harare-fallback behavior was used
+  // instead, unchanged).
+  resolvedSource: ResolvedMaterialSource | null;
 };
 
 type OfferGuide = {
@@ -193,6 +245,7 @@ function buildOfferResult(
   quantity: number,
   distanceKm: number,
   quoteId: string | null,
+  resolvedSource: ResolvedMaterialSource | null,
 ): OfferResult {
   const offer = Number(g.offer ?? 0);
   const min = Number(g.min ?? 0);
@@ -224,6 +277,7 @@ function buildOfferResult(
     referenceCapacityM3: Number(g.referenceCapacityM3 ?? 10),
     pricingVersion: g.pricingVersion ?? "v1.1",
     quoteId,
+    resolvedSource,
   };
 }
 
@@ -235,7 +289,7 @@ export const computeOffer = createServerFn({ method: "POST" })
   .inputValidator(parseOfferInput)
   .handler(async ({ data, context }): Promise<OfferResult> => {
     const { supabase } = context;
-    const { distanceKm, source } = await resolveDistance(data);
+    const { distanceKm, source, resolvedSource } = await resolvePickupAndDistance(supabase, data);
     if (distanceKm > MAX_SERVICE_KM) throw new Error(TOO_FAR_MESSAGE);
 
     const quoteId = await tryCreateQuote(
@@ -258,7 +312,7 @@ export const computeOffer = createServerFn({ method: "POST" })
       throw new Error(customQuoteMessage(g, data.quantity));
     }
 
-    return buildOfferResult(g, data.material, data.quantity, distanceKm, quoteId);
+    return buildOfferResult(g, data.material, data.quantity, distanceKm, quoteId, resolvedSource);
   });
 
 /**
@@ -271,7 +325,7 @@ export const computePublicOffer = createServerFn({ method: "POST" })
   .inputValidator(parseOfferInput)
   .handler(async ({ data }): Promise<OfferResult> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { distanceKm, source } = await resolveDistance(data);
+    const { distanceKm, source, resolvedSource } = await resolvePickupAndDistance(supabaseAdmin, data);
     if (distanceKm > MAX_SERVICE_KM) throw new Error(TOO_FAR_MESSAGE);
 
     // Anonymous quotes aren't tied to a customer and never feed a real job
@@ -297,7 +351,7 @@ export const computePublicOffer = createServerFn({ method: "POST" })
       throw new Error(customQuoteMessage(g, data.quantity));
     }
 
-    return buildOfferResult(g, data.material, data.quantity, distanceKm, quoteId);
+    return buildOfferResult(g, data.material, data.quantity, distanceKm, quoteId, resolvedSource);
   });
 
 const ExplainInput = z.object({
