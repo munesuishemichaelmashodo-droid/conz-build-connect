@@ -506,7 +506,7 @@ function JobDetail() {
                 </div>
               )}
 
-              {showBidForm && (
+              {showBidForm && !showCounterResponse && (
                 <div id="tour-place-bid">
                   <SpotlightCallout
                     id="driver-bidding"
