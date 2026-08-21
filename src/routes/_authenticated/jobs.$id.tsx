@@ -23,6 +23,7 @@ import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/pay
 import { ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SpotlightCallout } from "@/components/SpotlightCallout";
+import { previewCapacityMatch } from "@/lib/capacityMatch";
 
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
   component: JobDetail,
@@ -895,20 +896,6 @@ function CounterOfferRow({ bidPrice, onSubmit }: { bidPrice: number; onSubmit: (
       </Button>
     </div>
   );
-}
-
-// Client-side preview only — mirrors tg_stamp_bid_capacity's formula so the
-// driver sees an accurate match/trip estimate before submitting, but the
-// server always recomputes and overwrites these fields authoritatively from
-// the actual truck_id + job.quantity_m3 on insert/update. This preview can
-// never be what actually gets stored.
-function previewCapacityMatch(capacityM3: number, quantityM3: number) {
-  if (!capacityM3 || capacityM3 <= 0 || !quantityM3 || quantityM3 <= 0) return null;
-  const trips = Math.ceil(quantityM3 / capacityM3);
-  const score = quantityM3 / (trips * capacityM3);
-  const tier: "excellent" | "good" | "oversized" | "multiple_trips" =
-    trips > 1 ? "multiple_trips" : score >= 0.833 ? "excellent" : score >= 0.5 ? "good" : "oversized";
-  return { trips, tier };
 }
 
 const MATCH_TIER_LABEL: Record<string, { label: string; className: string }> = {

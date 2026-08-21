@@ -7,33 +7,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Briefcase, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { JobCard } from "@/components/JobCard";
+import { bestCapacityMatchTier, type CapacityMatchTier } from "@/lib/capacityMatch";
 
 export const Route = createFileRoute("/_authenticated/jobs/")({
   component: JobsPage,
 });
 
-const TIER_RANK: Record<string, number> = { excellent: 0, good: 1, oversized: 2, multiple_trips: 3 };
-
-// Client-side only: which tier the driver's BEST registered truck would get
-// for this job's quantity. Mirrors tg_stamp_bid_capacity's formula purely
-// for sorting/badging the job list — never authoritative, never affects
-// eligibility to bid; the server always recomputes the real match when a
-// bid is actually placed.
-function bestMatchTier(quantityM3: number, capacities: number[]): string | null {
-  if (!capacities.length || !quantityM3 || quantityM3 <= 0) return null;
-  let best: { tier: string; rank: number; trips: number } | null = null;
-  for (const cap of capacities) {
-    if (!cap || cap <= 0) continue;
-    const trips = Math.ceil(quantityM3 / cap);
-    const score = quantityM3 / (trips * cap);
-    const tier = trips > 1 ? "multiple_trips" : score >= 0.833 ? "excellent" : score >= 0.5 ? "good" : "oversized";
-    const rank = TIER_RANK[tier];
-    if (!best || rank < best.rank || (rank === best.rank && trips < best.trips)) {
-      best = { tier, rank, trips };
-    }
-  }
-  return best?.tier ?? null;
-}
+const TIER_RANK: Record<CapacityMatchTier, number> = { excellent: 0, good: 1, oversized: 2, multiple_trips: 3 };
 
 function JobsPage() {
   const { userId, is } = useAuth();
@@ -75,8 +55,8 @@ function JobsPage() {
           const aOpen = a.status === "open" && a.driver_id !== userId;
           const bOpen = b.status === "open" && b.driver_id !== userId;
           if (aOpen && bOpen) {
-            const ra = TIER_RANK[bestMatchTier(Number(a.quantity_m3), myTrucks) ?? "oversized"] ?? 9;
-            const rb = TIER_RANK[bestMatchTier(Number(b.quantity_m3), myTrucks) ?? "oversized"] ?? 9;
+            const ra = TIER_RANK[bestCapacityMatchTier(Number(a.quantity_m3), myTrucks) ?? "oversized"] ?? 9;
+            const rb = TIER_RANK[bestCapacityMatchTier(Number(b.quantity_m3), myTrucks) ?? "oversized"] ?? 9;
             if (ra !== rb) return ra - rb;
           }
           return 0;
@@ -98,7 +78,7 @@ function JobsPage() {
               <JobCard
                 key={j.id}
                 j={j}
-                matchTier={isDriver && myTrucks?.length ? bestMatchTier(Number(j.quantity_m3), myTrucks) : undefined}
+                matchTier={isDriver && myTrucks?.length ? bestCapacityMatchTier(Number(j.quantity_m3), myTrucks) : undefined}
               />
             ))}
           </div>
