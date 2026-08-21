@@ -14,6 +14,7 @@ import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
 import { RouteLine } from "@/components/RouteLine";
 import { ShieldCheck } from "lucide-react";
+import { DriverAvailabilityToggle } from "@/components/DriverAvailabilityToggle";
 
 export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
   const { userId, profile, is } = useAuth();
@@ -92,6 +93,8 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
           )}
           </div>
         </div>
+
+        {isDriver && <DriverAvailabilityToggle />}
 
         {/* Anything needing the person's attention right now, grouped together
             instead of scattered between unrelated cards. PushNotificationPrompt
