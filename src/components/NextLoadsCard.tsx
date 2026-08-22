@@ -57,6 +57,19 @@ export function NextLoadsCard({ driverId, currentJobId }: { driverId: string; cu
 
   const { data: loads, isLoading } = useQuery({
     queryKey,
+    // Polling fallback, matching the exact interval already used by the
+    // driver job list (jobs.index.tsx). Realtime below is a freshness
+    // accelerator only -- if the channel never fires for a given change
+    // (dropped connection, or a row whose RLS visibility changes exactly
+    // at the moment of the update -- jobs' SELECT policy only shows an
+    // 'open' job to drivers who aren't its customer/assigned driver, so
+    // a candidate that just got accepted by someone else may not reliably
+    // reach every other driver's realtime channel), this guarantees the
+    // list is still correct within one poll cycle regardless. Safe
+    // either way: find_next_loads_for_driver is SECURITY DEFINER and
+    // does its own authorization/eligibility check on every call, so
+    // polling it never depends on the realtime/RLS edge case at all.
+    refetchInterval: 4000,
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- find_next_loads_for_driver isn't in the generated Supabase types (fresh migration)
       const { data, error } = await (supabase.rpc as any)("find_next_loads_for_driver", {
@@ -72,10 +85,9 @@ export function NextLoadsCard({ driverId, currentJobId }: { driverId: string; cu
   // list (jobs.index.tsx) — reused here, not a new mechanism. If a
   // candidate job gets accepted/cancelled elsewhere, refetch from the
   // server (the authoritative source) rather than guessing from the
-  // realtime payload. No polling interval exists on this query today, so
-  // this subscription is the only freshness signal it has — acceptable
-  // since it's a discovery-only surface, not something safety-critical
-  // the way the driver job list's accept-race protection is.
+  // realtime payload. The refetchInterval above is the guaranteed
+  // fallback; this subscription only tries to make the update visible
+  // sooner than the next poll tick.
   useEffect(() => {
     if (!driverId) return;
     const ch = supabase
