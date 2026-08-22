@@ -12,7 +12,9 @@ import { COUNTRY_CODES } from "@/lib/country-codes";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { AddTruckForm } from "@/components/AddTruckForm";
+import { Truck as TruckIcon } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/become-driver")({
   component: BecomeDriverPage,
@@ -61,6 +63,13 @@ function BecomeDriverPage() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
+  const { data: trucks } = useQuery({
+    queryKey: ["trucks", userId],
+    enabled: !!userId,
+    queryFn: async () => (await supabase.from("trucks").select("*").eq("driver_id", userId!)).data ?? [],
+  });
+  const hasTruck = (trucks?.length ?? 0) > 0;
+
   useEffect(() => {
     if (!userId) return;
     // Ensure a driver_profiles row exists so uploads have a target.
@@ -104,7 +113,7 @@ function BecomeDriverPage() {
     if (step === 1) return !!selfie;
     if (step === 2) return !!nationalId;
     if (step === 3) return !!license;
-    if (step === 4) return !!truckPhoto && !!truckPhotoSide && !!truckPhotoBack;
+    if (step === 4) return !!truckPhoto && !!truckPhotoSide && !!truckPhotoBack && hasTruck;
     if (step === 5) return true; // compliance docs are recommended, not blocking
     if (step === 6) return !!nationality;
     return false;
@@ -208,11 +217,33 @@ function BecomeDriverPage() {
           )}
           {step === 4 && (
             <div className="space-y-3">
-              <h2 className="font-display font-bold text-xl">Photos of your tipper truck</h2>
-              <p className="text-sm text-muted-foreground">All three angles are required — this is how admins confirm it's a real, roadworthy tipper.</p>
+              <h2 className="font-display font-bold text-xl">Your truck</h2>
+              <p className="text-sm text-muted-foreground">
+                Photos confirm it's a real, roadworthy tipper. Registering it below is what actually makes it
+                bookable — you won't be able to bid on jobs until at least one truck is registered here.
+              </p>
               <ComplianceDocRow label="Front (with number plate)" userId={userId!} field="tipper_photo_url" current={truckPhoto} onDone={setTruckPhoto} />
               <ComplianceDocRow label="Side" userId={userId!} field="tipper_photo_side_url" current={truckPhotoSide} onDone={setTruckPhotoSide} />
               <ComplianceDocRow label="Back (with tipper bin visible)" userId={userId!} field="tipper_photo_back_url" current={truckPhotoBack} onDone={setTruckPhotoBack} />
+
+              <div className="rounded-xl border p-3 mt-4 space-y-2">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <TruckIcon className="w-4 h-4" /> Register your truck
+                </div>
+                {hasTruck ? (
+                  <div className="space-y-1">
+                    {trucks!.map((t: { id: string; registration: string; capacity_m3: number }) => (
+                      <div key={t.id} className="flex items-center justify-between rounded-lg bg-success/10 border border-success/30 px-3 py-2 text-xs">
+                        <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-success" />{t.registration}</span>
+                        <span className="text-muted-foreground">{t.capacity_m3} m³</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Enter your truck's registration plate and load capacity.</p>
+                )}
+                <AddTruckForm userId={userId!} onSaved={() => qc.invalidateQueries({ queryKey: ["trucks", userId] })} />
+              </div>
             </div>
           )}
           {step === 5 && (
