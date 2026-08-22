@@ -16,6 +16,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { DriverShareLocation, CustomerTrackMap, DriverRouteView } from "@/components/JobTracker";
 import { RadarSearch } from "@/components/RadarSearch";
+import { NextLoadsCard } from "@/components/NextLoadsCard";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { uploadJobEvidence, signedEvidenceUrl } from "@/lib/upload-evidence";
 import { useServerFn } from "@tanstack/react-start";
@@ -407,6 +408,7 @@ function JobDetail() {
 
   const showChat = (isOwner || isAssignedDriver) && job.status !== "open";
   const showDispute = (isOwner || isAssignedDriver) && ["accepted", "in_progress", "completed"].includes(job.status);
+  const showNextLoads = isAssignedDriver && ["in_progress", "completed"].includes(job.status);
   const showWhatsapp = (isOwner || isAssignedDriver) && job.status !== "open";
   const showCommsSection = showChat || showDispute || showWhatsapp;
 
@@ -658,6 +660,8 @@ function JobDetail() {
               )}
 
               {showWhatsapp && <WhatsAppPanel job={job} isOwner={isOwner} />}
+
+              {showNextLoads && <NextLoadsCard driverId={userId!} currentJobId={id} />}
 
               {showDispute && (
                 <div id="tour-dispute">
