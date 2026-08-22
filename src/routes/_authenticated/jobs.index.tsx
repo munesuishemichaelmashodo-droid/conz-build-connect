@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
 import { EmptyState } from "@/components/ui-bits";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Briefcase, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ function JobsPage() {
   const { userId, is } = useAuth();
   const isDriver = is("driver");
   const isCustomer = is("customer");
+  const queryClient = useQueryClient();
 
   const { data: myTrucks } = useQuery({
     queryKey: ["my-trucks-capacities", userId],
@@ -44,6 +46,34 @@ function JobsPage() {
       return data;
     },
   });
+
+  // Realtime freshness ONLY — the 4s poll above remains the authoritative
+  // safety net and is never removed. This subscription just tries to
+  // shorten the visible delay before an already-accepted job disappears
+  // from other drivers' lists: on any jobs UPDATE we can see, invalidate
+  // the query so it refetches from the server (the actual source of
+  // truth) rather than trying to patch the realtime payload into the
+  // cache directly. If the realtime channel never fires for a given
+  // change (connection drop, or an update whose row isn't visible to us
+  // under RLS at that instant), the existing 4s poll still guarantees the
+  // list is correct shortly after — this subscription can only ever make
+  // things feel faster, never make them wrong.
+  useEffect(() => {
+    if (!userId || !isDriver) return;
+    const ch = supabase
+      .channel(`open-jobs-freshness-${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "jobs" },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: ["jobs-list", userId, isDriver, isCustomer] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [userId, isDriver, isCustomer, queryClient]);
 
   // Best-matched-first for open jobs a driver hasn't bid on yet; jobs the
   // driver already has (own bid/assigned) keep their normal recency order.
