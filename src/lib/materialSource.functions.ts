@@ -1,5 +1,15 @@
 import { getRoute } from "@/lib/routing.functions";
 
+// Conservative pricing safety margin for REGIONAL sources (supplier/market
+// presence confirmed, but coordinates are a best-available reference
+// point rather than a verified quarry/depot gate). Applied to the real
+// road distance before it's used for ranking/pricing, so a location whose
+// true site might sit farther than the reference point doesn't get
+// under-priced. Never applied to the service-radius eligibility check
+// (that stays on the honest, unbuffered distance) and never applied to
+// EXACT sources.
+const REGIONAL_DISTANCE_BUFFER = 1.2;
+
 export type ResolvedMaterialSource = {
   supplyLocationId: string;
   supplierId: string;
@@ -11,6 +21,7 @@ export type ResolvedMaterialSource = {
   lng: number;
   distanceKm: number;
   distanceSource: "osrm" | "haversine";
+  locationPrecision: "exact" | "regional";
 };
 
 type Candidate = {
@@ -24,6 +35,7 @@ type Candidate = {
   lng: number;
   priority: number;
   haversine_km: number;
+  location_precision: "exact" | "regional";
 };
 
 /**
@@ -136,6 +148,12 @@ export async function resolveMaterialSource(
       const route = await getRoute({
         data: { startLat: c.lat, startLng: c.lng, destLat: deliveryLat, destLng: deliveryLng },
       });
+      // Regional sources: apply the conservative pricing buffer to the
+      // real road distance now, so it's the number used for BOTH ranking
+      // and pricing from here on -- a single consistent "best conservative
+      // estimate", not a price-only adjustment tacked on after the fact.
+      const bufferedDistanceKm =
+        c.location_precision === "regional" ? route.distanceKm * REGIONAL_DISTANCE_BUFFER : route.distanceKm;
       resolved.push({
         supplyLocationId: c.supply_location_id,
         supplierId: c.supplier_id,
@@ -145,8 +163,9 @@ export async function resolveMaterialSource(
         address: c.address,
         lat: Number(c.lat),
         lng: Number(c.lng),
-        distanceKm: route.distanceKm,
+        distanceKm: bufferedDistanceKm,
         distanceSource: route.source,
+        locationPrecision: c.location_precision,
         priority: c.priority ?? 100,
       });
     } catch {
