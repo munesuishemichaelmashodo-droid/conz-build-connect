@@ -2,6 +2,9 @@ package com.conz.app;
 
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.ViewGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import com.getcapacitor.BridgeActivity;
@@ -17,6 +20,11 @@ public class MainActivity extends BridgeActivity {
     // confirmed reliably working -- see the equivalent JS-level diagnostic
     // in src/routes/__root.tsx for anything that fails after the WebView
     // itself has started.
+    private Handler urlWatcherHandler;
+    private TextView urlWatcherLabel;
+    private String lastSeenUrl = null;
+    private final StringBuilder urlHistory = new StringBuilder();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         // Catches crashes on background threads too (e.g. if a Capacitor
@@ -40,7 +48,58 @@ public class MainActivity extends BridgeActivity {
             super.onCreate(savedInstanceState);
         } catch (Throwable t) {
             showCrash(t);
+            return;
         }
+
+        // No crash (confirmed by an earlier build) -- so instead, watch what
+        // URL the WebView actually reports, live, every 300ms. This is
+        // purely observational: it does NOT touch Capacitor's own
+        // WebViewClient or navigation-handling logic in any way, it just
+        // reads and displays getUrl(). If something IS handing the page off
+        // to an external browser, the last value shown here before the app
+        // vanishes is exactly what it was trying to load at that moment.
+        startUrlWatcher();
+    }
+
+    private void startUrlWatcher() {
+        urlWatcherLabel = new TextView(this);
+        urlWatcherLabel.setTextColor(Color.YELLOW);
+        urlWatcherLabel.setBackgroundColor(Color.argb(220, 0, 0, 0));
+        urlWatcherLabel.setTextSize(10);
+        urlWatcherLabel.setPadding(12, 60, 12, 12);
+        urlWatcherLabel.setTextIsSelectable(true);
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(urlWatcherLabel);
+        addContentView(
+            scroll,
+            new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 260)
+        );
+
+        urlHistory.append("URL watch log (t=ms since app start):\n");
+        urlWatcherLabel.setText(urlHistory.toString());
+        final long startedAt = System.currentTimeMillis();
+
+        urlWatcherHandler = new Handler(Looper.getMainLooper());
+        urlWatcherHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    String url =
+                        (getBridge() != null && getBridge().getWebView() != null)
+                            ? getBridge().getWebView().getUrl()
+                            : "(no webview yet)";
+                    if (url != null && !url.equals(lastSeenUrl)) {
+                        lastSeenUrl = url;
+                        urlHistory.append("t+").append(System.currentTimeMillis() - startedAt).append("ms: ").append(url).append("\n");
+                        urlWatcherLabel.setText(urlHistory.toString());
+                    }
+                } catch (Throwable t) {
+                    urlHistory.append("error: ").append(t.getMessage()).append("\n");
+                    urlWatcherLabel.setText(urlHistory.toString());
+                }
+                urlWatcherHandler.postDelayed(this, 300);
+            }
+        });
     }
 
     private void showCrash(Throwable t) {
