@@ -18,7 +18,6 @@ type EvidenceRow = {
 };
 
 // job_evidence / evidence_distance_m aren't in the generated types yet.
-const looseFrom = supabase.from as unknown as (t: string) => any;
 const looseRpc = supabase.rpc as unknown as (
   f: string,
   a: Record<string, unknown>,
@@ -49,52 +48,66 @@ export function DisputeEvidence({ jobId }: { jobId: string }) {
     queryKey: ["dispute-evidence", jobId],
     enabled: open,
     queryFn: async () => {
-      const { data: rows } = await looseFrom("job_evidence")
-        .select("id,job_id,kind,storage_path,uploaded_at,device_lat,device_lng,device_accuracy_m,location_status")
-        .eq("job_id", jobId)
-        .in("kind", ["pickup", "delivery", "dispute"])
-        .is("superseded_at", null)
-        .order("uploaded_at", { ascending: true });
+      // admin_job_evidence aggregates job_evidence rows, the job's own
+      // pickup/delivery_photo_url fields, AND every raw file actually
+      // sitting in Storage under this job's folder — that last part
+      // matters: a photo upload can succeed in Storage but fail to be
+      // recorded in the DB (record_job_evidence erroring after the
+      // upload), leaving a real file with nothing pointing to it. The
+      // old query only ever looked at DB pointers, so those orphaned
+      // uploads — and any legacy pre-migration photo whose stored URL
+      // no longer resolves — silently showed as "no photos" even
+      // though the file was sitting right there.
+      const { data: agg, error } = await looseRpc("admin_job_evidence", { _job_id: jobId });
+      if (error) throw new Error(error.message);
+      const a = agg as {
+        job?: { pickup_photo_url: string | null; delivery_photo_url: string | null; pickup_photo_taken_at: string | null; delivery_photo_taken_at: string | null };
+        evidence?: EvidenceRow[];
+        storage_objects?: { name: string; created: string | null }[];
+      };
 
-      const evidence = (rows ?? []) as EvidenceRow[];
+      const evidence = (a.evidence ?? []).filter((e) => ["pickup", "delivery", "dispute"].includes(e.kind));
+      const knownPaths = new Set(evidence.map((e) => e.storage_path));
 
-      // The actual pickup/delivery confirmation photos drivers take live on
-      // the job row itself (pickup_photo_url / delivery_photo_url), not in
-      // job_evidence -- that table is a separate, mostly-unused stream.
-      // Without this, disputes always showed "no photos" even when the job
-      // had proof-of-delivery photos the customer and driver could both see.
-      const { data: job } = await supabase
-        .from("jobs")
-        .select("pickup_photo_url,delivery_photo_url,pickup_photo_taken_at,delivery_photo_taken_at")
-        .eq("id", jobId)
-        .maybeSingle();
+      const extractPath = (httpUrl: string): string | null => {
+        const marker = "/object/public/job-proof-photos/";
+        const idx = httpUrl.indexOf(marker);
+        return idx === -1 ? null : decodeURIComponent(httpUrl.slice(idx + marker.length).split("?")[0]);
+      };
 
       const jobPhotos: EvidenceRow[] = [];
+      const job = a.job;
+      if (job?.pickup_photo_url) {
+        const real = job.pickup_photo_url.startsWith("http") ? extractPath(job.pickup_photo_url) : job.pickup_photo_url;
+        if (real) knownPaths.add(real);
+      }
+      if (job?.delivery_photo_url) {
+        const real = job.delivery_photo_url.startsWith("http") ? extractPath(job.delivery_photo_url) : job.delivery_photo_url;
+        if (real) knownPaths.add(real);
+      }
       if (job?.pickup_photo_url) {
         jobPhotos.push({
-          job_id: jobId,
-          kind: "pickup (delivery confirmation)",
-          storage_path: job.pickup_photo_url,
-          uploaded_at: job.pickup_photo_taken_at,
-          device_lat: null,
-          device_lng: null,
-          device_accuracy_m: null,
-          location_status: null,
+          job_id: jobId, kind: "pickup (delivery confirmation)", storage_path: job.pickup_photo_url,
+          uploaded_at: job.pickup_photo_taken_at, device_lat: null, device_lng: null, device_accuracy_m: null, location_status: null,
         });
       }
       if (job?.delivery_photo_url) {
         jobPhotos.push({
-          job_id: jobId,
-          kind: "delivery (delivery confirmation)",
-          storage_path: job.delivery_photo_url,
-          uploaded_at: job.delivery_photo_taken_at,
-          device_lat: null,
-          device_lng: null,
-          device_accuracy_m: null,
-          location_status: null,
+          job_id: jobId, kind: "delivery (delivery confirmation)", storage_path: job.delivery_photo_url,
+          uploaded_at: job.delivery_photo_taken_at, device_lat: null, device_lng: null, device_accuracy_m: null, location_status: null,
         });
       }
-      const combined = [...jobPhotos, ...evidence];
+
+      // any raw Storage file not already accounted for above is an
+      // orphaned upload — real bytes, no DB record. Surface it anyway.
+      const orphaned: EvidenceRow[] = (a.storage_objects ?? [])
+        .filter((o) => !knownPaths.has(o.name))
+        .map((o) => ({
+          job_id: jobId, kind: "uploaded (unrecorded)", storage_path: o.name,
+          uploaded_at: o.created, device_lat: null, device_lng: null, device_accuracy_m: null, location_status: null,
+        }));
+
+      const combined = [...jobPhotos, ...evidence, ...orphaned];
 
       let deliveryDistance: number | null = null;
       if (evidence.some((e) => e.kind === "delivery")) {

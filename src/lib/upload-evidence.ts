@@ -73,14 +73,24 @@ export async function signedEvidenceUrl(
 ): Promise<string | null> {
   if (!storagePath) return null;
 
-  if (storagePath.startsWith("http")) {
-    console.warn("Legacy public URL stored on job:", storagePath);
-    return storagePath;
+  let path = storagePath;
+  if (path.startsWith("http")) {
+    // Legacy public-bucket URL, e.g.
+    // https://<project>.supabase.co/storage/v1/object/public/job-proof-photos/<jobId>/pickup.jpg?t=...
+    // The bucket is now private, so this URL 404s directly. Pull the
+    // real object path back out and sign it properly instead.
+    const marker = `/object/public/${BUCKET}/`;
+    const idx = path.indexOf(marker);
+    if (idx === -1) {
+      console.warn("Legacy URL doesn't match expected bucket format:", path);
+      return null;
+    }
+    path = decodeURIComponent(path.slice(idx + marker.length).split("?")[0]);
   }
 
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .createSignedUrl(storagePath, expiresInSeconds);
+    .createSignedUrl(path, expiresInSeconds);
 
   if (error) {
     console.error("Signed URL failed:", error.message);
