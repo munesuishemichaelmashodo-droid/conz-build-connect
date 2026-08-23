@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useNavigate,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -16,6 +17,7 @@ import { ViewModeProvider } from "@/lib/view-mode";
 import { Toaster } from "@/components/ui/sonner";
 import { GuidedTourProvider } from "@/components/GuidedTourProvider";
 import { SITE_URL } from "@/lib/site";
+import { supabase } from "@/integrations/supabase/client";
 
 const SITE_NAME = "Con Z";
 const SITE_TITLE = "Con Z — Construction Made Easy";
@@ -140,6 +142,7 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Register the service worker up front (no permission prompt yet — that
@@ -156,6 +159,19 @@ function RootComponent() {
       registerOAuthRedirectListener(),
     );
   }, []);
+
+  useEffect(() => {
+    // No-ops on web. On native, handles token refresh for an already-
+    // registered device and routes notification taps through the app's
+    // normal router — see native-push.ts. Does not request permission;
+    // that stays gated behind PushNotificationPrompt's explicit tap.
+    import("@/lib/native-push").then(({ registerNativePushListeners }) =>
+      registerNativePushListeners(
+        async () => (await supabase.auth.getUser()).data.user?.id ?? null,
+        (path) => navigate({ to: path }),
+      ),
+    );
+  }, [navigate]);
 
   return (
     <QueryClientProvider client={queryClient}>

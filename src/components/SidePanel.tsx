@@ -23,6 +23,8 @@ export function SidePanel() {
     close();
     await qc.cancelQueries();
     qc.clear();
+    const { deactivateNativePushForCurrentUser } = await import("@/lib/native-push");
+    await deactivateNativePushForCurrentUser();
     await supabase.auth.signOut();
     nav({ to: "/auth", replace: true });
   };

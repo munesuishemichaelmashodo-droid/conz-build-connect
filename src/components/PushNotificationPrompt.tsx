@@ -4,6 +4,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { enablePushNotifications, pushPermissionState, pushSupported } from "@/lib/push";
+import {
+  enableNativePushNotifications,
+  isNativePlatform,
+  nativePushPermissionState,
+  nativePushSupported,
+} from "@/lib/native-push";
 
 const DISMISS_KEY = "conz_push_prompt_dismissed";
 
@@ -11,19 +17,27 @@ export function PushNotificationPrompt() {
   const { userId } = useAuth();
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const native = isNativePlatform();
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      if (!userId || !pushSupported()) return;
+      if (!userId) return;
+      if (native) {
+        if (!nativePushSupported()) return;
+      } else if (!pushSupported()) {
+        return;
+      }
       if (localStorage.getItem(DISMISS_KEY) === "1") return;
-      const state = await pushPermissionState();
-      if (mounted && state === "default") setVisible(true);
+      const state = native ? await nativePushPermissionState() : await pushPermissionState();
+      if (mounted && (state === "default" || state === "prompt" || state === "prompt-with-rationale")) {
+        setVisible(true);
+      }
     })();
     return () => {
       mounted = false;
     };
-  }, [userId]);
+  }, [userId, native]);
 
   if (!visible || !userId) return null;
 
@@ -34,7 +48,7 @@ export function PushNotificationPrompt() {
 
   const enable = async () => {
     setLoading(true);
-    const res = await enablePushNotifications(userId);
+    const res = native ? await enableNativePushNotifications(userId) : await enablePushNotifications(userId);
     setLoading(false);
     if (res.ok) {
       toast.success("Notifications enabled — you'll be alerted even with the app closed.");
