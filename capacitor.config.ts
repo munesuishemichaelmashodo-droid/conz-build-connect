@@ -12,7 +12,16 @@ const config: CapacitorConfig = {
   // camera/location — the actual app still runs against your real backend.
   webDir: 'dist/client',
   server: {
-    url: 'https://conz.co.zw',
+    // IMPORTANT: the live site redirects https://conz.co.zw -> https://www.conz.co.zw.
+    // Confirmed via on-device diagnostics (a custom WebViewClient logging
+    // onPageFinished): the WebView's very first load followed that redirect
+    // and landed on www.conz.co.zw, a different origin than what was
+    // configured here (bare conz.co.zw, not in allowNavigation either).
+    // That mismatch is what caused the app to intermittently hand the page
+    // off to Chrome instead of loading it in-app. Pointing server.url
+    // directly at the real destination avoids the redirect happening
+    // inside the WebView at all.
+    url: 'https://www.conz.co.zw',
     cleartext: false,
     // Capacitor restricts in-WebView navigation to the server.url origin
     // by default. The Paynow payment flow navigates the same WebView
@@ -21,7 +30,9 @@ const config: CapacitorConfig = {
     // blocked the moment someone actually tries to pay inside the
     // Play Store app. Verify the exact hostname Paynow's live checkout
     // actually uses and adjust if it differs.
-    allowNavigation: ['www.paynow.co.zw', 'paynow.co.zw'],
+    // conz.co.zw (bare) is also listed here as a safety net, in case any
+    // in-app link or redirect ever points at the bare domain again.
+    allowNavigation: ['www.paynow.co.zw', 'paynow.co.zw', 'conz.co.zw'],
   },
   android: {
     allowMixedContent: false,
