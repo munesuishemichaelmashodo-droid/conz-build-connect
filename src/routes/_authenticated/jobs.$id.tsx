@@ -1352,13 +1352,12 @@ function ProofUpload({ jobId, kind, label, hint, onUploaded }: { jobId: string; 
     setUploading(true);
     try {
       // Uploads to the private bucket, captures GPS, and records a row in
-      // job_evidence (used by the dispute investigation view). We then store
-      // the storage PATH (not a broken public URL — the bucket is private)
-      // on the job row so the rest of this page can gate on it as before.
-      const result = await uploadJobEvidence(jobId, kind, file);
-      const patch = kind === "pickup" ? { pickup_photo_url: result.path } : { delivery_photo_url: result.path };
-      const { error } = await supabase.from("jobs").update(patch).eq("id", jobId);
-      if (error) throw new Error(error.message);
+      // job_evidence. record_job_evidence itself sets jobs.pickup_photo_url /
+      // delivery_photo_url server-side once the evidence row exists — no
+      // separate client write here. (The DB also now rejects any client
+      // attempt to set these fields directly unless a matching job_evidence
+      // row already exists, so this was redundant and unsafe.)
+      await uploadJobEvidence(jobId, kind, file);
       toast.success(`${label} photo uploaded`);
       await onUploaded();
     } catch (err) {
@@ -1367,6 +1366,7 @@ function ProofUpload({ jobId, kind, label, hint, onUploaded }: { jobId: string; 
       setUploading(false);
     }
   };
+
 
   return (
     <div className="rounded-2xl border p-4 space-y-3 bg-card">
