@@ -47,7 +47,20 @@ async function handleIpn(request: Request): Promise<Response> {
     // immediately, as before.
     const rpcName = payment.type === "escrow" ? "mark_escrow_payment_paid" : "credit_wallet_from_payment";
     const { error } = await db.rpc(rpcName, { _payment_id: payment.id });
-    if (error) console.error(`[paynow-ipn] ${rpcName} failed`, error.message);
+    if (error) {
+      // Do NOT return 200 here — that tells Paynow the notification was
+      // handled and they will not resend it, permanently losing this
+      // payment's wallet credit (this is exactly how 4 real payments went
+      // uncredited in production before the RPC's own idempotency guard was
+      // fixed). Returning a non-2xx makes Paynow retry the same IPN; the
+      // RPC's status='paid' guard makes that retry safe either way — if
+      // this call actually failed before touching anything, status is
+      // still pre-paid and the retry credits normally; if it failed after
+      // the wallet was already credited, status is already 'paid' and the
+      // retry correctly no-ops instead of double-crediting.
+      console.error(`[paynow-ipn] ${rpcName} failed for payment ${payment.id} (ref ${reference})`, error.message);
+      return new Response("processing_failed", { status: 502 });
+    }
   } else if (FAILED_STATUSES.includes(status)) {
     await db.from("payments").update({ status: "failed" }).eq("id", payment.id);
   }
