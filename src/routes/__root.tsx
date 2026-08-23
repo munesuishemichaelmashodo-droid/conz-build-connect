@@ -131,6 +131,43 @@ function RootShell({ children }: { children: ReactNode }) {
             __html: `(function(){try{var t=localStorage.getItem('conz.theme')||'dark';var r=document.documentElement;if(t==='dark'){r.classList.add('dark')}else{r.classList.remove('dark')}}catch(e){}})();`,
           }}
         />
+        {/*
+          Diagnostic overlay for the native Android/iOS shell only (harmless,
+          invisible no-op on web — window.Capacitor doesn't exist there).
+          Purpose: on-device debugging without a computer/USB. If the app
+          fails to mount — a JS error, or the page just never finishes
+          loading — this shows the actual reason directly on the phone
+          screen instead of a silent black WebView. Remove once native
+          builds are confirmed reliably working; this is a temporary
+          diagnostic, not a permanent UX feature.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){
+              if (!window.Capacitor) return; // web: no-op
+              var shown = false;
+              function show(title, detail) {
+                if (shown) return; shown = true;
+                var d = document.createElement('div');
+                d.style.cssText = 'position:fixed;inset:0;z-index:999999;background:#111;color:#fff;font-family:monospace;font-size:13px;padding:20px;overflow:auto;white-space:pre-wrap;word-break:break-word;';
+                d.textContent = title + '\\n\\n' + detail + '\\n\\nURL: ' + location.href + '\\nOnline: ' + navigator.onLine + '\\nUA: ' + navigator.userAgent;
+                document.body ? document.body.appendChild(d) : window.addEventListener('DOMContentLoaded', function(){ document.body.appendChild(d); });
+              }
+              window.addEventListener('error', function(e) {
+                show('JS error before app loaded', (e && e.message ? e.message : 'unknown') + (e && e.filename ? ('\\nat ' + e.filename + ':' + e.lineno) : ''));
+              });
+              window.addEventListener('unhandledrejection', function(e) {
+                show('Unhandled promise rejection', String(e.reason));
+              });
+              setTimeout(function() {
+                var hasContent = document.body && document.body.innerText && document.body.innerText.trim().length > 0;
+                if (!hasContent) {
+                  show('App did not finish loading within 10s', 'This usually means the page is stuck loading, or a network/SSL error occurred before any script could run.');
+                }
+              }, 10000);
+            })();`,
+          }}
+        />
       </head>
       <body>
         {children}
