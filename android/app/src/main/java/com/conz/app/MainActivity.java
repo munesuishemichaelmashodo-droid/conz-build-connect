@@ -89,6 +89,18 @@ public class MainActivity extends BridgeActivity {
         }
 
         @Override
+        public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+            super.onPageStarted(view, url, favicon);
+            log("onPageStarted: " + url);
+        }
+
+        @Override
+        public void onPageFinished(WebView view, String url) {
+            super.onPageFinished(view, url);
+            log("onPageFinished: progress=" + view.getProgress() + "% url=" + url);
+        }
+
+        @Override
         public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
             super.onReceivedError(view, request, error);
             log("onReceivedError: " + error.getErrorCode() + " " + error.getDescription() + " url=" + request.getUrl());
@@ -114,6 +126,8 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    private int lastSeenProgress = -1;
+
     private void startUrlWatcher() {
         urlWatcherLabel = new TextView(this);
         urlWatcherLabel.setTextColor(Color.YELLOW);
@@ -136,13 +150,16 @@ public class MainActivity extends BridgeActivity {
             @Override
             public void run() {
                 try {
-                    String url =
-                        (getBridge() != null && getBridge().getWebView() != null)
-                            ? getBridge().getWebView().getUrl()
-                            : "(no webview yet)";
+                    WebView wv = (getBridge() != null) ? getBridge().getWebView() : null;
+                    String url = (wv != null) ? wv.getUrl() : "(no webview yet)";
+                    int progress = (wv != null) ? wv.getProgress() : -1;
                     if (url != null && !url.equals(lastSeenUrl)) {
                         lastSeenUrl = url;
                         log("getUrl(): " + url);
+                    }
+                    if (progress != lastSeenProgress) {
+                        lastSeenProgress = progress;
+                        log("progress: " + progress + "%");
                     }
                 } catch (Throwable t) {
                     log("watcher error: " + t.getMessage());
