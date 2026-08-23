@@ -1,13 +1,21 @@
 package com.conz.app;
 
 import android.graphics.Color;
+import android.net.http.SslError;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.ViewGroup;
+import android.webkit.SslErrorHandler;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
+import android.webkit.WebView;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebViewClient;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
@@ -24,6 +32,7 @@ public class MainActivity extends BridgeActivity {
     private TextView urlWatcherLabel;
     private String lastSeenUrl = null;
     private final StringBuilder urlHistory = new StringBuilder();
+    private long startedAt;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,6 +50,8 @@ public class MainActivity extends BridgeActivity {
             }
         });
 
+        startedAt = System.currentTimeMillis();
+
         // Catches the far more likely case: something throws synchronously,
         // on the main thread, inside Capacitor's own Bridge/plugin setup --
         // super.onCreate() is where all of that happens.
@@ -51,14 +62,56 @@ public class MainActivity extends BridgeActivity {
             return;
         }
 
-        // No crash (confirmed by an earlier build) -- so instead, watch what
-        // URL the WebView actually reports, live, every 300ms. This is
-        // purely observational: it does NOT touch Capacitor's own
-        // WebViewClient or navigation-handling logic in any way, it just
-        // reads and displays getUrl(). If something IS handing the page off
-        // to an external browser, the last value shown here before the app
-        // vanishes is exactly what it was trying to load at that moment.
+        // No crash (confirmed by an earlier build). A prior build's URL-watch
+        // log then showed the WebView loading https://conz.co.zw/ once and
+        // never changing again -- no error, no further navigation, just a
+        // hang. This replaces Capacitor's own WebViewClient with a subclass
+        // of it (NOT a from-scratch replacement -- every method here calls
+        // super first, so shouldInterceptRequest, shouldOverrideUrlLoading,
+        // onPageFinished, and WebViewListener notifications all still work
+        // exactly as before) purely to also log onReceivedError /
+        // onReceivedHttpError / onReceivedSslError, which the URL-watch log
+        // alone can't see.
+        try {
+            Bridge bridge = getBridge();
+            if (bridge != null && bridge.getWebView() != null) {
+                bridge.getWebView().setWebViewClient(new DiagnosticWebViewClient(bridge));
+            }
+        } catch (Throwable ignored) {
+        }
+
         startUrlWatcher();
+    }
+
+    private class DiagnosticWebViewClient extends BridgeWebViewClient {
+        DiagnosticWebViewClient(Bridge bridge) {
+            super(bridge);
+        }
+
+        @Override
+        public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+            super.onReceivedError(view, request, error);
+            log("onReceivedError: " + error.getErrorCode() + " " + error.getDescription() + " url=" + request.getUrl());
+        }
+
+        @Override
+        public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
+            super.onReceivedHttpError(view, request, errorResponse);
+            log("onReceivedHttpError: " + errorResponse.getStatusCode() + " url=" + request.getUrl());
+        }
+
+        @Override
+        public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+            log("onReceivedSslError: " + error);
+            super.onReceivedSslError(view, handler, error);
+        }
+    }
+
+    private void log(String message) {
+        urlHistory.append("t+").append(System.currentTimeMillis() - startedAt).append("ms: ").append(message).append("\n");
+        if (urlWatcherLabel != null) {
+            urlWatcherLabel.setText(urlHistory.toString());
+        }
     }
 
     private void startUrlWatcher() {
@@ -72,12 +125,11 @@ public class MainActivity extends BridgeActivity {
         scroll.addView(urlWatcherLabel);
         addContentView(
             scroll,
-            new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 260)
+            new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 320)
         );
 
         urlHistory.append("URL watch log (t=ms since app start):\n");
         urlWatcherLabel.setText(urlHistory.toString());
-        final long startedAt = System.currentTimeMillis();
 
         urlWatcherHandler = new Handler(Looper.getMainLooper());
         urlWatcherHandler.post(new Runnable() {
@@ -90,12 +142,10 @@ public class MainActivity extends BridgeActivity {
                             : "(no webview yet)";
                     if (url != null && !url.equals(lastSeenUrl)) {
                         lastSeenUrl = url;
-                        urlHistory.append("t+").append(System.currentTimeMillis() - startedAt).append("ms: ").append(url).append("\n");
-                        urlWatcherLabel.setText(urlHistory.toString());
+                        log("getUrl(): " + url);
                     }
                 } catch (Throwable t) {
-                    urlHistory.append("error: ").append(t.getMessage()).append("\n");
-                    urlWatcherLabel.setText(urlHistory.toString());
+                    log("watcher error: " + t.getMessage());
                 }
                 urlWatcherHandler.postDelayed(this, 300);
             }
