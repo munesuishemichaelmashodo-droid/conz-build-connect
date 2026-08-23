@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "875158930741",
+    "project_id": "con-z-87e24",
+    "storage_bucket": "con-z-87e24.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:875158930741:android:0e73d886968a37b495f87c",
+        "android_client_info": {
+          "package_name": "com.conz.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCdZ0G2D-SD2pQDr4jaK55XMZPKL84CO_w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:875158930741:android:493ffa8a88e4903495f87c",
+        "android_client_info": {
+          "package_name": "com.conzbuildconnect.ConZ"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCdZ0G2D-SD2pQDr4jaK55XMZPKL84CO_w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
