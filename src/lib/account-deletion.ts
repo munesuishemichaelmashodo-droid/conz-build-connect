@@ -21,6 +21,10 @@ export const deleteMyAccount = createServerFn({ method: "POST" })
 
     // Scrub personal data on the profile — keep the row so financial
     // records and other users' job history referencing it stay intact.
+    // status='banned' matches the real, permanent login ban applied below —
+    // the admin Users list filters this out so a deleted account actually
+    // disappears from the normal list, per how account deletion is meant
+    // to look from the admin side.
     await db
       .from("profiles")
       .update({
@@ -29,6 +33,7 @@ export const deleteMyAccount = createServerFn({ method: "POST" })
         email: null,
         avatar_url: null,
         deleted_at: new Date().toISOString(),
+        status: "banned",
       })
       .eq("id", userId);
 

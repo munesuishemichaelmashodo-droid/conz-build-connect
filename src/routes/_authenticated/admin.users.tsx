@@ -80,7 +80,12 @@ function AdminUsers() {
     queryKey: ["admin-users"],
     queryFn: async () => {
       const [profiles, roles, wallets] = await Promise.all([
-        supabase.from("profiles").select("id,full_name,email,phone,status").order("created_at", { ascending: false }).limit(500),
+        supabase
+          .from("profiles")
+          .select("id,full_name,email,phone,status")
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false })
+          .limit(500),
         supabase.from("user_roles").select("user_id,role"),
         supabase.from("wallets").select("user_id,balance"),
       ]);
