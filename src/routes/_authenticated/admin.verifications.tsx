@@ -5,6 +5,7 @@ import { ShieldCheck, ShieldX, ShieldQuestion, ExternalLink } from "lucide-react
 import { StatusBadge, EmptyState } from "@/components/ui-bits";
 import { toast } from "sonner";
 import { useState } from "react";
+import { isNativePlatform } from "@/lib/native-push";
 
 export const Route = createFileRoute("/_authenticated/admin/verifications")({
   component: AdminVerifications,
@@ -40,8 +41,13 @@ function AdminVerifications() {
 
   const view = async (path: string | null) => {
     const url = await signedUrl(path);
-    if (url) window.open(url, "_blank");
-    else toast.error("File not available");
+    if (!url) return toast.error("File not available");
+    if (isNativePlatform()) {
+      const { Browser } = await import("@capacitor/browser");
+      await Browser.open({ url });
+    } else {
+      window.open(url, "_blank");
+    }
   };
 
   const setStatus = async (user_id: string, status: "verified" | "rejected", note?: string) => {

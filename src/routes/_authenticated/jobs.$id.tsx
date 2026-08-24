@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, MessageCircle, Share2, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle, Wallet, Receipt, Phone } from "lucide-react";
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { SITE_URL } from "@/lib/site";
+import { isNativePlatform } from "@/lib/native-push";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { DriverShareLocation, CustomerTrackMap, DriverRouteView } from "@/components/JobTracker";
@@ -87,7 +88,22 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
 
   const shareTrackLink = async () => {
     if (!trackUrl) return;
-    if (navigator.share) {
+
+    // navigator.share() support inside Android's WebView is inconsistent
+    // across devices/versions — it can be missing entirely, or present but
+    // silently fail, which matches exactly "nothing happens" when tapped.
+    // The native Capacitor Share plugin always opens the real OS share
+    // sheet reliably on native, regardless of WebView quirks.
+    if (isNativePlatform()) {
+      try {
+        const { Share } = await import("@capacitor/share");
+        await Share.share({ text: shareText, url: trackUrl, dialogTitle: "Share tracking link" });
+        return;
+      } catch {
+        // user cancelled the native share sheet, or it genuinely failed —
+        // fall through to copy either way, same as the web path below
+      }
+    } else if (navigator.share) {
       try {
         await navigator.share({ text: shareText, url: trackUrl });
         return;

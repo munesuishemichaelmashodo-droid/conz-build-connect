@@ -8,6 +8,7 @@ import { money } from "@/lib/domain";
 import { Gift, Copy, Share2, Users, Clock, CheckCircle2, Trophy, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { isNativePlatform } from "@/lib/native-push";
 
 export const Route = createFileRoute("/_authenticated/refer")({
   component: ReferPage,
@@ -101,15 +102,24 @@ function ReferPage() {
   };
 
   const shareGeneric = async () => {
-    if (navigator.share && code) {
+    if (!code) return;
+    if (isNativePlatform()) {
+      try {
+        const { Share } = await import("@capacitor/share");
+        await Share.share({ title: "Join Con Z Connect", text: `Use my referral code ${code}`, url: link, dialogTitle: "Share referral link" });
+        return;
+      } catch {
+        // fall through to copy
+      }
+    } else if (navigator.share) {
       try {
         await navigator.share({ title: "Join Con Z Connect", text: `Use my referral code ${code}`, url: link });
+        return;
       } catch {
         /* user cancelled */
       }
-    } else {
-      copy(link, "Referral link");
     }
+    copy(link, "Referral link");
   };
 
   const nextMilestone = MILESTONES.find((m) => !achieved.has(m)) ?? null;
