@@ -88,9 +88,16 @@ function ReferPage() {
     }
   };
 
-  const shareWhatsapp = () => {
+  const shareWhatsapp = async () => {
     const msg = `Join Con Z Connect and get materials delivered fast! Use my referral code ${code} when you sign up: ${link}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+    const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    // window.open(url, "_blank") doesn't reliably work inside the native
+    // Capacitor WebView (no multi-window support enabled by default, so it
+    // silently no-ops) — same issue and same fix as the OAuth flow in
+    // auth.tsx. Browser.open() works correctly on native (opens WhatsApp
+    // directly via the system) and falls back to a normal new tab on web.
+    const { Browser } = await import("@capacitor/browser");
+    await Browser.open({ url });
   };
 
   const shareGeneric = async () => {
