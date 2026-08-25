@@ -77,6 +77,17 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
     }
   }
 
+  // Previously the route was only ever computed from a map click, which
+  // never fires when the destination is locked (the normal case for every
+  // real job) — so Route & ETA silently never populated. Auto-fetch here
+  // instead, debounced so live GPS updates during tracking don't spam OSRM.
+  useEffect(() => {
+    if (!destination) return;
+    const t = setTimeout(() => { void fetchRoute(destination); }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [destination?.lat, destination?.lng, driverLocation.lat, driverLocation.lng]);
+
   function ClickHandler() {
     useMapEvents({
       click(e) {

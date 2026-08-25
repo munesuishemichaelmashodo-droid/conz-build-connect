@@ -237,6 +237,8 @@ export function DriverRouteView({ jobId }: { jobId: string }) {
   const [destination, setDestination] = useState<{ lat: number; lng: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [slow, setSlow] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -249,6 +251,18 @@ export function DriverRouteView({ jobId }: { jobId: string }) {
         setDestination({ lat: Number(data.delivery_lat), lng: Number(data.delivery_lng) });
       }
     })();
+    return () => { mounted = false; };
+  }, [jobId]);
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    setError(null);
+    setSlow(false);
+    // After 8s, the fast low-accuracy fix has likely already failed and
+    // we're waiting on the high-accuracy GPS lock (up to 20s) — tell the
+    // user it's still working instead of leaving a static spinner.
+    const slowTimer = setTimeout(() => { if (mounted) setSlow(true); }, 8000);
     (async () => {
       try {
         const { locateOnce } = await import("@/lib/geolocate");
@@ -258,15 +272,28 @@ export function DriverRouteView({ jobId }: { jobId: string }) {
         if (mounted) setError(e?.message ?? "Could not get your location");
       } finally {
         if (mounted) setLoading(false);
+        clearTimeout(slowTimer);
       }
     })();
-    return () => { mounted = false; };
-  }, [jobId]);
+    return () => { mounted = false; clearTimeout(slowTimer); };
+  }, [jobId, attempt]);
+
+  const retry = () => setAttempt((n) => n + 1);
 
   if (loading) {
     return (
-      <div className="rounded-2xl bg-card border p-4 text-xs text-muted-foreground flex items-center gap-2">
-        <Loader2 className="w-3 h-3 animate-spin" /> Loading route to delivery point…
+      <div className="rounded-2xl bg-card border p-4 text-xs text-muted-foreground space-y-2">
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-3 h-3 animate-spin" /> Loading route to delivery point…
+        </div>
+        {slow && (
+          <div className="space-y-2">
+            <p>Still locating you — this can take longer on a weak signal. Check your network/GPS or move somewhere with a clearer view of the sky.</p>
+            <Button size="sm" variant="outline" onClick={retry} className="h-7 text-xs">
+              Cancel and retry
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
@@ -281,8 +308,11 @@ export function DriverRouteView({ jobId }: { jobId: string }) {
 
   if (!origin) {
     return (
-      <div className="rounded-2xl bg-card border p-4 text-xs text-muted-foreground">
-        {error ?? "Location required to show the route."}
+      <div className="rounded-2xl bg-card border p-4 text-xs text-muted-foreground space-y-2">
+        <p>{error ?? "Location required to show the route."}</p>
+        <Button size="sm" variant="outline" onClick={retry} className="h-7 text-xs">
+          Try again
+        </Button>
       </div>
     );
   }
