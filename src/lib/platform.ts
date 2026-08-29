@@ -42,8 +42,9 @@ export function isMobileWebBrowser(): boolean {
 // anywhere — never show a button with nowhere real to go.
 export const PLAY_STORE_URL: string | null = null;
 
-// Android App Links use this to open the installed app directly instead
-// of a browser tab, when the app is installed and published. Declared
-// here so it stays in sync with capacitor.config.ts's appId and the
-// intent-filter host in AndroidManifest.xml.
+// Android App Links / capacitor.config.ts appId. Not imported anywhere
+// (the assetlinks.json below is a static public/ file, not a route, so
+// it can't reference this directly) — kept here only as the documented
+// single source of truth to copy from if either ever changes.
+// See public/.well-known/assetlinks.json and capacitor.config.ts.
 export const ANDROID_APP_ID = "com.conz.app";
