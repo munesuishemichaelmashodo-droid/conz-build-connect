@@ -155,7 +155,7 @@ function BecomeDriverPage() {
 
   if (done) {
     return (
-      <AppShell title="Driver signup">
+      <AppShell title="Driver signup" showAppNudge>
         <div className="max-w-md mx-auto text-center space-y-5 py-10">
           <div className="w-20 h-20 rounded-full bg-warning/15 border border-warning/40 mx-auto flex items-center justify-center">
             <Clock className="w-10 h-10 text-warning" />

@@ -170,7 +170,7 @@ function WalletPage() {
 
   if (!is("driver"))
     return (
-      <AppShell title="Wallet">
+      <AppShell title="Wallet" showAppNudge>
         <EmptyState icon={WalletIcon} title="Wallet is for drivers" hint="Switch to a driver account from your profile." />
       </AppShell>
     );
@@ -193,7 +193,7 @@ function WalletPage() {
     (withdrawals ?? []).filter((t) => t.status === "pending").length;
 
   return (
-    <AppShell title="Driver Wallet">
+    <AppShell title="Driver Wallet" showAppNudge>
       <motion.div
         id="tour-wallet-balance"
         initial={{ opacity: 0, y: 12 }}

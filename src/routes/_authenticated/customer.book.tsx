@@ -249,7 +249,7 @@ function BookDelivery() {
 
   if (!is("customer")) {
     return (
-      <AppShell title="Book delivery">
+      <AppShell title="Book delivery" showAppNudge>
         <div className="text-center py-10 space-y-3">
           <p className="text-muted-foreground">Only customer accounts can book deliveries.</p>
           <Button asChild variant="outline">
@@ -396,7 +396,7 @@ function BookDelivery() {
   const isReview = step === 4;
 
   return (
-    <AppShell title="Book delivery">
+    <AppShell title="Book delivery" showAppNudge>
       <button
         type="button"
         onClick={goBack}

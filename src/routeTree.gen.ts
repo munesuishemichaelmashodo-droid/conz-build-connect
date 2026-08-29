@@ -52,6 +52,7 @@ import { Route as AuthenticatedAdminReferralsRouteImport } from './routes/_authe
 import { Route as AuthenticatedAdminLedgerRouteImport } from './routes/_authenticated/admin.ledger'
 import { Route as AuthenticatedAdminDisputesRouteImport } from './routes/_authenticated/admin.disputes'
 import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin.audit'
+import { Route as Char91DotwellKnownChar93AssetlinksJsonRouteImport } from './routes/[.well-known]/assetlinks.json'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 
@@ -283,6 +284,12 @@ const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const Char91DotwellKnownChar93AssetlinksJsonRoute =
+  Char91DotwellKnownChar93AssetlinksJsonRouteImport.update({
+    id: '/.well-known/assetlinks/json',
+    path: '/.well-known/assetlinks/json',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const Char91DotmcpChar93InvokeToolToolRoute =
   Char91DotmcpChar93InvokeToolToolRouteImport.update({
     id: '/.mcp/invoke-tool/$tool',
@@ -321,6 +328,7 @@ export interface FileRoutesByFullPath {
   '/track/$token': typeof TrackTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/.well-known/assetlinks/json': typeof Char91DotwellKnownChar93AssetlinksJsonRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/disputes': typeof AuthenticatedAdminDisputesRoute
   '/admin/ledger': typeof AuthenticatedAdminLedgerRoute
@@ -365,6 +373,7 @@ export interface FileRoutesByTo {
   '/track/$token': typeof TrackTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/.well-known/assetlinks/json': typeof Char91DotwellKnownChar93AssetlinksJsonRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/disputes': typeof AuthenticatedAdminDisputesRoute
   '/admin/ledger': typeof AuthenticatedAdminLedgerRoute
@@ -413,6 +422,7 @@ export interface FileRoutesById {
   '/track/$token': typeof TrackTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/.well-known/assetlinks/json': typeof Char91DotwellKnownChar93AssetlinksJsonRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/_authenticated/admin/disputes': typeof AuthenticatedAdminDisputesRoute
   '/_authenticated/admin/ledger': typeof AuthenticatedAdminLedgerRoute
@@ -461,6 +471,7 @@ export interface FileRouteTypes {
     | '/track/$token'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/.well-known/assetlinks/json'
     | '/admin/audit'
     | '/admin/disputes'
     | '/admin/ledger'
@@ -505,6 +516,7 @@ export interface FileRouteTypes {
     | '/track/$token'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/.well-known/assetlinks/json'
     | '/admin/audit'
     | '/admin/disputes'
     | '/admin/ledger'
@@ -552,6 +564,7 @@ export interface FileRouteTypes {
     | '/track/$token'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/.well-known/assetlinks/json'
     | '/_authenticated/admin/audit'
     | '/_authenticated/admin/disputes'
     | '/_authenticated/admin/ledger'
@@ -589,6 +602,7 @@ export interface RootRouteChildren {
   TrackTokenRoute: typeof TrackTokenRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
+  Char91DotwellKnownChar93AssetlinksJsonRoute: typeof Char91DotwellKnownChar93AssetlinksJsonRoute
   ApiPublicPaynowIpnRoute: typeof ApiPublicPaynowIpnRoute
 }
 
@@ -895,6 +909,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminAuditRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/.well-known/assetlinks/json': {
+      id: '/.well-known/assetlinks/json'
+      path: '/.well-known/assetlinks/json'
+      fullPath: '/.well-known/assetlinks/json'
+      preLoaderRoute: typeof Char91DotwellKnownChar93AssetlinksJsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/.mcp/invoke-tool/$tool': {
       id: '/.mcp/invoke-tool/$tool'
       path: '/.mcp/invoke-tool/$tool'
@@ -1016,6 +1037,8 @@ const rootRouteChildren: RootRouteChildren = {
   TrackTokenRoute: TrackTokenRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
+  Char91DotwellKnownChar93AssetlinksJsonRoute:
+    Char91DotwellKnownChar93AssetlinksJsonRoute,
   ApiPublicPaynowIpnRoute: ApiPublicPaynowIpnRoute,
 }
 export const routeTree = rootRouteImport

@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { materialLabel, statusInfo, type MaterialCategory } from "@/lib/domain";
 import { StatusBadge } from "@/components/ui-bits";
 import { RouteMap } from "@/components/RouteMap";
+import { OpenInAppBanner } from "@/components/OpenInAppBanner";
 import { Calendar, CheckCircle2, Loader2, MapPin, Navigation2, Package, Receipt } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { getPublicPod, type PodResult } from "@/lib/pod.functions";
@@ -207,6 +208,7 @@ function Shell({ children }: { children: React.ReactNode }) {
             Live delivery tracking
           </span>
         </div>
+        <OpenInAppBanner />
         {children}
         <p className="text-center text-[11px] text-muted-foreground pt-4">
           Powered by Con Z — Zimbabwe's construction marketplace

@@ -30,6 +30,22 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="com.conz.app" android:host="oauth-callback" />
             </intent-filter>
+
+            <!-- Android App Links: lets a real https://www.conz.co.zw/...
+                 link (shared in WhatsApp, SMS, etc.) open directly in the
+                 installed app instead of a browser tab, once the app is
+                 published and /.well-known/assetlinks.json on the live
+                 site carries the real signing-key fingerprint (see that
+                 file for setup). autoVerify requires Android to confirm
+                 that file at install time -- until it's real, this
+                 intent-filter is simply inert and links keep opening in
+                 the browser as they do today. Safe either way. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="www.conz.co.zw" />
+            </intent-filter>
         </activity>
 
         <provider

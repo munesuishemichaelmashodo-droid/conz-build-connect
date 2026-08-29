@@ -435,7 +435,7 @@ function JobDetail() {
   const showWrapSection = showRatingOwner || showRatingDriver || showReceipt || showBookAgain;
 
   return (
-    <AppShell title="Job">
+    <AppShell title="Job" showAppNudge>
       <Link to="/jobs" className="inline-flex items-center gap-1 text-sm text-muted-foreground mb-4">
         <ArrowLeft className="w-4 h-4" /> Back
       </Link>

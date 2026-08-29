@@ -369,7 +369,7 @@ function ChatPage() {
   }, [messages]);
 
   return (
-    <AppShell title={otherProfile?.full_name ? `Chat · ${otherProfile.full_name}` : "Chat"}>
+    <AppShell title={otherProfile?.full_name ? `Chat · ${otherProfile.full_name}` : "Chat"} showAppNudge>
       <div className="flex items-center justify-between mb-3">
         <Link to="/jobs/$id" params={{ id: jobId }} className="inline-flex items-center gap-1 text-sm text-muted-foreground">
           <ArrowLeft className="w-4 h-4" /> Back to job

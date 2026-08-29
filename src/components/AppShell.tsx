@@ -2,8 +2,24 @@ import { useAuth } from "@/lib/auth";
 import type { ReactNode } from "react";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { SidePanel } from "@/components/SidePanel";
+import { OpenInAppBanner } from "@/components/OpenInAppBanner";
 
-export function AppShell({ title, children, action }: { title?: string; children: ReactNode; action?: ReactNode }) {
+export function AppShell({
+  title,
+  children,
+  action,
+  showAppNudge = false,
+}: {
+  title?: string;
+  children: ReactNode;
+  action?: ReactNode;
+  // Opt-in per route. Only set this on flows that genuinely benefit from
+  // the native app (camera/GPS/push-heavy) — see src/lib/platform.ts.
+  // The banner itself already no-ops on desktop, inside the native app,
+  // and while no Play Store URL is configured, so this stays safe even
+  // if left on by default somewhere.
+  showAppNudge?: boolean;
+}) {
   const { profile } = useAuth();
 
   return (
@@ -31,7 +47,14 @@ export function AppShell({ title, children, action }: { title?: string; children
         </div>
       </header>
 
-      <main className="flex-1 mx-auto w-full max-w-screen-sm px-4 py-4 pb-6">{children}</main>
+      <main className="flex-1 mx-auto w-full max-w-screen-sm px-4 py-4 pb-6">
+        {showAppNudge && (
+          <div className="mb-4">
+            <OpenInAppBanner />
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   );
 }
