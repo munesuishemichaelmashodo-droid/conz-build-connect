@@ -17,10 +17,12 @@ export const Route = createFileRoute("/_authenticated/admin")({
     if (!list.includes("admin") && !list.includes("super_admin")) {
       throw redirect({ to: "/home" });
     }
-    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (aal?.currentLevel !== "aal2") {
-      throw redirect({ to: "/mfa", search: { next: location.pathname } });
-    }
+    // Authenticator-app (aal2) requirement removed 2026-09-17: admin panel
+    // entry now only requires a logged-in session with the admin/super_admin
+    // role. The remaining MFA_REQUIRED error paths inside individual admin
+    // actions (admin.security.tsx, admin.referrals.tsx, admin.users.tsx) are
+    // dead code now that require_admin_mfa() is a no-op server-side, but are
+    // left in place harmlessly.
   },
   component: AdminLayout,
 });
