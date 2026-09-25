@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { Loader2, ShieldCheck, Star } from "lucide-react";
+import type { CustomerCard } from "@/components/redesign/rpc";
 import { materialLabel } from "@/lib/domain";
 import { cn } from "@/lib/utils";
 import {
@@ -47,12 +48,15 @@ export function FeedJobCard({
   accepting,
   matchTier,
   highlight,
+  customer,
 }: {
   job: FeedJob;
   onAccept?: () => void;
   accepting?: boolean;
   matchTier?: string | null;
   highlight?: boolean;
+  /** First name + rating from customer_cards() (migration 0060). */
+  customer?: CustomerCard;
 }) {
   const km = straightKm(
     { lat: job.pickup_lat, lng: job.pickup_lng },
@@ -100,6 +104,18 @@ export function FeedJobCard({
           {matchTier && MATCH_LABEL[matchTier] && (
             <span className="text-[13px] text-cz-muted truncate max-w-[180px]">
               {MATCH_LABEL[matchTier]}
+            </span>
+          )}
+          {customer?.first_name && (
+            <span className="inline-flex items-center gap-1 text-[13px] text-cz-muted">
+              {customer.first_name}
+              {Number(customer.rating_count) > 0 && (
+                <>
+                  {" · "}
+                  <Star className="w-3 h-3 fill-cz-amber text-cz-amber" />
+                  {Number(customer.rating_avg).toFixed(1)}
+                </>
+              )}
             </span>
           )}
           {!escrow && (

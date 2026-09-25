@@ -10,6 +10,7 @@ import { JobRow } from "@/components/redesign/JobRow";
 import { FeedJobCard } from "@/components/redesign/FeedJobCard";
 import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 import { useQuickAccept } from "@/components/redesign/useQuickAccept";
+import { useCustomerCards } from "@/components/redesign/rpc";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { SidePanel } from "@/components/SidePanel";
 
@@ -102,6 +103,7 @@ function JobsPage() {
   const all = orderedJobs ?? [];
   const mineActive = all.filter((j) => (isDriver ? j.driver_id === userId : true) && (j.status === "accepted" || j.status === "in_progress"));
   const openLoads = all.filter((j) => j.status === "open" && (isDriver ? j.customer_id !== userId : true));
+  const cards = useCustomerCards(isDriver && !isCustomer ? openLoads.map((j) => j.id) : []);
   const past = all.filter((j) => (isDriver ? j.driver_id === userId : true) && (j.status === "completed" || j.status === "cancelled"));
 
   return (
@@ -148,6 +150,7 @@ function JobsPage() {
                           matchTier={myTrucks?.length ? bestCapacityMatchTier(Number(j.quantity_m3), myTrucks) : undefined}
                           onAccept={() => accept(j)}
                           accepting={busyJobId === j.id}
+                          customer={cards[j.id]}
                         />
                       ))
                     : openLoads.map((j) => <JobRow key={j.id} j={j} />)}

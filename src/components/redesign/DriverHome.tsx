@@ -16,6 +16,7 @@ import { CzScreen, MaterialChips, usd2 } from "@/components/redesign";
 import { FeedJobCard, type FeedJob } from "@/components/redesign/FeedJobCard";
 import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 import { useQuickAccept } from "@/components/redesign/useQuickAccept";
+import { driverTodayEarnings, useCustomerCards } from "@/components/redesign/rpc";
 
 /** Client-side material filter for the feed. Keys are display groups; the
  *  values are the job.material enum values each one covers. */
@@ -74,6 +75,19 @@ export function DriverHome({
   });
 
   const capacities = (trucks ?? []).map((t) => Number(t.capacity_m3));
+
+  // Migration 0060: today's earnings (Zimbabwe time) and customer cards.
+  const { data: today } = useQuery({
+    queryKey: ["driver-today-earnings", userId],
+    enabled: !!userId,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await driverTodayEarnings();
+      if (error) return null;
+      return data;
+    },
+  });
+  const cards = useCustomerCards((jobs ?? []).map((j) => j.id));
   const shown = useMemo(() => filterJobs(jobs ?? [], filter), [jobs, filter]);
   const level = driver ? levelInfo(driver.level) : null;
 
@@ -108,8 +122,12 @@ export function DriverHome({
             className="rounded-[14px] border border-cz-border bg-cz-surface px-4 py-3 flex items-center justify-between gap-3"
           >
             <Link to="/wallet" className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-[13px] text-cz-muted">Wallet</span>
+              <span className="text-[13px] text-cz-muted">Today</span>
               <span className="cz-display font-bold text-2xl tabular-nums">
+                {today ? usd2(Number(today.earned)) : "—"}
+              </span>
+              <span className="text-xs text-cz-faint">
+                {today ? `${today.jobs} job${today.jobs === 1 ? "" : "s"} today · ` : ""}Wallet{" "}
                 {wallet ? usd2(Number(wallet.balance)) : "—"}
               </span>
               {wallet?.limited && (
@@ -197,6 +215,7 @@ export function DriverHome({
                 }
                 onAccept={() => accept(j)}
                 accepting={busyJobId === j.id}
+                customer={cards[j.id]}
               />
             ))
           )}

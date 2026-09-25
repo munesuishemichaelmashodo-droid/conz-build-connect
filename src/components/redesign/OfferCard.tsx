@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ShieldCheck, Star, Truck } from "lucide-react";
+import { Clock, ShieldCheck, Star, Truck } from "lucide-react";
 import { levelInfo } from "@/lib/domain";
 import { cn } from "@/lib/utils";
 import { InitialsAvatar, czButtonClass, usd } from "@/components/redesign";
@@ -15,6 +15,8 @@ export type OfferBid = {
   truck_reg?: string | null;
   capacity_m3_snapshot?: number | null;
   estimated_trips?: number | null;
+  /** "I can reach pickup in" minutes (migration 0060). */
+  eta_minutes?: number | null;
   profile?: { full_name?: string | null; avatar_url?: string | null } | null;
   driver?: {
     rating_avg?: number | null;
@@ -77,6 +79,14 @@ export function OfferCard({
             {bid.driver?.level && <span>{levelInfo(bid.driver.level).label}</span>}
             {bid.driver && <span>{bid.driver.jobs_completed ?? 0} jobs</span>}
           </div>
+          {Number(bid.eta_minutes) > 0 && (
+            <div className="mt-1 flex items-center gap-1 text-[13px] font-semibold text-cz-amber-text">
+              <Clock className="w-3.5 h-3.5" /> Can reach pickup in{" "}
+              {Number(bid.eta_minutes) >= 60
+                ? `${Math.round(Number(bid.eta_minutes) / 60)} hr`
+                : `${bid.eta_minutes} min`}
+            </div>
+          )}
           {bid.truck_reg && (
             <div className="mt-1 flex items-center gap-1 text-[13px] text-cz-muted">
               <Truck className="w-3.5 h-3.5" /> {bid.truck_reg}

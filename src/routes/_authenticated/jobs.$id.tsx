@@ -49,6 +49,7 @@ import {
   straightKm,
 } from "@/components/redesign";
 import { OfferCard } from "@/components/redesign/OfferCard";
+import { driverMarkArrived, jobOfferSummary, withdrawBid } from "@/components/redesign/rpc";
 import { PinMap } from "@/components/redesign/PinMap";
 import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 import { DriverNavigationButtons } from "@/components/DriverNavigationButtons";
@@ -1027,6 +1028,8 @@ function BidForm({
   const [date, setDate] = useState(existing?.delivery_date ?? "");
   const [message, setMessage] = useState(existing?.message ?? "");
   const [truckId, setTruckId] = useState<string>(existing?.truck_id ?? "");
+  // Migration 0060: optional "I can reach pickup in" (minutes).
+  const [etaMinutes, setEtaMinutes] = useState<number | null>(existing?.eta_minutes ?? null);
   const [loading, setLoading] = useState(false);
 
   const { data: trucks } = useQuery({
@@ -1101,6 +1104,7 @@ function BidForm({
         delivery_date: date || null,
         message: message.trim() || null,
         truck_id: truckId,
+        eta_minutes: etaMinutes,
       } as any,
       { onConflict: "job_id,driver_id" },
     );
@@ -1145,6 +1149,10 @@ function BidForm({
   const fee = effectivePct != null ? (firstJobFree ? 0 : Math.round(priceNum * effectivePct) / 100) : null;
   const pctLabel = effectivePct != null ? `${Number(effectivePct.toFixed(2))}%` : "";
   const chips = budget > 0 ? [budget, budget + 10, budget + 20, budget + 30] : [];
+  // Server-computed at posting time by tg_validate_job_budget (same
+  // compute_material_offer bounds the customer's quote used).
+  const pb = job?.pricing_breakdown as { low?: number; high?: number } | null | undefined;
+  const range = pb && Number(pb.low) > 0 && Number(pb.high) >= Number(pb.low) ? { low: Number(pb.low), high: Number(pb.high) } : null;
   const km = job ? straightKm({ lat: job.pickup_lat, lng: job.pickup_lng }, { lat: job.delivery_lat, lng: job.delivery_lng }) : null;
 
   return (
@@ -1234,6 +1242,18 @@ function BidForm({
             <HintBox tone="green" icon={<CheckCircle2 className="w-4 h-4" />}>
               You match the customer's price — the quickest way to get picked.
             </HintBox>
+          ) : range && priceNum > range.high ? (
+            <HintBox tone="warn" icon={<Info className="w-4 h-4" />}>
+              Above the usual {usd(range.low)}–{usd(range.high)} for this trip. Customers pick higher offers less often.
+            </HintBox>
+          ) : range && priceNum < range.low ? (
+            <HintBox tone="info" icon={<Info className="w-4 h-4" />}>
+              Below Con Z's usual range of {usd(range.low)}–{usd(range.high)} for this trip.
+            </HintBox>
+          ) : range ? (
+            <HintBox tone="info" icon={<Info className="w-4 h-4" />}>
+              Fair price. Con Z's usual range for this trip is {usd(range.low)}–{usd(range.high)}.
+            </HintBox>
           ) : priceNum > budget ? (
             <HintBox tone="warn" icon={<Info className="w-4 h-4" />}>
               {usd(priceNum - budget)} above the customer's offer of {usd(budget)}. They can accept, send you a counter-offer, or pick another driver.
@@ -1244,6 +1264,31 @@ function BidForm({
             </HintBox>
           )
         )}
+
+        <div className="space-y-2">
+          <div className="text-sm font-semibold text-cz-muted">I can reach pickup in</div>
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { v: 15, label: "15 min" },
+              { v: 30, label: "30 min" },
+              { v: 60, label: "1 hr" },
+              { v: null, label: "Later" },
+            ].map((o) => (
+              <button
+                key={String(o.v)}
+                type="button"
+                onClick={() => setEtaMinutes(o.v)}
+                aria-pressed={etaMinutes === o.v}
+                className={cn(
+                  "min-h-12 rounded-xl text-[15px] font-semibold",
+                  etaMinutes === o.v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-[#33353b] bg-cz-surface",
+                )}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {trucks && trucks.length > 0 && (
           <div className="space-y-1.5">
@@ -2071,6 +2116,29 @@ function DriverJobScreen({ ctx }: { ctx: JobScreenCtx }) {
 function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
   const { job, myBid } = ctx;
   const [editing, setEditing] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  // Migration 0060: count + price range of the OTHER offers (never their
+  // details), only returned to a driver who has an offer on this job.
+  const { data: summary } = useQuery({
+    queryKey: ["offer-summary", ctx.id, ctx.userId],
+    enabled: !!myBid && job.status === "open",
+    refetchInterval: 15000,
+    queryFn: async () => {
+      const { data, error } = await jobOfferSummary(ctx.id);
+      if (error) return null;
+      return data;
+    },
+  });
+  const withdraw = async () => {
+    if (!myBid) return;
+    if (!window.confirm("Withdraw your offer? You can send a new one while the job is still open.")) return;
+    setWithdrawing(true);
+    const { error } = await withdrawBid(myBid.id);
+    setWithdrawing(false);
+    if (error) return toast.error(error.message);
+    toast.success("Offer withdrawn");
+    ctx.invalidateBids();
+  };
 
   if (ctx.showCounterResponse) {
     return (
@@ -2121,7 +2189,11 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
             <div className="min-w-0">
               <div className="font-bold">Your offer</div>
               <div className="text-[13px] text-cz-muted truncate">
-                {[myBid.truck_reg && `Truck ${myBid.truck_reg}`, myBid.delivery_date && `Can deliver ${myBid.delivery_date}`]
+                {[
+                  myBid.eta_minutes && `Pickup in ${myBid.eta_minutes >= 60 ? `${Math.round(myBid.eta_minutes / 60)} hr` : `${myBid.eta_minutes} min`}`,
+                  myBid.truck_reg && `Truck ${myBid.truck_reg}`,
+                  myBid.delivery_date && `Can deliver ${myBid.delivery_date}`,
+                ]
                   .filter(Boolean)
                   .join(" · ") || "Waiting for the customer"}
               </div>
@@ -2131,11 +2203,33 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
             </div>
             <span className="cz-display font-bold text-[28px] text-cz-amber tabular-nums">{usd(Number(myBid.price))}</span>
           </div>
+          {summary && (
+            <div className="flex items-center justify-between gap-3 rounded-[14px] border border-cz-border bg-cz-surface px-4 py-3.5">
+              <div className="min-w-0">
+                <div className="font-semibold">
+                  {summary.others === 0 ? "No other offers yet" : `${summary.others} other driver${summary.others === 1 ? "" : "s"}`}
+                </div>
+                <div className="text-[13px] text-cz-muted">
+                  {summary.others === 0 ? "You're the first — good chance of being picked." : "Offers between"}
+                </div>
+              </div>
+              {summary.others > 0 && summary.min != null && summary.max != null && (
+                <span className="cz-display font-bold text-[22px] text-[#d6d4cf] tabular-nums">
+                  {Number(summary.min) === Number(summary.max) ? usd(Number(summary.min)) : `${usd(Number(summary.min))}–${usd(Number(summary.max))}`}
+                </span>
+              )}
+            </div>
+          )}
           <JobSummaryCard job={job} />
         </div>
 
         <div className="grid grid-cols-2 gap-2.5 px-5 pt-5">
           <CzButton size="md" kind="ghost" onClick={() => setEditing(true)}>Change offer</CzButton>
+          <CzButton size="md" kind="danger" onClick={withdraw} disabled={withdrawing || myBid.status !== "pending"}>
+            {withdrawing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Withdraw"}
+          </CzButton>
+        </div>
+        <div className="px-5 pt-2.5">
           <Link to="/driver" className={czButtonClass("secondary", "md")}>Find more loads</Link>
         </div>
         <DriverBottomNav />
@@ -2195,14 +2289,28 @@ function JobSummaryCard({ job, id = "tour-job-header" }: { job: any; id?: string
 function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
   const { job, id } = ctx;
   const { other } = useJobContact(job, false);
-  const [arrivedPickup, setArrivedPickup] = useSessionFlag(`cz.arrived-pickup.${id}`);
-  const [arrivedDrop, setArrivedDrop] = useSessionFlag(`cz.arrived-drop.${id}`);
+  // Migration 0060: arrival is recorded server-side (driver_mark_arrived),
+  // so the customer's step bar shows it too. Realtime on the job row
+  // refreshes this screen when it lands.
+  const arrivedPickup = !!job.driver_arrived_pickup_at;
+  const arrivedDrop = !!job.driver_arrived_dropoff_at;
+  const [marking, setMarking] = useState(false);
+  const markArrived = async (stage: "pickup" | "dropoff", arrived: boolean) => {
+    setMarking(true);
+    const { error } = await driverMarkArrived(id, stage, arrived);
+    setMarking(false);
+    if (error) return toast.error(error.message);
+    ctx.invalidateJob();
+  };
+  const setArrivedPickup = (v: boolean) => markArrived("pickup", v);
+  const setArrivedDrop = (v: boolean) => markArrived("dropoff", v);
   const [bannerHidden, setBannerHidden] = useSessionFlag(`cz.got-job-seen.${id}`);
   const [route, setRoute] = useState<RouteResult | null>(null);
 
-  // Steps come from real job state; only "arrived" is local (no server
-  // action exists for it). Pickup photo → trip started; delivery photo →
-  // PIN / customer confirmation.
+  // Steps come from job state only: arrived at pickup → Load; pickup photo
+  // → trip started (Deliver); delivery photo → PIN / customer confirmation.
+  // The customer's tracking screen derives the same step from the same
+  // fields.
   const step = !job.pickup_photo_url ? (arrivedPickup ? 1 : 0) : !job.delivery_photo_url ? 2 : 3;
   const price = Number(job.final_price ?? job.budget);
   const mat = materialLabel(job.material as any, job.custom_material);
@@ -2277,7 +2385,9 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
 
           {step === 0 && (
             <div className="space-y-2.5">
-              <CzButton onClick={() => setArrivedPickup(true)}>I've arrived at pickup</CzButton>
+              <CzButton onClick={() => setArrivedPickup(true)} disabled={marking}>
+                {marking ? <Loader2 className="w-5 h-5 animate-spin" /> : "I've arrived at pickup"}
+              </CzButton>
               {pickupNav && (
                 <a href={pickupNav} target="_blank" rel="noreferrer" className={czButtonClass("ghost", "sm")}>
                   <Navigation2 className="w-4 h-4" /> Navigate to pickup
@@ -2299,7 +2409,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
                 ctx.invalidateJob();
                 }}
               />
-              <button type="button" onClick={() => setArrivedPickup(false)} className="w-full min-h-11 text-sm text-cz-muted">
+              <button type="button" onClick={() => setArrivedPickup(false)} disabled={marking} className="w-full min-h-11 text-sm text-cz-muted">
                 Not at pickup yet
               </button>
             </div>
@@ -2308,7 +2418,9 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
           {step === 2 &&
             (!arrivedDrop ? (
               <div className="space-y-2.5">
-                <CzButton onClick={() => setArrivedDrop(true)}>I've arrived at drop-off</CzButton>
+                <CzButton onClick={() => setArrivedDrop(true)} disabled={marking}>
+                  {marking ? <Loader2 className="w-5 h-5 animate-spin" /> : "I've arrived at drop-off"}
+                </CzButton>
                 {dropNav && (
                   <a href={dropNav} target="_blank" rel="noreferrer" className={czButtonClass("ghost", "sm")}>
                     <Navigation2 className="w-4 h-4" /> Navigate to drop-off
@@ -2327,7 +2439,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
                     ctx.invalidateJob();
                   }}
                 />
-                <button type="button" onClick={() => setArrivedDrop(false)} className="w-full min-h-11 text-sm text-cz-muted">
+                <button type="button" onClick={() => setArrivedDrop(false)} disabled={marking} className="w-full min-h-11 text-sm text-cz-muted">
                   Not there yet
                 </button>
               </div>
@@ -2702,21 +2814,22 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
   const d = useAcceptedDriver(ctx);
   const [track, setTrack] = useState<TrackStatus | null>(null);
   const mat = materialLabel(job.material as any, job.custom_material);
-  // Same four steps as the driver's screen, from the same job fields. The
-  // driver's "Load" step starts on their device (no server state), so from
-  // here it shows as part of Pickup until their loaded-truck photo arrives.
-  const step = !job.pickup_photo_url ? 0 : !job.delivery_photo_url ? 2 : 3;
+  // Same four steps as the driver's screen, from the same job fields.
+  const step = !job.pickup_photo_url ? (job.driver_arrived_pickup_at ? 1 : 0) : !job.delivery_photo_url ? 2 : 3;
+  const atDropoff = step === 2 && !!job.driver_arrived_dropoff_at;
   const eta = track?.route?.etaMin;
   const title = [
     `${d.first} is heading to pickup`,
-    "",
-    "On the way to you",
+    `Your ${mat.toLowerCase()} is being loaded`,
+    atDropoff ? `${d.first} is at your site` : "On the way to you",
     `${d.first} has arrived`,
   ][step];
   const sub = [
     `They'll load your ${mat.toLowerCase()} at ${job.pickup_address || "the supplier"} and send a photo of the loaded truck before leaving.`,
-    "",
-    eta != null ? `Arriving in about ${Math.max(1, Math.round(eta))} min.` : track?.live ? "Your driver is sharing their live location." : "Your load is on the way.",
+    `${d.first} is at ${job.pickup_address || "the supplier"}. You'll get a photo of the loaded truck before they leave.`,
+    atDropoff
+      ? "They're tipping the load now and will send a delivery photo."
+      : eta != null ? `Arriving in about ${Math.max(1, Math.round(eta))} min.` : track?.live ? "Your driver is sharing their live location." : "Your load is on the way.",
     ctx.isEscrow ? "Check the load, then give your PIN." : "Check the load, then confirm you've received it.",
   ][step];
 
