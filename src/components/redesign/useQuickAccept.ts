@@ -8,7 +8,14 @@ import { previewCapacityMatch } from "@/lib/capacityMatch";
 import { usd } from "@/components/redesign";
 
 type Truck = { id: string; registration: string; capacity_m3: number };
-type Funds = { ok: boolean; required?: number; available?: number; shortfall?: number; free?: boolean; reason?: string };
+type Funds = {
+  ok: boolean;
+  required?: number;
+  available?: number;
+  shortfall?: number;
+  free?: boolean;
+  reason?: string;
+};
 
 /**
  * One-tap "Accept $X" from the driver job feed.
@@ -46,7 +53,9 @@ export function useQuickAccept() {
         },
       });
       if (!trucks?.length) {
-        toast.error("Register a truck on your profile before bidding — customers see which truck will do the job.");
+        toast.error(
+          "Register a truck on your profile before bidding — customers see which truck will do the job.",
+        );
         nav({ to: "/jobs/$id", params: { id: job.id } });
         return;
       }
@@ -57,7 +66,10 @@ export function useQuickAccept() {
           : [...trucks].sort((a, b) => {
               const pa = previewCapacityMatch(Number(a.capacity_m3), quantityM3);
               const pb = previewCapacityMatch(Number(b.capacity_m3), quantityM3);
-              return (pa?.trips ?? 99) - (pb?.trips ?? 99) || Number(a.capacity_m3) - Number(b.capacity_m3);
+              return (
+                (pa?.trips ?? 99) - (pb?.trips ?? 99) ||
+                Number(a.capacity_m3) - Number(b.capacity_m3)
+              );
             })[0];
 
       // Same upfront commission-funds check (and cache key) as BidForm.
@@ -74,7 +86,9 @@ export function useQuickAccept() {
       });
       const shortfall = Number(funds?.shortfall ?? 0);
       if (funds && funds.ok === false && !funds.free && shortfall > 0) {
-        toast.error(`Top up ${usd(shortfall)} to take this job — commission is reserved when a bid is accepted.`);
+        toast.error(
+          `Top up ${usd(shortfall)} to take this job — commission is reserved when a bid is accepted.`,
+        );
         nav({ to: "/jobs/$id", params: { id: job.id } });
         return;
       }

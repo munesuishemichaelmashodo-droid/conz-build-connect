@@ -49,7 +49,12 @@ export function OfferCard({
   const first = name.split(" ")[0];
   const verified = bid.driver?.verification_status === "verified";
   return (
-    <div className={cn("rounded-[18px] border bg-cz-surface p-4", best ? "border-cz-amber" : "border-cz-border")}>
+    <div
+      className={cn(
+        "rounded-[18px] border bg-cz-surface p-4",
+        best ? "border-cz-amber" : "border-cz-border",
+      )}
+    >
       <div className="flex items-start gap-3">
         <InitialsAvatar name={name} src={bid.profile?.avatar_url} size={46} />
         <div className="min-w-0 flex-1">
@@ -81,11 +86,22 @@ export function OfferCard({
           )}
         </div>
         <div className="text-right shrink-0">
-          <div className={cn("cz-display font-bold text-[30px] leading-none tabular-nums", best ? "text-cz-amber" : "text-cz-text")}>
+          <div
+            className={cn(
+              "cz-display font-bold text-[30px] leading-none tabular-nums",
+              best ? "text-cz-amber" : "text-cz-text",
+            )}
+          >
             {usd(Number(bid.price))}
           </div>
-          {best && <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-cz-amber-text">Best price</div>}
-          {bid.delivery_date && <div className="mt-1 text-[11px] text-cz-muted">{bid.delivery_date}</div>}
+          {best && (
+            <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-cz-amber-text">
+              Best price
+            </div>
+          )}
+          {bid.delivery_date && (
+            <div className="mt-1 text-[11px] text-cz-muted">{bid.delivery_date}</div>
+          )}
         </div>
       </div>
 
@@ -93,19 +109,27 @@ export function OfferCard({
 
       {bid.counter_status === "countered" && (
         <div className="mt-3 rounded-xl bg-cz-amber-tint px-3 py-2.5 text-[13px]">
-          <div className="font-semibold text-cz-amber-text">Your counter-offer: {usd(Number(bid.customer_counter_price))}</div>
+          <div className="font-semibold text-cz-amber-text">
+            Your counter-offer: {usd(Number(bid.customer_counter_price))}
+          </div>
           <div className="text-cz-muted">Waiting for {first} to respond.</div>
         </div>
       )}
       {bid.counter_status === "driver_rejected" && (
         <p className="mt-2.5 text-[13px] italic text-cz-muted">
-          {first} declined your counter of {usd(Number(bid.customer_counter_price))} — their price still stands.
+          {first} declined your counter of {usd(Number(bid.customer_counter_price))} — their price
+          still stands.
         </p>
       )}
 
       {onChoose &&
         (primary ? (
-          <button id={chooseId} type="button" onClick={onChoose} className={czButtonClass("primary", "md", "mt-3.5")}>
+          <button
+            id={chooseId}
+            type="button"
+            onClick={onChoose}
+            className={czButtonClass("primary", "md", "mt-3.5")}
+          >
             Choose {first}
           </button>
         ) : (

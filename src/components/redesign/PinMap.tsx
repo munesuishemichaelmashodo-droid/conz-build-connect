@@ -74,7 +74,11 @@ export function PinMap({
           subdomains="abcd"
           maxZoom={20}
         />
-        <Marker position={[point.lat, point.lng]} icon={deliveryPinIcon(label)} interactive={false} />
+        <Marker
+          position={[point.lat, point.lng]}
+          icon={deliveryPinIcon(label)}
+          interactive={false}
+        />
       </MapContainer>
     </div>
   );

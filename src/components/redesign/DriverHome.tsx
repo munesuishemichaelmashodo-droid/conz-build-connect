@@ -90,7 +90,9 @@ export function DriverHome({
             </div>
             <div className="text-[13px] text-cz-muted truncate">
               {firstName ? `Hi ${firstName}` : "Welcome back"}
-              {trucks?.length ? ` · Truck ${trucks[0].registration}${trucks.length > 1 ? ` +${trucks.length - 1}` : ""}` : ""}
+              {trucks?.length
+                ? ` · Truck ${trucks[0].registration}${trucks.length > 1 ? ` +${trucks.length - 1}` : ""}`
+                : ""}
             </div>
           </div>
           <div className="flex items-center gap-0.5 shrink-0">
@@ -107,8 +109,14 @@ export function DriverHome({
           >
             <Link to="/wallet" className="flex flex-col gap-0.5 min-w-0">
               <span className="text-[13px] text-cz-muted">Wallet</span>
-              <span className="cz-display font-bold text-2xl tabular-nums">{wallet ? usd2(Number(wallet.balance)) : "—"}</span>
-              {wallet?.limited && <span className="text-xs font-semibold text-cz-danger-text">Limited — top up to bid</span>}
+              <span className="cz-display font-bold text-2xl tabular-nums">
+                {wallet ? usd2(Number(wallet.balance)) : "—"}
+              </span>
+              {wallet?.limited && (
+                <span className="text-xs font-semibold text-cz-danger-text">
+                  Limited — top up to bid
+                </span>
+              )}
             </Link>
             {driver && level && (
               <div className="flex flex-col items-end gap-0.5 text-right">
@@ -124,7 +132,9 @@ export function DriverHome({
                   </span>
                 )}
                 {level.nextAt == null && level.discountPct > 0 && (
-                  <span className="text-[11px] text-cz-faint">{level.discountPct}% off Con Z fees</span>
+                  <span className="text-[11px] text-cz-faint">
+                    {level.discountPct}% off Con Z fees
+                  </span>
                 )}
               </div>
             )}
@@ -141,7 +151,9 @@ export function DriverHome({
               <ShieldAlert className="w-5 h-5 shrink-0" />
               <div className="text-sm min-w-0 flex-1">
                 <div className="font-semibold">Complete your verification</div>
-                <div className="text-xs opacity-90">Upload your ID, truck, and selfie to start bidding.</div>
+                <div className="text-xs opacity-90">
+                  Upload your ID, truck, and selfie to start bidding.
+                </div>
               </div>
               <ChevronRight className="w-4 h-4 shrink-0" />
             </Link>
@@ -153,7 +165,8 @@ export function DriverHome({
             {shown.length} {shown.length === 1 ? "load" : "loads"} near you
           </h2>
           <span className="text-[13px] text-cz-muted flex items-center gap-1.5">
-            <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-cz-green cz-blink" /> Updated live
+            <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-cz-green cz-blink" /> Updated
+            live
           </span>
         </div>
         <div className="px-5 pb-3.5">
@@ -166,7 +179,9 @@ export function DriverHome({
               <Truck className="w-9 h-9 mx-auto text-cz-faint" />
               <p className="mt-2 font-semibold">No open loads right now</p>
               <p className="text-sm text-cz-muted">
-                {filter === "all" ? "Stay online — we'll notify you when a new job is posted." : "Try another material filter."}
+                {filter === "all"
+                  ? "Stay online — we'll notify you when a new job is posted."
+                  : "Try another material filter."}
               </p>
             </div>
           ) : (
@@ -175,7 +190,11 @@ export function DriverHome({
                 key={j.id}
                 job={j}
                 highlight={i === 0}
-                matchTier={capacities.length ? bestCapacityMatchTier(Number(j.quantity_m3), capacities) : undefined}
+                matchTier={
+                  capacities.length
+                    ? bestCapacityMatchTier(Number(j.quantity_m3), capacities)
+                    : undefined
+                }
                 onAccept={() => accept(j)}
                 accepting={busyJobId === j.id}
               />

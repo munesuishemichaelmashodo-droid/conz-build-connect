@@ -38,7 +38,15 @@ export function usd2(n: number | null | undefined) {
 
 /** Full-height dark screen. Centered and capped at phone width on larger
  *  displays so the layout never stretches. */
-export function CzScreen({ children, className, id }: { children: ReactNode; className?: string; id?: string }) {
+export function CzScreen({
+  children,
+  className,
+  id,
+}: {
+  children: ReactNode;
+  className?: string;
+  id?: string;
+}) {
   return (
     <div id={id} className={cn("cz-screen min-h-[100dvh] w-full", className)}>
       <div className="mx-auto w-full max-w-[480px] min-h-[100dvh] flex flex-col">{children}</div>
@@ -104,14 +112,26 @@ export function BottomSheet({
         className,
       )}
     >
-      {handle && <div aria-hidden className="mx-auto mb-4 h-[5px] w-10 rounded-full bg-cz-border-strong" />}
+      {handle && (
+        <div aria-hidden className="mx-auto mb-4 h-[5px] w-10 rounded-full bg-cz-border-strong" />
+      )}
       {children}
     </section>
   );
 }
 
 /** Card surface. */
-export function CzCard({ children, className, selected, id }: { children: ReactNode; className?: string; selected?: boolean; id?: string }) {
+export function CzCard({
+  children,
+  className,
+  selected,
+  id,
+}: {
+  children: ReactNode;
+  className?: string;
+  selected?: boolean;
+  id?: string;
+}) {
   return (
     <div
       id={id}
@@ -140,10 +160,18 @@ const BTN: Record<BtnKind, string> = {
   success: "bg-cz-green text-[#0b2416] hover:brightness-105 font-bold",
 };
 
-export function czButtonClass(kind: BtnKind = "primary", size: "lg" | "md" | "sm" = "lg", extra?: string) {
+export function czButtonClass(
+  kind: BtnKind = "primary",
+  size: "lg" | "md" | "sm" = "lg",
+  extra?: string,
+) {
   return cn(
     "inline-flex w-full items-center justify-center gap-2 rounded-[14px] px-4 text-center transition disabled:opacity-50 disabled:pointer-events-none select-none",
-    size === "lg" ? "min-h-14 text-[17px]" : size === "md" ? "min-h-12 text-[15px] rounded-xl" : "min-h-11 text-sm rounded-xl",
+    size === "lg"
+      ? "min-h-14 text-[17px]"
+      : size === "md"
+        ? "min-h-12 text-[15px] rounded-xl"
+        : "min-h-11 text-sm rounded-xl",
     BTN[kind],
     extra,
   );
@@ -215,7 +243,9 @@ export function StatusPill({
         className,
       )}
     >
-      {dot && <span aria-hidden className={cn("w-2 h-2 rounded-full", DOT[tone], blink && "cz-blink")} />}
+      {dot && (
+        <span aria-hidden className={cn("w-2 h-2 rounded-full", DOT[tone], blink && "cz-blink")} />
+      )}
       {icon}
       {children}
     </span>
@@ -223,7 +253,13 @@ export function StatusPill({
 }
 
 /** Material badge, e.g. "River sand · 10 m³". */
-export function MaterialBadge({ children, highlight = true }: { children: ReactNode; highlight?: boolean }) {
+export function MaterialBadge({
+  children,
+  highlight = true,
+}: {
+  children: ReactNode;
+  highlight?: boolean;
+}) {
   return (
     <span
       className={cn(
@@ -237,7 +273,15 @@ export function MaterialBadge({ children, highlight = true }: { children: ReactN
 }
 
 /** Tinted hint box. */
-export function HintBox({ tone, icon, children }: { tone: "info" | "green" | "warn"; icon?: ReactNode; children: ReactNode }) {
+export function HintBox({
+  tone,
+  icon,
+  children,
+}: {
+  tone: "info" | "green" | "warn";
+  icon?: ReactNode;
+  children: ReactNode;
+}) {
   const cls =
     tone === "info"
       ? "bg-cz-info-tint text-cz-info-text"
@@ -245,7 +289,9 @@ export function HintBox({ tone, icon, children }: { tone: "info" | "green" | "wa
         ? "bg-cz-green-tint text-cz-green-text border border-cz-green-border"
         : "bg-cz-warn-tint text-cz-warn-text";
   return (
-    <div className={cn("flex items-start gap-2.5 rounded-xl px-3.5 py-3 text-sm leading-snug", cls)}>
+    <div
+      className={cn("flex items-start gap-2.5 rounded-xl px-3.5 py-3 text-sm leading-snug", cls)}
+    >
       {icon && <span className="shrink-0 mt-0.5">{icon}</span>}
       <div className="min-w-0">{children}</div>
     </div>
@@ -264,9 +310,18 @@ export const DELIVERY_STEPS = ["Pickup", "Load", "Deliver", "PIN"] as const;
  * show the same thing for the same job. `current` is 0–3; pass 4 for
  * "everything done".
  */
-export function StepProgress({ current, labels = DELIVERY_STEPS }: { current: number; labels?: readonly string[] }) {
+export function StepProgress({
+  current,
+  labels = DELIVERY_STEPS,
+}: {
+  current: number;
+  labels?: readonly string[];
+}) {
   return (
-    <ol className="grid grid-cols-4 gap-1.5" aria-label={`Step ${Math.min(current + 1, labels.length)} of ${labels.length}`}>
+    <ol
+      className="grid grid-cols-4 gap-1.5"
+      aria-label={`Step ${Math.min(current + 1, labels.length)} of ${labels.length}`}
+    >
       {labels.map((l, i) => {
         const done = i < current;
         const now = i === current;
@@ -274,9 +329,19 @@ export function StepProgress({ current, labels = DELIVERY_STEPS }: { current: nu
           <li key={l} className="flex flex-col gap-1.5" aria-current={now ? "step" : undefined}>
             <span
               aria-hidden
-              className={cn("h-[5px] rounded-full", done ? "bg-cz-green" : now ? "bg-cz-amber" : "bg-cz-upcoming")}
+              className={cn(
+                "h-[5px] rounded-full",
+                done ? "bg-cz-green" : now ? "bg-cz-amber" : "bg-cz-upcoming",
+              )}
             />
-            <span className={cn("text-xs font-semibold", done || now ? "text-cz-text" : "text-cz-faint")}>{l}</span>
+            <span
+              className={cn(
+                "text-xs font-semibold",
+                done || now ? "text-cz-text" : "text-cz-faint",
+              )}
+            >
+              {l}
+            </span>
           </li>
         );
       })}
@@ -314,16 +379,31 @@ export function PriceStepper({
     "w-[60px] h-[60px] shrink-0 rounded-full border-[1.5px] border-cz-border-strong bg-cz-surface text-cz-text flex items-center justify-center active:bg-cz-surface-2 disabled:opacity-35";
   return (
     <div className="flex items-center justify-between gap-3">
-      <button type="button" onClick={onDec} aria-label={decLabel} disabled={decDisabled} className={round}>
+      <button
+        type="button"
+        onClick={onDec}
+        aria-label={decLabel}
+        disabled={decDisabled}
+        className={round}
+      >
         <Minus className="w-6 h-6" />
       </button>
       <div className="flex flex-col items-center min-w-0">
-        <span className="cz-display font-bold text-[64px] leading-none text-cz-amber tabular-nums" aria-live="polite">
+        <span
+          className="cz-display font-bold text-[64px] leading-none text-cz-amber tabular-nums"
+          aria-live="polite"
+        >
           {display ?? usd(value)}
         </span>
         {caption && <span className="mt-1 text-[13px] text-cz-muted">{caption}</span>}
       </div>
-      <button type="button" onClick={onInc} aria-label={incLabel} disabled={incDisabled} className={round}>
+      <button
+        type="button"
+        onClick={onInc}
+        aria-label={incLabel}
+        disabled={incDisabled}
+        className={round}
+      >
         <Plus className="w-6 h-6" />
       </button>
     </div>
@@ -364,7 +444,9 @@ export function MaterialChips<T extends string>({
             className={cn(
               "shrink-0 whitespace-nowrap rounded-full px-4 font-semibold transition",
               size === "md" ? "min-h-11 text-sm" : "min-h-9 text-sm px-3.5",
-              on ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-[#33353b] bg-cz-surface text-cz-text",
+              on
+                ? "bg-cz-amber text-cz-amber-ink font-bold"
+                : "border border-[#33353b] bg-cz-surface text-cz-text",
             )}
           >
             {o.label}
@@ -388,7 +470,12 @@ export function MoneyRow({
   valueClassName?: string;
 }) {
   return (
-    <div className={cn("flex items-baseline justify-between gap-3", strong ? "text-base font-bold" : "text-[15px]")}>
+    <div
+      className={cn(
+        "flex items-baseline justify-between gap-3",
+        strong ? "text-base font-bold" : "text-[15px]",
+      )}
+    >
       <span className={strong ? "text-cz-text" : "text-cz-muted"}>{label}</span>
       <span className={cn("tabular-nums text-right", valueClassName)}>{value}</span>
     </div>
@@ -402,13 +489,28 @@ export function MoneyRow({
 export function initials(name: string | null | undefined, fallback = "?") {
   const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return fallback;
-  return ((parts[0][0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] ?? "" : "")).toUpperCase();
+  return (
+    (parts[0][0] ?? "") + (parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "")
+  ).toUpperCase();
 }
 
-export function InitialsAvatar({ name, src, size = 42, className }: { name?: string | null; src?: string | null; size?: number; className?: string }) {
+export function InitialsAvatar({
+  name,
+  src,
+  size = 42,
+  className,
+}: {
+  name?: string | null;
+  src?: string | null;
+  size?: number;
+  className?: string;
+}) {
   return (
     <span
-      className={cn("shrink-0 rounded-full bg-cz-border flex items-center justify-center font-bold overflow-hidden", className)}
+      className={cn(
+        "shrink-0 rounded-full bg-cz-border flex items-center justify-center font-bold overflow-hidden",
+        className,
+      )}
       style={{ width: size, height: size, fontSize: size * 0.36 }}
     >
       {src ? <img src={src} alt="" className="w-full h-full object-cover" /> : initials(name)}
@@ -464,7 +566,8 @@ export function straightKm(
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
   const dLng = ((b.lng - a.lng) * Math.PI) / 180;
   const s =
-    Math.sin(dLat / 2) ** 2 + Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
@@ -480,7 +583,10 @@ export function timeAgo(iso: string | null | undefined) {
 
 /** First "area" part of an address: "12 Hill Rd, Borrowdale, Harare" → "Borrowdale". */
 export function areaOf(address: string | null | undefined) {
-  const parts = (address ?? "").split(",").map((p) => p.trim()).filter(Boolean);
+  const parts = (address ?? "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
   if (parts.length >= 3) return parts[parts.length - 2];
   return parts[0] ?? "";
 }

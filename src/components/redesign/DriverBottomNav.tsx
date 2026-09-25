@@ -4,7 +4,12 @@ import { cn } from "@/lib/utils";
 
 const ITEMS = [
   { to: "/driver", label: "Jobs", icon: Rows3, match: (p: string) => p === "/driver" },
-  { to: "/jobs", label: "Active", icon: Truck, match: (p: string) => p === "/jobs" || p.startsWith("/jobs/") || p.startsWith("/chat/") },
+  {
+    to: "/jobs",
+    label: "Active",
+    icon: Truck,
+    match: (p: string) => p === "/jobs" || p.startsWith("/jobs/") || p.startsWith("/chat/"),
+  },
   { to: "/wallet", label: "Wallet", icon: Wallet, match: (p: string) => p.startsWith("/wallet") },
   { to: "/profile", label: "Profile", icon: User, match: (p: string) => p.startsWith("/profile") },
 ] as const;
