@@ -15,6 +15,7 @@ import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
 import { RouteLine } from "@/components/RouteLine";
 import { ShieldCheck } from "lucide-react";
 import { DriverAvailabilityToggle } from "@/components/DriverAvailabilityToggle";
+import { DriverHome } from "@/components/redesign/DriverHome";
 
 export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
   const { userId, profile, is } = useAuth();
@@ -57,6 +58,20 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
   const restrictedUntil = (profile as any)?.restricted_until as string | null | undefined;
   const restricted = isCustomer && !!restrictedUntil ? new Date(restrictedUntil) > new Date() : false;
   const showVerificationWarning = isDriver && driver?.verification_status !== "verified";
+
+  // Driver mode redesign (D1): same three queries above, new presentation.
+  if (isDriver) {
+    return (
+      <DriverHome
+        userId={userId}
+        firstName={profile?.full_name?.split(" ")[0] ?? null}
+        jobs={jobs as any}
+        wallet={wallet as any}
+        driver={driver as any}
+        showVerificationWarning={showVerificationWarning}
+      />
+    );
+  }
 
   return (
     <AppShell title={isDriver ? "Driver" : "Customer"}>

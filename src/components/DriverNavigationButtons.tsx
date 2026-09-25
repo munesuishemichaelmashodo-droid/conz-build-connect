@@ -58,7 +58,7 @@ function NavButton({
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex rounded-full bg-black px-4 py-2 text-sm font-bold text-white hover:bg-green-700"
+      className="inline-flex items-center min-h-11 rounded-full border border-border bg-secondary px-4 py-2 text-sm font-bold text-secondary-foreground hover:border-primary"
     >
       {children}
     </a>
@@ -76,7 +76,7 @@ export function DriverNavigationButtons({
 
   if (!hasPickup && !hasDropoff) {
     return (
-      <div className="mt-3 rounded-xl bg-yellow-100 p-3 text-sm text-yellow-800">
+      <div className="mt-3 rounded-xl bg-muted p-3 text-sm text-muted-foreground">
         No GPS coordinates saved for this job yet.
       </div>
     );
@@ -127,7 +127,7 @@ export function DriverNavigationButtons({
             navigator.clipboard.writeText(`${dropoff.lat}, ${dropoff.lng}`);
             alert("Drop-off coordinates copied");
           }}
-          className="inline-flex rounded-full border border-black px-4 py-2 text-sm font-bold text-black hover:bg-gray-100"
+          className="inline-flex items-center min-h-11 rounded-full border border-border px-4 py-2 text-sm font-bold text-foreground hover:bg-muted"
         >
           Copy coordinates
         </button>
