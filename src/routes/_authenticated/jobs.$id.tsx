@@ -13,7 +13,7 @@ import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { SITE_URL } from "@/lib/site";
 import { isNativePlatform } from "@/lib/native-push";
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { toast } from "sonner";
 import { DriverShareLocation, CustomerTrackMap, DriverRouteView } from "@/components/JobTracker";
 import { RadarSearch } from "@/components/RadarSearch";
@@ -26,6 +26,35 @@ import { ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SpotlightCallout } from "@/components/SpotlightCallout";
 import { previewCapacityMatch } from "@/lib/capacityMatch";
+import {
+  CzScreen,
+  CzHeader,
+  CzCard,
+  CzButton,
+  BottomSheet,
+  StepProgress,
+  StatusPill,
+  PriceStepper,
+  MoneyRow,
+  HintBox,
+  IconButton,
+  InitialsAvatar,
+  MaterialBadge,
+  RouteStops,
+  czButtonClass,
+  usd,
+  usd2,
+  areaOf,
+  jobRef,
+  straightKm,
+} from "@/components/redesign";
+import { OfferCard } from "@/components/redesign/OfferCard";
+import { PinMap } from "@/components/redesign/PinMap";
+import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
+import { DriverNavigationButtons } from "@/components/DriverNavigationButtons";
+import type { RouteResult } from "@/components/RouteMap";
+import type { TrackStatus } from "@/components/JobTracker";
+import { ChevronDown, ChevronRight, Info, Navigation2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
   component: JobDetail,
@@ -51,7 +80,10 @@ const telLink = (phone: string | null | undefined) => {
 // trail. Only the Call button (native dialer) and the tracking-link share
 // remain — the share uses the device's native share sheet, not WhatsApp
 // specifically, so it works with whatever the person actually has.
-function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
+// The other party's name/phone + the tracking-link share, shared by the
+// legacy contact panel and the redesigned contact cards. (Moved out of
+// WhatsAppPanel unchanged: same query key, same select, same fallbacks.)
+function useJobContact(job: any, isOwner: boolean) {
   const otherId = isOwner ? job.driver_id : job.customer_id;
   const material = materialLabel(job.material as any, job.custom_material);
   const ref = String(job.id).slice(0, 8);
@@ -118,6 +150,12 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
       toast.error(`Couldn't copy — the link is: ${trackUrl}`);
     }
   };
+
+  return { other, name, call, trackUrl, shareTrackLink };
+}
+
+function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
+  const { name, call, trackUrl, shareTrackLink } = useJobContact(job, isOwner);
 
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
@@ -433,6 +471,49 @@ function JobDetail() {
   const showReceipt = isOwner && job.status === "completed" && !!job.tracking_token;
   const showBookAgain = isOwner && job.status === "completed" && !!job.driver_id;
   const showWrapSection = showRatingOwner || showRatingDriver || showReceipt || showBookAgain;
+
+  // Driver / customer mode redesign. Same data, flags and handlers as the
+  // layout below; the customer (owner) and the driver (assigned, or bidding
+  // on an open job) get the new step-by-step screens. Anyone else who can
+  // see the job (admins) keeps the full legacy layout.
+  const ctx: JobScreenCtx = {
+    id,
+    job,
+    bids,
+    myBid,
+    userId,
+    isOwner,
+    isAssignedDriver,
+    isEscrow,
+    escrowPaid,
+    payingEscrow,
+    payEscrow,
+    acceptBid,
+    counterBid,
+    acceptCounter,
+    rejectCounter,
+    completeJob,
+    unreadCount,
+    nearbyDrivers,
+    myRating,
+    showRadar,
+    showCounterResponse,
+    showCancel,
+    showDispute,
+    showNextLoads,
+    showBookAgain,
+    showReceipt,
+    showCompleteButton,
+    showDeliveryPinDisplay,
+    invalidateJob: () => qc.invalidateQueries({ queryKey: ["job", id] }),
+    invalidateBids: () => qc.invalidateQueries({ queryKey: ["bids", id] }),
+    invalidateRating: () => qc.invalidateQueries({ queryKey: ["my-rating", id, userId] }),
+    onCancelled: () => nav({ to: "/jobs" }),
+  };
+  if (isOwner) return <CustomerJobScreen ctx={ctx} />;
+  if (!isOwner && (isAssignedDriver || (is("driver") && (job.status === "open" || !!myBid)))) {
+    return <DriverJobScreen ctx={ctx} />;
+  }
 
   return (
     <AppShell title="Job">
@@ -930,14 +1011,19 @@ function BidForm({
   quantityM3,
   existing,
   onSaved,
+  job,
 }: {
   jobId: string;
   quantityM3: number;
   existing?: any;
   onSaved: () => void;
+  /** Redesign: the job, for the summary card and the customer-price chips. */
+  job?: any;
 }) {
   const { userId } = useAuth();
-  const [price, setPrice] = useState(existing?.price?.toString() ?? "");
+  // Starts at the driver's existing bid, else the customer's offer (the
+  // quickest way to get picked) — the driver adjusts from there.
+  const [price, setPrice] = useState(existing?.price?.toString() ?? (job?.budget != null ? String(Number(job.budget)) : ""));
   const [date, setDate] = useState(existing?.delivery_date ?? "");
   const [message, setMessage] = useState(existing?.message ?? "");
   const [truckId, setTruckId] = useState<string>(existing?.truck_id ?? "");
@@ -1024,105 +1110,230 @@ function BidForm({
     onSaved();
   };
 
+  // --- Redesign (D2) presentation helpers. Display-only: the bid itself is
+  // still exactly the upsert in submit() above. ---
+  // Same query + cache key as the booking screen's commission-rate read
+  // (system_settings.commission_rate is readable by any signed-in user).
+  const { data: commissionRate } = useQuery({
+    queryKey: ["commission-rate"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("system_settings")
+        .select("value")
+        .eq("key", "commission_rate")
+        .maybeSingle();
+
+      return Number(data?.value ?? 7);
+    },
+  });
+  // Same query + cache key as the driver dashboard's profile read.
+  const { data: driverProfile } = useQuery({
+    queryKey: ["driver-profile", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data } = await supabase.from("driver_profiles").select("*").eq("user_id", userId!).maybeSingle();
+      return data;
+    },
+  });
+
+  const budget = Number(job?.budget ?? 0);
+  const priceNum = Math.max(0, Number(price) || 0);
+  const setPriceNum = (n: number) => setPrice(String(Math.max(5, Math.round(n * 100) / 100)));
+  const discountPct = driverProfile ? levelInfo(driverProfile.level).discountPct : 0;
+  const firstJobFree = driverProfile ? driverProfile.first_job_free_used === false : false;
+  const effectivePct = commissionRate != null ? commissionRate * (1 - discountPct / 100) : null;
+  const fee = effectivePct != null ? (firstJobFree ? 0 : Math.round(priceNum * effectivePct) / 100) : null;
+  const pctLabel = effectivePct != null ? `${Number(effectivePct.toFixed(2))}%` : "";
+  const chips = budget > 0 ? [budget, budget + 10, budget + 20, budget + 30] : [];
+  const km = job ? straightKm({ lat: job.pickup_lat, lng: job.pickup_lng }, { lat: job.delivery_lat, lng: job.delivery_lng }) : null;
+
   return (
-    <div className="space-y-3">
-      {trucks && trucks.length === 0 && (
-        <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4 text-sm">
-          Register a truck on your profile before bidding — customers see which truck will do the job.
-        </div>
-      )}
-      {showFundsWarning && (
-        <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4 space-y-2">
-          <div className="flex items-start gap-2">
-            <Wallet className="w-4 h-4 mt-0.5 text-warning shrink-0" />
-            <div className="text-sm">
-              <div className="font-display font-bold uppercase text-xs tracking-wide text-warning">
-                Top up to take this job
-              </div>
-              <p className="mt-1 text-muted-foreground">
-                You need {money(shortfall)} more in your wallet to take jobs like this — commission is reserved when a
-                bid is accepted.
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Commission required {money(Number(funds?.required ?? 0))} · Available{" "}
-                {money(Number(funds?.available ?? 0))}
-              </p>
-            </div>
-          </div>
-          <Button asChild size="sm" variant="outline" className="w-full">
-            <Link to="/wallet">Top up wallet</Link>
-          </Button>
-        </div>
-      )}
-      <form onSubmit={submit} className="rounded-2xl bg-card border p-4 space-y-3">
-      <div className="font-display font-bold uppercase text-sm tracking-wide">
-        {existing ? "Update your bid" : "Submit a bid"}
-      </div>
-      {trucks && trucks.length > 0 && (
-        <div>
-          <Label htmlFor="bt">Bidding with</Label>
-          <select
-            id="bt"
-            value={truckId}
-            onChange={(e) => setTruckId(e.target.value)}
-            className="w-full h-10 rounded-md border bg-background px-3 text-sm"
-            required
-          >
-            <option value="" disabled>Select a truck</option>
-            {trucks.map((t) => {
-              const p = previewCapacityMatch(Number(t.capacity_m3), quantityM3);
-              return (
-                <option key={t.id} value={t.id}>
-                  {t.registration} — {t.capacity_m3} m³{p ? ` (${MATCH_TIER_LABEL[p.tier].label}${p.trips > 1 ? `, ${p.trips} trips` : ""})` : ""}
-                </option>
-              );
-            })}
-          </select>
-          {preview && (
-            <div className="mt-2 flex items-center gap-2 flex-wrap">
-              <StatusBadge label={MATCH_TIER_LABEL[preview.tier].label} className={MATCH_TIER_LABEL[preview.tier].className} />
-              <span className="text-xs text-muted-foreground">
-                {preview.trips > 1 ? `Estimated ${preview.trips} trips for this order` : "1 trip"}
+    <form onSubmit={submit} className="flex flex-1 flex-col">
+      <div className="flex-1 space-y-4 px-5 pb-6">
+        {job && (
+          <CzCard id="tour-job-header" className="space-y-1.5 py-3.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-semibold">
+                {materialLabel(job.material as any, job.custom_material)} · {Number(job.quantity_m3)} m³
               </span>
+              {preview && (
+                <span className="text-sm text-cz-muted shrink-0">{preview.trips > 1 ? `${preview.trips} trips` : "1 trip"}</span>
+              )}
             </div>
-          )}
-        </div>
-      )}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label htmlFor="bp">Price ($)</Label>
-          <Input
-            id="bp"
-            type="number"
-            inputMode="decimal"
-            min={1}
-            step={1}
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            required
+            <div className="text-sm text-cz-muted">
+              {(job.pickup_address || "Supplier pickup point") + " → " + job.delivery_address}
+              {km != null ? ` · about ${Math.round(km)} km` : ""}
+            </div>
+            <div className="text-sm text-[#d6d4cf]">
+              Customer offered <strong className="text-cz-text">{usd(budget)}</strong>
+              {job.preferred_date ? <span className="text-cz-muted"> · wanted {job.preferred_date}</span> : null}
+            </div>
+            {job.notes && <p className="border-t border-cz-border pt-2 text-sm text-cz-muted">{job.notes}</p>}
+          </CzCard>
+        )}
+
+        {trucks && trucks.length === 0 && (
+          <HintBox tone="warn" icon={<Truck className="w-4 h-4" />}>
+            Register a truck on your profile before bidding — customers see which truck will do the job.{" "}
+            <Link to="/profile" className="font-semibold underline">Add a truck</Link>
+          </HintBox>
+        )}
+        {showFundsWarning && (
+          <div className="rounded-[14px] bg-cz-warn-tint p-3.5 text-cz-warn-text space-y-2">
+            <div className="flex items-start gap-2">
+              <Wallet className="w-4 h-4 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <div className="font-bold">Top up to take this job</div>
+                <p className="mt-1 opacity-90">
+                  You need {money(shortfall)} more in your wallet to take jobs like this — commission is reserved when a
+                  bid is accepted.
+                </p>
+                <p className="mt-1 text-xs opacity-80">
+                  Commission required {money(Number(funds?.required ?? 0))} · Available{" "}
+                  {money(Number(funds?.available ?? 0))}
+                </p>
+              </div>
+            </div>
+            <Link to="/wallet" className={czButtonClass("ghost", "sm")}>Top up wallet</Link>
+          </div>
+        )}
+
+        <div className="pt-3">
+          <PriceStepper
+            value={priceNum}
+            onDec={() => setPriceNum(priceNum - 5)}
+            onInc={() => setPriceNum(priceNum + 5)}
+            decDisabled={priceNum <= 5}
+            decLabel="Lower by $5"
+            incLabel="Raise by $5"
+            caption={existing ? `your price · was ${usd(Number(existing.price))}` : "your price"}
           />
         </div>
-        <div>
-          <Label htmlFor="bd">Delivery date</Label>
-          <Input id="bd" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </div>
+
+        {chips.length > 0 && (
+          <div className="grid grid-cols-4 gap-2">
+            {chips.map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setPriceNum(v)}
+                aria-pressed={priceNum === v}
+                className={cn(
+                  "min-h-12 rounded-xl text-[15px] font-semibold tabular-nums",
+                  priceNum === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-[#33353b] bg-cz-surface",
+                )}
+              >
+                {usd(v)}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {budget > 0 && priceNum > 0 && (
+          priceNum === budget ? (
+            <HintBox tone="green" icon={<CheckCircle2 className="w-4 h-4" />}>
+              You match the customer's price — the quickest way to get picked.
+            </HintBox>
+          ) : priceNum > budget ? (
+            <HintBox tone="warn" icon={<Info className="w-4 h-4" />}>
+              {usd(priceNum - budget)} above the customer's offer of {usd(budget)}. They can accept, send you a counter-offer, or pick another driver.
+            </HintBox>
+          ) : (
+            <HintBox tone="info" icon={<Info className="w-4 h-4" />}>
+              {usd(budget - priceNum)} below the customer's offer of {usd(budget)}.
+            </HintBox>
+          )
+        )}
+
+        {trucks && trucks.length > 0 && (
+          <div className="space-y-1.5">
+            <Label htmlFor="bt" className="text-sm text-cz-muted">Bidding with</Label>
+            <select
+              id="bt"
+              value={truckId}
+              onChange={(e) => setTruckId(e.target.value)}
+              className="w-full min-h-12 rounded-xl border border-cz-border bg-cz-surface px-3 text-[15px]"
+              required
+            >
+              <option value="" disabled>Select a truck</option>
+              {trucks.map((t) => {
+                const p = previewCapacityMatch(Number(t.capacity_m3), quantityM3);
+                return (
+                  <option key={t.id} value={t.id}>
+                    {t.registration} — {t.capacity_m3} m³{p ? ` (${MATCH_TIER_LABEL[p.tier].label}${p.trips > 1 ? `, ${p.trips} trips` : ""})` : ""}
+                  </option>
+                );
+              })}
+            </select>
+            {preview && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <StatusBadge label={MATCH_TIER_LABEL[preview.tier].label} className={MATCH_TIER_LABEL[preview.tier].className} />
+                <span className="text-xs text-cz-muted">
+                  {preview.trips > 1 ? `Estimated ${preview.trips} trips for this order` : "1 trip"}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <details className="group rounded-[14px] border border-cz-border bg-cz-surface">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-[15px] font-semibold">
+            Delivery date & message <span className="text-cz-muted font-normal text-sm">(optional)</span>
+            <ChevronDown className="w-4 h-4 text-cz-muted transition group-open:rotate-180" />
+          </summary>
+          <div className="space-y-3 px-4 pb-4">
+            <div>
+              <Label htmlFor="bd">Delivery date</Label>
+              <Input id="bd" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="min-h-11" />
+            </div>
+            <div>
+              <Label htmlFor="bm">Message</Label>
+              <Textarea
+                id="bm"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                rows={2}
+                maxLength={300}
+                placeholder="e.g. Can deliver tomorrow morning"
+              />
+            </div>
+          </div>
+        </details>
+
+        {job && (
+          <details className="group rounded-[14px] border border-cz-border bg-cz-surface">
+            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-[15px] font-semibold">
+              <span className="flex items-center gap-2"><Navigation2 className="w-4 h-4 text-cz-amber" /> Check the route</span>
+              <ChevronDown className="w-4 h-4 text-cz-muted transition group-open:rotate-180" />
+            </summary>
+            <div className="px-4 pb-4 -mt-2">
+              <DriverNavigationButtons
+                pickup={{ lat: job.pickup_lat ?? -17.8292, lng: job.pickup_lng ?? 31.0522 }}
+                dropoff={{ lat: job.delivery_lat, lng: job.delivery_lng }}
+                pickupLabel={job.pickup_address ?? "Harare CBD supplier pickup point"}
+                dropoffLabel={job.delivery_address ?? "Drop-off"}
+              />
+            </div>
+          </details>
+        )}
       </div>
-      <div>
-        <Label htmlFor="bm">Message</Label>
-        <Textarea
-          id="bm"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          rows={2}
-          maxLength={300}
-          placeholder="e.g. Can deliver tomorrow morning"
-        />
-      </div>
-      <Button type="submit" disabled={loading || showFundsWarning || !trucks?.length} className="w-full">
-        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : existing ? "Update bid" : "Submit bid"}
-      </Button>
-      </form>
-    </div>
+
+      <footer className="sticky bottom-0 z-20 space-y-3 border-t border-[#25272b] bg-[#16171a] px-5 pt-4 pb-[calc(20px+env(safe-area-inset-bottom))]">
+        {fee != null && priceNum > 0 && (
+          <>
+            <MoneyRow
+              label={firstJobFree ? "Con Z fee (first job free)" : `Con Z fee (${pctLabel})`}
+              value={`−${usd2(fee)}`}
+              valueClassName="text-cz-muted"
+            />
+            <MoneyRow strong label="You earn" value={usd2(priceNum - fee)} valueClassName="text-cz-green-text" />
+          </>
+        )}
+        <button type="submit" disabled={loading || showFundsWarning || !trucks?.length} className={czButtonClass("primary")}>
+          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : existing ? `Update offer · ${usd(priceNum)}` : `Send offer · ${usd(priceNum)}`}
+        </button>
+      </footer>
+    </form>
   );
 }
 
@@ -1176,8 +1387,8 @@ function RateForm({ jobId, driverId, onSaved }: { jobId: string; driverId: strin
       <span className="text-sm">{label}</span>
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((n) => (
-          <button type="button" key={n} onClick={() => onChange(n)}>
-            <Star className={`w-5 h-5 ${n <= value ? "fill-warning text-warning" : "text-muted-foreground"}`} />
+          <button type="button" key={n} onClick={() => onChange(n)} aria-label={`${label}: ${n} star${n === 1 ? "" : "s"}`} className="p-1.5 -m-0.5">
+            <Star className={`w-7 h-7 ${n <= value ? "fill-warning text-warning" : "text-muted-foreground"}`} />
           </button>
         ))}
       </div>
@@ -1239,8 +1450,8 @@ function RateCustomerForm({ jobId, customerId, onSaved }: { jobId: string; custo
       <span className="text-sm">{label}</span>
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((n) => (
-          <button type="button" key={n} onClick={() => onChange(n)}>
-            <Star className={`w-5 h-5 ${n <= value ? "fill-warning text-warning" : "text-muted-foreground"}`} />
+          <button type="button" key={n} onClick={() => onChange(n)} aria-label={`${label}: ${n} star${n === 1 ? "" : "s"}`} className="p-1.5 -m-0.5">
+            <Star className={`w-7 h-7 ${n <= value ? "fill-warning text-warning" : "text-muted-foreground"}`} />
           </button>
         ))}
       </div>
@@ -1340,28 +1551,42 @@ function DeliveryPinEntry({ jobId, onConfirmed }: { jobId: string; onConfirmed: 
     onConfirmed();
   };
 
+  // Redesign: six single-digit boxes. One real (transparent) input sits on
+  // top of them so typing, pasting and Android's numeric keyboard all
+  // behave exactly like the single field this replaced.
   return (
-    <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4 space-y-3">
-      <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
-        Enter delivery confirmation code
-      </div>
-      <p className="text-xs text-muted-foreground">Ask the customer for their 6-digit code to confirm delivery and release your payment.</p>
-      <Input
-        value={pin}
-        onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-        inputMode="numeric"
-        placeholder="123456"
-        className="text-center text-2xl tracking-[0.3em] font-display font-bold"
-        maxLength={6}
-      />
-      <Button onClick={submit} disabled={submitting || pin.trim().length < 4} className="w-full">
-        {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm delivery"}
-      </Button>
+    <div className="space-y-4">
+      <label className="relative block" aria-label="Delivery PIN">
+        <div aria-hidden className="grid grid-cols-6 gap-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <span
+              key={i}
+              className={cn(
+                "h-14 rounded-xl border-[1.5px] bg-cz-surface flex items-center justify-center cz-display font-bold text-2xl",
+                i === Math.min(pin.length, 5) ? "border-cz-amber" : "border-cz-border-strong",
+              )}
+            >
+              {pin[i] ?? ""}
+            </span>
+          ))}
+        </div>
+        <input
+          value={pin}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={6}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-text"
+        />
+      </label>
+      <button type="button" onClick={submit} disabled={submitting || pin.trim().length < 4} className={czButtonClass("primary")}>
+        {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Confirm PIN & finish"}
+      </button>
     </div>
   );
 }
 
-function ProofUpload({ jobId, kind, label, hint, onUploaded }: { jobId: string; kind: "pickup" | "delivery"; label: string; hint?: string; onUploaded: () => void | Promise<void> }) {
+function ProofUpload({ jobId, kind, label, hint, ctaLabel, onUploaded }: { jobId: string; kind: "pickup" | "delivery"; label: string; hint?: string; ctaLabel?: string; onUploaded: () => void | Promise<void> }) {
   const [uploading, setUploading] = useState(false);
 
   const upload = async (file: File) => {
@@ -1384,25 +1609,21 @@ function ProofUpload({ jobId, kind, label, hint, onUploaded }: { jobId: string; 
   };
 
 
+  // Redesign: the camera capture IS the step's one primary button; gallery
+  // stays available as a secondary option. Same upload() for both.
   return (
-    <div className="rounded-2xl border p-4 space-y-3 bg-card">
-      <div className="flex items-center gap-2">
-        <PackageCheck className="w-5 h-5 text-primary" />
-        <div className="font-display font-bold uppercase text-sm tracking-wide">{label}</div>
-      </div>
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-      <div className="grid grid-cols-2 gap-2">
-        <label className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 hover:bg-muted transition p-3 cursor-pointer">
-          <Camera className="w-5 h-5 text-primary shrink-0" />
-          <span className="text-xs font-semibold">{uploading ? "Uploading…" : "Take photo"}</span>
-          <input type="file" accept="image/*" capture="environment" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="hidden" />
-        </label>
-        <label className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 hover:bg-muted transition p-3 cursor-pointer">
-          <ImageIcon className="w-5 h-5 text-primary shrink-0" />
-          <span className="text-xs font-semibold">{uploading ? "Uploading…" : "Choose from gallery"}</span>
-          <input type="file" accept="image/*" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="hidden" />
-        </label>
-      </div>
+    <div className="space-y-2.5">
+      {hint && <p className="text-sm text-cz-muted">{hint}</p>}
+      <label className={cn(czButtonClass("primary"), "cursor-pointer focus-within:ring-2 focus-within:ring-cz-amber-text", uploading && "opacity-60 pointer-events-none")}>
+        {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
+        <span>{uploading ? "Uploading photo…" : (ctaLabel ?? `Take ${label.toLowerCase()} photo`)}</span>
+        <input type="file" accept="image/*" capture="environment" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="sr-only" />
+      </label>
+      <label className={cn(czButtonClass("ghost", "sm"), "cursor-pointer focus-within:ring-2 focus-within:ring-cz-amber-text", uploading && "opacity-60 pointer-events-none")}>
+        <ImageIcon className="w-4 h-4" />
+        <span>Choose from gallery instead</span>
+        <input type="file" accept="image/*" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="sr-only" />
+      </label>
     </div>
   );
 }
@@ -1439,10 +1660,10 @@ function CancelJobDialog({ jobId, status, onCancelled }: { jobId: string; status
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full text-destructive hover:text-destructive">
-          <Trash2 className="w-4 h-4 mr-2" />
+        <button type="button" className={czButtonClass("danger", "md")}>
+          <Trash2 className="w-4 h-4" />
           Cancel job
-        </Button>
+        </button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -1482,7 +1703,7 @@ const DISPUTE_TYPES: { value: "wrong_quantity" | "damage" | "no_show" | "payment
   { value: "other", label: "Something else" },
 ];
 
-function RaiseDisputeDialog({ jobId, against }: { jobId: string; against: string | null }) {
+function RaiseDisputeDialog({ jobId, against, label }: { jobId: string; against: string | null; label?: string }) {
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState<typeof DISPUTE_TYPES[number]["value"]>("wrong_quantity");
   const [explanation, setExplanation] = useState("");
@@ -1509,9 +1730,9 @@ function RaiseDisputeDialog({ jobId, against }: { jobId: string; against: string
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full">
-          <Flag className="w-4 h-4 mr-2" /> Raise a dispute
-        </Button>
+        <button type="button" className={czButtonClass("danger", "md")}>
+          <Flag className="w-4 h-4" /> {label ?? "Report a problem"}
+        </button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -1621,3 +1842,1064 @@ function JobTimeline({ job }: { job: any }) {
   );
 }
 
+
+/* ======================================================================
+ * Driver / customer mode redesign (D2–D5, C3–C6).
+ *
+ * Everything below is presentation. Every action is a handler created in
+ * JobDetail (accept_bid, counter_bid, accept_counter, reject_counter,
+ * complete_job, the Paynow escrow initiation) or one of the existing
+ * components above (BidForm's bids upsert, ProofUpload + start_trip,
+ * DeliveryPinEntry's driver_confirm_delivery_pin, CancelJobDialog's
+ * cancel_job, RaiseDisputeDialog's raise_dispute, the rating inserts),
+ * passed in unchanged. No screen here talks to the backend on its own.
+ * ==================================================================== */
+
+type JobScreenCtx = {
+  id: string;
+  job: any;
+  bids: any[] | undefined;
+  myBid: any;
+  userId: string | null;
+  isOwner: boolean;
+  isAssignedDriver: boolean;
+  isEscrow: boolean;
+  escrowPaid: boolean;
+  payingEscrow: boolean;
+  payEscrow: () => void;
+  acceptBid: (bidId: string) => void;
+  counterBid: (bidId: string, price: number) => void;
+  acceptCounter: (bidId: string) => void;
+  rejectCounter: (bidId: string) => void;
+  completeJob: () => void;
+  unreadCount: number | undefined;
+  nearbyDrivers: number | undefined;
+  myRating: any;
+  showRadar: boolean;
+  showCounterResponse: boolean;
+  showCancel: boolean;
+  showDispute: boolean;
+  showNextLoads: boolean;
+  showBookAgain: boolean;
+  showReceipt: boolean;
+  showCompleteButton: boolean;
+  showDeliveryPinDisplay: boolean;
+  invalidateJob: () => void;
+  invalidateBids: () => void;
+  invalidateRating: () => void;
+  onCancelled: () => void;
+};
+
+/** Per-job UI flag kept for the browser session (e.g. "I've arrived at
+ *  pickup" — there is no server-side arrive action, so this only moves the
+ *  driver's own view forward). */
+function useSessionFlag(key: string): [boolean, (v: boolean) => void] {
+  const [v, setV] = useState<boolean>(() => {
+    try {
+      return typeof window !== "undefined" && window.sessionStorage.getItem(key) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const set = (next: boolean) => {
+    setV(next);
+    try {
+      if (next) window.sessionStorage.setItem(key, "1");
+      else window.sessionStorage.removeItem(key);
+    } catch {
+      /* storage unavailable — the in-memory state still works */
+    }
+  };
+  return [v, set];
+}
+
+const googleNav = (lat: number | null | undefined, lng: number | null | undefined) =>
+  lat != null && lng != null ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving` : null;
+
+function firstName(name: string | null | undefined, fallback: string) {
+  const f = (name ?? "").trim().split(/\s+/)[0];
+  return f || fallback;
+}
+
+/** Round overlay button for use on top of a map. */
+function MapBackButton({ to, onClick }: { to?: string; onClick?: () => void }) {
+  const cls =
+    "pointer-events-auto w-11 h-11 shrink-0 rounded-[14px] bg-cz-bg text-cz-text flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.4)]";
+  return onClick ? (
+    <button type="button" onClick={onClick} aria-label="Back" className={cls}>
+      <ArrowLeft className="w-5 h-5" />
+    </button>
+  ) : (
+    <Link to={(to ?? "/jobs") as "/jobs"} aria-label="Back" className={cls}>
+      <ArrowLeft className="w-5 h-5" />
+    </Link>
+  );
+}
+
+/** Other party card with Chat (existing chat route, unread badge) + Call
+ *  (existing tel: link). */
+function ContactCard({ ctx, subtitle, role }: { ctx: JobScreenCtx; subtitle: ReactNode; role: "driver" | "customer" }) {
+  const { other, name, call } = useJobContact(ctx.job, ctx.isOwner);
+  const who = role === "driver" ? "driver" : "customer";
+  return (
+    <div className="flex items-center gap-3 rounded-[14px] border border-cz-border bg-cz-surface px-3.5 py-3">
+      <InitialsAvatar name={other?.full_name ?? name} />
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold truncate">{other?.full_name ?? name}</div>
+        <div className="text-[13px] text-cz-muted truncate">{subtitle}</div>
+      </div>
+      <Link
+        id="tour-chat-link"
+        to="/chat/$jobId"
+        params={{ jobId: ctx.id }}
+        aria-label={`Chat with ${who}${ctx.unreadCount ? ` (${ctx.unreadCount} unread)` : ""}`}
+        className="relative w-11 h-11 shrink-0 rounded-xl border border-cz-border-strong flex items-center justify-center hover:bg-cz-surface-2"
+      >
+        <MessageSquare className="w-5 h-5" />
+        {!!ctx.unreadCount && (
+          <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-semibold flex items-center justify-center">
+            {ctx.unreadCount > 9 ? "9+" : ctx.unreadCount}
+          </span>
+        )}
+      </Link>
+      {call ? (
+        <a
+          href={call}
+          aria-label={`Call ${who}`}
+          className="w-11 h-11 shrink-0 rounded-xl border border-cz-border-strong flex items-center justify-center hover:bg-cz-surface-2"
+        >
+          <Phone className="w-5 h-5" />
+        </a>
+      ) : (
+        <IconButton disabled aria-label="No phone number on their profile yet" title="No phone number on their profile yet">
+          <Phone className="w-5 h-5" />
+        </IconButton>
+      )}
+    </div>
+  );
+}
+
+function ShareTrackingButton({ ctx, className }: { ctx: JobScreenCtx; className?: string }) {
+  const { trackUrl, shareTrackLink } = useJobContact(ctx.job, ctx.isOwner);
+  if (!trackUrl) return null;
+  return (
+    <button type="button" onClick={shareTrackLink} className={className ?? czButtonClass("ghost", "sm")}>
+      <Share2 className="w-4 h-4" /> Share tracking link
+    </button>
+  );
+}
+
+function ProofPhotos({ job }: { job: any }) {
+  if (!job.pickup_photo_url && !job.delivery_photo_url) return null;
+  return (
+    <div className="space-y-2">
+      <div className="text-sm font-semibold text-cz-muted">Proof of delivery</div>
+      <div className="grid grid-cols-2 gap-3">
+        {job.pickup_photo_url && (
+          <figure className="space-y-1">
+            <SignedProofPhoto path={job.pickup_photo_url} alt="Load confirmed" />
+            <figcaption className="text-xs font-semibold text-cz-green-text flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" /> Load confirmed
+            </figcaption>
+          </figure>
+        )}
+        {job.delivery_photo_url && (
+          <figure className="space-y-1">
+            <SignedProofPhoto path={job.delivery_photo_url} alt="Delivery confirmed" />
+            <figcaption className="text-xs font-semibold text-cz-green-text flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" /> Delivery confirmed
+            </figcaption>
+          </figure>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CancelledScreen({ ctx, backTo }: { ctx: JobScreenCtx; backTo: string }) {
+  return (
+    <CzScreen>
+      <CzHeader title="Job cancelled" backTo={backTo} />
+      <div className="px-5 space-y-4">
+        <CzCard className="space-y-1">
+          <div className="font-semibold">
+            {materialLabel(ctx.job.material as any, ctx.job.custom_material)} · {Number(ctx.job.quantity_m3)} m³
+          </div>
+          <div className="text-sm text-cz-muted">{ctx.job.delivery_address}</div>
+          <p className="pt-2 text-sm text-cz-muted">This job was cancelled.</p>
+          {ctx.job.cancellation_reason && <p className="text-sm text-cz-muted italic">"{ctx.job.cancellation_reason}"</p>}
+        </CzCard>
+        <Link to={backTo as "/jobs"} className={czButtonClass("primary")}>
+          {ctx.isOwner ? "Back to my jobs" : "Find another load"}
+        </Link>
+      </div>
+    </CzScreen>
+  );
+}
+
+/* ------------------------------ DRIVER ------------------------------ */
+
+function DriverJobScreen({ ctx }: { ctx: JobScreenCtx }) {
+  const { job } = ctx;
+  if (job.status === "cancelled") return <CancelledScreen ctx={ctx} backTo="/driver" />;
+  if (ctx.isAssignedDriver && (job.status === "accepted" || job.status === "in_progress")) return <DriverActiveJob ctx={ctx} />;
+  if (ctx.isAssignedDriver && job.status === "completed") return <DriverPaid ctx={ctx} />;
+  if (job.status === "open") return <DriverOpenJob ctx={ctx} />;
+  // A job this driver bid on that went to someone else (or otherwise left
+  // the open state without them).
+  return (
+    <CzScreen className={DRIVER_NAV_SPACE}>
+      <CzHeader title="Load no longer available" backTo="/driver" />
+      <div className="px-5 space-y-4">
+        <CzCard className="space-y-1">
+          <div className="font-semibold">
+            {materialLabel(job.material as any, job.custom_material)} · {Number(job.quantity_m3)} m³
+          </div>
+          <div className="text-sm text-cz-muted">{job.delivery_address}</div>
+          <p className="pt-2 text-sm text-cz-muted">
+            {ctx.myBid?.status === "rejected" ? "The customer chose another driver for this load." : "This load has been taken."}
+          </p>
+        </CzCard>
+        <Link to="/driver" className={czButtonClass("primary")}>Find next load</Link>
+      </div>
+      <DriverBottomNav />
+    </CzScreen>
+  );
+}
+
+/** D2 (offer form) / D3 (offer sent, waiting) / counter-offer response. */
+function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
+  const { job, myBid } = ctx;
+  const [editing, setEditing] = useState(false);
+
+  if (ctx.showCounterResponse) {
+    return (
+      <CzScreen className={DRIVER_NAV_SPACE}>
+        <CzHeader title="New price from the customer" backTo="/driver" />
+        <div id="tour-place-bid" className="px-5 space-y-4">
+          <CzCard selected className="space-y-3">
+            <div className="text-sm font-semibold text-cz-amber-text">Customer proposed a new price</div>
+            <div className="flex items-baseline gap-3">
+              <span className="cz-display font-bold text-5xl text-cz-amber">{usd(Number(myBid.customer_counter_price))}</span>
+              <span className="text-sm text-cz-muted line-through">{usd(Number(myBid.price))}</span>
+            </div>
+            <p className="text-sm text-cz-muted">
+              Accept and the job is yours at this price. Decline and your original offer of {usd(Number(myBid.price))} still stands.
+            </p>
+          </CzCard>
+          <div className="grid grid-cols-2 gap-2.5">
+            <CzButton size="md" onClick={() => ctx.acceptCounter(myBid.id)}>Accept {usd(Number(myBid.customer_counter_price))}</CzButton>
+            <CzButton size="md" kind="ghost" onClick={() => ctx.rejectCounter(myBid.id)}>Decline</CzButton>
+          </div>
+          <JobSummaryCard job={job} />
+        </div>
+        <DriverBottomNav />
+      </CzScreen>
+    );
+  }
+
+  if (myBid && !editing) {
+    return (
+      <CzScreen className={DRIVER_NAV_SPACE}>
+        <CzHeader title="Offer sent" backTo="/driver" />
+        <div className="flex flex-col items-center gap-3.5 px-5 pt-6 pb-6 text-center">
+          <div className="relative w-[132px] h-[132px] flex items-center justify-center">
+            <span aria-hidden className="cz-pulse-ring absolute inset-0 rounded-full border-2 border-cz-amber" />
+            <span className="w-[92px] h-[92px] rounded-full bg-cz-amber-tint-2 flex items-center justify-center text-cz-amber">
+              <Truck className="w-11 h-11" strokeWidth={1.8} />
+            </span>
+          </div>
+          <div className="cz-display font-bold text-[26px] leading-tight">The customer is choosing a driver</div>
+          <p className="text-[15px] text-cz-muted max-w-[290px]">
+            You'll get a notification the moment you're picked. You can keep looking at other loads.
+          </p>
+        </div>
+
+        <div id="tour-place-bid" className="px-5 space-y-2.5">
+          <div className="text-sm font-semibold text-cz-muted">Offers on this job</div>
+          <div className="flex items-center justify-between gap-3 rounded-[14px] border-[1.5px] border-cz-amber bg-cz-surface px-4 py-3.5">
+            <div className="min-w-0">
+              <div className="font-bold">Your offer</div>
+              <div className="text-[13px] text-cz-muted truncate">
+                {[myBid.truck_reg && `Truck ${myBid.truck_reg}`, myBid.delivery_date && `Can deliver ${myBid.delivery_date}`]
+                  .filter(Boolean)
+                  .join(" · ") || "Waiting for the customer"}
+              </div>
+              {myBid.counter_status === "driver_rejected" && (
+                <div className="text-[13px] text-cz-muted">You declined the customer's counter of {usd(Number(myBid.customer_counter_price))}.</div>
+              )}
+            </div>
+            <span className="cz-display font-bold text-[28px] text-cz-amber tabular-nums">{usd(Number(myBid.price))}</span>
+          </div>
+          <JobSummaryCard job={job} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5 px-5 pt-5">
+          <CzButton size="md" kind="ghost" onClick={() => setEditing(true)}>Change offer</CzButton>
+          <Link to="/driver" className={czButtonClass("secondary", "md")}>Find more loads</Link>
+        </div>
+        <DriverBottomNav />
+      </CzScreen>
+    );
+  }
+
+  return (
+    <CzScreen>
+      <CzHeader title={editing ? "Change your offer" : "Offer your price"} {...(editing ? { onBack: () => setEditing(false) } : { backTo: "/driver" })} />
+      <div id="tour-place-bid" className="flex flex-1 flex-col">
+        <div className="px-5">
+          <SpotlightCallout
+            id="driver-bidding"
+            title="Bid your own price"
+            body="Enter what you'd charge for this delivery. If the customer likes it, they'll accept — or they might propose a different price back to you."
+          />
+        </div>
+        <BidForm
+          jobId={ctx.id}
+          job={job}
+          quantityM3={Number(job.quantity_m3)}
+          existing={myBid}
+          onSaved={() => {
+            setEditing(false);
+            ctx.invalidateBids();
+          }}
+        />
+      </div>
+    </CzScreen>
+  );
+}
+
+function JobSummaryCard({ job, id = "tour-job-header" }: { job: any; id?: string }) {
+  return (
+    <CzCard id={id} className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <MaterialBadge>
+          {materialLabel(job.material as any, job.custom_material)} · {Number(job.quantity_m3)} m³
+        </MaterialBadge>
+        <span className="text-[13px] text-cz-muted">Customer offered {usd(Number(job.budget))}</span>
+      </div>
+      <RouteStops pickupLabel={job.pickup_address || "Supplier pickup point"} dropLabel={job.delivery_address} />
+      {(job.preferred_date || job.notes) && (
+        <div className="border-t border-cz-border pt-2.5 text-sm text-cz-muted space-y-1">
+          {job.preferred_date && (
+            <div className="flex items-center gap-2"><Calendar className="w-4 h-4" /> {job.preferred_date}</div>
+          )}
+          {job.notes && <p>{job.notes}</p>}
+        </div>
+      )}
+    </CzCard>
+  );
+}
+
+/** D4 · Active job: map on top, one step at a time in the sheet. */
+function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
+  const { job, id } = ctx;
+  const { other } = useJobContact(job, false);
+  const [arrivedPickup, setArrivedPickup] = useSessionFlag(`cz.arrived-pickup.${id}`);
+  const [arrivedDrop, setArrivedDrop] = useSessionFlag(`cz.arrived-drop.${id}`);
+  const [bannerHidden, setBannerHidden] = useSessionFlag(`cz.got-job-seen.${id}`);
+  const [route, setRoute] = useState<RouteResult | null>(null);
+
+  // Steps come from real job state; only "arrived" is local (no server
+  // action exists for it). Pickup photo → trip started; delivery photo →
+  // PIN / customer confirmation.
+  const step = !job.pickup_photo_url ? (arrivedPickup ? 1 : 0) : !job.delivery_photo_url ? 2 : 3;
+  const price = Number(job.final_price ?? job.budget);
+  const mat = materialLabel(job.material as any, job.custom_material);
+  const cust = firstName(other?.full_name, "the customer");
+  const pickupNav = googleNav(job.pickup_lat, job.pickup_lng);
+  const dropNav = googleNav(job.delivery_lat, job.delivery_lng);
+
+  const title = [
+    "Head to pickup",
+    `Load ${Number(job.quantity_m3)} m³ ${mat.toLowerCase()}`,
+    `Deliver to ${areaOf(job.delivery_address) || "the customer"}`,
+    ctx.isEscrow ? "Get the delivery PIN" : "Get paid & finish",
+  ][step];
+  const sub = [
+    job.pickup_address || "Supplier pickup point",
+    "Take a photo of the loaded truck before you leave. It protects you if there's a dispute.",
+    `${route ? `${route.distanceKm.toFixed(1)} km · about ${Math.round(route.etaMin)} min. ` : `${job.delivery_address}. `}The customer can follow you live.`,
+    ctx.isEscrow
+      ? `Ask ${cust} for the 6-digit PIN. Entering it releases your ${usd(price)} from Con Z Pay.`
+      : `Collect ${usd(price)} from ${cust} directly, then ask them to tap "Load received" in their app to complete the job.`,
+  ][step];
+
+  return (
+    <CzScreen>
+      <div className="relative">
+        <DriverRouteView jobId={id} bare height={300} onRoute={setRoute} />
+        <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <MapBackButton to="/jobs" />
+            <StatusPill className="pointer-events-auto truncate">{jobRef(id)} · {usd(price)}</StatusPill>
+          </div>
+          {ctx.isEscrow &&
+            (ctx.escrowPaid ? (
+              <StatusPill tone="green" icon={<ShieldCheck className="w-3.5 h-3.5" />}>Payment secured</StatusPill>
+            ) : (
+              <StatusPill tone="amber">Awaiting payment</StatusPill>
+            ))}
+        </div>
+      </div>
+
+      <BottomSheet className="flex-1 space-y-4">
+        {step === 0 && job.status === "accepted" && !bannerHidden && (
+          <button
+            type="button"
+            onClick={() => setBannerHidden(true)}
+            className="w-full flex items-center gap-3 rounded-2xl border border-cz-green-border bg-cz-green-tint px-4 py-3 text-left"
+          >
+            <span className="w-10 h-10 shrink-0 rounded-full bg-cz-green text-[#0b2416] flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6" />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block font-bold">You got the job!</span>
+              <span className="block text-[13px] text-[#a7ddbe]">
+                {cust === "the customer" ? "The customer" : cust} picked your {usd(price)} offer · Tap to start
+              </span>
+            </span>
+          </button>
+        )}
+
+        <div id="tour-next-steps" className="space-y-4">
+          <StepProgress current={step} />
+          <div className="space-y-1.5">
+            <h1 className="cz-display font-bold text-[28px] leading-tight">{title}</h1>
+            <p className="text-[15px] text-cz-muted leading-snug">{sub}</p>
+          </div>
+
+          {ctx.isEscrow && !ctx.escrowPaid && (
+            <HintBox tone="warn" icon={<ShieldCheck className="w-4 h-4" />}>
+              Waiting for the customer to pay through Con Z Pay before you're guaranteed payment on delivery.
+            </HintBox>
+          )}
+
+          {step === 0 && (
+            <div className="space-y-2.5">
+              <CzButton onClick={() => setArrivedPickup(true)}>I've arrived at pickup</CzButton>
+              {pickupNav && (
+                <a href={pickupNav} target="_blank" rel="noreferrer" className={czButtonClass("ghost", "sm")}>
+                  <Navigation2 className="w-4 h-4" /> Navigate to pickup
+                </a>
+              )}
+            </div>
+          )}
+
+          {step === 1 && (
+            <div className="space-y-2">
+              <ProofUpload
+                jobId={id}
+                kind="pickup"
+                label="Confirm Pickup"
+                ctaLabel="Take photo & start trip"
+                onUploaded={async () => {
+                const { error } = await supabase.rpc("start_trip", { _job_id: id });
+                if (error) { toast.error(error.message); return; }
+                ctx.invalidateJob();
+                }}
+              />
+              <button type="button" onClick={() => setArrivedPickup(false)} className="w-full min-h-11 text-sm text-cz-muted">
+                Not at pickup yet
+              </button>
+            </div>
+          )}
+
+          {step === 2 &&
+            (!arrivedDrop ? (
+              <div className="space-y-2.5">
+                <CzButton onClick={() => setArrivedDrop(true)}>I've arrived at drop-off</CzButton>
+                {dropNav && (
+                  <a href={dropNav} target="_blank" rel="noreferrer" className={czButtonClass("ghost", "sm")}>
+                    <Navigation2 className="w-4 h-4" /> Navigate to drop-off
+                  </a>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <ProofUpload
+                  jobId={id}
+                  kind="delivery"
+                  label="Confirm Delivery"
+                  hint="Take a photo at the delivery point once the load is tipped."
+                  ctaLabel="Take delivery photo"
+                  onUploaded={async () => {
+                    ctx.invalidateJob();
+                  }}
+                />
+                <button type="button" onClick={() => setArrivedDrop(false)} className="w-full min-h-11 text-sm text-cz-muted">
+                  Not there yet
+                </button>
+              </div>
+            ))}
+
+          {step === 3 &&
+            (ctx.isEscrow ? (
+              <div id="tour-delivery-pin-entry">
+                <DeliveryPinEntry jobId={id} onConfirmed={ctx.invalidateJob} />
+              </div>
+            ) : (
+              <HintBox tone="info" icon={<Info className="w-4 h-4" />}>
+                Waiting for the customer to confirm delivery. This screen updates by itself once they do.
+              </HintBox>
+            ))}
+        </div>
+
+        <ContactCard ctx={ctx} role="customer" subtitle={`${mat} · ${Number(job.quantity_m3)} m³`} />
+
+        <div id="tour-tracking">
+          <DriverShareLocation jobId={id} driverId={ctx.userId!} compact />
+        </div>
+
+        <ProofPhotos job={job} />
+
+        <details className="group rounded-[14px] border border-cz-border bg-cz-surface">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-[15px] font-semibold">
+            <span className="flex items-center gap-2"><Navigation2 className="w-4 h-4 text-cz-amber" /> More navigation options</span>
+            <ChevronDown className="w-4 h-4 text-cz-muted transition group-open:rotate-180" />
+          </summary>
+          <div className="px-4 pb-4 -mt-2">
+            <DriverNavigationButtons
+              pickup={{ lat: job.pickup_lat ?? -17.8292, lng: job.pickup_lng ?? 31.0522 }}
+              dropoff={{ lat: job.delivery_lat, lng: job.delivery_lng }}
+              pickupLabel={job.pickup_address ?? "Harare CBD supplier pickup point"}
+              dropoffLabel={job.delivery_address ?? "Drop-off"}
+            />
+          </div>
+        </details>
+
+        {ctx.showNextLoads && <NextLoadsCard driverId={ctx.userId!} currentJobId={id} />}
+
+        <div className="grid grid-cols-1 gap-2.5">
+          <ShareTrackingButton ctx={ctx} />
+          {ctx.showDispute && (
+            <div id="tour-dispute">
+              <RaiseDisputeDialog jobId={id} against={job.customer_id} label="Report an issue" />
+            </div>
+          )}
+        </div>
+      </BottomSheet>
+    </CzScreen>
+  );
+}
+
+const LEVEL_FLOOR: Record<string, number> = { bronze: 0, silver: 21, gold: 101, platinum: 500 };
+const NEXT_LEVEL: Record<string, string> = { bronze: "silver", silver: "gold", gold: "platinum" };
+
+/** D5 · Paid / delivery complete. */
+function DriverPaid({ ctx }: { ctx: JobScreenCtx }) {
+  const { job, id } = ctx;
+  const { other } = useJobContact(job, false);
+  // Same query + cache key as the driver dashboard's profile read.
+  const { data: driver } = useQuery({
+    queryKey: ["driver-profile", ctx.userId],
+    enabled: !!ctx.userId,
+    queryFn: async () => {
+      const { data } = await supabase.from("driver_profiles").select("*").eq("user_id", ctx.userId!).maybeSingle();
+      return data;
+    },
+  });
+  const price = Number(job.final_price ?? job.budget);
+  const commission = job.commission != null ? Number(job.commission) : null;
+  const pct = commission != null && price > 0 ? Math.round((commission / price) * 10000) / 100 : null;
+  const cust = firstName(other?.full_name, "the customer");
+  const lvl = driver ? levelInfo(driver.level) : null;
+  const nextKey = driver ? NEXT_LEVEL[driver.level] : undefined;
+  const next = nextKey ? levelInfo(nextKey) : null;
+  const floor = driver ? LEVEL_FLOOR[driver.level] ?? 0 : 0;
+  const progress =
+    driver && lvl?.nextAt != null ? Math.min(100, Math.max(0, ((driver.jobs_completed - floor) / (lvl.nextAt - floor)) * 100)) : 100;
+
+  return (
+    <CzScreen className={DRIVER_NAV_SPACE}>
+      <div className="flex flex-col items-center gap-3 px-5 pt-12 pb-6 text-center">
+        <span className="w-[88px] h-[88px] rounded-full bg-cz-green text-[#0b2416] flex items-center justify-center">
+          <CheckCircle2 className="w-12 h-12" strokeWidth={2.2} />
+        </span>
+        <h1 className="cz-display font-bold text-[30px]">Delivery complete</h1>
+        <span className="text-[15px] text-cz-muted">
+          {jobRef(id)} · {areaOf(job.delivery_address) || job.delivery_address}
+        </span>
+      </div>
+
+      <div className="px-5 space-y-3.5">
+        <CzCard className="space-y-3 p-[18px]">
+          <MoneyRow label="Job price" value={usd2(price)} />
+          {commission != null && (
+            <>
+              <MoneyRow label={`Con Z fee${pct != null ? ` (${pct}%)` : ""}`} value={`−${usd2(commission)}`} />
+              <div className="h-px bg-cz-border" />
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-[17px]">You earned</span>
+                <span className="cz-display font-bold text-[32px] text-cz-green-text tabular-nums">{usd2(price - commission)}</span>
+              </div>
+            </>
+          )}
+          <p className="text-[13px] text-cz-muted">
+            {ctx.isEscrow
+              ? "Released from Con Z Pay into your wallet. Withdraw to EcoCash or bank anytime."
+              : "Paid to you directly by the customer. The Con Z fee comes off your wallet balance."}
+          </p>
+          <p className="text-[11px] text-cz-faint">All amounts in USD</p>
+        </CzCard>
+
+        {driver && lvl && (
+          <CzCard className="space-y-2.5">
+            <div className="flex justify-between text-sm">
+              <span className="font-semibold text-cz-amber">{lvl.label}</span>
+              <span className="text-cz-muted">
+                {next && lvl.nextAt != null
+                  ? `${Math.max(0, lvl.nextAt - driver.jobs_completed)} jobs to ${next.label}`
+                  : "Top level"}
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-cz-upcoming" aria-hidden>
+              <div className="h-2 rounded-full bg-cz-amber" style={{ width: `${progress}%` }} />
+            </div>
+            <p className="text-[13px] text-cz-muted">
+              {next ? `${next.label} drivers get ${next.discountPct}% off Con Z fees.` : `You get ${lvl.discountPct}% off Con Z fees.`}
+            </p>
+          </CzCard>
+        )}
+
+        <div id="tour-wrap-up">
+          {ctx.myRating ? (
+            <RatingSummary title={`Your rating for ${cust}`} stars={(ctx.myRating as any).overall} comment={(ctx.myRating as any).comment} />
+          ) : (
+            <RateCustomerForm jobId={id} customerId={job.customer_id} onSaved={ctx.invalidateRating} />
+          )}
+        </div>
+
+        <ProofPhotos job={job} />
+        {ctx.showNextLoads && <NextLoadsCard driverId={ctx.userId!} currentJobId={id} />}
+
+        <div className="space-y-2.5 pt-1">
+          <Link to="/driver" className={czButtonClass("primary")}>Find next load</Link>
+          {job.tracking_token && (
+            <a href={`${SITE_URL}/track/${job.tracking_token}`} target="_blank" rel="noreferrer" className={czButtonClass("ghost", "md")}>
+              <Receipt className="w-4 h-4" /> View receipt
+            </a>
+          )}
+          <Link id="tour-chat-link" to="/chat/$jobId" params={{ jobId: id }} className={czButtonClass("ghost", "md")}>
+            <MessageSquare className="w-4 h-4" /> Open chat
+          </Link>
+          {ctx.showDispute && (
+            <div id="tour-dispute">
+              <RaiseDisputeDialog jobId={id} against={job.customer_id} label="Report an issue" />
+            </div>
+          )}
+        </div>
+      </div>
+      <DriverBottomNav />
+    </CzScreen>
+  );
+}
+
+/* ----------------------------- CUSTOMER ----------------------------- */
+
+function CustomerJobScreen({ ctx }: { ctx: JobScreenCtx }) {
+  const { job } = ctx;
+  // "View tracking" from the pay screen — Con Z Pay stays optional to look
+  // at, exactly like the old page which showed tracking and the pay button
+  // together.
+  const [skipPay, setSkipPay] = useState(false);
+  if (job.status === "cancelled") return <CancelledScreen ctx={ctx} backTo="/jobs" />;
+  if (job.status === "open") return <CustomerOffers ctx={ctx} />;
+  if (job.status === "completed") return <CustomerDelivered ctx={ctx} />;
+  if (ctx.isEscrow && !ctx.escrowPaid && !skipPay) return <CustomerPay ctx={ctx} onViewTracking={() => setSkipPay(true)} />;
+  return <CustomerTrack ctx={ctx} onPay={skipPay ? () => setSkipPay(false) : undefined} />;
+}
+
+/** C3 · Driver offers. */
+function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
+  const { job, bids, id } = ctx;
+  const list = bids ?? [];
+  const pending = list.filter((b: any) => b.status === "pending");
+  const bestId = pending[0]?.id; // bids query is ordered by price, lowest first
+  const hasPoint = job.delivery_lat != null && job.delivery_lng != null;
+
+  return (
+    <CzScreen>
+      <div className="relative h-[300px]">
+        {hasPoint ? (
+          <PinMap point={{ lat: Number(job.delivery_lat), lng: Number(job.delivery_lng) }} className="w-full h-full" />
+        ) : (
+          <div className="w-full h-full bg-cz-surface" />
+        )}
+        <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-center justify-between gap-2">
+          <MapBackButton to="/customer" />
+          <StatusPill tone={list.length ? "neutral" : "amber"} dot blink className="pointer-events-auto bg-cz-bg">
+            {list.length ? `${list.length} offer${list.length === 1 ? "" : "s"} in` : "Finding drivers"}
+          </StatusPill>
+        </div>
+      </div>
+
+      <BottomSheet className="flex-1 space-y-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <h1 className="cz-display font-bold text-[26px] leading-tight">
+            {list.length ? `${list.length} driver${list.length === 1 ? "" : "s"} offered` : "Waiting for offers"}
+          </h1>
+          <span className="text-sm text-cz-muted shrink-0">
+            You offered <strong className="text-cz-text">{usd(Number(job.budget))}</strong>
+          </span>
+        </div>
+
+        {ctx.showRadar && <RadarSearch etaMinutes={5} nearbyDrivers={ctx.nearbyDrivers} />}
+
+        <div id="tour-bids-received" className="space-y-3">
+          {list.length === 0 ? (
+            <p className="text-sm text-cz-muted">No offers yet. Drivers near you are checking your request — this updates live.</p>
+          ) : (
+            list.map((b: any) => {
+              const canChoose = b.status === "pending";
+              return (
+                <OfferCard
+                  key={b.id}
+                  bid={b}
+                  best={b.id === bestId && pending.length > 1}
+                  primary={b.id === bestId}
+                  chooseId={b.id === bestId ? "tour-accept-bid" : undefined}
+                  onChoose={canChoose ? () => ctx.acceptBid(b.id) : undefined}
+                >
+                  {canChoose && b.counter_status !== "countered" && (
+                    <div className="mt-1">
+                      <CounterOfferRow bidPrice={Number(b.price)} onSubmit={(price) => ctx.counterBid(b.id, price)} />
+                    </div>
+                  )}
+                </OfferCard>
+              );
+            })
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-sm font-semibold text-cz-muted">Your request</div>
+          <CzCard id="tour-job-header" className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <MaterialBadge>
+                {materialLabel(job.material as any, job.custom_material)} · {Number(job.quantity_m3)} m³
+              </MaterialBadge>
+              <span className="text-[13px] text-cz-muted">{ctx.isEscrow ? "Con Z Pay" : "Pay driver directly"}</span>
+            </div>
+            <div className="flex items-start gap-2 text-sm">
+              <MapPin className="w-4 h-4 text-cz-muted mt-0.5 shrink-0" />
+              <span>{job.delivery_address}</span>
+            </div>
+            {job.preferred_date && (
+              <div className="flex items-center gap-2 text-sm text-cz-muted">
+                <Calendar className="w-4 h-4" /> {job.preferred_date}
+              </div>
+            )}
+            {job.notes && <p className="border-t border-cz-border pt-2 text-sm text-cz-muted">{job.notes}</p>}
+          </CzCard>
+        </div>
+
+        {ctx.showCancel && (
+          <div id="tour-next-steps">
+            <CancelJobDialog jobId={id} status={job.status} onCancelled={ctx.onCancelled} />
+          </div>
+        )}
+      </BottomSheet>
+    </CzScreen>
+  );
+}
+
+function useAcceptedDriver(ctx: JobScreenCtx) {
+  const { name, other } = useJobContact(ctx.job, ctx.isOwner);
+  const bid = (ctx.bids ?? []).find((b: any) => b.status === "accepted");
+  const fullName = other?.full_name ?? bid?.profile?.full_name ?? name;
+  return {
+    bid,
+    fullName,
+    first: firstName(fullName, "your driver"),
+    verified: bid?.driver?.verification_status === "verified",
+  };
+}
+
+/** C4 · Confirm & pay (Con Z Pay jobs only, after a driver is chosen). */
+function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTracking: () => void }) {
+  const { job, id } = ctx;
+  const d = useAcceptedDriver(ctx);
+  const total = Number(job.final_price ?? job.budget);
+  return (
+    <CzScreen>
+      <CzHeader title="Confirm & pay" backTo="/jobs" />
+      <div className="flex-1 px-5 space-y-4 pb-4">
+        <CzCard className="flex items-center gap-3">
+          <InitialsAvatar name={d.fullName} src={d.bid?.profile?.avatar_url} size={48} />
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold truncate flex items-center gap-1.5">
+              {d.fullName}
+              {d.verified && (
+                <span className="inline-flex items-center gap-0.5 text-[13px] text-cz-green-text">
+                  <ShieldCheck className="w-3.5 h-3.5" /> Verified
+                </span>
+              )}
+            </div>
+            <div className="text-[13px] text-cz-muted truncate">
+              {d.bid?.truck_reg ? `Truck ${d.bid.truck_reg}` : "Your driver"}
+              {d.bid?.delivery_date ? ` · can deliver ${d.bid.delivery_date}` : ""}
+            </div>
+          </div>
+        </CzCard>
+
+        <CzCard className="space-y-3">
+          <MoneyRow
+            label={`${materialLabel(job.material as any, job.custom_material)} · ${Number(job.quantity_m3)} m³`}
+            value={areaOf(job.delivery_address) || "—"}
+            valueClassName="text-cz-muted"
+          />
+          <div className="h-px bg-cz-border" />
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-[17px]">Total</span>
+            <span className="cz-display font-bold text-[36px] tabular-nums">{usd2(total)}</span>
+          </div>
+        </CzCard>
+
+        <HintBox tone="green" icon={<ShieldCheck className="w-4 h-4" />}>
+          Con Z Pay holds your money — {d.first} is paid only when you give them your delivery PIN. If you don't confirm
+          and don't raise a problem, it's released automatically 72 hours after delivery. Something wrong? Report it and
+          our team reviews it before any money moves.
+        </HintBox>
+
+        <div className="space-y-2">
+          <div className="text-sm font-semibold text-cz-muted">Pay with</div>
+          <div className="flex items-center gap-3 rounded-[14px] border-[1.5px] border-cz-amber bg-cz-amber-tint px-4 py-3.5">
+            <span aria-hidden className="w-5 h-5 rounded-full border-[6px] border-cz-amber bg-cz-bg shrink-0" />
+            <div className="min-w-0">
+              <div className="font-semibold">Paynow</div>
+              <div className="text-[13px] text-cz-muted">Choose EcoCash, card or another method on Paynow's secure page.</div>
+            </div>
+          </div>
+        </div>
+
+        <ContactCard ctx={ctx} role="driver" subtitle={`${materialLabel(job.material as any, job.custom_material)} · ${Number(job.quantity_m3)} m³`} />
+      </div>
+
+      <footer className="sticky bottom-0 z-20 space-y-2.5 border-t border-[#25272b] bg-[#16171a] px-5 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))]">
+        <div id="tour-next-steps">
+          <CzButton onClick={ctx.payEscrow} disabled={ctx.payingEscrow}>
+            {ctx.payingEscrow ? <Loader2 className="w-5 h-5 animate-spin" /> : `Pay ${usd2(total)} with Paynow`}
+          </CzButton>
+        </div>
+        <p className="text-center text-xs text-cz-faint">Secured by Paynow · All amounts in USD</p>
+        <div className="grid grid-cols-2 gap-2.5">
+          <CzButton kind="ghost" size="sm" onClick={onViewTracking}>View tracking</CzButton>
+          {ctx.showCancel ? (
+            <CancelJobDialog jobId={id} status={job.status} onCancelled={ctx.onCancelled} />
+          ) : (
+            <span />
+          )}
+        </div>
+      </footer>
+    </CzScreen>
+  );
+}
+
+/** C5 · Track delivery. */
+function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }) {
+  const { job, id } = ctx;
+  const d = useAcceptedDriver(ctx);
+  const [track, setTrack] = useState<TrackStatus | null>(null);
+  const mat = materialLabel(job.material as any, job.custom_material);
+  // Same four steps as the driver's screen, from the same job fields. The
+  // driver's "Load" step starts on their device (no server state), so from
+  // here it shows as part of Pickup until their loaded-truck photo arrives.
+  const step = !job.pickup_photo_url ? 0 : !job.delivery_photo_url ? 2 : 3;
+  const eta = track?.route?.etaMin;
+  const title = [
+    `${d.first} is heading to pickup`,
+    "",
+    "On the way to you",
+    `${d.first} has arrived`,
+  ][step];
+  const sub = [
+    `They'll load your ${mat.toLowerCase()} at ${job.pickup_address || "the supplier"} and send a photo of the loaded truck before leaving.`,
+    "",
+    eta != null ? `Arriving in about ${Math.max(1, Math.round(eta))} min.` : track?.live ? "Your driver is sharing their live location." : "Your load is on the way.",
+    ctx.isEscrow ? "Check the load, then give your PIN." : "Check the load, then confirm you've received it.",
+  ][step];
+
+  return (
+    <CzScreen>
+      <div id="tour-tracking" className="relative">
+        <CustomerTrackMap jobId={id} variant="hero" height={270} onStatus={setTrack} />
+        <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <MapBackButton to="/jobs" />
+            {track?.live && (
+              <StatusPill tone="green" dot blink className="pointer-events-auto">Live</StatusPill>
+            )}
+          </div>
+          <ShareTrackingButton
+            ctx={ctx}
+            className="pointer-events-auto min-h-11 inline-flex items-center gap-1.5 rounded-[14px] bg-cz-bg px-3.5 text-sm font-semibold shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
+          />
+        </div>
+      </div>
+
+      <BottomSheet className="flex-1 space-y-4">
+        <SpotlightCallout
+          id="live-tracking"
+          title="Watch your driver in real time"
+          body="Once your driver starts sharing their location, you'll see them move on this map right up to your delivery point."
+        />
+        <div id="tour-next-steps" className="space-y-4">
+          <StepProgress current={step} />
+          <div className="space-y-1.5">
+            <h1 className="cz-display font-bold text-[28px] leading-tight">{title}</h1>
+            <p className="text-[15px] text-cz-muted leading-snug">{sub}</p>
+          </div>
+
+          {onPay && (
+            <HintBox tone="warn" icon={<ShieldCheck className="w-4 h-4" />}>
+              <div className="space-y-2">
+                <div>This job is set up to pay through Con Z Pay. Pay now — we'll hold the money until delivery is confirmed.</div>
+                <button type="button" onClick={onPay} className="font-bold underline underline-offset-2">
+                  Pay {usd2(Number(job.final_price ?? job.budget))} now
+                </button>
+              </div>
+            </HintBox>
+          )}
+
+          {step >= 2 && job.pickup_photo_url && (
+            <div className="flex items-center gap-3">
+              <div className="w-16 shrink-0">
+                <SignedProofPhoto path={job.pickup_photo_url} alt="Loaded truck at pickup" />
+              </div>
+              <div className="text-[13px] text-cz-muted">
+                <span className="font-semibold text-cz-green-text">Loaded</span> — photo taken at pickup
+              </div>
+            </div>
+          )}
+
+          {ctx.showDeliveryPinDisplay && (
+            <div className="rounded-2xl bg-cz-amber p-4 text-cz-amber-ink">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="font-bold">Your delivery PIN</div>
+                  <div className="text-[13px] opacity-80">Only share after the load is tipped</div>
+                </div>
+                <div className="cz-display font-bold text-[40px] leading-none tracking-[0.12em] tabular-nums">{job.delivery_pin}</div>
+              </div>
+            </div>
+          )}
+
+          {ctx.showCompleteButton && (
+            <CzButton id="tour-confirm-delivery" kind={job.delivery_photo_url ? "primary" : "ghost"} onClick={ctx.completeJob} disabled={!job.delivery_photo_url}>
+              <CheckCircle2 className="w-5 h-5" />
+              {job.delivery_photo_url ? "Load received — finish" : "Waiting for driver's delivery photo"}
+            </CzButton>
+          )}
+        </div>
+
+        <ContactCard ctx={ctx} role="driver" subtitle={d.bid?.truck_reg ? `Truck ${d.bid.truck_reg} · ${mat}` : mat} />
+        <ProofPhotos job={job} />
+
+        <div className="space-y-2.5">
+          {ctx.showDispute && (
+            <div id="tour-dispute">
+              <RaiseDisputeDialog jobId={id} against={job.driver_id} label="Report a problem" />
+            </div>
+          )}
+          {ctx.showCancel && <CancelJobDialog jobId={id} status={job.status} onCancelled={ctx.onCancelled} />}
+        </div>
+      </BottomSheet>
+    </CzScreen>
+  );
+}
+
+/** C6 · Delivered. */
+function CustomerDelivered({ ctx }: { ctx: JobScreenCtx }) {
+  const { job, id } = ctx;
+  const d = useAcceptedDriver(ctx);
+  const mat = materialLabel(job.material as any, job.custom_material);
+  const total = Number(job.final_price ?? job.budget);
+  return (
+    <CzScreen>
+      <div className="flex flex-col items-center gap-3 px-5 pt-12 pb-6 text-center">
+        <span className="w-[88px] h-[88px] rounded-full bg-cz-green text-[#0b2416] flex items-center justify-center">
+          <CheckCircle2 className="w-12 h-12" strokeWidth={2.2} />
+        </span>
+        <h1 className="cz-display font-bold text-[30px] leading-tight">Your {mat.toLowerCase()} is delivered</h1>
+        <span className="text-[15px] text-cz-muted">
+          {ctx.isEscrow ? `Payment released to ${d.fullName}` : `Delivered by ${d.fullName}`}
+        </span>
+      </div>
+
+      <div className="px-5 space-y-3.5 pb-6">
+        <CzCard className="space-y-3 p-[18px]">
+          <MoneyRow label="Receipt" value={jobRef(id)} valueClassName="font-semibold" />
+          <MoneyRow label={`${mat} · ${Number(job.quantity_m3)} m³`} value={areaOf(job.delivery_address) || "—"} />
+          <MoneyRow label="Paid with" value={ctx.isEscrow ? "Con Z Pay" : "Directly to driver"} />
+          <div className="h-px bg-cz-border" />
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-[17px]">Total</span>
+            <span className="cz-display font-bold text-[32px] tabular-nums">{usd2(total)}</span>
+          </div>
+          <p className="text-[11px] text-cz-faint">All amounts in USD</p>
+        </CzCard>
+
+        <div id="tour-wrap-up">
+          {ctx.myRating ? (
+            <RatingSummary
+              title={`Your rating for ${d.first}`}
+              stars={((ctx.myRating as any).quality + (ctx.myRating as any).communication + (ctx.myRating as any).reliability + (ctx.myRating as any).delivery_time) / 4}
+              comment={(ctx.myRating as any).comment}
+            />
+          ) : (
+            <RateForm jobId={id} driverId={job.driver_id!} onSaved={ctx.invalidateRating} />
+          )}
+        </div>
+
+        <ProofPhotos job={job} />
+
+        <div className="space-y-2.5 pt-1">
+          <Link to="/customer/book" className={czButtonClass("primary")}>Book another load</Link>
+          {ctx.showBookAgain && (
+            <Link
+              to="/customer/book"
+              search={{
+                material: job.material,
+                quantity: job.quantity_m3,
+                address: job.delivery_address,
+                lat: job.delivery_lat ?? undefined,
+                lng: job.delivery_lng ?? undefined,
+                driverId: job.driver_id!,
+              }}
+              className={czButtonClass("secondary", "md")}
+            >
+              Book {d.first} again
+            </Link>
+          )}
+          {ctx.showReceipt && (
+            <>
+              <SpotlightCallout
+                id="receipt-button"
+                title="Your receipt is one tap away"
+                body="Every completed delivery gets a receipt with price, photos, and a downloadable PDF for your records — find it here anytime."
+              />
+              <a
+                id="tour-receipt-link"
+                href={`${SITE_URL}/track/${job.tracking_token}`}
+                target="_blank"
+                rel="noreferrer"
+                className={czButtonClass("ghost", "md")}
+              >
+                <FileText className="w-4 h-4" /> Receipt & PDF download
+              </a>
+            </>
+          )}
+          <Link to="/chat/$jobId" params={{ jobId: id }} id="tour-chat-link" className={czButtonClass("ghost", "md")}>
+            <MessageSquare className="w-4 h-4" /> Open chat
+          </Link>
+          {ctx.showDispute && (
+            <div id="tour-dispute">
+              <RaiseDisputeDialog jobId={id} against={job.driver_id} label="Report a problem" />
+            </div>
+          )}
+        </div>
+      </div>
+    </CzScreen>
+  );
+}
