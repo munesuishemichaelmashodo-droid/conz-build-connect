@@ -1,11 +1,10 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { StatusBadge, EmptyState } from "@/components/ui-bits";
 import { money } from "@/lib/domain";
-import { isMfaRequiredError } from "@/lib/mfa";
 import { Gift, Search as SearchIcon, AlertTriangle, Check, X, Snowflake, Unlock, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -50,7 +49,6 @@ function AdminReferrals() {
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const qc = useQueryClient();
-  const nav = useNavigate();
 
   const statsQuery = useQuery({
     queryKey: ["admin-referral-stats"],
@@ -121,10 +119,6 @@ function AdminReferrals() {
     });
     setBusyId(null);
     if (error) {
-      if (isMfaRequiredError(error)) {
-        toast.error("Your session needs a fresh MFA check");
-        return nav({ to: "/mfa", search: { next: "/admin/referrals" } });
-      }
       return toast.error(error.message);
     }
     toast.success("Referral updated");

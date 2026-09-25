@@ -1,6 +1,6 @@
 ﻿import { createFileRoute, Outlet, Link, useRouterState, redirect } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { LayoutDashboard, Users, ShieldCheck, Gavel, Settings as SettingsIcon, TrendingUp, ScrollText, BookOpen, MessageSquareWarning, Gift, KeyRound, MapPin } from "lucide-react";
+import { LayoutDashboard, Users, ShieldCheck, Gavel, Settings as SettingsIcon, TrendingUp, ScrollText, BookOpen, MessageSquareWarning, Gift, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -17,12 +17,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
     if (!list.includes("admin") && !list.includes("super_admin")) {
       throw redirect({ to: "/home" });
     }
-    // Authenticator-app (aal2) requirement removed 2026-09-17: admin panel
-    // entry now only requires a logged-in session with the admin/super_admin
-    // role. The remaining MFA_REQUIRED error paths inside individual admin
-    // actions (admin.security.tsx, admin.referrals.tsx, admin.users.tsx) are
-    // dead code now that require_admin_mfa() is a no-op server-side, but are
-    // left in place harmlessly.
+    // Admin access is password + role only: the authenticator-app (MFA)
+    // requirement was removed 2026-09-17 and the MFA screens (/mfa, the
+    // Security tab) were removed 2026-09-25 — see migration 0061.
   },
   component: AdminLayout,
 });
@@ -38,7 +35,6 @@ const TABS: { to: string; label: string; icon: typeof Users; exact?: boolean; su
   { to: "/admin/supply-coverage", label: "Supply", icon: MapPin },
   { to: "/admin/audit", label: "Audit", icon: ScrollText, superOnly: true },
   { to: "/admin/ledger", label: "Ledger", icon: BookOpen, superOnly: true },
-  { to: "/admin/security", label: "Security", icon: KeyRound, superOnly: true },
   { to: "/admin/settings", label: "Settings", icon: SettingsIcon, superOnly: true },
 ];
 

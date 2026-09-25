@@ -28,7 +28,7 @@ Zimbabwe.
 
 Migrations live in `supabase/migrations/`, named
 `YYYYMMDDHHMMSS_NNNN_description.sql` where NNNN is a sequential 4-digit
-counter (currently up to 0060) kept **on top of** the raw timestamp-named
+counter (currently up to 0061) kept **on top of** the raw timestamp-named
 files from early development. Always:
 
 1. Check the latest applied migration version live (not just what's in git —
@@ -118,9 +118,14 @@ stop this recurring, but verify rather than assume.
   `bids.eta_minutes`, `withdraw_bid()`, `job_offer_summary()`,
   `jobs.driver_arrived_pickup_at/dropoff_at` + `driver_mark_arrived()`,
   `driver_today_earnings()`, `customer_cards()`. Wrappers live in
-  `src/components/redesign/rpc.ts` (types.ts not regenerated — doing so
-  surfaces a real bug in admin.security.tsx: `mfa_recovery_log` has no
-  `performed_by` column).
+  `src/components/redesign/rpc.ts` (types.ts not regenerated yet).
+
+- **Admin MFA removed — password + role only** (owner's decision,
+  25/09/2026). `0061_remove_admin_mfa` (applied as 20260925160846) deleted
+  all enrolled TOTP factors and revoked client access to the MFA management
+  RPCs (kept, not dropped — re-GRANT to restore). `require_admin_mfa()`
+  stays a no-op for its 8 callers; `mfa_recovery_*` tables kept as audit
+  history. Frontend `/mfa` page and admin Security tab deleted.
 
 ## Resolved since the above list was written
 
