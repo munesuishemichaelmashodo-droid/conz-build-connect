@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { truckMarkerIcon, type TruckMarker } from "@/components/redesign/PinMap";
 import { reverseGeocode, searchAddress, type BoundingBox, type GeocodeResult } from "@/lib/osm-geocode";
+import { CARTO_VOYAGER_TILES } from "@/lib/map-tiles";
 
 const pinIcon = L.divIcon({
   className: "",
@@ -243,7 +244,7 @@ export function AddressPicker({
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+              url={CARTO_VOYAGER_TILES}
               subdomains="abcd"
               maxZoom={20}
             />
@@ -526,7 +527,7 @@ export function AddressPicker({
         >
           <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                    url={CARTO_VOYAGER_TILES}
                     subdomains="abcd"
                     maxZoom={20}
                   />

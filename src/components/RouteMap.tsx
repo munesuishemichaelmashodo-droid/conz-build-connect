@@ -6,6 +6,7 @@ import { getRoute } from "@/lib/routing.functions";
 import { Navigation2, Route as RouteIcon } from "lucide-react";
 import { toast } from "sonner";
 import { RouteStats } from "@/components/RouteStats";
+import { CARTO_VOYAGER_TILES } from "@/lib/map-tiles";
 const truckIcon = L.divIcon({
   className: "",
   html: `<div style="background:hsl(var(--primary));color:hsl(var(--primary-foreground));width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px">🚛</div>`,
@@ -147,7 +148,7 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
           <FitTrip points={pts} />
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+            url={CARTO_VOYAGER_TILES}
             subdomains="abcd"
             maxZoom={20}
           />
@@ -186,7 +187,7 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
   <ResizeFix />
   <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                    url={CARTO_VOYAGER_TILES}
                     subdomains="abcd"
                     maxZoom={20}
                   />

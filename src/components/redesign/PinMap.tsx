@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { CARTO_VOYAGER_TILES } from "@/lib/map-tiles";
 
 /** Amber delivery pin with a pulsing ring and a "Deliver here" label.
  *  Inline SVG (no emoji) so it renders the same on every Android WebView. */
@@ -110,7 +111,7 @@ export function PinMap({
         <FitPoints point={point} trucks={trucks} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          url={CARTO_VOYAGER_TILES}
           subdomains="abcd"
           maxZoom={20}
         />

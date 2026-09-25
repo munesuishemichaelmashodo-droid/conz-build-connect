@@ -11,6 +11,7 @@ import { useLocationSharingEnabled } from "@/lib/location-privacy";
 import { SpotlightCallout } from "@/components/SpotlightCallout";
 import { RouteMap, type RouteResult } from "@/components/RouteMap";
 import { PinMap } from "@/components/redesign/PinMap";
+import { CARTO_VOYAGER_TILES } from "@/lib/map-tiles";
 
 // Fix default marker icons (Vite breaks Leaflet's default path resolution)
 const truckIcon = L.divIcon({
@@ -303,7 +304,7 @@ export function CustomerTrackMap({
                 <Follow lat={loc.lat} lng={loc.lng} />
                 <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                    url={CARTO_VOYAGER_TILES}
                     subdomains="abcd"
                     maxZoom={20}
                   />

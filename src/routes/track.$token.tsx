@@ -14,6 +14,7 @@ import { getPublicPod, type PodResult } from "@/lib/pod.functions";
 import { money } from "@/lib/domain";
 import { useState } from "react";
 import jsPDF from "jspdf";
+import { CARTO_VOYAGER_TILES } from "@/lib/map-tiles";
 
 async function toDataUrl(url: string): Promise<string | null> {
   try {
@@ -397,7 +398,7 @@ function PublicTrackPage() {
                     <Follow lat={live.lat} lng={live.lng} />
                     <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                    url={CARTO_VOYAGER_TILES}
                     subdomains="abcd"
                     maxZoom={20}
                   />
