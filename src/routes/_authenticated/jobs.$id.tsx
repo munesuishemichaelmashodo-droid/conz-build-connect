@@ -49,13 +49,13 @@ import {
   straightKm,
 } from "@/components/redesign";
 import { OfferCard } from "@/components/redesign/OfferCard";
-import { driverMarkArrived, jobOfferSummary, withdrawBid } from "@/components/redesign/rpc";
+import { driverMarkArrived, jobOfferSummary, withdrawBid, raiseJobBudget, useBidderLocations, useSecondsLeft, mmss } from "@/components/redesign/rpc";
 import { PinMap } from "@/components/redesign/PinMap";
 import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 import { DriverNavigationButtons } from "@/components/DriverNavigationButtons";
 import type { RouteResult } from "@/components/RouteMap";
 import type { TrackStatus } from "@/components/JobTracker";
-import { ChevronDown, ChevronRight, Info, Navigation2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Clock, Info, Navigation2, TrendingUp } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
   component: JobDetail,
@@ -2129,6 +2129,21 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
       return data;
     },
   });
+  // Migration 0062: offers are valid for 30 minutes (server-stamped).
+  const secondsLeft = useSecondsLeft(myBid?.expires_at);
+  const expired = secondsLeft === 0;
+  const [resending, setResending] = useState(false);
+  // Resending = the driver re-saving their own pending offer; the
+  // server restarts the 30-minute clock on any driver edit.
+  const resend = async () => {
+    if (!myBid) return;
+    setResending(true);
+    const { error } = await supabase.from("bids").update({ price: Number(myBid.price) } as any).eq("id", myBid.id);
+    setResending(false);
+    if (error) return toast.error(error.message);
+    toast.success(`Offer sent again · ${usd(Number(myBid.price))}`);
+    ctx.invalidateBids();
+  };
   const withdraw = async () => {
     if (!myBid) return;
     if (!window.confirm("Withdraw your offer? You can send a new one while the job is still open.")) return;
@@ -2143,7 +2158,11 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
   if (ctx.showCounterResponse) {
     return (
       <CzScreen className={DRIVER_NAV_SPACE}>
-        <CzHeader title="New price from the customer" backTo="/driver" />
+        <CzHeader
+          title="New price from the customer"
+          backTo="/driver"
+          right={secondsLeft != null && !expired ? <span className="text-sm text-cz-muted shrink-0">Reply in <strong className="text-cz-text tabular-nums">{mmss(secondsLeft)}</strong></span> : undefined}
+        />
         <div id="tour-place-bid" className="px-5 space-y-4">
           <CzCard selected className="space-y-3">
             <div className="text-sm font-semibold text-cz-amber-text">Customer proposed a new price</div>
@@ -2169,8 +2188,29 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
   if (myBid && !editing) {
     return (
       <CzScreen className={DRIVER_NAV_SPACE}>
-        <CzHeader title="Offer sent" backTo="/driver" />
-        <div className="flex flex-col items-center gap-3.5 px-5 pt-6 pb-6 text-center">
+        <CzHeader
+          title={expired ? "Offer expired" : "Offer sent"}
+          backTo="/driver"
+          right={
+            secondsLeft != null && !expired ? (
+              <span className="text-sm text-cz-muted shrink-0">
+                Expires in <strong className="text-cz-text tabular-nums">{mmss(secondsLeft)}</strong>
+              </span>
+            ) : undefined
+          }
+        />
+        {expired && (
+          <div className="px-5 pt-2 space-y-2.5">
+            <HintBox tone="warn" icon={<Clock className="w-4 h-4" />}>
+              Your offer expired after 30 minutes without an answer, so the customer can't choose it now. Send it again to
+              put it back in front of them.
+            </HintBox>
+            <CzButton onClick={resend} disabled={resending}>
+              {resending ? <Loader2 className="w-5 h-5 animate-spin" /> : `Send again · ${usd(Number(myBid.price))}`}
+            </CzButton>
+          </div>
+        )}
+        <div className={cn("flex flex-col items-center gap-3.5 px-5 pt-6 pb-6 text-center", expired && "hidden")}>
           <div className="relative w-[132px] h-[132px] flex items-center justify-center">
             <span aria-hidden className="cz-pulse-ring absolute inset-0 rounded-full border-2 border-cz-amber" />
             <span className="w-[92px] h-[92px] rounded-full bg-cz-amber-tint-2 flex items-center justify-center text-cz-amber">
@@ -2625,23 +2665,37 @@ function CustomerJobScreen({ ctx }: { ctx: JobScreenCtx }) {
 /** C3 · Driver offers. */
 function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
   const { job, bids, id } = ctx;
-  const list = bids ?? [];
-  const pending = list.filter((b: any) => b.status === "pending");
-  const bestId = pending[0]?.id; // bids query is ordered by price, lowest first
+  // Re-evaluate which offers are still live as their 30-minute windows
+  // (migration 0062) run out.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(t);
+  }, []);
+  const isLive = (b: any) => b.status === "pending" && (!b.expires_at || new Date(b.expires_at).getTime() > now);
+  const all = bids ?? [];
+  const live = all.filter(isLive);
+  const list = [...live, ...all.filter((b: any) => !isLive(b))]; // expired / decided at the bottom
+  const bestId = live[0]?.id; // bids query is ordered by price, lowest first
   const hasPoint = job.delivery_lat != null && job.delivery_lng != null;
+  // Approximate positions of Online drivers who bid (migration 0062).
+  const locations = useBidderLocations(id, all.length > 0);
+  const trucks = live
+    .filter((b: any) => locations[b.id])
+    .map((b: any) => ({ lat: locations[b.id].lat, lng: locations[b.id].lng, label: usd(Number(b.price)) }));
 
   return (
     <CzScreen>
       <div className="relative h-[300px]">
         {hasPoint ? (
-          <PinMap point={{ lat: Number(job.delivery_lat), lng: Number(job.delivery_lng) }} className="w-full h-full" />
+          <PinMap point={{ lat: Number(job.delivery_lat), lng: Number(job.delivery_lng) }} trucks={trucks} className="w-full h-full" />
         ) : (
           <div className="w-full h-full bg-cz-surface" />
         )}
         <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-center justify-between gap-2">
           <MapBackButton to="/customer" />
-          <StatusPill tone={list.length ? "neutral" : "amber"} dot blink className="pointer-events-auto bg-cz-bg">
-            {list.length ? `${list.length} offer${list.length === 1 ? "" : "s"} in` : "Finding drivers"}
+          <StatusPill tone={live.length ? "neutral" : "amber"} dot blink className="pointer-events-auto bg-cz-bg">
+            {live.length ? `${live.length} offer${live.length === 1 ? "" : "s"} in` : "Finding drivers"}
           </StatusPill>
         </div>
       </div>
@@ -2649,7 +2703,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
       <BottomSheet className="flex-1 space-y-4">
         <div className="flex items-baseline justify-between gap-3">
           <h1 className="cz-display font-bold text-[26px] leading-tight">
-            {list.length ? `${list.length} driver${list.length === 1 ? "" : "s"} offered` : "Waiting for offers"}
+            {live.length ? `${live.length} driver${live.length === 1 ? "" : "s"} offered` : "Waiting for offers"}
           </h1>
           <span className="text-sm text-cz-muted shrink-0">
             You offered <strong className="text-cz-text">{usd(Number(job.budget))}</strong>
@@ -2663,12 +2717,13 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
             <p className="text-sm text-cz-muted">No offers yet. Drivers near you are checking your request — this updates live.</p>
           ) : (
             list.map((b: any) => {
-              const canChoose = b.status === "pending";
+              const canChoose = isLive(b);
               return (
                 <OfferCard
                   key={b.id}
                   bid={b}
-                  best={b.id === bestId && pending.length > 1}
+                  kmToPickup={locations[b.id]?.km_to_pickup ?? null}
+                  best={b.id === bestId && live.length > 1}
                   primary={b.id === bestId}
                   chooseId={b.id === bestId ? "tour-accept-bid" : undefined}
                   onChoose={canChoose ? () => ctx.acceptBid(b.id) : undefined}
@@ -2706,6 +2761,8 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
           </CzCard>
         </div>
 
+        <RaisePriceCard job={job} onRaised={ctx.invalidateJob} />
+
         {ctx.showCancel && (
           <div id="tour-next-steps">
             <CancelJobDialog jobId={id} status={job.status} onCancelled={ctx.onCancelled} />
@@ -2713,6 +2770,74 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
         )}
       </BottomSheet>
     </CzScreen>
+  );
+}
+
+/**
+ * "Raise my price" (migration 0062) — inDrive-style: the customer can only
+ * go up, in quick steps, capped at the trip's allowed maximum. Drivers'
+ * feeds pick the new price up through their existing realtime / polling.
+ */
+function RaisePriceCard({ job, onRaised }: { job: any; onRaised: () => void }) {
+  const current = Number(job.budget);
+  const cap = Number((job.pricing_breakdown as { high?: number } | null)?.high) || null;
+  const [open, setOpen] = useState(false);
+  const [target, setTarget] = useState<number>(current);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => setTarget(current), [current]);
+  if (cap != null && current >= cap) return null;
+
+  const steps = [5, 10, 20].map((d) => current + d).filter((v) => cap == null || v <= cap);
+  const save = async () => {
+    if (!(target > current)) return;
+    setSaving(true);
+    const { error } = await raiseJobBudget(job.id, target);
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success(`Offer raised to ${usd(target)} — drivers can see it now`);
+    setOpen(false);
+    onRaised();
+  };
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className={czButtonClass("secondary", "md")}>
+        <TrendingUp className="w-4 h-4" /> Raise my price
+      </button>
+    );
+  }
+  return (
+    <CzCard className="space-y-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="font-semibold">Raise your offer</div>
+        <div className="text-[13px] text-cz-muted">Now {usd(current)}{cap != null ? ` · max ${usd(cap)}` : ""}</div>
+      </div>
+      <p className="text-[13px] text-cz-muted">A higher offer gets more drivers interested, faster. You can't lower it again.</p>
+      <div className="grid grid-cols-3 gap-2">
+        {steps.map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setTarget(v)}
+            aria-pressed={target === v}
+            className={cn(
+              "min-h-12 rounded-xl text-[15px] font-semibold tabular-nums",
+              target === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-[#33353b] bg-cz-surface",
+            )}
+          >
+            +{usd(v - current)}
+          </button>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-2.5">
+        <CzButton size="md" kind="ghost" onClick={() => setOpen(false)} disabled={saving}>
+          Not now
+        </CzButton>
+        <CzButton size="md" onClick={save} disabled={saving || !(target > current)}>
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : target > current ? `Offer ${usd(target)}` : "Pick an amount"}
+        </CzButton>
+      </div>
+    </CzCard>
   );
 }
 

@@ -21,11 +21,47 @@ export function deliveryPinIcon(label: string | null = "Deliver here") {
   });
 }
 
+/** Approximate truck position (~1 km) with an optional label, e.g. "$150". */
+export function truckMarkerIcon(label?: string | null) {
+  const tag = label
+    ? `<span style="position:absolute;left:34px;top:5px;white-space:nowrap;padding:3px 8px;border-radius:999px;background:#F5A524;color:#1A1204;font:700 12px Barlow,system-ui,sans-serif">${label}</span>`
+    : "";
+  return L.divIcon({
+    className: "",
+    html: `<div style="position:relative;width:32px;height:32px;border-radius:9px;background:#121316;border:1.5px solid #F5A524;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,.4)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5A524" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h12v9H2z"/><path d="M14 10h4l4 3.5V16h-8"/><circle cx="6" cy="17.5" r="1.8"/><circle cx="18" cy="17.5" r="1.8"/></svg>${tag}</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  });
+}
+
+export type TruckMarker = { lat: number; lng: number; label?: string | null };
+
 function Recenter({ lat, lng, zoom }: { lat: number; lng: number; zoom: number }) {
   const map = useMap();
   useEffect(() => {
     map.setView([lat, lng], zoom);
   }, [lat, lng, zoom, map]);
+  return null;
+}
+
+/** Zooms out just enough to show the pin plus any truck markers. */
+function FitPoints({
+  point,
+  trucks,
+}: {
+  point: { lat: number; lng: number };
+  trucks: TruckMarker[];
+}) {
+  const map = useMap();
+  const key = trucks.map((t) => `${t.lat},${t.lng}`).join("|");
+  useEffect(() => {
+    if (!trucks.length) return;
+    map.fitBounds(
+      [[point.lat, point.lng], ...trucks.map((t) => [t.lat, t.lng] as [number, number])],
+      { padding: [48, 48], maxZoom: 14 },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, point.lat, point.lng, map]);
   return null;
 }
 
@@ -50,11 +86,14 @@ export function PinMap({
   label = "Deliver here",
   zoom = 14,
   className,
+  trucks = [],
 }: {
   point: { lat: number; lng: number };
   label?: string | null;
   zoom?: number;
   className?: string;
+  /** Approximate positions of Online trucks (migration 0062). */
+  trucks?: TruckMarker[];
 }) {
   return (
     <div className={className} style={{ background: "#1a1c20" }}>
@@ -68,6 +107,7 @@ export function PinMap({
       >
         <ResizeFix />
         <Recenter lat={point.lat} lng={point.lng} zoom={zoom} />
+        <FitPoints point={point} trucks={trucks} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
@@ -79,6 +119,14 @@ export function PinMap({
           icon={deliveryPinIcon(label)}
           interactive={false}
         />
+        {trucks.map((t, i) => (
+          <Marker
+            key={`${t.lat},${t.lng},${i}`}
+            position={[t.lat, t.lng]}
+            icon={truckMarkerIcon(t.label)}
+            interactive={false}
+          />
+        ))}
       </MapContainer>
     </div>
   );

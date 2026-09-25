@@ -28,7 +28,7 @@ Zimbabwe.
 
 Migrations live in `supabase/migrations/`, named
 `YYYYMMDDHHMMSS_NNNN_description.sql` where NNNN is a sequential 4-digit
-counter (currently up to 0061) kept **on top of** the raw timestamp-named
+counter (currently up to 0062) kept **on top of** the raw timestamp-named
 files from early development. Always:
 
 1. Check the latest applied migration version live (not just what's in git —
@@ -126,6 +126,13 @@ stop this recurring, but verify rather than assume.
   RPCs (kept, not dropped — re-GRANT to restore). `require_admin_mfa()`
   stays a no-op for its 8 callers; `mfa_recovery_*` tables kept as audit
   history. Frontend `/mfa` page and admin Security tab deleted.
+
+- `0062_offer_expiry_raise_price_nearby_trucks` (applied as
+  20260925165036), owner said "do what similar apps do": driver offers
+  valid 30 min (`bids.expires_at`, trigger-enforced; resend restarts),
+  `raise_job_budget()` (raise-only, capped at pricing_breakdown.high),
+  `nearby_available_trucks()` / `job_bidder_locations()` (~1 km-rounded,
+  Online + verified drivers only, no ids).
 
 ## Resolved since the above list was written
 

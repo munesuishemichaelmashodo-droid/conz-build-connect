@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -50,4 +51,72 @@ export function useCustomerCards(jobIds: string[]) {
     },
   });
   return data ?? {};
+}
+
+// Migration 0062 -------------------------------------------------------------
+export type TruckPoint = { lat: number; lng: number };
+export type BidderLocation = {
+  bid_id: string;
+  lat: number;
+  lng: number;
+  km_to_pickup: number | null;
+};
+
+export const raiseJobBudget = (jobId: string, newBudget: number) =>
+  call<number>("raise_job_budget", { _job_id: jobId, _new_budget: newBudget });
+export const nearbyAvailableTrucks = (lat: number, lng: number) =>
+  call<TruckPoint[]>("nearby_available_trucks", { _lat: lat, _lng: lng });
+export const jobBidderLocations = (jobId: string) =>
+  call<BidderLocation[]>("job_bidder_locations", { _job_id: jobId });
+
+/** Approximate (~1 km) positions of Online, verified trucks near a point. */
+export function useNearbyTrucks(point: { lat: number; lng: number } | null) {
+  const lat = point ? Math.round(point.lat * 100) / 100 : null;
+  const lng = point ? Math.round(point.lng * 100) / 100 : null;
+  const { data } = useQuery({
+    queryKey: ["nearby-trucks", lat, lng],
+    enabled: lat != null && lng != null,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await nearbyAvailableTrucks(lat!, lng!);
+      if (error) return [] as TruckPoint[];
+      return (data ?? []).map((p) => ({ lat: Number(p.lat), lng: Number(p.lng) }));
+    },
+  });
+  return data ?? [];
+}
+
+/** Rough position + distance to pickup of each Online driver who bid. */
+export function useBidderLocations(jobId: string, enabled: boolean) {
+  const { data } = useQuery({
+    queryKey: ["bidder-locations", jobId],
+    enabled,
+    refetchInterval: 30_000,
+    queryFn: async () => {
+      const { data, error } = await jobBidderLocations(jobId);
+      if (error) return {} as Record<string, BidderLocation>;
+      return Object.fromEntries(
+        (data ?? []).map((b) => [b.bid_id, { ...b, lat: Number(b.lat), lng: Number(b.lng) }]),
+      ) as Record<string, BidderLocation>;
+    },
+  });
+  return data ?? {};
+}
+
+/** Seconds left until `iso`, ticking every second; null when no expiry. */
+export function useSecondsLeft(iso: string | null | undefined) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!iso) return;
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, [iso]);
+  if (!iso) return null;
+  return Math.max(0, Math.floor((new Date(iso).getTime() - now) / 1000));
+}
+
+export function mmss(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
