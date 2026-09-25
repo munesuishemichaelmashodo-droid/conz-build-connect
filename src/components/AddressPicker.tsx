@@ -20,7 +20,7 @@ const pinIcon = L.divIcon({
 // Redesign pin: amber, pulsing ring, inline SVG (no emoji).
 const czPinIcon = L.divIcon({
   className: "",
-  html: `<div style="position:relative;width:44px;height:50px"><span class="cz-pulse-ring" style="position:absolute;left:2px;top:8px;width:40px;height:40px;border-radius:50%;background:rgba(245,165,36,.28)"></span><svg width="44" height="50" viewBox="0 0 24 26" style="position:relative;display:block"><path d="M12 1C7 1 3 5 3 10c0 6.5 9 15 9 15s9-8.5 9-15c0-5-4-9-9-9z" fill="#F5A524" stroke="#1A1204" stroke-width=".6"/><circle cx="12" cy="10" r="3.5" fill="#1A1204"/></svg></div>`,
+  html: `<div style="position:relative;width:44px;height:50px"><span class="cz-pulse-ring" style="position:absolute;left:2px;top:8px;width:40px;height:40px;border-radius:50%;background:rgba(251,114,1,.28)"></span><svg width="44" height="50" viewBox="0 0 24 26" style="position:relative;display:block"><path d="M12 1C7 1 3 5 3 10c0 6.5 9 15 9 15s9-8.5 9-15c0-5-4-9-9-9z" fill="#FB7201" stroke="#0B0B0C" stroke-width=".6"/><circle cx="12" cy="10" r="3.5" fill="#0B0B0C"/></svg></div>`,
   iconSize: [44, 50],
   iconAnchor: [22, 48],
 });

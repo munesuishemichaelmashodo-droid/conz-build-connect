@@ -8,13 +8,13 @@ import { CARTO_VOYAGER_TILES } from "@/lib/map-tiles";
  *  Inline SVG (no emoji) so it renders the same on every Android WebView. */
 export function deliveryPinIcon(label: string | null = "Deliver here") {
   const tag = label
-    ? `<div style="position:absolute;left:50%;bottom:58px;transform:translateX(-50%);white-space:nowrap;padding:5px 12px;border-radius:999px;background:#121316;color:#F2F0EB;font:600 13px Barlow,system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.4)">${label}</div>`
+    ? `<div style="position:absolute;left:50%;bottom:58px;transform:translateX(-50%);white-space:nowrap;padding:5px 12px;border-radius:999px;background:#121214;color:#F6F4F0;font:600 13px Barlow,system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.4)">${label}</div>`
     : "";
   return L.divIcon({
     className: "",
     html: `<div style="position:relative;width:44px;height:50px">
-      <span class="cz-pulse-ring" style="position:absolute;left:2px;top:28px;width:40px;height:40px;margin-top:-20px;border-radius:50%;background:rgba(245,165,36,.28)"></span>
-      <svg width="44" height="50" viewBox="0 0 24 26" style="position:relative;display:block"><path d="M12 1C7 1 3 5 3 10c0 6.5 9 15 9 15s9-8.5 9-15c0-5-4-9-9-9z" fill="#F5A524" stroke="#1A1204" stroke-width=".6"/><circle cx="12" cy="10" r="3.5" fill="#1A1204"/></svg>
+      <span class="cz-pulse-ring" style="position:absolute;left:2px;top:28px;width:40px;height:40px;margin-top:-20px;border-radius:50%;background:rgba(251,114,1,.28)"></span>
+      <svg width="44" height="50" viewBox="0 0 24 26" style="position:relative;display:block"><path d="M12 1C7 1 3 5 3 10c0 6.5 9 15 9 15s9-8.5 9-15c0-5-4-9-9-9z" fill="#FB7201" stroke="#0B0B0C" stroke-width=".6"/><circle cx="12" cy="10" r="3.5" fill="#0B0B0C"/></svg>
       ${tag}
     </div>`,
     iconSize: [44, 50],
@@ -25,11 +25,11 @@ export function deliveryPinIcon(label: string | null = "Deliver here") {
 /** Approximate truck position (~1 km) with an optional label, e.g. "$150". */
 export function truckMarkerIcon(label?: string | null) {
   const tag = label
-    ? `<span style="position:absolute;left:34px;top:5px;white-space:nowrap;padding:3px 8px;border-radius:999px;background:#F5A524;color:#1A1204;font:700 12px Barlow,system-ui,sans-serif">${label}</span>`
+    ? `<span style="position:absolute;left:34px;top:5px;white-space:nowrap;padding:3px 8px;border-radius:999px;background:#FB7201;color:#0B0B0C;font:700 12px Barlow,system-ui,sans-serif">${label}</span>`
     : "";
   return L.divIcon({
     className: "",
-    html: `<div style="position:relative;width:32px;height:32px;border-radius:9px;background:#121316;border:1.5px solid #F5A524;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,.4)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5A524" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h12v9H2z"/><path d="M14 10h4l4 3.5V16h-8"/><circle cx="6" cy="17.5" r="1.8"/><circle cx="18" cy="17.5" r="1.8"/></svg>${tag}</div>`,
+    html: `<div style="position:relative;width:32px;height:32px;border-radius:9px;background:#121214;border:1.5px solid #FB7201;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,.4)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FB7201" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h12v9H2z"/><path d="M14 10h4l4 3.5V16h-8"/><circle cx="6" cy="17.5" r="1.8"/><circle cx="18" cy="17.5" r="1.8"/></svg>${tag}</div>`,
     iconSize: [32, 32],
     iconAnchor: [16, 16],
   });

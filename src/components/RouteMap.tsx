@@ -39,13 +39,13 @@ function ResizeFix() {
 // Android WebView (the emoji markers above depend on the device font).
 const czTruckIcon = L.divIcon({
   className: "",
-  html: `<div style="width:38px;height:38px;border-radius:12px;background:#121316;border:2px solid #F5A524;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.45)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5A524" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h12v9H2z"/><path d="M14 10h4l4 3.5V16h-8"/><circle cx="6" cy="17.5" r="1.8"/><circle cx="18" cy="17.5" r="1.8"/></svg></div>`,
+  html: `<div style="width:38px;height:38px;border-radius:12px;background:#121214;border:2px solid #FB7201;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.45)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FB7201" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h12v9H2z"/><path d="M14 10h4l4 3.5V16h-8"/><circle cx="6" cy="17.5" r="1.8"/><circle cx="18" cy="17.5" r="1.8"/></svg></div>`,
   iconSize: [38, 38],
   iconAnchor: [19, 19],
 });
 const czDestIcon = L.divIcon({
   className: "",
-  html: `<svg width="36" height="40" viewBox="0 0 24 26" style="display:block;filter:drop-shadow(0 3px 6px rgba(0,0,0,.45))"><path d="M12 1C7 1 3 5 3 10c0 6.5 9 15 9 15s9-8.5 9-15c0-5-4-9-9-9z" fill="#F2F0EB" stroke="#121316" stroke-width=".8"/><rect x="8.5" y="6.5" width="7" height="7" rx="1" fill="#121316"/></svg>`,
+  html: `<svg width="36" height="40" viewBox="0 0 24 26" style="display:block;filter:drop-shadow(0 3px 6px rgba(0,0,0,.45))"><path d="M12 1C7 1 3 5 3 10c0 6.5 9 15 9 15s9-8.5 9-15c0-5-4-9-9-9z" fill="#F6F4F0" stroke="#121214" stroke-width=".8"/><rect x="8.5" y="6.5" width="7" height="7" rx="1" fill="#121214"/></svg>`,
   iconSize: [36, 40],
   iconAnchor: [18, 38],
 });
@@ -162,7 +162,7 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
             </Marker>
           )}
           {route?.coords?.length ? (
-            <Polyline positions={route.coords} pathOptions={{ color: "#F5A524", weight: 5, opacity: 0.9 }} />
+            <Polyline positions={route.coords} pathOptions={{ color: "#FB7201", weight: 5, opacity: 0.9 }} />
           ) : null}
         </MapContainer>
       </div>

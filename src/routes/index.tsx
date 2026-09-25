@@ -82,7 +82,7 @@ function Welcome() {
           <Link to="/quote" className="flex items-center justify-center gap-2 w-full h-12 rounded-xl bg-white/10 border border-white/20 font-display font-bold uppercase tracking-wider">
             Check a price — no sign-up
           </Link>
-          <Link to="/auth" search={{ mode: "register" } as never} className="flex items-center justify-center gap-2 w-full h-12 rounded-xl bg-gradient-primary font-display font-bold uppercase tracking-wider shadow-lift">
+          <Link to="/auth" search={{ mode: "register" } as never} className="flex items-center justify-center gap-2 w-full h-12 rounded-xl bg-gradient-primary text-[#0b0b0c] font-display font-bold uppercase tracking-wider shadow-lift active:scale-[0.98] transition">
             Get started <ArrowRight className="w-4 h-4" />
           </Link>
           <Link to="/auth" search={{ mode: "login" } as never} className="flex items-center justify-center w-full h-12 rounded-xl bg-white/10 border border-white/15 font-display font-semibold uppercase tracking-wider">

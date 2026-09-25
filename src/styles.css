@@ -58,23 +58,27 @@
   --color-sidebar-ring: var(--sidebar-ring);
 
   --font-display: "Barlow Condensed", system-ui, sans-serif;
-  --font-sans: "Inter", system-ui, sans-serif;
+  --font-sans: "Barlow", system-ui, sans-serif;
 
   /* Driver / customer mode redesign ("cz") palette — see .cz-screen below. */
-  --color-cz-bg: #121316;
-  --color-cz-bg-deep: #0b0c0e;
-  --color-cz-surface: #1c1d21;
-  --color-cz-surface-2: #26282d;
-  --color-cz-border: #2a2c31;
-  --color-cz-border-strong: #3a3c42;
-  --color-cz-text: #f2f0eb;
-  --color-cz-muted: #a3a6ae;
-  --color-cz-faint: #8a8d95;
-  --color-cz-amber: #f5a524;
-  --color-cz-amber-ink: #1a1204;
-  --color-cz-amber-tint: #2a1f0b;
-  --color-cz-amber-tint-2: #3a2a0c;
-  --color-cz-amber-text: #ffc35c;
+  --color-cz-bg: #121214;
+  --color-cz-bg-deep: #0a0a0b;
+  --color-cz-surface: #1b1b1f;
+  --color-cz-surface-2: #26262b;
+  --color-cz-border: #2c2c32;
+  --color-cz-border-strong: #3d3d44;
+  --color-cz-text: #f6f4f0;
+  --color-cz-muted: #a7a7af;
+  --color-cz-faint: #8d8d96;
+  /* Brand orange, sampled from the logo (public/conz-logo.png). The
+     "amber" token names are kept so no component had to be renamed. */
+  --color-cz-amber: #fb7201;
+  --color-cz-amber-hi: #ff8f2e;
+  --color-cz-amber-lo: #e85f00;
+  --color-cz-amber-ink: #0b0b0c; /* the logo's black */
+  --color-cz-amber-tint: #2b1706;
+  --color-cz-amber-tint-2: #3d2008;
+  --color-cz-amber-text: #ff9d52;
   --color-cz-green: #3dbe74;
   --color-cz-green-tint: #12301f;
   --color-cz-green-border: #2c6b47;
@@ -85,7 +89,7 @@
   --color-cz-info-text: #9cc7f5;
   --color-cz-warn-tint: #3a1e12;
   --color-cz-warn-text: #ffb08a;
-  --color-cz-upcoming: #2e3035;
+  --color-cz-upcoming: #303036;
   --font-cz: "Barlow", system-ui, sans-serif;
   --font-cz-display: "Barlow Condensed", system-ui, sans-serif;
 }
@@ -99,14 +103,14 @@
   --card-foreground: oklch(0.22 0.015 60);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.22 0.015 60);
-  --primary: oklch(0.69 0.19 49);            /* safety orange */
-  --primary-foreground: oklch(0.99 0 0);
+  --primary: #fb7201;                         /* logo orange */
+  --primary-foreground: #0b0b0c;              /* logo black: 7.6:1 on orange */
   --secondary: oklch(0.27 0.015 60);          /* dark gray */
   --secondary-foreground: oklch(0.99 0 0);
   --muted: oklch(0.96 0.005 60);
   --muted-foreground: oklch(0.5 0.015 60);
-  --accent: oklch(0.95 0.04 60);              /* soft orange tint */
-  --accent-foreground: oklch(0.27 0.015 60);
+  --accent: #fff1e5;                          /* soft orange tint */
+  --accent-foreground: #4a2200;
   --destructive: oklch(0.58 0.22 27);
   --destructive-foreground: oklch(0.99 0 0);
   --success: oklch(0.62 0.16 145);
@@ -115,9 +119,9 @@
   --warning-foreground: oklch(0.2 0 0);
   --border: oklch(0.91 0.008 60);
   --input: oklch(0.94 0.008 60);
-  --ring: oklch(0.69 0.19 49);
+  --ring: #fb7201;
 
-  --chart-1: oklch(0.69 0.19 49);
+  --chart-1: #fb7201;
   --chart-2: oklch(0.27 0.015 60);
   --chart-3: oklch(0.62 0.16 145);
   --chart-4: oklch(0.78 0.16 80);
@@ -125,57 +129,59 @@
 
   --sidebar: oklch(0.97 0.005 60);
   --sidebar-foreground: oklch(0.22 0.015 60);
-  --sidebar-primary: oklch(0.69 0.19 49);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-primary: #fb7201;
+  --sidebar-primary-foreground: #0b0b0c;
   --sidebar-accent: oklch(0.94 0.008 60);
   --sidebar-accent-foreground: oklch(0.27 0.015 60);
   --sidebar-border: oklch(0.91 0.008 60);
-  --sidebar-ring: oklch(0.69 0.19 49);
+  --sidebar-ring: #fb7201;
 
-  --gradient-primary: linear-gradient(135deg, oklch(0.72 0.2 55), oklch(0.62 0.21 38));
+  --gradient-primary: linear-gradient(135deg, #ff8f2e, #f25c00);
   --gradient-dark: linear-gradient(160deg, oklch(0.22 0.015 60), oklch(0.12 0.01 60));
-  --shadow-lift: 0 10px 30px -12px oklch(0.69 0.19 49 / 0.35);
+  --shadow-lift: 0 10px 30px -12px rgb(251 114 1 / 0.45);
   --shadow-soft: 0 2px 12px -4px oklch(0.22 0.015 60 / 0.12);
 }
 
 .dark {
-  /* Deep near-black canvas with warm vivid safety orange, matching CON Z mocks */
-  --background: oklch(0.06 0.003 60);
-  --foreground: oklch(0.985 0.003 60);
-  --card: oklch(0.14 0.006 55);
-  --card-foreground: oklch(0.985 0.003 60);
-  --popover: oklch(0.11 0.006 55);
-  --popover-foreground: oklch(0.985 0.003 60);
-  --primary: oklch(0.72 0.19 48);
-  --primary-foreground: oklch(0.14 0.006 55);
-  --secondary: oklch(0.19 0.008 55);
-  --secondary-foreground: oklch(0.97 0.003 60);
-  --muted: oklch(0.18 0.008 55);
-  --muted-foreground: oklch(0.68 0.012 55);
-  --accent: oklch(0.32 0.09 48);
-  --accent-foreground: oklch(0.985 0.003 60);
+  /* Near-black canvas + the logo's orange (and black on orange). Neutrals
+     match the driver/customer screens (.cz-screen) so the whole app reads
+     as one product. */
+  --background: #0f0f11;
+  --foreground: #f6f4f0;
+  --card: #1b1b1f;
+  --card-foreground: #f6f4f0;
+  --popover: #17171a;
+  --popover-foreground: #f6f4f0;
+  --primary: #fb7201;
+  --primary-foreground: #0b0b0c;
+  --secondary: #222226;
+  --secondary-foreground: #f6f4f0;
+  --muted: #222226;
+  --muted-foreground: #a7a7af;
+  --accent: #3d2008;
+  --accent-foreground: #ffd9bd;
   --destructive: oklch(0.65 0.22 27);
   --destructive-foreground: oklch(0.99 0 0);
   --success: oklch(0.68 0.17 145);
   --success-foreground: oklch(0.13 0.008 60);
   --warning: oklch(0.82 0.16 80);
   --warning-foreground: oklch(0.13 0 0);
-  --border: oklch(0.22 0.008 55);
-  --input: oklch(0.2 0.008 55);
-  --ring: oklch(0.72 0.19 48);
+  --border: #2c2c32;
+  --input: #26262b;
+  --ring: #fb7201;
 
-  --sidebar: oklch(0.09 0.005 55);
-  --sidebar-foreground: oklch(0.97 0.003 60);
-  --sidebar-primary: oklch(0.72 0.19 48);
-  --sidebar-primary-foreground: oklch(0.14 0.006 55);
-  --sidebar-accent: oklch(0.18 0.008 55);
-  --sidebar-accent-foreground: oklch(0.97 0.003 60);
-  --sidebar-border: oklch(0.22 0.008 55);
-  --sidebar-ring: oklch(0.72 0.19 48);
+  --sidebar: #131316;
+  --sidebar-foreground: #f6f4f0;
+  --sidebar-primary: #fb7201;
+  --sidebar-primary-foreground: #0b0b0c;
+  --sidebar-accent: #222226;
+  --sidebar-accent-foreground: #f6f4f0;
+  --sidebar-border: #2c2c32;
+  --sidebar-ring: #fb7201;
 
-  --gradient-primary: linear-gradient(135deg, oklch(0.76 0.19 55), oklch(0.66 0.21 38));
-  --gradient-dark: linear-gradient(160deg, oklch(0.16 0.008 55), oklch(0.07 0.005 55));
-  --shadow-lift: 0 12px 32px -14px oklch(0.72 0.19 48 / 0.55);
+  --gradient-primary: linear-gradient(135deg, #ff8f2e, #f25c00);
+  --gradient-dark: linear-gradient(160deg, #1d1d21, #0b0b0c);
+  --shadow-lift: 0 12px 32px -14px rgb(251 114 1 / 0.55);
   --shadow-soft: 0 2px 14px -4px oklch(0 0 0 / 0.6);
 }
 
@@ -221,30 +227,30 @@
  * Pages outside the redesign are untouched.
  */
 .cz-screen {
-  --background: #121316;
-  --foreground: #f2f0eb;
-  --card: #1c1d21;
-  --card-foreground: #f2f0eb;
-  --popover: #1c1d21;
-  --popover-foreground: #f2f0eb;
-  --primary: #f5a524;
-  --primary-foreground: #1a1204;
-  --secondary: #26282d;
-  --secondary-foreground: #f2f0eb;
-  --muted: #26282d;
-  --muted-foreground: #a3a6ae;
-  --accent: #2a1f0b;
-  --accent-foreground: #ffc35c;
+  --background: #121214;
+  --foreground: #f6f4f0;
+  --card: #1b1b1f;
+  --card-foreground: #f6f4f0;
+  --popover: #1b1b1f;
+  --popover-foreground: #f6f4f0;
+  --primary: #fb7201;
+  --primary-foreground: #0b0b0c;
+  --secondary: #26262b;
+  --secondary-foreground: #f6f4f0;
+  --muted: #26262b;
+  --muted-foreground: #a7a7af;
+  --accent: #2b1706;
+  --accent-foreground: #ff9d52;
   --success: #3dbe74;
   --success-foreground: #0b2416;
-  --warning: #f5a524;
-  --warning-foreground: #1a1204;
+  --warning: #fb7201;
+  --warning-foreground: #0b0b0c;
   --destructive: #e5533d;
-  --border: #2a2c31;
-  --input: #2a2c31;
-  --ring: #f5a524;
-  background-color: #121316;
-  color: #f2f0eb;
+  --border: #2c2c32;
+  --input: #2c2c32;
+  --ring: #fb7201;
+  background-color: #121214;
+  color: #f6f4f0;
   font-family: var(--font-cz);
   color-scheme: dark;
 }
@@ -262,10 +268,36 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.25; }
 }
+/* Screen entrance: opacity only. A transform here would make the screen a
+   containing block for position:fixed/sticky children (bottom nav, sticky
+   footers) while it runs. Sheets/cards get their own slide (cz-slide-up). */
+@keyframes cz-rise {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes cz-slide-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+.cz-slide-up { animation: cz-slide-up 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes cz-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(251 114 1 / 0); }
+  50% { box-shadow: 0 0 10px 1px rgb(251 114 1 / 0.55); }
+}
+/* Primary action: logo orange with a light top-left sheen and a warm glow,
+   so the one thing to tap on each screen stands out. */
+.cz-btn-primary {
+  background-image: linear-gradient(135deg, var(--color-cz-amber-hi) 0%, var(--color-cz-amber) 45%, var(--color-cz-amber-lo) 100%);
+  box-shadow: 0 10px 24px -12px rgb(251 114 1 / 0.75), inset 0 1px 0 rgb(255 255 255 / 0.22);
+}
+.cz-btn-primary:hover { filter: brightness(1.05); }
+.cz-rise { animation: cz-rise 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.cz-step-now { animation: cz-glow 2s ease-in-out infinite; }
+::selection { background: rgb(251 114 1 / 0.35); }
 .cz-pulse-ring { animation: cz-pulse-ring 2s ease-out infinite; }
 .cz-blink { animation: cz-blink 1.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .cz-pulse-ring, .cz-blink { animation: none; }
+  .cz-pulse-ring, .cz-blink, .cz-rise, .cz-slide-up, .cz-step-now { animation: none; }
 }
 .cz-no-scrollbar { scrollbar-width: none; }
 .cz-no-scrollbar::-webkit-scrollbar { display: none; }

@@ -49,7 +49,7 @@ export function CzScreen({
 }) {
   return (
     <div id={id} className={cn("cz-screen min-h-[100dvh] w-full", className)}>
-      <div className="mx-auto w-full max-w-[480px] min-h-[100dvh] flex flex-col">{children}</div>
+      <div className="cz-rise mx-auto w-full max-w-[480px] min-h-[100dvh] flex flex-col">{children}</div>
     </div>
   );
 }
@@ -107,7 +107,7 @@ export function BottomSheet({
     <section
       id={id}
       className={cn(
-        "relative z-10 -mt-6 rounded-t-[24px] bg-cz-bg px-5 pb-6 shadow-[0_-8px_30px_rgba(0,0,0,0.45)]",
+        "cz-slide-up relative z-10 -mt-6 rounded-t-[24px] bg-cz-bg px-5 pb-6 shadow-[0_-8px_30px_rgba(0,0,0,0.45)]",
         handle ? "pt-2.5" : "pt-5",
         className,
       )}
@@ -153,8 +153,8 @@ export function CzCard({
 type BtnKind = "primary" | "secondary" | "danger" | "ghost" | "success";
 
 const BTN: Record<BtnKind, string> = {
-  primary: "bg-cz-amber text-cz-amber-ink hover:brightness-105 active:brightness-95 font-bold",
-  secondary: "border-[1.5px] border-cz-amber text-cz-amber hover:bg-cz-amber-tint font-bold",
+  primary: "cz-btn-primary text-cz-amber-ink font-bold",
+  secondary: "border-[1.5px] border-cz-amber text-cz-amber hover:bg-cz-amber-tint active:bg-cz-amber-tint-2 font-bold",
   danger: "border border-cz-danger-border text-cz-danger-text hover:bg-cz-warn-tint font-semibold",
   ghost: "border border-cz-border-strong text-cz-text hover:bg-cz-surface font-semibold",
   success: "bg-cz-green text-[#0b2416] hover:brightness-105 font-bold",
@@ -166,7 +166,7 @@ export function czButtonClass(
   extra?: string,
 ) {
   return cn(
-    "inline-flex w-full items-center justify-center gap-2 rounded-[14px] px-4 text-center transition disabled:opacity-50 disabled:pointer-events-none select-none",
+    "inline-flex w-full items-center justify-center gap-2 rounded-[14px] px-4 text-center transition-[transform,background-color,box-shadow,filter] duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none select-none",
     size === "lg"
       ? "min-h-14 text-[17px]"
       : size === "md"
@@ -331,7 +331,7 @@ export function StepProgress({
               aria-hidden
               className={cn(
                 "h-[5px] rounded-full",
-                done ? "bg-cz-green" : now ? "bg-cz-amber" : "bg-cz-upcoming",
+                done ? "bg-cz-green" : now ? "bg-cz-amber cz-step-now" : "bg-cz-upcoming",
               )}
             />
             <span
@@ -445,7 +445,7 @@ export function MaterialChips<T extends string>({
               "shrink-0 whitespace-nowrap rounded-full px-4 font-semibold transition",
               size === "md" ? "min-h-11 text-sm" : "min-h-9 text-sm px-3.5",
               on
-                ? "bg-cz-amber text-cz-amber-ink font-bold"
+                ? "cz-btn-primary text-cz-amber-ink font-bold"
                 : "border border-[#33353b] bg-cz-surface text-cz-text",
             )}
           >
@@ -595,4 +595,24 @@ export function areaOf(address: string | null | undefined) {
  *  the receipt number format used by pod.functions (CONZ-XXXXXXXX). */
 export function jobRef(id: string) {
   return `CONZ-${id.slice(0, 8).toUpperCase()}`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Brand                                                               */
+/* ------------------------------------------------------------------ */
+
+/** The logo's mark: orange rounded square with the black diamond. */
+export function BrandMark({ size = 32, className }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      aria-hidden
+      className={cn("shrink-0 drop-shadow-[0_4px_10px_rgba(251,114,1,0.35)]", className)}
+    >
+      <rect width="32" height="32" rx="8" fill="#FB7201" />
+      <rect x="9.2" y="9.2" width="13.6" height="13.6" rx="1.6" transform="rotate(45 16 16)" fill="#0B0B0C" />
+    </svg>
+  );
 }

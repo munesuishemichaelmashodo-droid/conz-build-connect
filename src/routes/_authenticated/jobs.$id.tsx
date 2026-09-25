@@ -1228,7 +1228,7 @@ function BidForm({
                 aria-pressed={priceNum === v}
                 className={cn(
                   "min-h-12 rounded-xl text-[15px] font-semibold tabular-nums",
-                  priceNum === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-[#33353b] bg-cz-surface",
+                  priceNum === v ? "cz-btn-primary text-cz-amber-ink font-bold" : "border border-[#33353b] bg-cz-surface",
                 )}
               >
                 {usd(v)}
@@ -1281,7 +1281,7 @@ function BidForm({
                 aria-pressed={etaMinutes === o.v}
                 className={cn(
                   "min-h-12 rounded-xl text-[15px] font-semibold",
-                  etaMinutes === o.v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-[#33353b] bg-cz-surface",
+                  etaMinutes === o.v ? "cz-btn-primary text-cz-amber-ink font-bold" : "border border-[#33353b] bg-cz-surface",
                 )}
               >
                 {o.label}
@@ -2822,7 +2822,7 @@ function RaisePriceCard({ job, onRaised }: { job: any; onRaised: () => void }) {
             aria-pressed={target === v}
             className={cn(
               "min-h-12 rounded-xl text-[15px] font-semibold tabular-nums",
-              target === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-[#33353b] bg-cz-surface",
+              target === v ? "cz-btn-primary text-cz-amber-ink font-bold" : "border border-[#33353b] bg-cz-surface",
             )}
           >
             +{usd(v - current)}

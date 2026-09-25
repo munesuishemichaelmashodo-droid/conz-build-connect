@@ -12,7 +12,7 @@ import { DriverAvailabilityToggle } from "@/components/DriverAvailabilityToggle"
 import { LocalLocator } from "@/components/LocalLocator";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { SidePanel } from "@/components/SidePanel";
-import { CzScreen, MaterialChips, usd2 } from "@/components/redesign";
+import { BrandMark, CzScreen, MaterialChips, usd2 } from "@/components/redesign";
 import { FeedJobCard, type FeedJob } from "@/components/redesign/FeedJobCard";
 import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 import { useQuickAccept } from "@/components/redesign/useQuickAccept";
@@ -98,15 +98,18 @@ export function DriverHome({
         <JobOfferListener />
 
         <header className="flex items-center justify-between gap-2 px-5 pt-4 pb-3">
-          <div className="min-w-0">
-            <div className="cz-display font-bold text-[26px] leading-tight">
-              Con Z <span className="text-cz-amber">Driver</span>
-            </div>
-            <div className="text-[13px] text-cz-muted truncate">
-              {firstName ? `Hi ${firstName}` : "Welcome back"}
-              {trucks?.length
-                ? ` · Truck ${trucks[0].registration}${trucks.length > 1 ? ` +${trucks.length - 1}` : ""}`
-                : ""}
+          <div className="flex min-w-0 items-center gap-2.5">
+            <BrandMark size={34} className="hidden min-[380px]:block" />
+            <div className="min-w-0">
+              <div className="cz-display font-bold text-[26px] leading-tight">
+                Con Z <span className="text-cz-amber">Driver</span>
+              </div>
+              <div className="text-[13px] text-cz-muted truncate">
+                {firstName ? `Hi ${firstName}` : "Welcome back"}
+                {trucks?.length
+                  ? ` · Truck ${trucks[0].registration}${trucks.length > 1 ? ` +${trucks.length - 1}` : ""}`
+                  : ""}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-0.5 shrink-0">
@@ -119,7 +122,7 @@ export function DriverHome({
         <div className="px-5 space-y-3">
           <div
             id="tour-dashboard-hero"
-            className="rounded-[14px] border border-cz-border bg-cz-surface px-4 py-3 flex items-center justify-between gap-3"
+            className="rounded-[16px] border border-cz-amber/35 bg-[linear-gradient(135deg,var(--color-cz-amber-tint-2),var(--color-cz-surface)_70%)] px-4 py-3 flex items-center justify-between gap-3 shadow-[0_14px_30px_-20px_rgba(251,114,1,0.8)]"
           >
             <Link to="/wallet" className="flex flex-col gap-0.5 min-w-0">
               <span className="text-[13px] text-cz-muted">Today</span>

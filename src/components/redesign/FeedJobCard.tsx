@@ -68,7 +68,9 @@ export function FeedJobCard({
     <article
       className={cn(
         "rounded-[18px] border bg-cz-surface p-4 flex flex-col gap-3.5",
-        highlight ? "border-cz-amber" : "border-cz-border",
+        highlight
+          ? "border-cz-amber shadow-[0_16px_34px_-20px_rgba(251,114,1,0.7)]"
+          : "border-cz-border",
       )}
     >
       <div className="flex items-center justify-between gap-2">
