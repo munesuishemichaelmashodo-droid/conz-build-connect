@@ -39,6 +39,7 @@ import {
   usd,
   usd2,
 } from "@/components/redesign";
+import { useNearbyTrucks } from "@/components/redesign/rpc";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 
@@ -248,6 +249,10 @@ function BookDelivery() {
     void suggestion;
   }, [suggestion]);
 
+  // Approximate (~1 km) Online trucks around the pin, or Harare by default
+  // (migration 0062).
+  const nearbyTrucks = useNearbyTrucks(coords ?? { lat: -17.8252, lng: 31.0335 });
+
   if (!is("customer")) {
     return (
       <AppShell title="Book delivery">
@@ -414,6 +419,7 @@ function BookDelivery() {
               label="Deliver to"
               value={address}
               initialCoords={coords}
+              trucks={nearbyTrucks}
               controlsBottom={sheetOpenExtra ? 470 : 372}
               leading={
                 <button

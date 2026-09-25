@@ -6,7 +6,9 @@ import { CheckCircle2, Loader2, LocateFixed, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { truckMarkerIcon, type TruckMarker } from "@/components/redesign/PinMap";
 import { reverseGeocode, searchAddress, type BoundingBox, type GeocodeResult } from "@/lib/osm-geocode";
+import { CARTO_VOYAGER_TILES } from "@/lib/map-tiles";
 
 const pinIcon = L.divIcon({
   className: "",
@@ -96,6 +98,7 @@ export function AddressPicker({
   trailing,
   controlsBottom = 360,
   initialCoords,
+  trucks = [],
 }: {
   value: string;
   onChange: (address: string, coords?: { lat: number; lng: number }) => void;
@@ -113,6 +116,8 @@ export function AddressPicker({
   controlsBottom?: number;
   /** Pre-confirmed point (e.g. "Book this driver again"), shown as the pin. */
   initialCoords?: { lat: number; lng: number } | null;
+  /** fullscreen only: approximate Online trucks nearby (migration 0062). */
+  trucks?: TruckMarker[];
 }) {
   const [coords, setCoords] = useState<{ lat: number; lng: number }>(initialCoords ?? { lat: -17.8252, lng: 31.0335 });
   const [hasPin, setHasPin] = useState(!!initialCoords);
@@ -239,7 +244,7 @@ export function AddressPicker({
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+              url={CARTO_VOYAGER_TILES}
               subdomains="abcd"
               maxZoom={20}
             />
@@ -247,6 +252,9 @@ export function AddressPicker({
             <FitBounds bbox={bbox} />
             <ClickToPlace onPick={(lat, lng) => void setPin(lat, lng)} />
             {hasPin && <DraggableMarker position={coords} icon={czPinIcon} onDragEnd={(lat, lng) => void setPin(lat, lng)} />}
+            {trucks.map((t, i) => (
+              <Marker key={`${t.lat},${t.lng},${i}`} position={[t.lat, t.lng]} icon={truckMarkerIcon()} interactive={false} />
+            ))}
           </MapContainer>
         </div>
 
@@ -324,13 +332,18 @@ export function AddressPicker({
             <button
               type="button"
               onClick={() => setManualMode((v) => !v)}
-              className="min-h-9 rounded-full bg-cz-bg/90 px-3 text-xs font-semibold text-cz-muted shadow"
+              className="min-h-9 whitespace-nowrap rounded-full bg-cz-bg/90 px-3 text-xs font-semibold text-cz-muted shadow"
             >
-              {manualMode ? "Hide coordinates" : "Enter coordinates"}
+              {manualMode ? "Hide" : "Coordinates"}
             </button>
+            {trucks.length > 0 && (
+              <span className="inline-flex min-h-9 items-center whitespace-nowrap rounded-full bg-cz-bg/90 px-3 text-xs font-semibold text-cz-amber-text shadow">
+                {trucks.length} truck{trucks.length === 1 ? "" : "s"} nearby
+              </span>
+            )}
             {hasPin && confirmed && (
-              <span className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-cz-green-border bg-cz-green-tint px-3 text-xs font-semibold text-cz-green-text">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Location confirmed
+              <span className="inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border border-cz-green-border bg-cz-green-tint px-3 text-xs font-semibold text-cz-green-text">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Confirmed
               </span>
             )}
           </div>
@@ -514,7 +527,7 @@ export function AddressPicker({
         >
           <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                    url={CARTO_VOYAGER_TILES}
                     subdomains="abcd"
                     maxZoom={20}
                   />

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Clock, ShieldCheck, Star, Truck } from "lucide-react";
+import { Clock, MapPin, ShieldCheck, Star, Truck } from "lucide-react";
+import { mmss, useSecondsLeft } from "@/components/redesign/rpc";
 import { levelInfo } from "@/lib/domain";
 import { cn } from "@/lib/utils";
 import { InitialsAvatar, czButtonClass, usd } from "@/components/redesign";
@@ -17,6 +18,8 @@ export type OfferBid = {
   estimated_trips?: number | null;
   /** "I can reach pickup in" minutes (migration 0060). */
   eta_minutes?: number | null;
+  /** Offer validity (migration 0062). */
+  expires_at?: string | null;
   profile?: { full_name?: string | null; avatar_url?: string | null } | null;
   driver?: {
     rating_avg?: number | null;
@@ -39,6 +42,7 @@ export function OfferCard({
   onChoose,
   chooseId,
   children,
+  kmToPickup,
 }: {
   bid: OfferBid;
   best?: boolean;
@@ -46,7 +50,11 @@ export function OfferCard({
   onChoose?: () => void;
   chooseId?: string;
   children?: ReactNode;
+  /** Approximate distance of an Online driver from pickup (migration 0062). */
+  kmToPickup?: number | null;
 }) {
+  const secondsLeft = useSecondsLeft(bid.expires_at);
+  const expired = secondsLeft === 0;
   const name = bid.profile?.full_name ?? "Driver";
   const first = name.split(" ")[0];
   const verified = bid.driver?.verification_status === "verified";
@@ -54,7 +62,8 @@ export function OfferCard({
     <div
       className={cn(
         "rounded-[18px] border bg-cz-surface p-4",
-        best ? "border-cz-amber" : "border-cz-border",
+        best && !expired ? "border-cz-amber" : "border-cz-border",
+        expired && "opacity-60",
       )}
     >
       <div className="flex items-start gap-3">
@@ -79,6 +88,12 @@ export function OfferCard({
             {bid.driver?.level && <span>{levelInfo(bid.driver.level).label}</span>}
             {bid.driver && <span>{bid.driver.jobs_completed ?? 0} jobs</span>}
           </div>
+          {kmToPickup != null && (
+            <div className="mt-1 flex items-center gap-1 text-[13px] text-cz-muted">
+              <MapPin className="w-3.5 h-3.5" /> About{" "}
+              {Number(kmToPickup) < 1 ? "1" : Math.round(Number(kmToPickup))} km from pickup
+            </div>
+          )}
           {Number(bid.eta_minutes) > 0 && (
             <div className="mt-1 flex items-center gap-1 text-[13px] font-semibold text-cz-amber-text">
               <Clock className="w-3.5 h-3.5" /> Can reach pickup in{" "}
@@ -132,7 +147,21 @@ export function OfferCard({
         </p>
       )}
 
+      {secondsLeft != null && (
+        <div
+          className={cn(
+            "mt-2 text-xs",
+            expired ? "font-semibold text-cz-danger-text" : "text-cz-faint",
+          )}
+        >
+          {expired
+            ? "Offer expired — the driver can send it again"
+            : `Offer valid for ${mmss(secondsLeft)}`}
+        </div>
+      )}
+
       {onChoose &&
+        !expired &&
         (primary ? (
           <button
             id={chooseId}
