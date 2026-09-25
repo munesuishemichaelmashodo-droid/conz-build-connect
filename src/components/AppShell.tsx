@@ -2,9 +2,17 @@ import { useAuth } from "@/lib/auth";
 import type { ReactNode } from "react";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { SidePanel } from "@/components/SidePanel";
+import { useRouterState } from "@tanstack/react-router";
+import { useViewMode } from "@/lib/view-mode";
+import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 
 export function AppShell({ title, children, action }: { title?: string; children: ReactNode; action?: ReactNode }) {
   const { profile } = useAuth();
+  const { activeRole } = useViewMode();
+  const path = useRouterState({ select: (st) => st.location.pathname });
+  // Driver mode: Wallet and Profile are two of the bottom-nav tabs, so keep
+  // the nav visible there too (the other two tabs are redesigned screens).
+  const showDriverNav = activeRole === "driver" && (path.startsWith("/wallet") || path.startsWith("/profile"));
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -31,7 +39,8 @@ export function AppShell({ title, children, action }: { title?: string; children
         </div>
       </header>
 
-      <main className="flex-1 mx-auto w-full max-w-screen-sm px-4 py-4 pb-6">{children}</main>
+      <main className={`flex-1 mx-auto w-full max-w-screen-sm px-4 py-4 ${showDriverNav ? DRIVER_NAV_SPACE : "pb-6"}`}>{children}</main>
+      {showDriverNav && <DriverBottomNav />}
     </div>
   );
 }
