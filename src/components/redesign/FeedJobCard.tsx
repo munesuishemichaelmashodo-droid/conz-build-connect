@@ -2,7 +2,15 @@ import { Link } from "@tanstack/react-router";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { materialLabel } from "@/lib/domain";
 import { cn } from "@/lib/utils";
-import { MaterialBadge, RouteStops, areaOf, czButtonClass, straightKm, timeAgo, usd } from "@/components/redesign";
+import {
+  MaterialBadge,
+  RouteStops,
+  areaOf,
+  czButtonClass,
+  straightKm,
+  timeAgo,
+  usd,
+} from "@/components/redesign";
 
 export type FeedJob = {
   id: string;
@@ -63,7 +71,9 @@ export function FeedJobCard({
         <MaterialBadge highlight={!!highlight}>
           {materialLabel(job.material as never, job.custom_material)} · {Number(job.quantity_m3)} m³
         </MaterialBadge>
-        {job.created_at && <span className="text-[13px] text-cz-muted shrink-0">{timeAgo(job.created_at)}</span>}
+        {job.created_at && (
+          <span className="text-[13px] text-cz-muted shrink-0">{timeAgo(job.created_at)}</span>
+        )}
       </div>
 
       <Link to="/jobs/$id" params={{ id: job.id }} className="block">
@@ -77,7 +87,9 @@ export function FeedJobCard({
       <div className="flex items-end justify-between gap-3 border-t border-cz-border pt-3">
         <div className="flex flex-col gap-0.5">
           <span className="text-[13px] text-cz-muted">Customer offers</span>
-          <span className="cz-display font-bold text-[34px] leading-none tabular-nums">{usd(price)}</span>
+          <span className="cz-display font-bold text-[34px] leading-none tabular-nums">
+            {usd(price)}
+          </span>
         </div>
         <div className="flex flex-col items-end gap-1 text-right min-w-0">
           {escrow && (
@@ -86,9 +98,15 @@ export function FeedJobCard({
             </span>
           )}
           {matchTier && MATCH_LABEL[matchTier] && (
-            <span className="text-[13px] text-cz-muted truncate max-w-[180px]">{MATCH_LABEL[matchTier]}</span>
+            <span className="text-[13px] text-cz-muted truncate max-w-[180px]">
+              {MATCH_LABEL[matchTier]}
+            </span>
           )}
-          {!escrow && <span className="text-[13px] text-cz-muted">{areaOf(job.delivery_address)} · Direct pay</span>}
+          {!escrow && (
+            <span className="text-[13px] text-cz-muted">
+              {areaOf(job.delivery_address)} · Direct pay
+            </span>
+          )}
         </div>
       </div>
 
@@ -98,7 +116,11 @@ export function FeedJobCard({
             type="button"
             onClick={onAccept}
             disabled={accepting}
-            className={czButtonClass("primary", "md", "min-h-[50px] text-base")}
+            className={czButtonClass(
+              "primary",
+              "md",
+              "min-h-[50px] px-2 text-[15px] whitespace-nowrap",
+            )}
           >
             {accepting ? <Loader2 className="w-4 h-4 animate-spin" /> : `Accept ${usd(price)}`}
           </button>
@@ -108,7 +130,11 @@ export function FeedJobCard({
         <Link
           to="/jobs/$id"
           params={{ id: job.id }}
-          className={czButtonClass("secondary", "md", "min-h-[50px] text-base")}
+          className={czButtonClass(
+            "secondary",
+            "md",
+            "min-h-[50px] px-2 text-[15px] whitespace-nowrap",
+          )}
         >
           Offer your price
         </Link>

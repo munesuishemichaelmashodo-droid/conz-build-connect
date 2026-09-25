@@ -965,7 +965,7 @@ function CounterOfferRow({ bidPrice, onSubmit }: { bidPrice: number; onSubmit: (
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="w-full text-center text-xs font-semibold text-primary underline underline-offset-2">
+      <button type="button" onClick={() => setOpen(true)} className="w-full min-h-11 text-center text-xs font-semibold text-primary underline underline-offset-2">
         Propose a different price
       </button>
     );
@@ -1385,10 +1385,10 @@ function RateForm({ jobId, driverId, onSaved }: { jobId: string; driverId: strin
   const Stars = ({ value, onChange, label }: { value: number; onChange: (n: number) => void; label: string }) => (
     <div className="flex items-center justify-between">
       <span className="text-sm">{label}</span>
-      <div className="flex gap-1">
+      <div className="flex shrink-0">
         {[1, 2, 3, 4, 5].map((n) => (
-          <button type="button" key={n} onClick={() => onChange(n)} aria-label={`${label}: ${n} star${n === 1 ? "" : "s"}`} className="p-1.5 -m-0.5">
-            <Star className={`w-7 h-7 ${n <= value ? "fill-warning text-warning" : "text-muted-foreground"}`} />
+          <button type="button" key={n} onClick={() => onChange(n)} aria-label={`${label}: ${n} star${n === 1 ? "" : "s"}`} className="p-1.5">
+            <Star className={`w-6 h-6 ${n <= value ? "fill-warning text-warning" : "text-muted-foreground"}`} />
           </button>
         ))}
       </div>
@@ -1448,10 +1448,10 @@ function RateCustomerForm({ jobId, customerId, onSaved }: { jobId: string; custo
   const Stars = ({ value, onChange, label }: { value: number; onChange: (n: number) => void; label: string }) => (
     <div className="flex items-center justify-between">
       <span className="text-sm">{label}</span>
-      <div className="flex gap-1">
+      <div className="flex shrink-0">
         {[1, 2, 3, 4, 5].map((n) => (
-          <button type="button" key={n} onClick={() => onChange(n)} aria-label={`${label}: ${n} star${n === 1 ? "" : "s"}`} className="p-1.5 -m-0.5">
-            <Star className={`w-7 h-7 ${n <= value ? "fill-warning text-warning" : "text-muted-foreground"}`} />
+          <button type="button" key={n} onClick={() => onChange(n)} aria-label={`${label}: ${n} star${n === 1 ? "" : "s"}`} className="p-1.5">
+            <Star className={`w-6 h-6 ${n <= value ? "fill-warning text-warning" : "text-muted-foreground"}`} />
           </button>
         ))}
       </div>
@@ -2232,7 +2232,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
         <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <MapBackButton to="/jobs" />
-            <StatusPill className="pointer-events-auto truncate">{jobRef(id)} · {usd(price)}</StatusPill>
+            <StatusPill className="pointer-events-auto bg-cz-bg">#{id.slice(0, 6).toUpperCase()} · {usd(price)}</StatusPill>
           </div>
           {ctx.isEscrow &&
             (ctx.escrowPaid ? (
@@ -2658,7 +2658,7 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
 
         <HintBox tone="green" icon={<ShieldCheck className="w-4 h-4" />}>
           Con Z Pay holds your money — {d.first} is paid only when you give them your delivery PIN. If you don't confirm
-          and don't raise a problem, it's released automatically 72 hours after delivery. Something wrong? Report it and
+          and don't raise a problem, it's released automatically 72 hours after the driver marks it delivered. Something wrong? Report it and
           our team reviews it before any money moves.
         </HintBox>
 

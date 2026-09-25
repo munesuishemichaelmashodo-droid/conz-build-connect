@@ -142,7 +142,7 @@ export function DriverShareLocation({ jobId, driverId, compact = false }: { jobI
                 disabled={busy}
                 className="min-h-11 shrink-0 rounded-xl bg-cz-amber px-3.5 text-sm font-bold text-cz-amber-ink disabled:opacity-50"
               >
-                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Start sharing location"}
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Start sharing"}
               </button>
             ) : (
               <button
