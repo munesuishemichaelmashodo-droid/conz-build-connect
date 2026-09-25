@@ -49,6 +49,12 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The action's default package list includes the long-removed
+          # "tools" package, which sdkmanager 16+ on current runners rejects
+          # ("Failed to find package 'tools'"). Install platform-tools only;
+          # Gradle downloads the platform/build-tools the project needs.
+          packages: "platform-tools"
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
