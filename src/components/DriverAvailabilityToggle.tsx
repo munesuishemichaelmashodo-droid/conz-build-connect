@@ -16,7 +16,7 @@ import { MapPin, MapPinOff, Loader2 } from "lucide-react";
  * from the existing profiles.last_active_at "app open" presence heartbeat,
  * which keeps running regardless of this toggle.
  */
-export function DriverAvailabilityToggle() {
+export function DriverAvailabilityToggle({ variant = "button" }: { variant?: "button" | "pill" } = {}) {
   const { userId } = useAuth();
   const [isAvailable, setIsAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -111,6 +111,32 @@ export function DriverAvailabilityToggle() {
   }, [isAvailable, userId]);
 
   if (!loaded) return null;
+
+  // Redesign: compact Online / Offline pill for the driver header. Same
+  // toggle() as the full-width button below — presentation only.
+  if (variant === "pill") {
+    return (
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={busy}
+        aria-pressed={isAvailable}
+        aria-label={isAvailable ? "You're online — tap to go offline" : "You're offline — tap to go online"}
+        className={
+          isAvailable
+            ? "flex items-center gap-2 min-h-11 px-4 rounded-full border border-cz-green-border bg-cz-green-tint text-cz-green-text font-semibold text-[15px]"
+            : "flex items-center gap-2 min-h-11 px-4 rounded-full border border-cz-border-strong bg-cz-surface text-cz-muted font-semibold text-[15px]"
+        }
+      >
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <span aria-hidden className={isAvailable ? "w-2.5 h-2.5 rounded-full bg-cz-green" : "w-2.5 h-2.5 rounded-full bg-cz-faint"} />
+        )}
+        {isAvailable ? "Online" : "Offline"}
+      </button>
+    );
+  }
 
   return (
     <Button

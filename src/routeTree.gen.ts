@@ -24,7 +24,6 @@ import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedReportRouteImport } from './routes/_authenticated/report'
 import { Route as AuthenticatedReferRouteImport } from './routes/_authenticated/refer'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
-import { Route as AuthenticatedMfaRouteImport } from './routes/_authenticated/mfa'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedHelpRouteImport } from './routes/_authenticated/help'
 import { Route as AuthenticatedDriverRouteImport } from './routes/_authenticated/driver'
@@ -45,7 +44,6 @@ import { Route as AuthenticatedAdminVerificationsRouteImport } from './routes/_a
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedAdminSupplyCoverageRouteImport } from './routes/_authenticated/admin.supply-coverage'
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
-import { Route as AuthenticatedAdminSecurityRouteImport } from './routes/_authenticated/admin.security'
 import { Route as AuthenticatedAdminRevenueRouteImport } from './routes/_authenticated/admin.revenue'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
 import { Route as AuthenticatedAdminReferralsRouteImport } from './routes/_authenticated/admin.referrals'
@@ -127,11 +125,6 @@ const AuthenticatedReferRoute = AuthenticatedReferRouteImport.update({
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedMfaRoute = AuthenticatedMfaRouteImport.update({
-  id: '/mfa',
-  path: '/mfa',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
@@ -242,12 +235,6 @@ const AuthenticatedAdminSettingsRoute =
     path: '/settings',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
-const AuthenticatedAdminSecurityRoute =
-  AuthenticatedAdminSecurityRouteImport.update({
-    id: '/security',
-    path: '/security',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
 const AuthenticatedAdminRevenueRoute =
   AuthenticatedAdminRevenueRouteImport.update({
     id: '/revenue',
@@ -313,7 +300,6 @@ export interface FileRoutesByFullPath {
   '/driver': typeof AuthenticatedDriverRoute
   '/help': typeof AuthenticatedHelpRoute
   '/home': typeof AuthenticatedHomeRoute
-  '/mfa': typeof AuthenticatedMfaRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/refer': typeof AuthenticatedReferRoute
   '/report': typeof AuthenticatedReportRoute
@@ -327,7 +313,6 @@ export interface FileRoutesByFullPath {
   '/admin/referrals': typeof AuthenticatedAdminReferralsRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/revenue': typeof AuthenticatedAdminRevenueRoute
-  '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/admin/supply-coverage': typeof AuthenticatedAdminSupplyCoverageRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -357,7 +342,6 @@ export interface FileRoutesByTo {
   '/driver': typeof AuthenticatedDriverRoute
   '/help': typeof AuthenticatedHelpRoute
   '/home': typeof AuthenticatedHomeRoute
-  '/mfa': typeof AuthenticatedMfaRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/refer': typeof AuthenticatedReferRoute
   '/report': typeof AuthenticatedReportRoute
@@ -371,7 +355,6 @@ export interface FileRoutesByTo {
   '/admin/referrals': typeof AuthenticatedAdminReferralsRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/revenue': typeof AuthenticatedAdminRevenueRoute
-  '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/admin/supply-coverage': typeof AuthenticatedAdminSupplyCoverageRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -405,7 +388,6 @@ export interface FileRoutesById {
   '/_authenticated/driver': typeof AuthenticatedDriverRoute
   '/_authenticated/help': typeof AuthenticatedHelpRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
-  '/_authenticated/mfa': typeof AuthenticatedMfaRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/refer': typeof AuthenticatedReferRoute
   '/_authenticated/report': typeof AuthenticatedReportRoute
@@ -419,7 +401,6 @@ export interface FileRoutesById {
   '/_authenticated/admin/referrals': typeof AuthenticatedAdminReferralsRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/revenue': typeof AuthenticatedAdminRevenueRoute
-  '/_authenticated/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/_authenticated/admin/supply-coverage': typeof AuthenticatedAdminSupplyCoverageRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -453,7 +434,6 @@ export interface FileRouteTypes {
     | '/driver'
     | '/help'
     | '/home'
-    | '/mfa'
     | '/profile'
     | '/refer'
     | '/report'
@@ -467,7 +447,6 @@ export interface FileRouteTypes {
     | '/admin/referrals'
     | '/admin/reports'
     | '/admin/revenue'
-    | '/admin/security'
     | '/admin/settings'
     | '/admin/supply-coverage'
     | '/admin/users'
@@ -497,7 +476,6 @@ export interface FileRouteTypes {
     | '/driver'
     | '/help'
     | '/home'
-    | '/mfa'
     | '/profile'
     | '/refer'
     | '/report'
@@ -511,7 +489,6 @@ export interface FileRouteTypes {
     | '/admin/referrals'
     | '/admin/reports'
     | '/admin/revenue'
-    | '/admin/security'
     | '/admin/settings'
     | '/admin/supply-coverage'
     | '/admin/users'
@@ -544,7 +521,6 @@ export interface FileRouteTypes {
     | '/_authenticated/driver'
     | '/_authenticated/help'
     | '/_authenticated/home'
-    | '/_authenticated/mfa'
     | '/_authenticated/profile'
     | '/_authenticated/refer'
     | '/_authenticated/report'
@@ -558,7 +534,6 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/referrals'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/revenue'
-    | '/_authenticated/admin/security'
     | '/_authenticated/admin/settings'
     | '/_authenticated/admin/supply-coverage'
     | '/_authenticated/admin/users'
@@ -697,13 +672,6 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/mfa': {
-      id: '/_authenticated/mfa'
-      path: '/mfa'
-      fullPath: '/mfa'
-      preLoaderRoute: typeof AuthenticatedMfaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/home': {
@@ -846,13 +814,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSettingsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
-    '/_authenticated/admin/security': {
-      id: '/_authenticated/admin/security'
-      path: '/security'
-      fullPath: '/admin/security'
-      preLoaderRoute: typeof AuthenticatedAdminSecurityRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
     '/_authenticated/admin/revenue': {
       id: '/_authenticated/admin/revenue'
       path: '/revenue'
@@ -919,7 +880,6 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminReferralsRoute: typeof AuthenticatedAdminReferralsRoute
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
   AuthenticatedAdminRevenueRoute: typeof AuthenticatedAdminRevenueRoute
-  AuthenticatedAdminSecurityRoute: typeof AuthenticatedAdminSecurityRoute
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
   AuthenticatedAdminSupplyCoverageRoute: typeof AuthenticatedAdminSupplyCoverageRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
@@ -934,7 +894,6 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminReferralsRoute: AuthenticatedAdminReferralsRoute,
   AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
   AuthenticatedAdminRevenueRoute: AuthenticatedAdminRevenueRoute,
-  AuthenticatedAdminSecurityRoute: AuthenticatedAdminSecurityRoute,
   AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
   AuthenticatedAdminSupplyCoverageRoute: AuthenticatedAdminSupplyCoverageRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
@@ -967,7 +926,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDriverRoute: typeof AuthenticatedDriverRoute
   AuthenticatedHelpRoute: typeof AuthenticatedHelpRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
-  AuthenticatedMfaRoute: typeof AuthenticatedMfaRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedReferRoute: typeof AuthenticatedReferRoute
   AuthenticatedReportRoute: typeof AuthenticatedReportRoute
@@ -985,7 +943,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDriverRoute: AuthenticatedDriverRoute,
   AuthenticatedHelpRoute: AuthenticatedHelpRoute,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
-  AuthenticatedMfaRoute: AuthenticatedMfaRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedReferRoute: AuthenticatedReferRoute,
   AuthenticatedReportRoute: AuthenticatedReportRoute,

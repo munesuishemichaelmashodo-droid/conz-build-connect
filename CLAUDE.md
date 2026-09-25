@@ -28,7 +28,7 @@ Zimbabwe.
 
 Migrations live in `supabase/migrations/`, named
 `YYYYMMDDHHMMSS_NNNN_description.sql` where NNNN is a sequential 4-digit
-counter (currently up to 0033) kept **on top of** the raw timestamp-named
+counter (currently up to 0061) kept **on top of** the raw timestamp-named
 files from early development. Always:
 
 1. Check the latest applied migration version live (not just what's in git —
@@ -106,6 +106,26 @@ stop this recurring, but verify rather than assume.
   queried `job_evidence`, which driver pickup/delivery confirmation photos
   never populate (those live on `jobs.pickup_photo_url` /
   `delivery_photo_url`). Now pulls both.
+
+## 25/09/2026 — driver/customer redesign + drift fix
+
+- Drift found again: 8 live-only migrations (22/08 0052–0054, four 29/08
+  security fixes, 17/09 drop_admin_mfa_requirement) were recovered verbatim
+  from `supabase_migrations.schema_migrations` (md5-checked) and committed.
+  `0058`/`0059` are in git and live but were never recorded in
+  schema_migrations.
+- `0060_driver_customer_mode_backend` (applied as 20260925095048):
+  `bids.eta_minutes`, `withdraw_bid()`, `job_offer_summary()`,
+  `jobs.driver_arrived_pickup_at/dropoff_at` + `driver_mark_arrived()`,
+  `driver_today_earnings()`, `customer_cards()`. Wrappers live in
+  `src/components/redesign/rpc.ts` (types.ts not regenerated yet).
+
+- **Admin MFA removed — password + role only** (owner's decision,
+  25/09/2026). `0061_remove_admin_mfa` (applied as 20260925160846) deleted
+  all enrolled TOTP factors and revoked client access to the MFA management
+  RPCs (kept, not dropped — re-GRANT to restore). `require_admin_mfa()`
+  stays a no-op for its 8 callers; `mfa_recovery_*` tables kept as audit
+  history. Frontend `/mfa` page and admin Security tab deleted.
 
 ## Resolved since the above list was written
 

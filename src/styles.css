@@ -59,6 +59,35 @@
 
   --font-display: "Barlow Condensed", system-ui, sans-serif;
   --font-sans: "Inter", system-ui, sans-serif;
+
+  /* Driver / customer mode redesign ("cz") palette — see .cz-screen below. */
+  --color-cz-bg: #121316;
+  --color-cz-bg-deep: #0b0c0e;
+  --color-cz-surface: #1c1d21;
+  --color-cz-surface-2: #26282d;
+  --color-cz-border: #2a2c31;
+  --color-cz-border-strong: #3a3c42;
+  --color-cz-text: #f2f0eb;
+  --color-cz-muted: #a3a6ae;
+  --color-cz-faint: #8a8d95;
+  --color-cz-amber: #f5a524;
+  --color-cz-amber-ink: #1a1204;
+  --color-cz-amber-tint: #2a1f0b;
+  --color-cz-amber-tint-2: #3a2a0c;
+  --color-cz-amber-text: #ffc35c;
+  --color-cz-green: #3dbe74;
+  --color-cz-green-tint: #12301f;
+  --color-cz-green-border: #2c6b47;
+  --color-cz-green-text: #7fe0a6;
+  --color-cz-danger-border: #5a2a20;
+  --color-cz-danger-text: #ffb08a;
+  --color-cz-info-tint: #1f2a38;
+  --color-cz-info-text: #9cc7f5;
+  --color-cz-warn-tint: #3a1e12;
+  --color-cz-warn-text: #ffb08a;
+  --color-cz-upcoming: #2e3035;
+  --font-cz: "Barlow", system-ui, sans-serif;
+  --font-cz-display: "Barlow Condensed", system-ui, sans-serif;
 }
 
 :root {
@@ -182,6 +211,64 @@
     );
   }
 }
+
+/*
+ * Driver / customer mode redesign. Every redesigned screen is wrapped in
+ * .cz-screen, which is always dark (the design is dark-only) and re-points
+ * the shared shadcn tokens at the redesign palette, so existing components
+ * rendered inside a redesigned screen (inputs, selects, dialogs' triggers,
+ * proof-upload tiles…) pick up the same look without being rewritten.
+ * Pages outside the redesign are untouched.
+ */
+.cz-screen {
+  --background: #121316;
+  --foreground: #f2f0eb;
+  --card: #1c1d21;
+  --card-foreground: #f2f0eb;
+  --popover: #1c1d21;
+  --popover-foreground: #f2f0eb;
+  --primary: #f5a524;
+  --primary-foreground: #1a1204;
+  --secondary: #26282d;
+  --secondary-foreground: #f2f0eb;
+  --muted: #26282d;
+  --muted-foreground: #a3a6ae;
+  --accent: #2a1f0b;
+  --accent-foreground: #ffc35c;
+  --success: #3dbe74;
+  --success-foreground: #0b2416;
+  --warning: #f5a524;
+  --warning-foreground: #1a1204;
+  --destructive: #e5533d;
+  --border: #2a2c31;
+  --input: #2a2c31;
+  --ring: #f5a524;
+  background-color: #121316;
+  color: #f2f0eb;
+  font-family: var(--font-cz);
+  color-scheme: dark;
+}
+.cz-screen .font-display,
+.cz-display {
+  font-family: var(--font-cz-display);
+  letter-spacing: 0;
+}
+
+@keyframes cz-pulse-ring {
+  0% { transform: scale(0.6); opacity: 0.7; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+@keyframes cz-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+.cz-pulse-ring { animation: cz-pulse-ring 2s ease-out infinite; }
+.cz-blink { animation: cz-blink 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .cz-pulse-ring, .cz-blink { animation: none; }
+}
+.cz-no-scrollbar { scrollbar-width: none; }
+.cz-no-scrollbar::-webkit-scrollbar { display: none; }
 
 /* Leaflet's own CSS gives its panes/controls a z-index up to 1000, which
    sits above every overlay in this app (dialogs, sheets, popovers all use

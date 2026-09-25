@@ -10,21 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import {
   ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
+  ChevronDown,
   Loader2,
   Minus,
   Plus,
-  Sparkles,
-  Truck,
-  Package,
-  MapPin,
   CheckCircle2,
   Calendar as CalendarIcon,
-  StickyNote,
   ShieldCheck,
   HandCoins,
-  type LucideIcon,
 } from "lucide-react";
 import { MATERIALS, type MaterialCategory, money } from "@/lib/domain";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,7 +25,20 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { computeOffer, explainOffer, type OfferResult } from "@/lib/booking.functions";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
+import {
+  CzScreen,
+  CzHeader,
+  CzCard,
+  CzButton,
+  HintBox,
+  IconButton,
+  MaterialChips,
+  MoneyRow,
+  areaOf,
+  usd,
+  usd2,
+} from "@/components/redesign";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 
@@ -64,13 +70,6 @@ const FUEL_LITRES_PER_100KM = 32;
 const PICKUP_POINT = { lat: -17.8292, lng: 31.0522 };
 const PICKUP_ADDRESS = "Harare CBD supplier pickup point";
 
-const STEPS = [
-  { key: "material", title: "Material" },
-  { key: "quantity", title: "Quantity" },
-  { key: "address", title: "Delivery" },
-  { key: "date", title: "Date" },
-  { key: "review", title: "Notes" },
-] as const;
 
 function BookDelivery() {
   const { userId, is } = useAuth();
@@ -97,6 +96,8 @@ function BookDelivery() {
   const [posting, setPosting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"direct" | "escrow">("direct");
   const [roadDistanceKm, setRoadDistanceKm] = useState<number | null>(null);
+  // Redesign: the date/notes drawer grows the sheet, so the map controls move up.
+  const [sheetOpenExtra, setSheetOpenExtra] = useState(false);
 
   const { data: materialPickups } = useQuery({
     queryKey: ["material-pickups"],
@@ -260,14 +261,6 @@ function BookDelivery() {
     );
   }
 
-  const canNext = () => {
-    if (step === 0) return !!material;
-    if (step === 1) return quantity >= MIN_QUANTITY_M3 && quantity <= 30;
-    if (step === 2) return address.trim().length > 2 && !!coords;
-    if (step === 3) return true;
-    if (step === 4) return true;
-    return true;
-  };
 
   const goToOffer = async () => {
     if (!address.trim()) return toast.error("Enter the delivery address");
@@ -393,473 +386,347 @@ function BookDelivery() {
     setStep(step - 1);
   };
 
-  const isReview = step === 4;
+  // ---------------------------------------------------------------------
+  // Customer mode redesign. C1 (map + "what do you need delivered?" sheet)
+  // covers the old material / quantity / delivery / date / notes steps on
+  // one screen; C2 is the old offer step. All state, validation
+  // (canNext-equivalent checks in goToOffer), computeOffer/explainOffer
+  // and the jobs insert in confirm() above are unchanged.
+  // ---------------------------------------------------------------------
+  const quantityValid = quantity >= MIN_QUANTITY_M3 && quantity <= 30;
+  const locationValid = address.trim().length > 2 && !!coords;
+  // Mirrors compute_material_offer's reference-truck trip rule (see
+  // suggestion above) — display only.
+  const tripsEstimate = quantity > 20 ? Math.ceil(quantity / 10) : 1;
+  const stepQty = (dir: -1 | 1) => {
+    const stepSize = quantity < 1 || (dir < 0 && quantity <= 1) ? 0.25 : 1;
+    const next = Math.round((quantity + dir * stepSize) * 100) / 100;
+    setQuantity(Math.min(30, Math.max(MIN_QUANTITY_M3, next)));
+  };
 
-  return (
-    <AppShell title="Book delivery">
-      <button
-        type="button"
-        onClick={goBack}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground mb-4"
-      >
-        <ArrowLeft className="w-4 h-4" /> Back
-      </button>
-
-      {step < 5 && <Stepper current={step} total={STEPS.length} />}
-
-      {search.driverId && (
-        <div className="mt-4 rounded-xl bg-primary/10 border border-primary/30 p-3 text-xs text-primary flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span>We'll notify your previous driver directly so they can bid first.</span>
-        </div>
-      )}
-
-      <AnimatePresence mode="wait">
-        {step === 0 && (
-          <motion.div id="tour-book-material" key="s-material" {...anim} className="space-y-5 mt-6">
-            <Header icon={Package} title="What are we moving?" hint="Pick the material you need delivered." />
-
-            <div className="grid grid-cols-2 gap-2">
-              {BOOKABLE_MATERIALS.map((m) => (
-                <button
-                  key={m.value}
-                  type="button"
-                  onClick={() => setMaterial(m.value)}
-                  aria-pressed={material === m.value}
-                  className={cn(
-                    "rounded-2xl border p-3 text-left transition",
-                    material === m.value
-                      ? "border-primary bg-primary/10 shadow-lift"
-                      : "hover:border-primary/40",
-                  )}
-                >
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                    {m.group}
-                  </div>
-                  <div className="font-display font-bold text-sm">{m.label}</div>
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {step === 1 && (
-          <motion.div key="s-qty" {...anim} className="space-y-5 mt-6">
-            <Header icon={Truck} title="How much?" hint="Tipper loads come in 10, 15, or 20 m³." />
-
-            <div className="flex gap-2">
-              {[10, 15, 20].map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setQuantity(v)}
-                  aria-pressed={quantity === v}
-                  className={cn(
-                    "flex-1 rounded-xl border py-3 font-display font-bold",
-                    quantity === v
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  {v} m³
-                </button>
-              ))}
-            </div>
-
-            <div>
-              <Label htmlFor="qty">Custom quantity (m³)</Label>
-              <Input
-                id="qty"
-                type="number"
-                min={MIN_QUANTITY_M3}
-                max={30}
-                step={0.25}
-                value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Under 1 m³ includes a minimum trip charge that covers dispatch and the
-                driver's return trip. From 1–20 m³, we price against the next load size up
-                (e.g. 13 m³ is priced as a 15 m³ load). Above 20 m³, we price it from recent
-                driver bids on similar-sized loads once there's enough data — otherwise it's
-                routed to a custom quote.
-              </p>
-            </div>
-          </motion.div>
-        )}
-
-        {step === 2 && (
-          <motion.div id="tour-book-address" key="s-addr" {...anim} className="space-y-5 mt-6">
-            <Header
-              icon={MapPin}
-              title="Where to?"
-              hint="We'll match you with the closest tipper truck."
-            />
-
+  if (step !== 5 || !offerData) {
+    return (
+      <CzScreen>
+        <div className="relative h-[100dvh] overflow-hidden">
+          <div id="tour-book-address">
             <AddressPicker
+              variant="fullscreen"
+              label="Deliver to"
               value={address}
+              initialCoords={coords}
+              controlsBottom={sheetOpenExtra ? 470 : 372}
+              leading={
+                <button
+                  type="button"
+                  onClick={() => nav({ to: "/customer" })}
+                  aria-label="Back"
+                  className="w-[50px] h-[50px] shrink-0 rounded-[14px] bg-cz-bg text-cz-text flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+              }
               onChange={(a, c) => {
                 setAddress(a);
                 setCoords(c ?? null);
               }}
             />
+          </div>
 
-            {address.trim().length > 2 && !coords && (
-              <p className="text-xs text-destructive">
-                Please select a map result or pin the delivery point so the driver can navigate accurately.
-              </p>
-            )}
+          <section className="absolute inset-x-0 bottom-0 z-30 max-h-[78dvh] overflow-y-auto rounded-t-[24px] bg-cz-bg px-5 pt-2.5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.45)]">
+            <div aria-hidden className="mx-auto mb-3.5 h-[5px] w-10 rounded-full bg-cz-border-strong" />
+            <div className="space-y-4">
+              {search.driverId && (
+                <HintBox tone="green" icon={<CheckCircle2 className="w-4 h-4" />}>
+                  We'll notify your previous driver directly so they can bid first.
+                </HintBox>
+              )}
 
-            {suggestion && (
-              <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-1.5">
-                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-primary font-semibold">
-                  <Sparkles className="w-3 h-3" /> Suggested price range
+              <div id="tour-book-material" className="space-y-3">
+                <h1 className="cz-display font-bold text-[26px] leading-tight">What do you need delivered?</h1>
+                <MaterialChips
+                  options={BOOKABLE_MATERIALS.map((m) => ({ value: m.value, label: m.label }))}
+                  value={material}
+                  onChange={(v) => setMaterial(v)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-2 rounded-[14px] border border-cz-border bg-cz-surface py-2 pl-4 pr-2">
+                <label htmlFor="qty" className="flex flex-col min-w-0">
+                  <span className="text-[13px] text-cz-muted">Quantity</span>
+                  <span className="text-xs text-cz-faint">
+                    {quantityValid
+                      ? tripsEstimate > 1
+                        ? `About ${tripsEstimate} tipper loads`
+                        : "About 1 tipper load"
+                      : `Between ${MIN_QUANTITY_M3} and 30 m³`}
+                  </span>
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <IconButton onClick={() => stepQty(-1)} disabled={quantity <= MIN_QUANTITY_M3} aria-label="Less">
+                    <Minus className="w-[18px] h-[18px]" />
+                  </IconButton>
+                  <div className="flex items-baseline">
+                    <input
+                      id="qty"
+                      type="number"
+                      inputMode="decimal"
+                      min={MIN_QUANTITY_M3}
+                      max={30}
+                      step={0.25}
+                      value={quantity}
+                      onChange={(e) => setQuantity(Number(e.target.value))}
+                      className="w-[58px] bg-transparent text-right cz-display font-bold text-[28px] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span className="cz-display font-bold text-[20px] ml-1">m³</span>
+                  </div>
+                  <IconButton onClick={() => stepQty(1)} disabled={quantity >= 30} aria-label="More">
+                    <Plus className="w-[18px] h-[18px]" />
+                  </IconButton>
                 </div>
-
-                <div className="font-display font-bold text-2xl">
-                  {money(suggestion.low)}{" "}
-                  <span className="text-muted-foreground text-lg">–</span>{" "}
-                  {money(suggestion.high)}
-                </div>
-
-                <p className="text-xs text-muted-foreground">
-                  Based on {matPrice?.label} pricing, ~{suggestion.distanceKm.toFixed(1)} km from pickup
-                  (transport ~{money(suggestion.fuelCost)}), plus {commissionRate ?? 7}% platform commission.
-                </p>
               </div>
-            )}
-          </motion.div>
-        )}
 
-        {step === 3 && (
-          <motion.div key="s-date" {...anim} className="space-y-5 mt-6">
-            <Header
-              icon={CalendarIcon}
-              title="When do you need it?"
-              hint="Optional — leave blank for as soon as possible."
-            />
+              <div className="flex gap-2">
+                {[10, 15, 20].map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setQuantity(v)}
+                    aria-pressed={quantity === v}
+                    className={cn(
+                      "flex-1 min-h-10 rounded-full text-sm font-semibold",
+                      quantity === v ? "bg-cz-amber-tint-2 text-cz-amber-text" : "border border-[#33353b] text-cz-muted",
+                    )}
+                  >
+                    {v} m³ load
+                  </button>
+                ))}
+              </div>
 
-            <div>
-              <Label htmlFor="date">Preferred date</Label>
-              <Input
-                id="date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
-
-            {date && (
-              <button
-                type="button"
-                onClick={() => setDate("")}
-                className="text-xs text-muted-foreground underline"
+              <details
+                id="tour-book-review"
+                className="group rounded-[14px] border border-cz-border bg-cz-surface"
+                onToggle={(e) => setSheetOpenExtra((e.target as HTMLDetailsElement).open)}
               >
-                Clear date
-              </button>
-            )}
-          </motion.div>
-        )}
-
-        {step === 4 && (
-          <motion.div id="tour-book-review" key="s-notes" {...anim} className="space-y-5 mt-6">
-            <Header
-              icon={StickyNote}
-              title="Anything else?"
-              hint="Add notes for the driver, then get your AI offer."
-            />
-
-            <div>
-              <Label htmlFor="notes">Notes (optional)</Label>
-              <Textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                maxLength={300}
-                placeholder="Access instructions, contact person, gate code…"
-              />
-            </div>
-
-            <div className="rounded-2xl bg-card border p-4 space-y-2 text-sm">
-              <Row
-                icon={Package}
-                label={matPrice?.label ?? "Material"}
-                value={`${quantity} m³`}
-              />
-              <Row icon={MapPin} label="Delivery to" value={address || "—"} />
-              <Row
-                icon={CalendarIcon}
-                label="Preferred date"
-                value={date || "As soon as possible"}
-              />
-            </div>
-          </motion.div>
-        )}
-
-        {step === 5 && offerData && (
-          <motion.div key="s-offer" {...anim} className="space-y-5 mt-6">
-            <div id="tour-book-offer" className="rounded-3xl bg-gradient-dark text-white p-8 shadow-lift text-center">
-              <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-primary font-semibold">
-                <Sparkles className="w-3 h-3" /> AI Recommended
-              </div>
-
-              <div className="text-[11px] uppercase tracking-widest text-white/60 mt-3">
-                Your offer
-              </div>
-
-              <motion.div
-                key={offer}
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 260, damping: 18 }}
-                className="font-display font-bold text-primary text-6xl mt-1"
-              >
-                {money(offer)}
-              </motion.div>
-
-              <p className="text-xs text-white/70 mt-3 max-w-xs mx-auto">
-                {offerData.explanation}
-              </p>
-
-              <div className="flex items-center justify-center gap-4 mt-4 text-[11px] text-white/60">
-                <span>Low {money(offerData.low)}</span>
-                <span className="text-white/30">•</span>
-                <span>Recommended {money(offerData.recommended)}</span>
-                <span className="text-white/30">•</span>
-                <span>High {money(offerData.high)}</span>
-              </div>
-
-              {offerData.tripCount > 1 && (
-                <p className="text-[11px] text-white/50 mt-1">
-                  Estimated {offerData.tripCount} trips, based on a {offerData.referenceCapacityM3} m³ reference truck
-                </p>
-              )}
-
-              <div className="mt-6 flex items-center justify-center gap-6">
-                <button
-                  type="button"
-                  onClick={() => adjust(-1)}
-                  className="w-14 h-14 rounded-full bg-white/10 border border-white/20 hover:bg-white/20 flex items-center justify-center transition"
-                  aria-label="Decrease offer"
-                >
-                  <Minus className="w-6 h-6" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => adjust(1)}
-                  className="w-14 h-14 rounded-full bg-primary text-primary-foreground hover:brightness-110 flex items-center justify-center shadow-lift transition"
-                  aria-label="Increase offer"
-                >
-                  <Plus className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-2xl bg-card border p-4 space-y-2 text-sm">
-              <Row icon={Package} label={offerData.label} value={`${quantity} m³`} />
-              {pickupLabel && <Row icon={MapPin} label="Picked up from" value={pickupLabel} />}
-              <Row icon={MapPin} label="Delivery to" value={address} />
-              <Row
-                icon={Truck}
-                label="Estimated distance"
-                value={`${offerData.distanceKm} km`}
-              />
-              {offerData.tripCount > 1 && (
-                <Row icon={Truck} label="Estimated trips" value={`${offerData.tripCount}`} />
-              )}
-              {offerData.materialCost > 0 && (
-                <Row icon={Package} label="Material cost" value={money(offerData.materialCost)} />
-              )}
-              {offerData.transportCost > 0 && (
-                <Row icon={Truck} label="Transport cost" value={money(offerData.transportCost)} />
-              )}
-            </div>
-
-            <div>
-              <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">
-                How will you pay?
-              </div>
-              <SpotlightCallout
-                id="conz-pay-choice"
-                title="Two ways to pay"
-                body="Pay the driver directly like usual, or choose Con Z Pay to have us hold the money until you confirm delivery — good if you're paying on someone else's behalf."
-              />
-              <div className="space-y-2 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("direct")}
-                  aria-pressed={paymentMethod === "direct"}
-                  className={cn(
-                    "w-full flex items-start gap-3 rounded-2xl border p-3 text-left transition",
-                    paymentMethod === "direct" ? "border-primary bg-primary/5" : "hover:border-primary/40",
-                  )}
-                >
-                  <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                    <HandCoins className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold">Pay the driver directly</div>
-                    <div className="text-xs text-muted-foreground">Cash or EcoCash on delivery, arranged between you.</div>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("escrow")}
-                  aria-pressed={paymentMethod === "escrow"}
-                  className={cn(
-                    "w-full flex items-start gap-3 rounded-2xl border p-3 text-left transition",
-                    paymentMethod === "escrow" ? "border-primary bg-primary/5" : "hover:border-primary/40",
-                  )}
-                >
-                  <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold">Con Z Pay <span className="text-[10px] font-normal text-muted-foreground">— pay now, held safely</span></div>
-                    <div className="text-xs text-muted-foreground">
-                      Pay {money(offer)} now through Con Z. We hold it and only release it to the
-                      driver once you confirm delivery — good for paying on someone else's behalf.
+                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 text-[15px] font-semibold">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <CalendarIcon className="w-4 h-4 text-cz-muted shrink-0" />
+                    <span className="truncate">{date || notes ? `${date || "As soon as possible"}${notes ? " · notes added" : ""}` : "Date & notes for the driver"}</span>
+                  </span>
+                  <ChevronDown className="w-4 h-4 text-cz-muted transition group-open:rotate-180 shrink-0" />
+                </summary>
+                <div className="space-y-3 px-4 pb-4">
+                  <div>
+                    <Label htmlFor="date">Preferred date</Label>
+                    <div className="flex gap-2 items-center">
+                      <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="min-h-11" />
+                      {date && (
+                        <button type="button" onClick={() => setDate("")} className="min-h-11 px-2 text-xs text-cz-muted underline shrink-0">
+                          Clear
+                        </button>
+                      )}
                     </div>
+                    <p className="mt-1 text-xs text-cz-muted">Optional — leave blank for as soon as possible.</p>
                   </div>
+                  <div>
+                    <Label htmlFor="notes">Notes (optional)</Label>
+                    <Textarea
+                      id="notes"
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      rows={2}
+                      maxLength={300}
+                      placeholder="Access instructions, contact person, gate code…"
+                    />
+                  </div>
+                  <p className="text-xs text-cz-muted">
+                    Under 1 m³ includes a minimum trip charge that covers dispatch and the driver's return trip. From 1–20 m³, we
+                    price against the next load size up (e.g. 13 m³ is priced as a 15 m³ load). Above 20 m³, we price it from
+                    recent driver bids on similar-sized loads once there's enough data — otherwise it's routed to a custom quote.
+                  </p>
+                </div>
+              </details>
+
+              {suggestion && (
+                <p className="text-[13px] text-cz-muted">
+                  Usually {money(suggestion.low)}–{money(suggestion.high)} for {matPrice?.label ?? "this material"}, ~
+                  {suggestion.distanceKm.toFixed(1)} km from pickup (incl. {commissionRate ?? 7}% platform commission).
+                </p>
+              )}
+              {address.trim().length > 2 && !coords && (
+                <p className="text-[13px] text-cz-danger-text">
+                  Please select a map result or confirm the pin so the driver can navigate accurately.
+                </p>
+              )}
+
+              <CzButton onClick={goToOffer} disabled={computing || !quantityValid || !locationValid}>
+                {computing ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" /> Calculating…
+                  </>
+                ) : !address.trim() ? (
+                  "Set the delivery point first"
+                ) : !coords ? (
+                  "Confirm the pin to continue"
+                ) : (
+                  "See price"
+                )}
+              </CzButton>
+            </div>
+          </section>
+        </div>
+      </CzScreen>
+    );
+  }
+
+  const tiers = [
+    { key: "low", title: "Low", value: offerData.low, hint: "Fewer drivers may respond" },
+    { key: "recommended", title: "Recommended", value: offerData.recommended, hint: "Most drivers respond to this" },
+    { key: "high", title: "High", value: offerData.high, hint: "Fastest offers" },
+  ].filter((t) => Number.isFinite(t.value) && t.value >= offerData.min && t.value <= offerData.max);
+
+  return (
+    <CzScreen>
+      <CzHeader
+        title="Choose your price"
+        onBack={goBack}
+        subtitle={`${offerData.label} · ${quantity} m³ → ${areaOf(address) || address} · ${offerData.distanceKm} km`}
+      />
+
+      <div className="flex-1 space-y-4 px-5 pb-6">
+        <div id="tour-book-offer" className="space-y-3">
+          <div role="radiogroup" aria-label="Your price" className="grid gap-2.5">
+            {tiers.map((t) => {
+              const on = offer === t.value;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => setOffer(t.value)}
+                  className={cn(
+                    "flex items-center justify-between gap-3 rounded-[16px] border px-4 py-3.5 text-left transition",
+                    on ? "border-cz-amber bg-cz-amber-tint" : "border-cz-border bg-cz-surface",
+                  )}
+                >
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-2 font-bold">
+                      {t.title}
+                      {t.key === "recommended" && (
+                        <span className="rounded-full bg-cz-amber-tint-2 px-2 py-0.5 text-[11px] font-semibold text-cz-amber-text">
+                          Suggested
+                        </span>
+                      )}
+                    </span>
+                    <span className="block text-[13px] text-cz-muted">{t.hint}</span>
+                  </span>
+                  <span className={cn("cz-display font-bold text-[30px] tabular-nums", on ? "text-cz-amber" : "text-cz-text")}>
+                    {usd(t.value)}
+                  </span>
                 </button>
+              );
+            })}
+          </div>
+
+          <div className="rounded-[16px] border border-cz-border bg-cz-surface px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm text-cz-muted">Or set your own</span>
+              <div className="flex items-center gap-2">
+                <IconButton onClick={() => adjust(-1)} aria-label="Decrease offer">
+                  <Minus className="w-[18px] h-[18px]" />
+                </IconButton>
+                <motion.span
+                  key={offer}
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 18 }}
+                  className="min-w-[84px] text-center cz-display font-bold text-[30px] text-cz-amber tabular-nums"
+                >
+                  {usd(offer)}
+                </motion.span>
+                <IconButton onClick={() => adjust(1)} aria-label="Increase offer">
+                  <Plus className="w-[18px] h-[18px]" />
+                </IconButton>
               </div>
             </div>
-
-            <Button
-              id="tour-book-confirm"
-              onClick={confirm}
-              disabled={posting}
-              className="w-full h-14 rounded-2xl font-display uppercase tracking-wide text-base"
-            >
-              {posting ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <>
-                  Confirm booking <CheckCircle2 className="w-5 h-5 ml-2" />
-                </>
-              )}
-            </Button>
-
-            <p className="text-[11px] text-center text-muted-foreground">
-              We'll immediately search for the closest verified tipper truck.
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {step < 5 && (
-        <div className="flex gap-2 mt-8">
-          <Button
-            variant="outline"
-            onClick={() => setStep((s) => Math.max(0, s - 1))}
-            disabled={step === 0}
-            className="flex-1 h-12"
-          >
-            <ChevronLeft className="w-4 h-4 mr-1" /> Back
-          </Button>
-
-          {isReview ? (
-            <Button
-              onClick={goToOffer}
-              disabled={computing || !canNext()}
-              className="flex-1 h-12 font-display uppercase tracking-wide"
-            >
-              {computing ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" /> Calculating…
-                </>
-              ) : (
-                <>
-                  Get AI offer <Sparkles className="w-4 h-4 ml-2" />
-                </>
-              )}
-            </Button>
-          ) : (
-            <Button
-              onClick={() => setStep((s) => s + 1)}
-              disabled={!canNext()}
-              className="flex-1 h-12"
-            >
-              Next <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          )}
+          </div>
+          {offerData.explanation && <p className="text-[13px] text-cz-muted">{offerData.explanation}</p>}
         </div>
-      )}
-    </AppShell>
-  );
-}
 
-const anim = {
-  initial: { opacity: 0, x: 20 },
-  animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: -20 },
-  transition: { duration: 0.25 },
-};
-
-function Stepper({ current, total }: { current: number; total: number }) {
-  return (
-    <div
-      className="flex items-center gap-2"
-      role="progressbar"
-      aria-valuenow={current + 1}
-      aria-valuemin={1}
-      aria-valuemax={total}
-      aria-label={`Step ${current + 1} of ${total}: ${STEPS[current].title}`}
-    >
-      {Array.from({ length: total }).map((_, n) => (
-        <div
-          key={n}
-          className={cn(
-            "flex-1 h-1.5 rounded-full transition-colors",
-            n <= current ? "bg-primary" : "bg-muted",
+        <CzCard className="space-y-2.5">
+          {offerData.materialCost > 0 && (
+            <MoneyRow label={`Material (${quantity} m³)`} value={usd2(offerData.materialCost)} />
           )}
-        />
-      ))}
-    </div>
-  );
-}
+          {offerData.transportCost > 0 && (
+            <MoneyRow label={`Transport (${offerData.distanceKm} km)`} value={usd2(offerData.transportCost)} />
+          )}
+          {pickupLabel && <MoneyRow label="Picked up from" value={pickupLabel} valueClassName="text-cz-muted text-sm" />}
+          <p className="text-[13px] text-cz-muted">
+            Estimated {offerData.tripCount} trip{offerData.tripCount === 1 ? "" : "s"}, based on a {offerData.referenceCapacityM3} m³
+            reference truck. All amounts in USD.
+          </p>
+        </CzCard>
 
-function Header({
-  icon: Icon,
-  title,
-  hint,
-}: {
-  icon: LucideIcon;
-  title: string;
-  hint: string;
-}) {
-  return (
-    <div>
-      <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-3">
-        <Icon className="w-6 h-6" />
-      </div>
-      <h1 className="font-display font-bold text-2xl">{title}</h1>
-      <p className="text-sm text-muted-foreground">{hint}</p>
-    </div>
-  );
-}
-
-function Row({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
-      <div className="flex-1 min-w-0">
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-          {label}
+        <div className="space-y-2">
+          <div className="text-sm font-semibold text-cz-muted">How will you pay?</div>
+          <SpotlightCallout
+            id="conz-pay-choice"
+            title="Two ways to pay"
+            body="Pay the driver directly like usual, or choose Con Z Pay to have us hold the money until you confirm delivery — good if you're paying on someone else's behalf."
+          />
+          <div role="radiogroup" aria-label="How will you pay?" className="space-y-2">
+            {(
+              [
+                {
+                  v: "escrow" as const,
+                  icon: ShieldCheck,
+                  title: "Con Z Pay (recommended)",
+                  body: `We hold your ${money(offer)} until your load arrives, then release it to the driver with your delivery PIN.`,
+                },
+                { v: "direct" as const, icon: HandCoins, title: "Pay driver directly", body: "Cash or EcoCash to the driver on delivery." },
+              ]
+            ).map((o) => {
+              const on = paymentMethod === o.v;
+              const Icon = o.icon;
+              return (
+                <button
+                  key={o.v}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => setPaymentMethod(o.v)}
+                  className={cn(
+                    "w-full flex items-start gap-3 rounded-[16px] border px-4 py-3.5 text-left transition",
+                    on ? "border-cz-amber bg-cz-amber-tint" : "border-cz-border bg-cz-surface",
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "mt-0.5 w-5 h-5 shrink-0 rounded-full border-2",
+                      on ? "border-[6px] border-cz-amber bg-cz-bg" : "border-cz-border-strong",
+                    )}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 font-semibold">
+                      <Icon className={cn("w-4 h-4", o.v === "escrow" ? "text-cz-green-text" : "text-cz-muted")} /> {o.title}
+                    </span>
+                    <span className="block text-[13px] text-cz-muted">{o.body}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div className="text-sm truncate">{value}</div>
       </div>
-    </div>
+
+      <footer className="sticky bottom-0 z-20 space-y-2 border-t border-[#25272b] bg-[#16171a] px-5 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))]">
+        <CzButton id="tour-book-confirm" onClick={confirm} disabled={posting}>
+          {posting ? <Loader2 className="w-5 h-5 animate-spin" /> : `Post job · ${usd(offer)}`}
+        </CzButton>
+        <p className="text-center text-[11px] text-cz-faint">We'll immediately search for the closest verified tipper truck.</p>
+      </footer>
+    </CzScreen>
   );
 }
 

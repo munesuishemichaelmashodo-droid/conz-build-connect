@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -13,6 +13,14 @@ const pinIcon = L.divIcon({
   html: `<div style="background:hsl(var(--primary));color:hsl(var(--primary-foreground));width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><span style="transform:rotate(45deg);font-size:14px">📍</span></div>`,
   iconSize: [28, 28],
   iconAnchor: [14, 28],
+});
+
+// Redesign pin: amber, pulsing ring, inline SVG (no emoji).
+const czPinIcon = L.divIcon({
+  className: "",
+  html: `<div style="position:relative;width:44px;height:50px"><span class="cz-pulse-ring" style="position:absolute;left:2px;top:8px;width:40px;height:40px;border-radius:50%;background:rgba(245,165,36,.28)"></span><svg width="44" height="50" viewBox="0 0 24 26" style="position:relative;display:block"><path d="M12 1C7 1 3 5 3 10c0 6.5 9 15 9 15s9-8.5 9-15c0-5-4-9-9-9z" fill="#F5A524" stroke="#1A1204" stroke-width=".6"/><circle cx="12" cy="10" r="3.5" fill="#1A1204"/></svg></div>`,
+  iconSize: [44, 50],
+  iconAnchor: [22, 48],
 });
 
 function Recenter({ lat, lng, zoom }: { lat: number; lng: number; zoom?: number }) {
@@ -52,16 +60,18 @@ function ClickToPlace({ onPick }: { onPick: (lat: number, lng: number) => void }
 function DraggableMarker({
   position,
   onDragEnd,
+  icon = pinIcon,
 }: {
   position: { lat: number; lng: number };
   onDragEnd: (lat: number, lng: number) => void;
+  icon?: L.DivIcon;
 }) {
   const ref = useRef<L.Marker | null>(null);
   return (
     <Marker
       draggable
       position={[position.lat, position.lng]}
-      icon={pinIcon}
+      icon={icon}
       ref={(m) => {
         ref.current = m;
       }}
@@ -81,15 +91,33 @@ export function AddressPicker({
   value,
   onChange,
   label = "Delivery address",
+  variant = "default",
+  leading,
+  trailing,
+  controlsBottom = 360,
+  initialCoords,
 }: {
   value: string;
   onChange: (address: string, coords?: { lat: number; lng: number }) => void;
   label?: string;
+  /** "fullscreen": redesign layout — the map fills its (positioned) parent,
+   *  with the address field floating on top. Same search / GPS / pin /
+   *  confirm logic as the default layout. */
+  variant?: "default" | "fullscreen";
+  /** fullscreen only: element before the address field (menu button). */
+  leading?: ReactNode;
+  /** fullscreen only: element after the address field (notifications). */
+  trailing?: ReactNode;
+  /** fullscreen only: px from the bottom for the locate/confirm controls
+   *  (keeps them above the booking sheet). */
+  controlsBottom?: number;
+  /** Pre-confirmed point (e.g. "Book this driver again"), shown as the pin. */
+  initialCoords?: { lat: number; lng: number } | null;
 }) {
-  const [coords, setCoords] = useState<{ lat: number; lng: number }>({ lat: -17.8252, lng: 31.0335 });
-  const [hasPin, setHasPin] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
-  const [zoom, setZoom] = useState(12);
+  const [coords, setCoords] = useState<{ lat: number; lng: number }>(initialCoords ?? { lat: -17.8252, lng: 31.0335 });
+  const [hasPin, setHasPin] = useState(!!initialCoords);
+  const [confirmed, setConfirmed] = useState(!!initialCoords);
+  const [zoom, setZoom] = useState(initialCoords ? 16 : 12);
   const [locating, setLocating] = useState(false);
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<GeocodeResult[]>([]);
@@ -197,6 +225,178 @@ export function AddressPicker({
     void setPin(lat, lng);
     toast.success("Coordinates set — tap Confirm to use them");
   };
+
+  if (variant === "fullscreen") {
+    return (
+      <div className="absolute inset-0">
+        <div className="absolute inset-x-0 top-0" style={{ bottom: controlsBottom - 40 }}>
+          <MapContainer
+            center={[coords.lat, coords.lng]}
+            zoom={zoom}
+            scrollWheelZoom={false}
+            zoomControl={false}
+            style={{ height: "100%", width: "100%", background: "#1a1c20" }}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+              subdomains="abcd"
+              maxZoom={20}
+            />
+            <Recenter lat={coords.lat} lng={coords.lng} zoom={zoom} />
+            <FitBounds bbox={bbox} />
+            <ClickToPlace onPick={(lat, lng) => void setPin(lat, lng)} />
+            {hasPin && <DraggableMarker position={coords} icon={czPinIcon} onDragEnd={(lat, lng) => void setPin(lat, lng)} />}
+          </MapContainer>
+        </div>
+
+        <div className="absolute inset-x-4 top-4 z-30 space-y-2">
+          <div className="flex items-center gap-2.5">
+            {leading}
+            <div className="relative flex-1 min-w-0">
+              <label
+                htmlFor="addr-picker"
+                className="flex h-[50px] items-center gap-2.5 rounded-[14px] bg-cz-bg px-3.5 shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
+              >
+                <MapPin className="w-[18px] h-[18px] text-cz-amber shrink-0" />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-[11px] leading-tight text-cz-muted">{label}</span>
+                  <input
+                    id="addr-picker"
+                    value={query}
+                    placeholder="Search address, suburb or landmark…"
+                    className="min-w-0 border-0 bg-transparent p-0 text-[15px] font-semibold text-cz-text placeholder:font-normal placeholder:text-cz-faint outline-none"
+                    onChange={(e) => {
+                      setQuery(e.target.value);
+                      setOpen(true);
+                      setConfirmed(false);
+                      onChange(e.target.value, undefined);
+                    }}
+                    onFocus={() => setOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void searchAndJump();
+                      }
+                    }}
+                    onBlur={() => {
+                      // Delay long enough to outlast the 350ms debounce + fetch round-trip,
+                      // and skip closing entirely while a search is still in flight.
+                      setTimeout(() => {
+                        if (!searching) setOpen(false);
+                      }, 1200);
+                    }}
+                  />
+                </span>
+                {searching && <Loader2 className="w-4 h-4 animate-spin text-cz-muted shrink-0" />}
+              </label>
+              {open && query.trim().length >= 3 && (results.length > 0 || searching || results.length === 0) && (
+                <div className="absolute z-40 left-0 right-0 top-[56px] rounded-[14px] border border-cz-border bg-cz-surface shadow-lg max-h-64 overflow-auto">
+                  {searching && <div className="px-3.5 py-3 text-sm text-cz-muted">Searching…</div>}
+                  {!searching && results.length === 0 && (
+                    <div className="px-3.5 py-3 text-sm text-cz-muted">No results found — try a different spelling.</div>
+                  )}
+                  {results.map((r, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pickResult(r)}
+                      className="block w-full min-h-11 text-left px-3.5 py-2.5 text-sm hover:bg-cz-surface-2 border-b border-cz-border last:border-b-0"
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                  {results.length > 0 && (
+                    <div className="px-3.5 py-1.5 text-[10px] text-cz-muted text-right">
+                      <a href="https://locationiq.com" target="_blank" rel="noreferrer" className="hover:underline">
+                        Search by LocationIQ.com
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            {trailing}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setManualMode((v) => !v)}
+              className="min-h-9 rounded-full bg-cz-bg/90 px-3 text-xs font-semibold text-cz-muted shadow"
+            >
+              {manualMode ? "Hide coordinates" : "Enter coordinates"}
+            </button>
+            {hasPin && confirmed && (
+              <span className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-cz-green-border bg-cz-green-tint px-3 text-xs font-semibold text-cz-green-text">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Location confirmed
+              </span>
+            )}
+          </div>
+
+          {manualMode && (
+            <div className="flex gap-2 rounded-[14px] bg-cz-bg p-2 shadow-lg">
+              <input
+                type="number"
+                step="any"
+                inputMode="decimal"
+                placeholder="Lat e.g. -17.8252"
+                aria-label="Latitude"
+                value={manualLat}
+                onChange={(e) => setManualLat(e.target.value)}
+                className="h-11 w-full flex-1 min-w-0 rounded-xl border border-cz-border bg-cz-surface px-3 text-sm"
+              />
+              <input
+                type="number"
+                step="any"
+                inputMode="decimal"
+                placeholder="Lng e.g. 31.0335"
+                aria-label="Longitude"
+                value={manualLng}
+                onChange={(e) => setManualLng(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    lockManualCoords();
+                  }
+                }}
+                className="h-11 w-full flex-1 min-w-0 rounded-xl border border-cz-border bg-cz-surface px-3 text-sm"
+              />
+              <button type="button" onClick={lockManualCoords} className="h-11 shrink-0 rounded-xl bg-cz-surface-2 px-3.5 text-sm font-semibold">
+                Lock
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="absolute inset-x-4 z-30 flex items-end justify-between gap-3" style={{ bottom: controlsBottom }}>
+          {hasPin && !confirmed ? (
+            <button
+              type="button"
+              onClick={confirmLocation}
+              className="min-h-12 flex-1 inline-flex items-center justify-center gap-2 rounded-[14px] bg-cz-amber px-4 font-bold text-cz-amber-ink shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
+            >
+              <CheckCircle2 className="w-5 h-5" /> Deliver here — confirm pin
+            </button>
+          ) : (
+            <span className="text-[11px] text-[#3a3c42] bg-white/70 rounded px-1.5 py-0.5">
+              {hasPin ? "Drag the pin to fine-tune" : "Tap the map to drop a pin"}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={useMyLocation}
+            disabled={locating}
+            aria-label="Use my current location"
+            className="w-[50px] h-[50px] shrink-0 rounded-full bg-cz-bg text-cz-amber flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
+          >
+            {locating ? <Loader2 className="w-5 h-5 animate-spin" /> : <LocateFixed className="w-[22px] h-[22px]" />}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">

@@ -1,14 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
-import { AppShell } from "@/components/AppShell";
-import { EmptyState } from "@/components/ui-bits";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Briefcase, Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { JobCard } from "@/components/JobCard";
 import { bestCapacityMatchTier, type CapacityMatchTier } from "@/lib/capacityMatch";
+import { CzScreen, CzHeader } from "@/components/redesign";
+import { JobRow } from "@/components/redesign/JobRow";
+import { FeedJobCard } from "@/components/redesign/FeedJobCard";
+import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
+import { useQuickAccept } from "@/components/redesign/useQuickAccept";
+import { useCustomerCards } from "@/components/redesign/rpc";
+import { NotificationsBell } from "@/components/NotificationsBell";
+import { SidePanel } from "@/components/SidePanel";
 
 export const Route = createFileRoute("/_authenticated/jobs/")({
   component: JobsPage,
@@ -21,6 +25,7 @@ function JobsPage() {
   const isDriver = is("driver");
   const isCustomer = is("customer");
   const queryClient = useQueryClient();
+  const { accept, busyJobId } = useQuickAccept();
 
   const { data: myTrucks } = useQuery({
     queryKey: ["my-trucks-capacities", userId],
@@ -93,27 +98,83 @@ function JobsPage() {
         })
       : jobs;
 
+  // Driver / customer mode redesign: same query, poll and realtime channel
+  // above; the list is grouped by what needs attention.
+  const all = orderedJobs ?? [];
+  const mineActive = all.filter((j) => (isDriver ? j.driver_id === userId : true) && (j.status === "accepted" || j.status === "in_progress"));
+  const openLoads = all.filter((j) => j.status === "open" && (isDriver ? j.customer_id !== userId : true));
+  const cards = useCustomerCards(isDriver && !isCustomer ? openLoads.map((j) => j.id) : []);
+  const past = all.filter((j) => (isDriver ? j.driver_id === userId : true) && (j.status === "completed" || j.status === "cancelled"));
+
   return (
-    <AppShell title="Jobs" action={isCustomer ? (
-      <Button asChild size="sm" className="h-8"><Link to="/jobs/new"><Plus className="w-4 h-4 mr-1" />New</Link></Button>
-    ) : undefined}>
-      <div id="tour-jobs-list">
-        {isLoading ? (
-          <div className="text-center text-muted-foreground py-10">Loading…</div>
-        ) : (orderedJobs ?? []).length === 0 ? (
-          <EmptyState icon={Briefcase} title="No jobs yet" hint={isCustomer ? "Post your first delivery request." : "Check back soon for open requests."} />
-        ) : (
-          <div className="space-y-2">
-            {orderedJobs!.map((j) => (
-              <JobCard
-                key={j.id}
-                j={j}
-                matchTier={isDriver && myTrucks?.length ? bestCapacityMatchTier(Number(j.quantity_m3), myTrucks) : undefined}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </AppShell>
+    <>
+      <CzScreen className={isDriver && !isCustomer ? DRIVER_NAV_SPACE : "pb-8"}>
+        <CzHeader
+          title={isDriver && !isCustomer ? "My jobs" : "Jobs"}
+          backTo={isDriver && !isCustomer ? "/driver" : "/customer"}
+          right={
+            <div className="flex items-center gap-0.5">
+              {isCustomer && (
+                <Link to="/jobs/new" className="min-h-11 inline-flex items-center gap-1 rounded-xl bg-cz-amber px-3 text-sm font-bold text-cz-amber-ink">
+                  <Plus className="w-4 h-4" /> New
+                </Link>
+              )}
+              <NotificationsBell />
+              <SidePanel />
+            </div>
+          }
+        />
+        <div id="tour-jobs-list" className="px-5 space-y-6">
+          {isLoading ? (
+            <div className="text-center text-cz-muted py-10">Loading…</div>
+          ) : all.length === 0 ? (
+            <div className="rounded-[18px] border border-dashed border-cz-border-strong p-8 text-center">
+              <Briefcase className="w-9 h-9 mx-auto text-cz-faint" />
+              <p className="mt-2 font-semibold">No jobs yet</p>
+              <p className="text-sm text-cz-muted">{isCustomer ? "Post your first delivery request." : "Check back soon for open requests."}</p>
+            </div>
+          ) : (
+            <>
+              {mineActive.length > 0 && (
+                <JobGroup title={isDriver && !isCustomer ? "Active now" : "In progress"}>
+                  {mineActive.map((j) => <JobRow key={j.id} j={j} />)}
+                </JobGroup>
+              )}
+              {openLoads.length > 0 && (
+                <JobGroup title={isDriver && !isCustomer ? `${openLoads.length} open load${openLoads.length === 1 ? "" : "s"}` : "Waiting for offers"}>
+                  {isDriver && !isCustomer
+                    ? openLoads.map((j) => (
+                        <FeedJobCard
+                          key={j.id}
+                          job={j}
+                          matchTier={myTrucks?.length ? bestCapacityMatchTier(Number(j.quantity_m3), myTrucks) : undefined}
+                          onAccept={() => accept(j)}
+                          accepting={busyJobId === j.id}
+                          customer={cards[j.id]}
+                        />
+                      ))
+                    : openLoads.map((j) => <JobRow key={j.id} j={j} />)}
+                </JobGroup>
+              )}
+              {past.length > 0 && (
+                <JobGroup title="Completed & cancelled">
+                  {past.map((j) => <JobRow key={j.id} j={j} />)}
+                </JobGroup>
+              )}
+            </>
+          )}
+        </div>
+      </CzScreen>
+      {isDriver && !isCustomer && <DriverBottomNav />}
+    </>
+  );
+}
+
+function JobGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-2.5">
+      <h2 className="cz-display font-bold text-xl">{title}</h2>
+      <div className="flex flex-col gap-2.5">{children}</div>
+    </section>
   );
 }
