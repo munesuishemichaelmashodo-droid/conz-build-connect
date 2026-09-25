@@ -9,7 +9,8 @@ import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
 import { useLocationSharingEnabled } from "@/lib/location-privacy";
 import { SpotlightCallout } from "@/components/SpotlightCallout";
-import { RouteMap } from "@/components/RouteMap";
+import { RouteMap, type RouteResult } from "@/components/RouteMap";
+import { PinMap } from "@/components/redesign/PinMap";
 
 // Fix default marker icons (Vite breaks Leaflet's default path resolution)
 const truckIcon = L.divIcon({
@@ -45,7 +46,7 @@ function ResizeFix() {
 
 type Loc = { lat: number; lng: number; updated_at: string; heading: number | null; accuracy: number | null; stationary_since: string | null; anomaly_alerted_at: string | null };
 
-export function DriverShareLocation({ jobId, driverId }: { jobId: string; driverId: string }) {
+export function DriverShareLocation({ jobId, driverId, compact = false }: { jobId: string; driverId: string; compact?: boolean }) {
   const [sharing, setSharing] = useState(false);
   const [busy, setBusy] = useState(false);
   const watchRef = useRef<number | null>(null);
@@ -109,6 +110,54 @@ export function DriverShareLocation({ jobId, driverId }: { jobId: string; driver
     toast.success("Stopped sharing");
   };
 
+  // Redesign: one-row "Live GPS" control for the active-job sheet. Same
+  // start()/stop() handlers and privacy gate as the full card below.
+  if (compact) {
+    return (
+      <div className="space-y-2">
+        <SpotlightCallout
+          id="driver-gps-share"
+          title="Don't forget to turn this on"
+          body="The customer can't see your progress at all until you tap 'Start sharing location' — do this every time you begin a delivery, or they'll have no idea where their order is."
+        />
+        <div className="flex items-center gap-3 rounded-[14px] border border-cz-border bg-cz-surface px-3.5 py-3">
+          <Navigation2 className={sharing ? "w-5 h-5 text-cz-green shrink-0" : "w-5 h-5 text-cz-amber shrink-0"} />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold">{sharing ? "Sharing live location" : "Live GPS is off"}</div>
+            <div className="text-xs text-cz-muted">
+              {!privacyOn ? (
+                <>Turned off in <Link to="/profile" className="underline font-semibold">privacy settings</Link></>
+              ) : sharing ? (
+                "The customer can follow you live."
+              ) : (
+                "Turn it on so the customer can follow you."
+              )}
+            </div>
+          </div>
+          {privacyOn &&
+            (!sharing ? (
+              <button
+                type="button"
+                onClick={start}
+                disabled={busy}
+                className="min-h-11 shrink-0 rounded-xl bg-cz-amber px-3.5 text-sm font-bold text-cz-amber-ink disabled:opacity-50"
+              >
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Start sharing location"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={stop}
+                className="min-h-11 shrink-0 rounded-xl border border-cz-border-strong px-3.5 text-sm font-semibold"
+              >
+                <Square className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />Stop
+              </button>
+            ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
       <SpotlightCallout
@@ -144,7 +193,20 @@ export function DriverShareLocation({ jobId, driverId }: { jobId: string; driver
   );
 }
 
-export function CustomerTrackMap({ jobId }: { jobId: string }) {
+export type TrackStatus = { live: boolean; updatedAt: string | null; stalled: boolean; route: RouteResult | null };
+
+export function CustomerTrackMap({
+  jobId,
+  variant = "card",
+  height = 270,
+  onStatus,
+}: {
+  jobId: string;
+  /** "hero": redesign full-bleed map for the top of the tracking screen. */
+  variant?: "card" | "hero";
+  height?: number;
+  onStatus?: (s: TrackStatus) => void;
+}) {
   const [loc, setLoc] = useState<Loc | null>(null);
   const [destination, setDestination] = useState<{ lat: number; lng: number } | null>(null);
 
@@ -181,6 +243,38 @@ export function CustomerTrackMap({ jobId }: { jobId: string }) {
 
     return () => { mounted = false; supabase.removeChannel(channel); };
   }, [jobId]);
+
+  const [route, setRoute] = useState<RouteResult | null>(null);
+  const onStatusRef = useRef(onStatus);
+  onStatusRef.current = onStatus;
+  useEffect(() => {
+    onStatusRef.current?.({ live: !!loc, updatedAt: loc?.updated_at ?? null, stalled: !!loc?.anomaly_alerted_at, route });
+  }, [loc, route]);
+
+  if (variant === "hero") {
+    return (
+      <div className="relative w-full" style={{ height }}>
+        {loc ? (
+          <RouteMap bare height={height} driverLocation={{ lat: loc.lat, lng: loc.lng }} initialDestination={destination} onRoute={setRoute} />
+        ) : destination ? (
+          <PinMap point={destination} label="Deliver here" className="w-full h-full" />
+        ) : (
+          <div className="w-full h-full bg-cz-surface" />
+        )}
+        {!loc && (
+          <div className="absolute inset-x-4 bottom-10 z-20 rounded-xl bg-cz-bg/95 px-3.5 py-2.5 text-[13px] text-cz-muted shadow-lg">
+            Your driver hasn't started sharing their location yet — the truck appears here once they do.
+          </div>
+        )}
+        {loc?.anomaly_alerted_at && (
+          <div className="absolute inset-x-4 bottom-10 z-20 rounded-xl bg-cz-warn-tint px-3.5 py-2.5 text-[13px] text-cz-warn-text flex items-start gap-2 shadow-lg">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>Your driver hasn't moved in a while — this has been logged. If something's wrong, use chat or raise a dispute.</span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -232,7 +326,18 @@ export function CustomerTrackMap({ jobId }: { jobId: string }) {
   );
 }
 
-export function DriverRouteView({ jobId }: { jobId: string }) {
+export function DriverRouteView({
+  jobId,
+  bare = false,
+  height = 300,
+  onRoute,
+}: {
+  jobId: string;
+  /** Redesign: full-bleed map for the top of the active-job screen. */
+  bare?: boolean;
+  height?: number;
+  onRoute?: (r: RouteResult) => void;
+}) {
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
   const [destination, setDestination] = useState<{ lat: number; lng: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -279,6 +384,43 @@ export function DriverRouteView({ jobId }: { jobId: string }) {
   }, [jobId, attempt]);
 
   const retry = () => setAttempt((n) => n + 1);
+
+  if (bare) {
+    const box = "w-full flex flex-col items-center justify-center gap-2 bg-cz-surface px-6 text-center text-[13px] text-cz-muted";
+    if (loading) {
+      return (
+        <div className={box} style={{ height }}>
+          <Loader2 className="w-5 h-5 animate-spin text-cz-amber" />
+          <span>Loading route to the delivery point…</span>
+          {slow && (
+            <>
+              <span>Still locating you — this can take longer on a weak signal.</span>
+              <button type="button" onClick={retry} className="min-h-11 rounded-xl border border-cz-border-strong px-4 font-semibold text-cz-text">
+                Cancel and retry
+              </button>
+            </>
+          )}
+        </div>
+      );
+    }
+    if (!destination) {
+      return <div className={box} style={{ height }}>No delivery coordinates on this job — route can't be calculated.</div>;
+    }
+    if (!origin) {
+      return (
+        <div className="relative w-full" style={{ height }}>
+          <PinMap point={destination} label="Drop-off" className="w-full h-full" />
+          <div className="absolute inset-x-4 bottom-10 z-20 rounded-xl bg-cz-bg/95 px-3.5 py-2.5 text-[13px] text-cz-muted shadow-lg flex items-center gap-3">
+            <span className="flex-1">{error ?? "Location required to show the route."}</span>
+            <button type="button" onClick={retry} className="min-h-11 shrink-0 rounded-xl border border-cz-border-strong px-3 font-semibold text-cz-text">
+              Try again
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return <RouteMap bare height={height} driverLocation={origin} initialDestination={destination} onRoute={onRoute} />;
+  }
 
   if (loading) {
     return (

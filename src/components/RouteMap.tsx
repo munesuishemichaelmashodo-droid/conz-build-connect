@@ -34,6 +34,34 @@ function ResizeFix() {
   }, [map]);
   return null;
 }
+// Redesign ("bare") markers: inline SVG so they render identically on every
+// Android WebView (the emoji markers above depend on the device font).
+const czTruckIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:38px;height:38px;border-radius:12px;background:#121316;border:2px solid #F5A524;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.45)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5A524" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h12v9H2z"/><path d="M14 10h4l4 3.5V16h-8"/><circle cx="6" cy="17.5" r="1.8"/><circle cx="18" cy="17.5" r="1.8"/></svg></div>`,
+  iconSize: [38, 38],
+  iconAnchor: [19, 19],
+});
+const czDestIcon = L.divIcon({
+  className: "",
+  html: `<svg width="36" height="40" viewBox="0 0 24 26" style="display:block;filter:drop-shadow(0 3px 6px rgba(0,0,0,.45))"><path d="M12 1C7 1 3 5 3 10c0 6.5 9 15 9 15s9-8.5 9-15c0-5-4-9-9-9z" fill="#F2F0EB" stroke="#121316" stroke-width=".8"/><rect x="8.5" y="6.5" width="7" height="7" rx="1" fill="#121316"/></svg>`,
+  iconSize: [36, 40],
+  iconAnchor: [18, 38],
+});
+
+// Fits both markers (or the whole route) in view — the bare variant has no
+// "Route & ETA" chrome, so the map itself has to show the full trip.
+function FitTrip({ points }: { points: [number, number][] }) {
+  const map = useMap();
+  const key = points.map((p) => p.join(",")).join("|");
+  useEffect(() => {
+    if (points.length < 2) return;
+    map.fitBounds(points, { padding: [40, 40], maxZoom: 16 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, map]);
+  return null;
+}
+
 export type RouteResult = { distanceKm: number; etaMin: number; coords: [number, number][] };
 
 type Props = {
@@ -42,9 +70,12 @@ type Props = {
   onRoute?: (r: RouteResult) => void;
   height?: number;
   showNavigateButton?: boolean;
+  /** Redesign: render only the map (full-bleed, no card/header/stats). The
+   *  route is still fetched exactly the same way; read it via onRoute. */
+  bare?: boolean;
 };
 
-export function RouteMap({ driverLocation, initialDestination = null, onRoute, height = 320, showNavigateButton = false }: Props) {
+export function RouteMap({ driverLocation, initialDestination = null, onRoute, height = 320, showNavigateButton = false, bare = false }: Props) {
   const [destination, setDestination] = useState<{ lat: number; lng: number } | null>(initialDestination);
   const [route, setRoute] = useState<RouteResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -97,6 +128,44 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
       },
     });
     return null;
+  }
+
+  if (bare) {
+    const pts: [number, number][] = route?.coords?.length
+      ? route.coords
+      : [[driverLocation.lat, driverLocation.lng], ...(destination ? [[destination.lat, destination.lng] as [number, number]] : [])];
+    return (
+      <div style={{ height, background: "#1a1c20" }} className="w-full">
+        <MapContainer
+          center={[driverLocation.lat, driverLocation.lng]}
+          zoom={13}
+          scrollWheelZoom={false}
+          zoomControl={false}
+          style={{ height: "100%", width: "100%" }}
+        >
+          <ResizeFix />
+          <FitTrip points={pts} />
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+            subdomains="abcd"
+            maxZoom={20}
+          />
+          {!locked && <ClickHandler />}
+          <Marker position={[driverLocation.lat, driverLocation.lng]} icon={czTruckIcon}>
+            <Popup>Driver</Popup>
+          </Marker>
+          {destination && (
+            <Marker position={[destination.lat, destination.lng]} icon={czDestIcon}>
+              <Popup>Destination</Popup>
+            </Marker>
+          )}
+          {route?.coords?.length ? (
+            <Polyline positions={route.coords} pathOptions={{ color: "#F5A524", weight: 5, opacity: 0.9 }} />
+          ) : null}
+        </MapContainer>
+      </div>
+    );
   }
 
   return (
