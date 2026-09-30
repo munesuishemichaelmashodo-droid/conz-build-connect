@@ -500,7 +500,7 @@ function BookDelivery() {
                     aria-pressed={quantity === v}
                     className={cn(
                       "flex-1 min-h-10 rounded-full text-sm font-semibold",
-                      quantity === v ? "bg-cz-amber-tint-2 text-cz-amber-text" : "border border-[#33353b] text-cz-muted",
+                      quantity === v ? "bg-cz-amber-tint-2 text-cz-amber-text" : "border border-cz-border-strong text-cz-muted",
                     )}
                   >
                     {v} m³ load
@@ -726,7 +726,7 @@ function BookDelivery() {
         </div>
       </div>
 
-      <footer className="sticky bottom-0 z-20 space-y-2 border-t border-[#25272b] bg-[#16171a] px-5 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))]">
+      <footer className="sticky bottom-0 z-20 space-y-2 border-t border-cz-border bg-cz-surface px-5 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))]">
         <CzButton id="tour-book-confirm" onClick={confirm} disabled={posting}>
           {posting ? <Loader2 className="w-5 h-5 animate-spin" /> : `Post job · ${usd(offer)}`}
         </CzButton>

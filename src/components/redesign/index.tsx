@@ -446,7 +446,7 @@ export function MaterialChips<T extends string>({
               size === "md" ? "min-h-11 text-sm" : "min-h-9 text-sm px-3.5",
               on
                 ? "bg-cz-amber text-cz-amber-ink font-bold"
-                : "border border-[#33353b] bg-cz-surface text-cz-text",
+                : "border border-cz-border-strong bg-cz-surface text-cz-text",
             )}
           >
             {o.label}
