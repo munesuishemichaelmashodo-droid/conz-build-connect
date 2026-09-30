@@ -243,7 +243,7 @@ function BookDelivery() {
       commission,
       total: Math.round(total),
     };
-  }, [matPrice, coords, dieselPrice, commissionRate, roadDistanceKm, quantity]);
+  }, [matPrice, coords, pickupPoint, dieselPrice, commissionRate, roadDistanceKm, quantity]);
 
   useEffect(() => {
     void suggestion;

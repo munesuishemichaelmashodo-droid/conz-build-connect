@@ -340,15 +340,18 @@ function JobDetail() {
     queryKey: ["escrow-payment", id],
     enabled: !!job && isEscrow,
     queryFn: async () => {
+      // Prefer a settled payment over the newest attempt: a customer who
+      // paid, then opened Paynow again without finishing, must still show as
+      // paid — otherwise they'd be invited to pay a second time.
       const { data } = await supabase
         .from("payments")
         .select("id,status,amount")
         .eq("job_id", id)
         .eq("type", "escrow")
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return data as { id: string; status: string; amount: number } | null;
+        .limit(10);
+      const rows = (data ?? []) as { id: string; status: string; amount: number }[];
+      return rows.find((r) => r.status === "paid" || r.status === "released") ?? rows[0] ?? null;
     },
   });
   const escrowPaid = escrowPayment?.status === "paid" || escrowPayment?.status === "released";
@@ -388,6 +391,9 @@ function JobDetail() {
         if (res.error === "already_paid") {
           qc.invalidateQueries({ queryKey: ["escrow-payment", id] });
           return toast.success("This job is already paid for.");
+        }
+        if (res.error === "job_not_payable") {
+          return toast.error("This job can't be paid for right now — it needs an assigned driver and must not be completed or cancelled.");
         }
         return toast.error(res.error || "Could not start payment");
       }

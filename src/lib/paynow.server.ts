@@ -6,10 +6,6 @@ export function getPaynowCredentials(): { id: string; key: string } | null {
   const id = process.env["PAYNOW_INTEGRATION_ID"]?.trim();
   const key = process.env["PAYNOW_INTEGRATION_KEY"]?.trim();
   if (!id || !key) return null;
-  // Safe diagnostic: masked lengths/edges only, never the full key.
-  console.log(
-    `[Paynow] creds loaded — id="${id}" (len ${id.length}), key len ${key.length}, key starts "${key.slice(0, 3)}..." ends "...${key.slice(-3)}"`,
-  );
   return { id, key };
 }
 
@@ -102,7 +98,6 @@ export async function initiatePaynowTransaction(args: {
     fields.map(([, v]) => v),
     creds.key,
   );
-  console.log(`[Paynow] computed hash starts "${hash.slice(0, 6)}..."`);
 
   const body = new URLSearchParams([...fields, ["hash", hash]]).toString();
 

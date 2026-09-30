@@ -120,7 +120,7 @@ function AdminUsers() {
       reason = window.prompt(`Why are you setting this account to "${status}"? (recorded in the audit log)`) ?? undefined;
       if (!reason?.trim()) return toast.error("A reason is required to suspend or ban an account");
     }
-    const { error } = await supabase.rpc("admin_set_user_status", { _user_id: id, _status: status, _reason: reason ?? null });
+    const { error } = await supabase.rpc("admin_set_user_status", { _user_id: id, _status: status, _reason: reason });
     if (error) return toast.error(error.message);
     toast.success(`Status set to ${status}`);
     qc.invalidateQueries({ queryKey: ["admin-users"] });

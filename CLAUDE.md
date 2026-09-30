@@ -28,7 +28,7 @@ Zimbabwe.
 
 Migrations live in `supabase/migrations/`, named
 `YYYYMMDDHHMMSS_NNNN_description.sql` where NNNN is a sequential 4-digit
-counter (currently up to 0062) kept **on top of** the raw timestamp-named
+counter (currently up to 0065) kept **on top of** the raw timestamp-named
 files from early development. Always:
 
 1. Check the latest applied migration version live (not just what's in git —
@@ -133,6 +133,34 @@ stop this recurring, but verify rather than assume.
   `raise_job_budget()` (raise-only, capped at pricing_breakdown.high),
   `nearby_available_trucks()` / `job_bidder_locations()` (~1 km-rounded,
   Online + verified drivers only, no ids).
+
+## 30/09/2026 — full audit
+
+- Git and live migrations matched (no drift) before this session's work.
+- **CRITICAL, fixed (`0063`, applied as 20260930050611):**
+  `payments_status_check` didn't allow `'released'`, but
+  `release_escrow_and_complete()` sets it — so every Con Z Pay (escrow)
+  completion/payout (confirm delivery, driver PIN, 72h auto-release) would
+  have failed. No escrow payment had reached `paid` live yet, so nobody hit
+  it. `mark_escrow_payment_paid()` now also no-ops on `'released'` and
+  notifies admins if a job gets paid twice (refund the duplicate).
+- `0063` also revoked client EXECUTE on cron/maintenance functions
+  (`create_dispatch_wave` let anyone blast an offer to every driver), and
+  restricted `driver_can_accept_for` (leaked any driver's wallet balance to
+  anyone) and `evidence_distance_m`. `0064`/`0065` (20260930050820 /
+  20260930050916) tightened `driver_can_accept_for`'s NULL-uid handling.
+- App fixes: `activateAccount` no longer overwrites the user's edited
+  name/phone on every app open; super_admin-by-email requires a confirmed
+  email; escrow Pay re-checks earlier Paynow attempts before starting a new
+  one and refuses completed/cancelled jobs; job page treats any paid/released
+  escrow row as paid; Paynow key fragments no longer logged; MCP
+  `get_wallet`/`list_my_jobs` used non-existent columns/statuses;
+  `src/integrations/supabase/types.ts` regenerated from live (typecheck is
+  now clean).
+- Still open (owner's call): enable leaked-password protection in Supabase
+  Auth settings; `pg_net` lives in the public schema; `market_rate_history`
+  and `driver_public_profiles` are SECURITY DEFINER views (intentional for
+  public profiles — review before changing).
 
 ## Resolved since the above list was written
 
