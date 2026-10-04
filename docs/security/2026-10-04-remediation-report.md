@@ -46,3 +46,5 @@ Migrations added (live + git + schema_migrations): `0066`–`0070`. Drift (`0063
 2. Black-box C4: `POST /functions/v1/send-push` with no / wrong `x-conz-push-secret` → expect 401; with a real notification insert → push still delivered.
 3. Regression happy-paths: customer signup→post job→bid→counter→accept→escrow pay→driver delivery photo→customer reads PIN→driver confirm→payout; direct-pay complete; withdrawal request→admin approve; driver KYC submit→admin verify.
 4. Confirm `SEND_SMS_HOOK_SECRET` set (H9); decide on H6 status-guard + H8 App Links before production.
+
+<!-- deploy trigger: TanStack CVE-2026-102989 patch is in this commit and later; build the latest commit, not ae9de90. -->
