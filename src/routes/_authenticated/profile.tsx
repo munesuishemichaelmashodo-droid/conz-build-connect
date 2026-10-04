@@ -351,15 +351,17 @@ function WithdrawalPinCard() {
   const hasPin = !!driver?.withdrawal_pin_hash;
   const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [currentPin, setCurrentPin] = useState("");
   const [saving, setSaving] = useState(false);
   const save = async () => {
     if (!/^\d{4,8}$/.test(pin)) return toast.error("PIN must be 4-8 digits");
     if (pin !== confirm) return toast.error("PINs do not match");
+    if (hasPin && !/^\d{4,8}$/.test(currentPin)) return toast.error("Enter your current PIN to change it");
     setSaving(true);
-    const { error } = await (supabase as any).rpc("set_withdrawal_pin", { _pin: pin });
+    const { error } = await (supabase as any).rpc("set_withdrawal_pin", { _pin: pin, _current_pin: hasPin ? currentPin : null });
     setSaving(false);
     if (error) return toast.error(error.message);
-    setPin(""); setConfirm("");
+    setPin(""); setConfirm(""); setCurrentPin("");
     toast.success("Withdrawal PIN saved");
     qc.invalidateQueries({ queryKey: ["driver-pin-profile", userId] });
     qc.invalidateQueries({ queryKey: ["driver-pin", userId] });
@@ -376,6 +378,12 @@ function WithdrawalPinCard() {
       <p className="text-xs text-muted-foreground">
         Required to authorise withdrawals from your wallet. 4–8 digits. Five wrong entries locks withdrawals for 15 minutes.
       </p>
+      {hasPin && (
+        <div>
+          <Label htmlFor="pincur">Current PIN</Label>
+          <Input id="pincur" type="password" inputMode="numeric" value={currentPin} onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, "").slice(0, 8))} maxLength={8} />
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-2">
         <div>
           <Label htmlFor="pin">{hasPin ? "New PIN" : "PIN"}</Label>
