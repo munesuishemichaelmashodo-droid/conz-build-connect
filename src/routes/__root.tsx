@@ -43,7 +43,10 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error: rawError, reset }: { error: unknown; reset: () => void }) {
+  // TanStack Start now types the boundary's `error` as `unknown` — normalise
+  // to an Error so the message/stack display and reporting below stay typed.
+  const error = rawError instanceof Error ? rawError : new Error(typeof rawError === "string" ? rawError : "Unknown error");
   console.error(error);
   const router = useRouter();
   useEffect(() => {
