@@ -25,7 +25,7 @@ export default defineTool({
       sb.from("wallets").select("*").eq("user_id", uid).maybeSingle(),
       sb
         .from("wallet_transactions")
-        .select("id, amount, type, status, description, created_at")
+        .select("id, amount, type, balance_after, note, created_at")
         .eq("user_id", uid)
         .order("created_at", { ascending: false })
         .limit(10),

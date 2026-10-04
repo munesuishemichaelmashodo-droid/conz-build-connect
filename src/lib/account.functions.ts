@@ -28,17 +28,37 @@ export const activateAccount = createServerFn({ method: "POST" })
     const phone = typeof meta.phone === "string" ? meta.phone : null;
     const avatarUrl = typeof meta.avatar_url === "string" ? meta.avatar_url : null;
 
-    const { error: profileError } = await supabaseAdmin.from("profiles").upsert(
-      {
+    // This runs on every sign-in and app open. Only create the profile or
+    // fill in fields it's missing — never overwrite what the user has since
+    // changed on the Profile page (it used to reset their name and phone to
+    // the sign-up values every time the app was opened).
+    const { data: existingProfile, error: profileReadError } = await supabaseAdmin
+      .from("profiles")
+      .select("id, full_name, phone, email, avatar_url")
+      .eq("id", context.userId)
+      .maybeSingle();
+    if (profileReadError) throw new Error("Could not activate your profile");
+
+    if (!existingProfile) {
+      const { error: profileError } = await supabaseAdmin.from("profiles").insert({
         id: context.userId,
         full_name: fullName,
         phone,
         email,
         avatar_url: avatarUrl,
-      },
-      { onConflict: "id", ignoreDuplicates: false },
-    );
-    if (profileError) throw new Error("Could not activate your profile");
+      });
+      if (profileError) throw new Error("Could not activate your profile");
+    } else {
+      const missing: { full_name?: string; phone?: string; email?: string; avatar_url?: string } = {};
+      if (!existingProfile.full_name?.trim()) missing.full_name = fullName;
+      if (!existingProfile.phone && phone) missing.phone = phone;
+      if (existingProfile.email !== email && email) missing.email = email;
+      if (!existingProfile.avatar_url && avatarUrl) missing.avatar_url = avatarUrl;
+      if (Object.keys(missing).length > 0) {
+        const { error: profileError } = await supabaseAdmin.from("profiles").update(missing).eq("id", context.userId);
+        if (profileError) throw new Error("Could not activate your profile");
+      }
+    }
 
     const { data: roleRows, error: rolesError } = await supabaseAdmin
       .from("user_roles")
@@ -49,7 +69,8 @@ export const activateAccount = createServerFn({ method: "POST" })
     const existingRoles = new Set((roleRows ?? []).map((row) => row.role));
     const rolesToAdd = new Set<AppRole>();
     if (existingRoles.size === 0) rolesToAdd.add(requestedRole);
-    if (email?.toLowerCase() === "munesuishemichaelmashodo@gmail.com") {
+    const emailConfirmed = !!(authData.user as { email_confirmed_at?: string | null }).email_confirmed_at;
+    if (emailConfirmed && email?.toLowerCase() === "munesuishemichaelmashodo@gmail.com") {
       rolesToAdd.add("super_admin");
       rolesToAdd.add("admin");
       rolesToAdd.add("customer");

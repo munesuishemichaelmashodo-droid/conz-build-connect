@@ -17,10 +17,10 @@ const pinIcon = L.divIcon({
   iconAnchor: [14, 28],
 });
 
-// Redesign pin: amber, pulsing ring, inline SVG (no emoji).
+// Redesign pin: brand orange, pulsing ring, inline SVG (no emoji).
 const czPinIcon = L.divIcon({
   className: "",
-  html: `<div style="position:relative;width:44px;height:50px"><span class="cz-pulse-ring" style="position:absolute;left:2px;top:8px;width:40px;height:40px;border-radius:50%;background:rgba(245,165,36,.28)"></span><svg width="44" height="50" viewBox="0 0 24 26" style="position:relative;display:block"><path d="M12 1C7 1 3 5 3 10c0 6.5 9 15 9 15s9-8.5 9-15c0-5-4-9-9-9z" fill="#F5A524" stroke="#1A1204" stroke-width=".6"/><circle cx="12" cy="10" r="3.5" fill="#1A1204"/></svg></div>`,
+  html: `<div style="position:relative;width:44px;height:50px"><span class="cz-pulse-ring" style="position:absolute;left:2px;top:8px;width:40px;height:40px;border-radius:50%;background:rgba(255,119,22,.28)"></span><svg width="44" height="50" viewBox="0 0 24 26" style="position:relative;display:block"><path d="M12 1C7 1 3 5 3 10c0 6.5 9 15 9 15s9-8.5 9-15c0-5-4-9-9-9z" fill="#FF7716" stroke="#0B0907" stroke-width=".6"/><circle cx="12" cy="10" r="3.5" fill="#0B0907"/></svg></div>`,
   iconSize: [44, 50],
   iconAnchor: [22, 48],
 });
@@ -240,7 +240,7 @@ export function AddressPicker({
             zoom={zoom}
             scrollWheelZoom={false}
             zoomControl={false}
-            style={{ height: "100%", width: "100%", background: "#1a1c20" }}
+            style={{ height: "100%", width: "100%", background: "#110e0c" }}
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -393,7 +393,7 @@ export function AddressPicker({
               <CheckCircle2 className="w-5 h-5" /> Deliver here — confirm pin
             </button>
           ) : (
-            <span className="text-[11px] text-[#3a3c42] bg-white/70 rounded px-1.5 py-0.5">
+            <span className="text-[11px] text-cz-border-strong bg-white/70 rounded px-1.5 py-0.5">
               {hasPin ? "Drag the pin to fine-tune" : "Tap the map to drop a pin"}
             </span>
           )}

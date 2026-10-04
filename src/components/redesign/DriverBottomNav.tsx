@@ -25,7 +25,7 @@ export function DriverBottomNav() {
   return (
     <nav
       aria-label="Driver sections"
-      className="cz-screen fixed inset-x-0 bottom-0 z-30 border-t border-[#25272b] bg-[#16171a]"
+      className="cz-screen fixed inset-x-0 bottom-0 z-30 border-t border-cz-border bg-cz-surface"
       style={{ paddingBottom: "env(safe-area-inset-bottom)", minHeight: 0 }}
     >
       <div className="mx-auto grid max-w-[480px] grid-cols-4 px-2 pt-1.5 pb-2">

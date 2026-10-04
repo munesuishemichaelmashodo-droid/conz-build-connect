@@ -271,6 +271,24 @@ function JobDetail() {
     },
   });
 
+  // C1: the delivery PIN is never on the jobs row anymore (a driver could
+  // read it there). The customer fetches their own code through a
+  // customer-only RPC (get_my_delivery_pin); the driver can never read it.
+  const { data: deliveryPin } = useQuery({
+    queryKey: ["delivery-pin", id],
+    enabled:
+      !!job &&
+      job?.customer_id === userId &&
+      job?.payment_method === "escrow" &&
+      ["accepted", "in_progress"].includes(job?.status ?? ""),
+    queryFn: async () => {
+      const { data } = await (supabase.rpc as unknown as (
+        f: string, a: Record<string, unknown>,
+      ) => Promise<{ data: string | null }>)("get_my_delivery_pin", { _job_id: id });
+      return (data as string | null) ?? null;
+    },
+  });
+
   const showRadar = !!job && job.customer_id === userId && job.status === "open" && (bids?.length ?? 0) === 0;
 
   // Both rating tables have a unique constraint per job — without this check
@@ -340,15 +358,18 @@ function JobDetail() {
     queryKey: ["escrow-payment", id],
     enabled: !!job && isEscrow,
     queryFn: async () => {
+      // Prefer a settled payment over the newest attempt: a customer who
+      // paid, then opened Paynow again without finishing, must still show as
+      // paid — otherwise they'd be invited to pay a second time.
       const { data } = await supabase
         .from("payments")
         .select("id,status,amount")
         .eq("job_id", id)
         .eq("type", "escrow")
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return data as { id: string; status: string; amount: number } | null;
+        .limit(10);
+      const rows = (data ?? []) as { id: string; status: string; amount: number }[];
+      return rows.find((r) => r.status === "paid" || r.status === "released") ?? rows[0] ?? null;
     },
   });
   const escrowPaid = escrowPayment?.status === "paid" || escrowPayment?.status === "released";
@@ -388,6 +409,9 @@ function JobDetail() {
         if (res.error === "already_paid") {
           qc.invalidateQueries({ queryKey: ["escrow-payment", id] });
           return toast.success("This job is already paid for.");
+        }
+        if (res.error === "job_not_payable") {
+          return toast.error("This job can't be paid for right now — it needs an assigned driver and must not be completed or cancelled.");
         }
         return toast.error(res.error || "Could not start payment");
       }
@@ -450,7 +474,7 @@ function JobDetail() {
   const showCounterResponse = showBidForm && myBid?.counter_status === "countered";
   const showPickupUpload = isAssignedDriver && job.status === "accepted" && !job.pickup_photo_url;
   const showDeliveryUpload = isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && !!job.pickup_photo_url && !job.delivery_photo_url;
-  const showDeliveryPinDisplay = isOwner && isEscrow && ["accepted", "in_progress"].includes(job.status) && !!job.delivery_pin;
+  const showDeliveryPinDisplay = isOwner && isEscrow && ["accepted", "in_progress"].includes(job.status);
   const showCompleteButton = isOwner && !isEscrow && (job.status === "accepted" || job.status === "in_progress");
   const showDeliveryPinEntry = isAssignedDriver && isEscrow && (job.status === "accepted" || job.status === "in_progress") && !!job.delivery_photo_url;
   const showCancel = isOwner && (job.status === "open" || job.status === "accepted" || job.status === "in_progress");
@@ -506,6 +530,7 @@ function JobDetail() {
     showReceipt,
     showCompleteButton,
     showDeliveryPinDisplay,
+    deliveryPin: deliveryPin ?? null,
     invalidateJob: () => qc.invalidateQueries({ queryKey: ["job", id] }),
     invalidateBids: () => qc.invalidateQueries({ queryKey: ["bids", id] }),
     invalidateRating: () => qc.invalidateQueries({ queryKey: ["my-rating", id, userId] }),
@@ -669,7 +694,7 @@ function JobDetail() {
                   <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
                     Delivery confirmation code
                   </div>
-                  <div className="font-display font-bold text-4xl tracking-[0.2em]">{job.delivery_pin}</div>
+                  <div className="font-display font-bold text-4xl tracking-[0.2em]">{deliveryPin ?? "······"}</div>
                   <p className="text-xs text-muted-foreground">
                     Give this code to your driver when they arrive with your delivery. They'll enter it to confirm and release payment — don't share it before then.
                   </p>
@@ -1228,7 +1253,7 @@ function BidForm({
                 aria-pressed={priceNum === v}
                 className={cn(
                   "min-h-12 rounded-xl text-[15px] font-semibold tabular-nums",
-                  priceNum === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-[#33353b] bg-cz-surface",
+                  priceNum === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-cz-border-strong bg-cz-surface",
                 )}
               >
                 {usd(v)}
@@ -1281,7 +1306,7 @@ function BidForm({
                 aria-pressed={etaMinutes === o.v}
                 className={cn(
                   "min-h-12 rounded-xl text-[15px] font-semibold",
-                  etaMinutes === o.v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-[#33353b] bg-cz-surface",
+                  etaMinutes === o.v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-cz-border-strong bg-cz-surface",
                 )}
               >
                 {o.label}
@@ -1363,7 +1388,7 @@ function BidForm({
         )}
       </div>
 
-      <footer className="sticky bottom-0 z-20 space-y-3 border-t border-[#25272b] bg-[#16171a] px-5 pt-4 pb-[calc(20px+env(safe-area-inset-bottom))]">
+      <footer className="sticky bottom-0 z-20 space-y-3 border-t border-cz-border bg-cz-surface px-5 pt-4 pb-[calc(20px+env(safe-area-inset-bottom))]">
         {fee != null && priceNum > 0 && (
           <>
             <MoneyRow
@@ -1929,6 +1954,7 @@ type JobScreenCtx = {
   showReceipt: boolean;
   showCompleteButton: boolean;
   showDeliveryPinDisplay: boolean;
+  deliveryPin: string | null;
   invalidateJob: () => void;
   invalidateBids: () => void;
   invalidateRating: () => void;
@@ -2822,7 +2848,7 @@ function RaisePriceCard({ job, onRaised }: { job: any; onRaised: () => void }) {
             aria-pressed={target === v}
             className={cn(
               "min-h-12 rounded-xl text-[15px] font-semibold tabular-nums",
-              target === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-[#33353b] bg-cz-surface",
+              target === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-cz-border-strong bg-cz-surface",
             )}
           >
             +{usd(v - current)}
@@ -2913,7 +2939,7 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
         <ContactCard ctx={ctx} role="driver" subtitle={`${materialLabel(job.material as any, job.custom_material)} · ${Number(job.quantity_m3)} m³`} />
       </div>
 
-      <footer className="sticky bottom-0 z-20 space-y-2.5 border-t border-[#25272b] bg-[#16171a] px-5 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))]">
+      <footer className="sticky bottom-0 z-20 space-y-2.5 border-t border-cz-border bg-cz-surface px-5 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))]">
         <div id="tour-next-steps">
           <CzButton onClick={ctx.payEscrow} disabled={ctx.payingEscrow}>
             {ctx.payingEscrow ? <Loader2 className="w-5 h-5 animate-spin" /> : `Pay ${usd2(total)} with Paynow`}
@@ -3018,7 +3044,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
                   <div className="font-bold">Your delivery PIN</div>
                   <div className="text-[13px] opacity-80">Only share after the load is tipped</div>
                 </div>
-                <div className="cz-display font-bold text-[40px] leading-none tracking-[0.12em] tabular-nums">{job.delivery_pin}</div>
+                <div className="cz-display font-bold text-[40px] leading-none tracking-[0.12em] tabular-nums">{ctx.deliveryPin ?? "······"}</div>
               </div>
             </div>
           )}

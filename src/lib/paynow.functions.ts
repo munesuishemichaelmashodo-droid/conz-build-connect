@@ -70,7 +70,7 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
 
 export type InitiateEscrowResult =
   | { ok: true; paymentId: string; redirectUrl: string }
-  | { ok: false; error: "paynow_not_configured" | "job_not_found" | "not_your_job" | "already_paid" | string };
+  | { ok: false; error: "paynow_not_configured" | "job_not_found" | "job_not_payable" | "not_your_job" | "already_paid" | string };
 
 /**
  * Con Z Pay — customer pays for a specific job into escrow, held until
@@ -86,7 +86,7 @@ export const initiateEscrowPayment = createServerFn({ method: "POST" })
     return { jobId: data.jobId };
   })
   .handler(async ({ data, context }): Promise<InitiateEscrowResult> => {
-    const { getPaynowCredentials, initiatePaynowTransaction } = await import("@/lib/paynow.server");
+    const { getPaynowCredentials, initiatePaynowTransaction, pollPaynowStatus } = await import("@/lib/paynow.server");
     if (!getPaynowCredentials()) return { ok: false, error: "paynow_not_configured" };
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -100,15 +100,33 @@ export const initiateEscrowPayment = createServerFn({ method: "POST" })
     if (!job) return { ok: false, error: "job_not_found" };
     if (job.customer_id !== context.userId) return { ok: false, error: "not_your_job" };
     if (job.payment_method !== "escrow") return { ok: false, error: "job_not_found" };
+    // Only a job with a driver on it can be paid for — never a completed
+    // or cancelled one.
+    if (job.status !== "accepted" && job.status !== "in_progress") return { ok: false, error: "job_not_payable" };
 
-    const { data: existing } = await db
+    const { data: previous } = await db
       .from("payments")
-      .select("id")
+      .select("id, status, paynow_poll_url")
       .eq("job_id", data.jobId)
       .eq("type", "escrow")
-      .eq("status", "paid")
-      .maybeSingle();
-    if (existing) return { ok: false, error: "already_paid" };
+      .in("status", ["initiated", "paid", "released"]);
+    if ((previous ?? []).some((p: { status: string }) => p.status === "paid" || p.status === "released")) {
+      return { ok: false, error: "already_paid" };
+    }
+    // A customer who started a Paynow payment, left, and taps Pay again may
+    // actually have completed the first one. Check those attempts with
+    // Paynow before starting another, so they aren't charged twice.
+    for (const p of previous ?? []) {
+      if (!p.paynow_poll_url) continue;
+      const polled = await pollPaynowStatus(p.paynow_poll_url);
+      if (polled.ok && SUCCESS_STATUSES.has(polled.status)) {
+        if (polled.paynowReference) {
+          await db.from("payments").update({ paynow_reference: polled.paynowReference }).eq("id", p.id);
+        }
+        await db.rpc("mark_escrow_payment_paid", { _payment_id: p.id });
+        return { ok: false, error: "already_paid" };
+      }
+    }
 
     const amount = Number(job.final_price ?? job.budget ?? 0);
     if (!amount || amount <= 0) return { ok: false, error: "job_not_found" };

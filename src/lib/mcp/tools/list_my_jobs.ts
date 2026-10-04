@@ -16,7 +16,7 @@ export default defineTool({
     "List Con Z delivery jobs for the signed-in user. Customers see jobs they posted; drivers see jobs assigned to them. Returns up to 50 most recent jobs.",
   inputSchema: {
     status: z
-      .enum(["open", "assigned", "in_progress", "completed", "cancelled", "expired", "any"])
+      .enum(["open", "accepted", "in_progress", "completed", "cancelled", "any"])
       .optional()
       .describe("Filter by job status. Defaults to any."),
     limit: z.number().int().min(1).max(50).optional().describe("Max rows to return (1-50)."),
