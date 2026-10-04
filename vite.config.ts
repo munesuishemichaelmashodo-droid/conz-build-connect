@@ -26,6 +26,8 @@ export default defineConfig({
     // (Nitro v3 config key is `noExternals`, not the nitropack v2
     // `externals.inline` shape.) Forcing tslib to never be treated as
     // external removes the runtime node_modules resolution entirely.
+    // @ts-expect-error -- the wrapper's narrowed `nitro` type omits this key,
+    // but it is passed through to Nitro unchanged at build time.
     noExternals: ["tslib"],
   },
   vite: {

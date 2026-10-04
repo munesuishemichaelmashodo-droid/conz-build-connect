@@ -60,21 +60,25 @@
   --font-display: "Barlow Condensed", system-ui, sans-serif;
   --font-sans: "Inter", system-ui, sans-serif;
 
-  /* Driver / customer mode redesign ("cz") palette — see .cz-screen below. */
-  --color-cz-bg: #121316;
-  --color-cz-bg-deep: #0b0c0e;
-  --color-cz-surface: #1c1d21;
-  --color-cz-surface-2: #26282d;
-  --color-cz-border: #2a2c31;
-  --color-cz-border-strong: #3a3c42;
-  --color-cz-text: #f2f0eb;
-  --color-cz-muted: #a3a6ae;
-  --color-cz-faint: #8a8d95;
-  --color-cz-amber: #f5a524;
-  --color-cz-amber-ink: #1a1204;
-  --color-cz-amber-tint: #2a1f0b;
-  --color-cz-amber-tint-2: #3a2a0c;
-  --color-cz-amber-text: #ffc35c;
+  /* Driver / customer mode redesign ("cz") palette — see .cz-screen below.
+     Brand colours from the Con Z logo: safety orange (#ff7716, same as the
+     dark theme's --primary) on black, with the same warm near-black
+     surfaces the rest of the app uses. Token names keep "amber" for
+     history; the value is the brand orange. */
+  --color-cz-bg: #010101;
+  --color-cz-bg-deep: #000000;
+  --color-cz-surface: #110e0c;
+  --color-cz-surface-2: #1c1815;
+  --color-cz-border: #231e1a;
+  --color-cz-border-strong: #342d28;
+  --color-cz-text: #fcfaf8;
+  --color-cz-muted: #9e9691;
+  --color-cz-faint: #857d78;
+  --color-cz-amber: #ff7716;
+  --color-cz-amber-ink: #0b0907;
+  --color-cz-amber-tint: #2a1407;
+  --color-cz-amber-tint-2: #3d1d08;
+  --color-cz-amber-text: #ffa366;
   --color-cz-green: #3dbe74;
   --color-cz-green-tint: #12301f;
   --color-cz-green-border: #2c6b47;
@@ -85,8 +89,8 @@
   --color-cz-info-text: #9cc7f5;
   --color-cz-warn-tint: #3a1e12;
   --color-cz-warn-text: #ffb08a;
-  --color-cz-upcoming: #2e3035;
-  --font-cz: "Barlow", system-ui, sans-serif;
+  --color-cz-upcoming: #2a2420;
+  --font-cz: "Inter", system-ui, sans-serif;
   --font-cz-display: "Barlow Condensed", system-ui, sans-serif;
 }
 
@@ -221,37 +225,37 @@
  * Pages outside the redesign are untouched.
  */
 .cz-screen {
-  --background: #121316;
-  --foreground: #f2f0eb;
-  --card: #1c1d21;
-  --card-foreground: #f2f0eb;
-  --popover: #1c1d21;
-  --popover-foreground: #f2f0eb;
-  --primary: #f5a524;
-  --primary-foreground: #1a1204;
-  --secondary: #26282d;
-  --secondary-foreground: #f2f0eb;
-  --muted: #26282d;
-  --muted-foreground: #a3a6ae;
-  --accent: #2a1f0b;
-  --accent-foreground: #ffc35c;
+  --background: #010101;
+  --foreground: #fcfaf8;
+  --card: #110e0c;
+  --card-foreground: #fcfaf8;
+  --popover: #110e0c;
+  --popover-foreground: #fcfaf8;
+  --primary: #ff7716;
+  --primary-foreground: #0b0907;
+  --secondary: #1c1815;
+  --secondary-foreground: #fcfaf8;
+  --muted: #1c1815;
+  --muted-foreground: #9e9691;
+  --accent: #2a1407;
+  --accent-foreground: #ffa366;
   --success: #3dbe74;
   --success-foreground: #0b2416;
-  --warning: #f5a524;
-  --warning-foreground: #1a1204;
+  --warning: #ff7716;
+  --warning-foreground: #0b0907;
   --destructive: #e5533d;
-  --border: #2a2c31;
-  --input: #2a2c31;
-  --ring: #f5a524;
-  background-color: #121316;
-  color: #f2f0eb;
+  --border: #231e1a;
+  --input: #231e1a;
+  --ring: #ff7716;
+  background-color: #010101;
+  color: #fcfaf8;
   font-family: var(--font-cz);
   color-scheme: dark;
 }
 .cz-screen .font-display,
 .cz-display {
   font-family: var(--font-cz-display);
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
 }
 
 @keyframes cz-pulse-ring {

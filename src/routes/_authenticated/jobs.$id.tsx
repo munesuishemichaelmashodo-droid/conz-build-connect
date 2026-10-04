@@ -340,15 +340,18 @@ function JobDetail() {
     queryKey: ["escrow-payment", id],
     enabled: !!job && isEscrow,
     queryFn: async () => {
+      // Prefer a settled payment over the newest attempt: a customer who
+      // paid, then opened Paynow again without finishing, must still show as
+      // paid — otherwise they'd be invited to pay a second time.
       const { data } = await supabase
         .from("payments")
         .select("id,status,amount")
         .eq("job_id", id)
         .eq("type", "escrow")
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return data as { id: string; status: string; amount: number } | null;
+        .limit(10);
+      const rows = (data ?? []) as { id: string; status: string; amount: number }[];
+      return rows.find((r) => r.status === "paid" || r.status === "released") ?? rows[0] ?? null;
     },
   });
   const escrowPaid = escrowPayment?.status === "paid" || escrowPayment?.status === "released";
@@ -388,6 +391,9 @@ function JobDetail() {
         if (res.error === "already_paid") {
           qc.invalidateQueries({ queryKey: ["escrow-payment", id] });
           return toast.success("This job is already paid for.");
+        }
+        if (res.error === "job_not_payable") {
+          return toast.error("This job can't be paid for right now — it needs an assigned driver and must not be completed or cancelled.");
         }
         return toast.error(res.error || "Could not start payment");
       }
@@ -1228,7 +1234,7 @@ function BidForm({
                 aria-pressed={priceNum === v}
                 className={cn(
                   "min-h-12 rounded-xl text-[15px] font-semibold tabular-nums",
-                  priceNum === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-[#33353b] bg-cz-surface",
+                  priceNum === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-cz-border-strong bg-cz-surface",
                 )}
               >
                 {usd(v)}
@@ -1281,7 +1287,7 @@ function BidForm({
                 aria-pressed={etaMinutes === o.v}
                 className={cn(
                   "min-h-12 rounded-xl text-[15px] font-semibold",
-                  etaMinutes === o.v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-[#33353b] bg-cz-surface",
+                  etaMinutes === o.v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-cz-border-strong bg-cz-surface",
                 )}
               >
                 {o.label}
@@ -1363,7 +1369,7 @@ function BidForm({
         )}
       </div>
 
-      <footer className="sticky bottom-0 z-20 space-y-3 border-t border-[#25272b] bg-[#16171a] px-5 pt-4 pb-[calc(20px+env(safe-area-inset-bottom))]">
+      <footer className="sticky bottom-0 z-20 space-y-3 border-t border-cz-border bg-cz-surface px-5 pt-4 pb-[calc(20px+env(safe-area-inset-bottom))]">
         {fee != null && priceNum > 0 && (
           <>
             <MoneyRow
@@ -2822,7 +2828,7 @@ function RaisePriceCard({ job, onRaised }: { job: any; onRaised: () => void }) {
             aria-pressed={target === v}
             className={cn(
               "min-h-12 rounded-xl text-[15px] font-semibold tabular-nums",
-              target === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-[#33353b] bg-cz-surface",
+              target === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-cz-border-strong bg-cz-surface",
             )}
           >
             +{usd(v - current)}
@@ -2913,7 +2919,7 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
         <ContactCard ctx={ctx} role="driver" subtitle={`${materialLabel(job.material as any, job.custom_material)} · ${Number(job.quantity_m3)} m³`} />
       </div>
 
-      <footer className="sticky bottom-0 z-20 space-y-2.5 border-t border-[#25272b] bg-[#16171a] px-5 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))]">
+      <footer className="sticky bottom-0 z-20 space-y-2.5 border-t border-cz-border bg-cz-surface px-5 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))]">
         <div id="tour-next-steps">
           <CzButton onClick={ctx.payEscrow} disabled={ctx.payingEscrow}>
             {ctx.payingEscrow ? <Loader2 className="w-5 h-5 animate-spin" /> : `Pay ${usd2(total)} with Paynow`}
