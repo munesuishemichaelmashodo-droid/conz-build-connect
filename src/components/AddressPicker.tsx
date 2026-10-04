@@ -150,19 +150,33 @@ export function AddressPicker({
     return () => clearTimeout(t);
   }, [query]);
 
-  // Set/update the pin locally without committing coords upstream.
+  // Set/update the pin AND commit its coordinates upstream immediately.
+  // Dropping a pin (map tap, search result, GPS, drag, manual) is a definite
+  // choice of where to deliver, so there's no separate "confirm" gate — the
+  // continue button unlocks as soon as there's a real point. (The old flow
+  // committed coords only on a separate confirm button that, in the
+  // fullscreen layout, sits behind the booking sheet and can't be tapped,
+  // which left every booking stuck on "Confirm the pin to continue".)
   // Pass a bbox when the source is a search result for an area (suburb, road,
   // landmark) so the map frames the area instead of a single point.
   const setPin = async (lat: number, lng: number, addressHint?: string, box?: BoundingBox) => {
     setCoords({ lat, lng });
     setHasPin(true);
-    setConfirmed(false);
+    setConfirmed(true);
     setBbox(box ?? null);
     if (!box) setZoom(16);
-    const addr = addressHint ?? (await reverseGeocode(lat, lng));
-    const finalAddr = addr ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    setQuery(finalAddr);
-    onChange(finalAddr, undefined);
+    // Commit coordinates right away with a provisional label so the continue
+    // button enables instantly, even if reverse geocoding is slow or fails.
+    const provisional = addressHint ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    setQuery(provisional);
+    onChange(provisional, { lat, lng });
+    if (!addressHint) {
+      const addr = await reverseGeocode(lat, lng);
+      if (addr) {
+        setQuery(addr);
+        onChange(addr, { lat, lng });
+      }
+    }
   };
 
   const pickResult = (r: GeocodeResult) => {
@@ -200,7 +214,7 @@ export function AddressPicker({
       const { locateOnce } = await import("@/lib/geolocate");
       const c = await locateOnce({ onUpdate: (better) => void setPin(better.lat, better.lng) });
       await setPin(c.lat, c.lng);
-      toast.success("Location captured — tap Confirm to use it", { id: "address-picker-locate" });
+      toast.success("Location captured", { id: "address-picker-locate" });
     } catch (e: any) {
       toast.error(e.message ?? "Could not get location");
     } finally {
@@ -228,7 +242,7 @@ export function AddressPicker({
 
     setManualMode(false);
     void setPin(lat, lng);
-    toast.success("Coordinates set — tap Confirm to use them");
+    toast.success("Coordinates set");
   };
 
   if (variant === "fullscreen") {
