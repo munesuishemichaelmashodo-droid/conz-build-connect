@@ -276,7 +276,11 @@ function JobDetail() {
   // customer-only RPC (get_my_delivery_pin); the driver can never read it.
   const { data: deliveryPin } = useQuery({
     queryKey: ["delivery-pin", id],
-    enabled: !!job && isOwner && isEscrow && ["accepted", "in_progress"].includes(job?.status ?? ""),
+    enabled:
+      !!job &&
+      job?.customer_id === userId &&
+      job?.payment_method === "escrow" &&
+      ["accepted", "in_progress"].includes(job?.status ?? ""),
     queryFn: async () => {
       const { data } = await (supabase.rpc as unknown as (
         f: string, a: Record<string, unknown>,
