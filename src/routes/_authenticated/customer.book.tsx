@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { AddressPicker } from "@/components/AddressPicker";
@@ -99,6 +99,21 @@ function BookDelivery() {
   const [roadDistanceKm, setRoadDistanceKm] = useState<number | null>(null);
   // Redesign: the date/notes drawer grows the sheet, so the map controls move up.
   const [sheetOpenExtra, setSheetOpenExtra] = useState(false);
+  // A pin placed on the map but not yet confirmed. The map's own confirm
+  // button can sit under this sheet on short phones, so the sheet's main
+  // button confirms it too.
+  const [pendingCoords, setPendingCoords] = useState<{ lat: number; lng: number } | null>(null);
+  // Real height of the booking sheet, so the map's controls always sit
+  // just above it instead of at a fixed offset it can cover.
+  const sheetRef = useRef<HTMLElement | null>(null);
+  const [sheetHeight, setSheetHeight] = useState(0);
+  useEffect(() => {
+    const el = sheetRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setSheetHeight(Math.round(el.getBoundingClientRect().height)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
 
   const { data: materialPickups } = useQuery({
     queryKey: ["material-pickups"],
@@ -267,10 +282,11 @@ function BookDelivery() {
   }
 
 
-  const goToOffer = async () => {
+  const goToOffer = async (confirmedPin?: { lat: number; lng: number }) => {
     if (!address.trim()) return toast.error("Enter the delivery address");
 
-    if (!coords) {
+    const pin = confirmedPin ?? coords;
+    if (!pin) {
       setStep(2);
       return toast.error("Select the delivery point on the map so the driver can navigate.");
     }
@@ -281,7 +297,7 @@ function BookDelivery() {
 
     try {
       const distanceKm =
-        roadDistanceKm ?? (coords ? haversineKm(pickupPoint, coords) : 15);
+        roadDistanceKm ?? (pin ? haversineKm(pickupPoint, pin) : 15);
 
       const result = await runOffer({
         data: {
@@ -293,8 +309,8 @@ function BookDelivery() {
           distanceKm,
           pickupLat: pickupPoint.lat,
           pickupLng: pickupPoint.lng,
-          deliveryLat: coords.lat,
-          deliveryLng: coords.lng,
+          deliveryLat: pin.lat,
+          deliveryLng: pin.lng,
           address,
         },
       });
@@ -399,7 +415,6 @@ function BookDelivery() {
   // and the jobs insert in confirm() above are unchanged.
   // ---------------------------------------------------------------------
   const quantityValid = quantity >= MIN_QUANTITY_M3 && quantity <= 30;
-  const locationValid = address.trim().length > 2 && !!coords;
   // Mirrors compute_material_offer's reference-truck trip rule (see
   // suggestion above) — display only.
   const tripsEstimate = quantity > 20 ? Math.ceil(quantity / 10) : 1;
@@ -420,7 +435,7 @@ function BookDelivery() {
               value={address}
               initialCoords={coords}
               trucks={nearbyTrucks}
-              controlsBottom={sheetOpenExtra ? 470 : 372}
+              controlsBottom={sheetHeight > 0 ? sheetHeight + 12 : sheetOpenExtra ? 470 : 372}
               leading={
                 <button
                   type="button"
@@ -434,11 +449,13 @@ function BookDelivery() {
               onChange={(a, c) => {
                 setAddress(a);
                 setCoords(c ?? null);
+                if (c) setPendingCoords(null);
               }}
+              onPendingPin={setPendingCoords}
             />
           </div>
 
-          <section className="absolute inset-x-0 bottom-0 z-30 max-h-[78dvh] overflow-y-auto rounded-t-[24px] bg-cz-bg px-5 pt-2.5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.45)]">
+          <section ref={sheetRef} className="absolute inset-x-0 bottom-0 z-30 max-h-[78dvh] overflow-y-auto rounded-t-[24px] bg-cz-bg px-5 pt-2.5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.45)]">
             <div aria-hidden className="mx-auto mb-3.5 h-[5px] w-10 rounded-full bg-cz-border-strong" />
             <div className="space-y-4">
               {search.driverId && (
@@ -558,21 +575,35 @@ function BookDelivery() {
                   {suggestion.distanceKm.toFixed(1)} km from pickup (incl. {commissionRate ?? 7}% platform commission).
                 </p>
               )}
-              {address.trim().length > 2 && !coords && (
+              {address.trim().length > 2 && !coords && !pendingCoords && (
                 <p className="text-[13px] text-cz-danger-text">
-                  Please select a map result or confirm the pin so the driver can navigate accurately.
+                  Pick a search result or tap the map to drop a pin, so the driver can navigate accurately.
                 </p>
               )}
 
-              <CzButton onClick={goToOffer} disabled={computing || !quantityValid || !locationValid}>
+              <CzButton
+                onClick={() => {
+                  // A pin is on the map but not confirmed yet: this tap
+                  // confirms it (same as the map's "Deliver here" button).
+                  if (!coords && pendingCoords) {
+                    setCoords(pendingCoords);
+                    void goToOffer(pendingCoords);
+                    return;
+                  }
+                  void goToOffer();
+                }}
+                disabled={computing || !quantityValid || !(address.trim().length > 2 && (coords || pendingCoords))}
+              >
                 {computing ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" /> Calculating…
                   </>
                 ) : !address.trim() ? (
                   "Set the delivery point first"
+                ) : !coords && pendingCoords ? (
+                  "Confirm pin & see price"
                 ) : !coords ? (
-                  "Confirm the pin to continue"
+                  "Drop a pin on the map first"
                 ) : (
                   "See price"
                 )}

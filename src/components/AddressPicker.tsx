@@ -99,6 +99,7 @@ export function AddressPicker({
   controlsBottom = 360,
   initialCoords,
   trucks = [],
+  onPendingPin,
 }: {
   value: string;
   onChange: (address: string, coords?: { lat: number; lng: number }) => void;
@@ -118,6 +119,11 @@ export function AddressPicker({
   initialCoords?: { lat: number; lng: number } | null;
   /** fullscreen only: approximate Online trucks nearby (migration 0062). */
   trucks?: TruckMarker[];
+  /** Called with the pin's position whenever a pin is placed but not yet
+   *  confirmed (null when the address is retyped). Lets the parent offer
+   *  its own "confirm" action — the map's confirm button can end up under
+   *  a tall booking sheet on short phones. */
+  onPendingPin?: (coords: { lat: number; lng: number } | null) => void;
 }) {
   const [coords, setCoords] = useState<{ lat: number; lng: number }>(initialCoords ?? { lat: -17.8252, lng: 31.0335 });
   const [hasPin, setHasPin] = useState(!!initialCoords);
@@ -134,6 +140,15 @@ export function AddressPicker({
   const [bbox, setBbox] = useState<BoundingBox | null>(null);
 
   useEffect(() => setQuery(value), [value]);
+
+  // The parent confirmed the current pin itself (see onPendingPin): show it
+  // as confirmed here too.
+  useEffect(() => {
+    if (initialCoords && hasPin && initialCoords.lat === coords.lat && initialCoords.lng === coords.lng) {
+      setConfirmed(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCoords?.lat, initialCoords?.lng]);
 
   // Debounced address search (powers the dropdown suggestions)
   useEffect(() => {
@@ -157,6 +172,7 @@ export function AddressPicker({
     setCoords({ lat, lng });
     setHasPin(true);
     setConfirmed(false);
+    onPendingPin?.({ lat, lng });
     setBbox(box ?? null);
     if (!box) setZoom(16);
     const addr = addressHint ?? (await reverseGeocode(lat, lng));
@@ -278,6 +294,7 @@ export function AddressPicker({
                       setQuery(e.target.value);
                       setOpen(true);
                       setConfirmed(false);
+                      onPendingPin?.(null);
                       onChange(e.target.value, undefined);
                     }}
                     onFocus={() => setOpen(true)}

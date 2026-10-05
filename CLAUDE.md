@@ -28,7 +28,7 @@ Zimbabwe.
 
 Migrations live in `supabase/migrations/`, named
 `YYYYMMDDHHMMSS_NNNN_description.sql` where NNNN is a sequential 4-digit
-counter (currently up to 0065) kept **on top of** the raw timestamp-named
+counter (currently up to 0071) kept **on top of** the raw timestamp-named
 files from early development. Always:
 
 1. Check the latest applied migration version live (not just what's in git —
@@ -161,6 +161,27 @@ stop this recurring, but verify rather than assume.
   Auth settings; `pg_net` lives in the public schema; `market_rate_history`
   and `driver_public_profiles` are SECURITY DEFINER views (intentional for
   public profiles — review before changing).
+
+## 04/10/2026 — guard triggers were silently off
+
+- Another session's security pass (PR #4, branch
+  `claude/conz-production-security-audit-0trp9m`) applied `0066`–`0070`
+  live. `0066` recreated `jobs_guard_direct_write` and added insert/profile
+  guards as SECURITY DEFINER; their `current_user not in
+  ('authenticated','anon')` early-return then always fired (current_user =
+  owner inside a DEFINER function), so every guard was a no-op. Verified
+  live: a user could self-verify as a driver, and a customer could set their
+  own job to completed with commission 0.
+- **Fixed by `0071_guard_triggers_security_invoker` (applied as
+  20261004181911):** all 7 guard functions are
+  SECURITY INVOKER again. Re-tested: self-verify forced to pending, job
+  status change blocked, strikes blocked; posting a job, editing name/notes
+  still work. **Rule: a trigger guard that checks `current_user` must never
+  be SECURITY DEFINER.**
+- `0067` moved the escrow delivery PIN to `job_delivery_pins`; PR #4
+  (merged 04/10 20:29 UTC) ships the matching frontend, which also bumps
+  `@tanstack/react-start` to 1.168.60 — Vercel's deploy gate now rejects
+  older versions (CVE-2026-102989), so keep it at or above that.
 
 ## Resolved since the above list was written
 
