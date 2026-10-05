@@ -178,9 +178,10 @@ stop this recurring, but verify rather than assume.
   status change blocked, strikes blocked; posting a job, editing name/notes
   still work. **Rule: a trigger guard that checks `current_user` must never
   be SECURITY DEFINER.**
-- `0067` moved the escrow delivery PIN to `job_delivery_pins`; the app on
-  `main` still reads `jobs.delivery_pin` (now always NULL), so escrow
-  customers can't see their PIN until PR #4's frontend deploys.
+- `0067` moved the escrow delivery PIN to `job_delivery_pins`; PR #4
+  (merged 04/10 20:29 UTC) ships the matching frontend, which also bumps
+  `@tanstack/react-start` to 1.168.60 — Vercel's deploy gate now rejects
+  older versions (CVE-2026-102989), so keep it at or above that.
 
 ## Resolved since the above list was written
 
