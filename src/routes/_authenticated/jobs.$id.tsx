@@ -271,6 +271,24 @@ function JobDetail() {
     },
   });
 
+  // C1: the delivery PIN is never on the jobs row anymore (a driver could
+  // read it there). The customer fetches their own code through a
+  // customer-only RPC (get_my_delivery_pin); the driver can never read it.
+  const { data: deliveryPin } = useQuery({
+    queryKey: ["delivery-pin", id],
+    enabled:
+      !!job &&
+      job?.customer_id === userId &&
+      job?.payment_method === "escrow" &&
+      ["accepted", "in_progress"].includes(job?.status ?? ""),
+    queryFn: async () => {
+      const { data } = await (supabase.rpc as unknown as (
+        f: string, a: Record<string, unknown>,
+      ) => Promise<{ data: string | null }>)("get_my_delivery_pin", { _job_id: id });
+      return (data as string | null) ?? null;
+    },
+  });
+
   const showRadar = !!job && job.customer_id === userId && job.status === "open" && (bids?.length ?? 0) === 0;
 
   // Both rating tables have a unique constraint per job — without this check
@@ -456,7 +474,7 @@ function JobDetail() {
   const showCounterResponse = showBidForm && myBid?.counter_status === "countered";
   const showPickupUpload = isAssignedDriver && job.status === "accepted" && !job.pickup_photo_url;
   const showDeliveryUpload = isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && !!job.pickup_photo_url && !job.delivery_photo_url;
-  const showDeliveryPinDisplay = isOwner && isEscrow && ["accepted", "in_progress"].includes(job.status) && !!job.delivery_pin;
+  const showDeliveryPinDisplay = isOwner && isEscrow && ["accepted", "in_progress"].includes(job.status);
   const showCompleteButton = isOwner && !isEscrow && (job.status === "accepted" || job.status === "in_progress");
   const showDeliveryPinEntry = isAssignedDriver && isEscrow && (job.status === "accepted" || job.status === "in_progress") && !!job.delivery_photo_url;
   const showCancel = isOwner && (job.status === "open" || job.status === "accepted" || job.status === "in_progress");
@@ -512,6 +530,7 @@ function JobDetail() {
     showReceipt,
     showCompleteButton,
     showDeliveryPinDisplay,
+    deliveryPin: deliveryPin ?? null,
     invalidateJob: () => qc.invalidateQueries({ queryKey: ["job", id] }),
     invalidateBids: () => qc.invalidateQueries({ queryKey: ["bids", id] }),
     invalidateRating: () => qc.invalidateQueries({ queryKey: ["my-rating", id, userId] }),
@@ -675,7 +694,7 @@ function JobDetail() {
                   <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
                     Delivery confirmation code
                   </div>
-                  <div className="font-display font-bold text-4xl tracking-[0.2em]">{job.delivery_pin}</div>
+                  <div className="font-display font-bold text-4xl tracking-[0.2em]">{deliveryPin ?? "······"}</div>
                   <p className="text-xs text-muted-foreground">
                     Give this code to your driver when they arrive with your delivery. They'll enter it to confirm and release payment — don't share it before then.
                   </p>
@@ -1935,6 +1954,7 @@ type JobScreenCtx = {
   showReceipt: boolean;
   showCompleteButton: boolean;
   showDeliveryPinDisplay: boolean;
+  deliveryPin: string | null;
   invalidateJob: () => void;
   invalidateBids: () => void;
   invalidateRating: () => void;
@@ -3024,7 +3044,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
                   <div className="font-bold">Your delivery PIN</div>
                   <div className="text-[13px] opacity-80">Only share after the load is tipped</div>
                 </div>
-                <div className="cz-display font-bold text-[40px] leading-none tracking-[0.12em] tabular-nums">{job.delivery_pin}</div>
+                <div className="cz-display font-bold text-[40px] leading-none tracking-[0.12em] tabular-nums">{ctx.deliveryPin ?? "······"}</div>
               </div>
             </div>
           )}
