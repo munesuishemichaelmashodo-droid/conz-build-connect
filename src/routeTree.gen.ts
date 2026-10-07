@@ -51,6 +51,7 @@ import { Route as AuthenticatedCustomerBookRouteImport } from './routes/_authent
 import { Route as AuthenticatedJobsIndexRouteImport } from './routes/_authenticated/jobs.index'
 import { Route as AuthenticatedJobsIdRouteImport } from './routes/_authenticated/jobs.$id'
 import { Route as AuthenticatedJobsNewRouteImport } from './routes/_authenticated/jobs.new'
+import { Route as ApiInternalPaynowReconcileRouteImport } from './routes/api/internal/paynow-reconcile'
 import { Route as ApiPublicPaynowIpnRouteImport } from './routes/api/public/paynow-ipn'
 
 const IndexRoute = IndexRouteImport.update({
@@ -276,6 +277,12 @@ const AuthenticatedJobsNewRoute = AuthenticatedJobsNewRouteImport.update({
   path: '/jobs/new',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiInternalPaynowReconcileRoute =
+  ApiInternalPaynowReconcileRouteImport.update({
+    id: '/api/internal/paynow-reconcile',
+    path: '/api/internal/paynow-reconcile',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPaynowIpnRoute = ApiPublicPaynowIpnRouteImport.update({
   id: '/api/public/paynow-ipn',
   path: '/api/public/paynow-ipn',
@@ -321,6 +328,7 @@ export interface FileRoutesByFullPath {
   '/customer/book': typeof AuthenticatedCustomerBookRoute
   '/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/jobs/new': typeof AuthenticatedJobsNewRoute
+  '/api/internal/paynow-reconcile': typeof ApiInternalPaynowReconcileRoute
   '/api/public/paynow-ipn': typeof ApiPublicPaynowIpnRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/customer/': typeof AuthenticatedCustomerIndexRoute
@@ -363,6 +371,7 @@ export interface FileRoutesByTo {
   '/customer/book': typeof AuthenticatedCustomerBookRoute
   '/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/jobs/new': typeof AuthenticatedJobsNewRoute
+  '/api/internal/paynow-reconcile': typeof ApiInternalPaynowReconcileRoute
   '/api/public/paynow-ipn': typeof ApiPublicPaynowIpnRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/customer': typeof AuthenticatedCustomerIndexRoute
@@ -409,6 +418,7 @@ export interface FileRoutesById {
   '/_authenticated/customer/book': typeof AuthenticatedCustomerBookRoute
   '/_authenticated/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/_authenticated/jobs/new': typeof AuthenticatedJobsNewRoute
+  '/api/internal/paynow-reconcile': typeof ApiInternalPaynowReconcileRoute
   '/api/public/paynow-ipn': typeof ApiPublicPaynowIpnRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/customer/': typeof AuthenticatedCustomerIndexRoute
@@ -455,6 +465,7 @@ export interface FileRouteTypes {
     | '/customer/book'
     | '/jobs/$id'
     | '/jobs/new'
+    | '/api/internal/paynow-reconcile'
     | '/api/public/paynow-ipn'
     | '/admin/'
     | '/customer/'
@@ -497,6 +508,7 @@ export interface FileRouteTypes {
     | '/customer/book'
     | '/jobs/$id'
     | '/jobs/new'
+    | '/api/internal/paynow-reconcile'
     | '/api/public/paynow-ipn'
     | '/admin'
     | '/customer'
@@ -542,6 +554,7 @@ export interface FileRouteTypes {
     | '/_authenticated/customer/book'
     | '/_authenticated/jobs/$id'
     | '/_authenticated/jobs/new'
+    | '/api/internal/paynow-reconcile'
     | '/api/public/paynow-ipn'
     | '/_authenticated/admin/'
     | '/_authenticated/customer/'
@@ -564,6 +577,7 @@ export interface RootRouteChildren {
   TrackTokenRoute: typeof TrackTokenRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
+  ApiInternalPaynowReconcileRoute: typeof ApiInternalPaynowReconcileRoute
   ApiPublicPaynowIpnRoute: typeof ApiPublicPaynowIpnRoute
 }
 
@@ -863,6 +877,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedJobsNewRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/internal/paynow-reconcile': {
+      id: '/api/internal/paynow-reconcile'
+      path: '/api/internal/paynow-reconcile'
+      fullPath: '/api/internal/paynow-reconcile'
+      preLoaderRoute: typeof ApiInternalPaynowReconcileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/paynow-ipn': {
       id: '/api/public/paynow-ipn'
       path: '/api/public/paynow-ipn'
@@ -973,6 +994,7 @@ const rootRouteChildren: RootRouteChildren = {
   TrackTokenRoute: TrackTokenRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
+  ApiInternalPaynowReconcileRoute: ApiInternalPaynowReconcileRoute,
   ApiPublicPaynowIpnRoute: ApiPublicPaynowIpnRoute,
 }
 export const routeTree = rootRouteImport

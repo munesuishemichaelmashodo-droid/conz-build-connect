@@ -262,3 +262,36 @@ backwards-compatible with the new DB, not vice versa), and keep the Paynow IPN p
   (left untouched by `NOT VALID`; any future UPDATE of that one row would be rejected).
 - **Remaining risk:** limits ($100k job/bid, 1,000 m³, 100 m³ trucks, 5,000 km) are engineering
   defaults consistent with existing caps; owner may tune.
+
+### Phases 2–3 — Payment state machine + server-side reconciliation (F3, F9) ✅ tested locally
+
+- **Migration:** `20261007220000_0073_payment_state_machine.sql`
+  - State machine trigger on `payments`, enforced for **every role incl. service_role**:
+    `initiated → paid | failed | cancelled`, `paid → released | refund_due`, `refund_due → refunded`.
+    Identity columns + `amount` immutable; poll URL set once; payments undeletable.
+  - `payment_events` (append-only, admin-readable) records every Paynow observation + decision.
+  - `apply_paynow_result()` (service_role only) — reference == payment id, amount == stored amount
+    (string-parsed, NaN/garbage rejected), single credit, no regression; late success after close,
+    refund/chargeback after payment, and mismatches are **flagged to admins, never auto-applied**.
+  - `credit_wallet_from_payment` / `mark_escrow_payment_paid` only act on `initiated`.
+  - Clients lose SELECT on `payments.paynow_poll_url` (closed the signed-poll-body replay source).
+  - Reconciliation: `paynow_pending_for_reconcile()`, `expire_stale_paynow_payment()` (unsent > 1h,
+    unpaid-at-Paynow > 72h → `cancelled`), `request_paynow_reconcile()` + pg_cron `paynow-reconcile`
+    every 10 min — **inert until the owner sets `app_secrets.paynow_reconcile_url` and
+    `paynow_reconcile_secret`** (and the matching `PAYNOW_RECONCILE_SECRET` env var on Vercel).
+- **App:** `src/lib/paynow.server.ts` (constant-time compare, duplicate-field rejection, Paynow-host
+  allowlist, signed initiate response verified, `processPaynowIpn()`), `src/routes/api/public/paynow-ipn.ts`
+  (thin wrapper), `src/lib/paynow.reconcile.server.ts`, new `src/routes/api/internal/paynow-reconcile.ts`
+  (secret-gated, 503 when unconfigured), `paynow.functions.ts` (escrow re-pay check and user reconcile go
+  through the verified path; escrow amount must be finite and in range), `src/lib/site.ts` →
+  `https://www.conz.co.zw` (IPN resultUrl no longer hits the 308 redirect).
+- **Tests:** pgTAP `020_payment_state_machine.test.sql` 43 assertions (credit once; duplicate / poll-after-IPN /
+  late Cancelled / late Failed / Refunded / replay-after-reversal; reference, amount, NaN, garbage, missing
+  amount mismatches; late success after cancel; illegal transitions as service_role; immutability; escrow
+  credited to nobody; client column privacy; reconcile helpers). Vitest `tests/unit/paynow.server.test.ts`
+  16 tests (hash vs independent implementation, tamper, wrong key, duplicates, allowlist, IPN status codes).
+  **Results: DB 82/82, unit 16/16, `tsc` 0 errors, build + smoke test pass (now also on Windows).**
+- **Behaviour change to note for production:** Paynow's *initiate* response is now hash-verified (as the
+  official Paynow SDKs do); an unsigned/invalid response fails the initiation instead of redirecting.
+- **Remaining risk:** real Paynow message formats (amount formatting, status strings) are verified only
+  against the documented format until the staging test-mode run (Phase 18).
