@@ -223,3 +223,42 @@ Nothing reaches production until every gate is green and the owner approves in w
 `supabase db push` (or MCP `apply_migration` using the exact file name), verify with read-only
 introspection, run the reconciliation report, deploy the app after the DB (app changes are
 backwards-compatible with the new DB, not vice versa), and keep the Paynow IPN path monitored for 24h.
+
+---
+
+## 8. Phase log
+
+### Test infrastructure (07/10/2026)
+
+- `scripts/db-test.mjs` builds `.dbtest/` (gitignored): the 13/08 baseline + every later migration
+  (the full history is **not replayable** on a fresh DB — it fails at `20260723213127` on
+  `dispute_category`), `supabase/test-fixtures/reference_data.sql` (non-personal pricing/settings
+  rows) appended to the baseline copy, and `supabase/test-fixtures/test_helpers.sql` (pgTAP, identity
+  switching via role + JWT claims, fixtures) as a final test-only migration. Own project id
+  (`conz-dbtest`); never linked to the hosted project.
+- **Fidelity:** after replay, 142/145 public functions are code-identical to live (comments/whitespace
+  ignored). Differences: `admin_wallet_adjust` (equivalent CASE expression), and `search_path`
+  on the retired MFA functions `generate_mfa_recovery_codes` / `redeem_mfa_recovery_code`.
+- **Safety:** `tg_send_push_on_notification` hard-codes the PRODUCTION `send-push` URL; the test
+  bootstrap disables that trigger locally. Verified `net.http_request_queue` empty.
+
+### Phase 1 — Financial numeric integrity (F1) ✅ tested locally
+
+- **Migration:** `20261007210000_0072_financial_numeric_integrity.sql`
+  - `is_valid_money(v, max=100000)`: `0 < v <= max` (also rejects NaN/±Infinity, since NaN sorts above all numbers).
+  - `NOT VALID` range CHECKs: `bids.price`, `bids.customer_counter_price`, `jobs.budget/final_price/
+    quantity_m3/delivered_quantity_m3/commission/held_commission`, `payments.amount`,
+    `trucks.capacity_m3`, `price_quotes.distance_km/quantity_m3`, `wallet_transactions.amount/balance_after`;
+    `wallets.balance` (finite, floor −100,000) and `wallets.held` (≥ 0) **validated**.
+  - Re-validation inside `counter_bid`, `raise_job_budget`, `accept_bid`, `accept_counter`,
+    `accept_dispatch_offer`, `hold_job_commission`, `complete_job` (commission ∈ [0, price]),
+    `release_escrow_and_complete` (split ∈ [0, amount]), `admin_credit_wallet`, `admin_wallet_adjust`.
+- **Tests:** `supabase/tests/database/010_financial_numeric_integrity.test.sql` — 39 assertions.
+  Before the fix: negative bids, NaN/negative/zero budgets, NaN/Infinity counter-offers and NaN budget
+  raises were all **accepted** (16 failures + abort). After: **39/39 pass**, including the end-to-end
+  minting attack (legacy negative price → `accept_bid`/`complete_job`/`accept_dispatch_offer` refuse,
+  driver balance unchanged) and the happy path (7% = $28 commission, ledger = balance).
+- **Production compatibility (read-only check):** 0 violating rows except the known cancelled $0 job
+  (left untouched by `NOT VALID`; any future UPDATE of that one row would be rejected).
+- **Remaining risk:** limits ($100k job/bid, 1,000 m³, 100 m³ trucks, 5,000 km) are engineering
+  defaults consistent with existing caps; owner may tune.
