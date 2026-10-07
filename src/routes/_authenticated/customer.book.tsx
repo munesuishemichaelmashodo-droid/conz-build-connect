@@ -99,6 +99,18 @@ function BookDelivery() {
   const [roadDistanceKm, setRoadDistanceKm] = useState<number | null>(null);
   // Redesign: the date/notes drawer grows the sheet, so the map controls move up.
   const [sheetOpenExtra, setSheetOpenExtra] = useState(false);
+  // The booking sheet's real height, so the map's locate button / status pill
+  // always sit just above it (a fixed offset hid them behind taller sheets).
+  const [sheetEl, setSheetEl] = useState<HTMLElement | null>(null);
+  const [sheetHeight, setSheetHeight] = useState(372);
+  useEffect(() => {
+    if (!sheetEl) return;
+    const update = () => setSheetHeight(Math.round(sheetEl.getBoundingClientRect().height));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(sheetEl);
+    return () => ro.disconnect();
+  }, [sheetEl]);
 
   const { data: materialPickups } = useQuery({
     queryKey: ["material-pickups"],
@@ -420,7 +432,7 @@ function BookDelivery() {
               value={address}
               initialCoords={coords}
               trucks={nearbyTrucks}
-              controlsBottom={sheetOpenExtra ? 470 : 372}
+              controlsBottom={sheetHeight + 12}
               leading={
                 <button
                   type="button"
@@ -438,7 +450,7 @@ function BookDelivery() {
             />
           </div>
 
-          <section className="absolute inset-x-0 bottom-0 z-30 max-h-[78dvh] overflow-y-auto rounded-t-[24px] bg-cz-bg px-5 pt-2.5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.45)]">
+          <section ref={setSheetEl} className="absolute inset-x-0 bottom-0 z-30 max-h-[62dvh] overflow-y-auto rounded-t-[24px] bg-cz-bg px-5 pt-2.5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.45)]">
             <div aria-hidden className="mx-auto mb-3.5 h-[5px] w-10 rounded-full bg-cz-border-strong" />
             <div className="space-y-4">
               {search.driverId && (
@@ -560,7 +572,7 @@ function BookDelivery() {
               )}
               {address.trim().length > 2 && !coords && (
                 <p className="text-[13px] text-cz-danger-text">
-                  Please select a map result or confirm the pin so the driver can navigate accurately.
+                  Tap the map or pick a search result so the driver can navigate accurately.
                 </p>
               )}
 
@@ -572,7 +584,7 @@ function BookDelivery() {
                 ) : !address.trim() ? (
                   "Set the delivery point first"
                 ) : !coords ? (
-                  "Confirm the pin to continue"
+                  "Tap the map to set the delivery point"
                 ) : (
                   "See price"
                 )}

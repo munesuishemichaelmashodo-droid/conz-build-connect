@@ -150,24 +150,49 @@ export function AddressPicker({
     return () => clearTimeout(t);
   }, [query]);
 
-  // Set/update the pin locally without committing coords upstream.
+  // Latest-request counter so a slow reverse-geocode from an earlier pin can
+  // never overwrite a newer one. userAdjusted stops late GPS refinements from
+  // yanking the pin back after the customer has tapped or dragged it.
+  const pinRequest = useRef(0);
+  const userAdjusted = useRef(false);
+
+  // Place the pin AND lock its coordinates upstream immediately — the order
+  // screen can proceed the moment a pin exists, with no separate confirm tap
+  // (the confirm button used to sit behind the booking sheet and the late
+  // reverse-geocode result used to wipe the coordinates after confirming).
+  // The street address resolves in the background and is attached to the same
+  // coordinates if this is still the latest pin.
   // Pass a bbox when the source is a search result for an area (suburb, road,
   // landmark) so the map frames the area instead of a single point.
   const setPin = async (lat: number, lng: number, addressHint?: string, box?: BoundingBox) => {
-    setCoords({ lat, lng });
+    const req = ++pinRequest.current;
+    const here = { lat, lng };
+    const coordText = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const firstAddr = addressHint ?? coordText;
+    setCoords(here);
     setHasPin(true);
-    setConfirmed(false);
     setBbox(box ?? null);
     if (!box) setZoom(16);
-    const addr = addressHint ?? (await reverseGeocode(lat, lng));
-    const finalAddr = addr ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    setQuery(finalAddr);
-    onChange(finalAddr, undefined);
+    setQuery(firstAddr);
+    setConfirmed(true);
+    onChange(firstAddr, here);
+    if (addressHint) return;
+    const addr = await reverseGeocode(lat, lng);
+    if (req !== pinRequest.current || !addr) return;
+    setQuery(addr);
+    onChange(addr, here);
+  };
+
+  // Map tap / pin drag: a deliberate choice by the customer.
+  const placeByUser = (lat: number, lng: number) => {
+    userAdjusted.current = true;
+    void setPin(lat, lng);
   };
 
   const pickResult = (r: GeocodeResult) => {
     setOpen(false);
     setResults([]);
+    userAdjusted.current = true;
     void setPin(r.lat, r.lng, r.label, r.bbox);
   };
 
@@ -196,11 +221,16 @@ export function AddressPicker({
 
   const useMyLocation = async () => {
     setLocating(true);
+    userAdjusted.current = false;
     try {
       const { locateOnce } = await import("@/lib/geolocate");
-      const c = await locateOnce({ onUpdate: (better) => void setPin(better.lat, better.lng) });
-      await setPin(c.lat, c.lng);
-      toast.success("Location captured — tap Confirm to use it", { id: "address-picker-locate" });
+      const c = await locateOnce({
+        onUpdate: (better) => {
+          if (!userAdjusted.current) void setPin(better.lat, better.lng);
+        },
+      });
+      if (!userAdjusted.current) await setPin(c.lat, c.lng);
+      toast.success("Location set — drag the pin to fine-tune", { id: "address-picker-locate" });
     } catch (e: any) {
       toast.error(e.message ?? "Could not get location");
     } finally {
@@ -227,8 +257,8 @@ export function AddressPicker({
     }
 
     setManualMode(false);
-    void setPin(lat, lng);
-    toast.success("Coordinates set — tap Confirm to use them");
+    placeByUser(lat, lng);
+    toast.success("Coordinates set");
   };
 
   if (variant === "fullscreen") {
@@ -250,8 +280,8 @@ export function AddressPicker({
             />
             <Recenter lat={coords.lat} lng={coords.lng} zoom={zoom} />
             <FitBounds bbox={bbox} />
-            <ClickToPlace onPick={(lat, lng) => void setPin(lat, lng)} />
-            {hasPin && <DraggableMarker position={coords} icon={czPinIcon} onDragEnd={(lat, lng) => void setPin(lat, lng)} />}
+            <ClickToPlace onPick={placeByUser} />
+            {hasPin && <DraggableMarker position={coords} icon={czPinIcon} onDragEnd={placeByUser} />}
             {trucks.map((t, i) => (
               <Marker key={`${t.lat},${t.lng},${i}`} position={[t.lat, t.lng]} icon={truckMarkerIcon()} interactive={false} />
             ))}
@@ -384,17 +414,13 @@ export function AddressPicker({
         </div>
 
         <div className="absolute inset-x-4 z-30 flex items-end justify-between gap-3" style={{ bottom: controlsBottom }}>
-          {hasPin && !confirmed ? (
-            <button
-              type="button"
-              onClick={confirmLocation}
-              className="min-h-12 flex-1 inline-flex items-center justify-center gap-2 rounded-[14px] bg-cz-amber px-4 font-bold text-cz-amber-ink shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
-            >
-              <CheckCircle2 className="w-5 h-5" /> Deliver here — confirm pin
-            </button>
+          {hasPin ? (
+            <span className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-cz-bg/95 px-3 text-xs font-semibold text-cz-green-text shadow">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Delivery point set — drag the pin to fine-tune
+            </span>
           ) : (
-            <span className="text-[11px] text-cz-border-strong bg-white/70 rounded px-1.5 py-0.5">
-              {hasPin ? "Drag the pin to fine-tune" : "Tap the map to drop a pin"}
+            <span className="inline-flex min-h-9 items-center rounded-full bg-cz-bg/95 px-3 text-xs font-semibold text-cz-muted shadow">
+              Tap the map or search to set the delivery point
             </span>
           )}
           <button
@@ -533,11 +559,11 @@ export function AddressPicker({
                   />
           <Recenter lat={coords.lat} lng={coords.lng} zoom={zoom} />
           <FitBounds bbox={bbox} />
-          <ClickToPlace onPick={(lat, lng) => void setPin(lat, lng)} />
+          <ClickToPlace onPick={placeByUser} />
           {hasPin && (
             <DraggableMarker
               position={coords}
-              onDragEnd={(lat, lng) => void setPin(lat, lng)}
+              onDragEnd={placeByUser}
             />
           )}
         </MapContainer>
