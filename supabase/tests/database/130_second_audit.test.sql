@@ -1,7 +1,7 @@
 -- Phase 19 — regressions for issues found by the second security audit.
 
 begin;
-select plan(14);
+select plan(16);
 
 select set_config('t.cust',  tests.create_user('cust')::text, true);
 select set_config('t.drv',   tests.create_driver('drv', 0)::text, true);
@@ -65,6 +65,12 @@ select lives_ok(format($$select public.admin_referral_action(%L, 'release')$$, c
   'Super admin with MFA can release a legitimate approved reward');
 select tests.as_owner();
 select is(tests.balance(current_setting('t.drv')::uuid), 15.00::numeric, 'Referrer credited once');
+
+-- 4. Commission rate changes need MFA
+select tests.login_as(current_setting('t.super')::uuid);
+select throws_like($$select public.admin_set_commission(10, 'raise commission')$$, 'MFA_REQUIRED%', 'Commission change without MFA refused');
+select tests.login_as_mfa(current_setting('t.super')::uuid);
+select lives_ok($$select public.admin_set_commission(7, 'keep at seven percent')$$, 'Commission change with MFA works');
 
 select * from finish();
 rollback;

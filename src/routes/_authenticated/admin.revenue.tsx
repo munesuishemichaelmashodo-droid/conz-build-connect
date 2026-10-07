@@ -115,7 +115,14 @@ function RevenueDashboard() {
     const reason = window.prompt("Why is the commission rate changing? (recorded in the audit log)") ?? undefined;
     if (!reason?.trim() || reason.trim().length < 5) return toast.error("Give a reason (at least 5 characters)");
     const { error } = await supabase.rpc("admin_set_commission", { _rate: v, _reason: reason.trim() });
-    if (error) return toast.error(error.message);
+    if (error) {
+      if (isMfaRequiredError(error)) {
+        return toast.error(readableRpcError(error), {
+          action: { label: "Verify", onClick: () => window.location.assign(mfaVerifyHref()) },
+        });
+      }
+      return toast.error(readableRpcError(error));
+    }
     toast.success(`Commission set to ${v}%`);
     qc.invalidateQueries({ queryKey: ["commission-rate"] });
     qc.invalidateQueries({ queryKey: ["admin-dash"] });
