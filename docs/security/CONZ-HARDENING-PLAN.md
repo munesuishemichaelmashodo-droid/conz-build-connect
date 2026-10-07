@@ -435,3 +435,27 @@ backwards-compatible with the new DB, not vice versa), and keep the Paynow IPN p
   bid created". **DB 285/285, tsc clean.**
 - **Side effect to note:** a tracking link shared by a customer *before* acceptance stops working at acceptance
   (the job page always shows the current link).
+
+### Phase 11 — Pricing input integrity (P / F8) ✅ tested locally
+
+- **Two latent bugs found and fixed:**
+  1. `create_price_quote` had two overloads; the app's 4-argument call is **ambiguous and always failed**
+     (swallowed by `tryCreateQuote`). Live: 0 of the last 9 jobs carried a quote, so pricing always used a
+     straight-line distance from the **client-supplied** pickup coordinate.
+  2. The budget trigger runs as the customer, who has no UPDATE policy on `price_quotes`, so the old
+     "consume quote" UPDATE matched 0 rows — quotes would have been **reusable**.
+- **Migration:** `20261008050000_0080_pricing_input_integrity.sql` — drops the ambiguous overload, revokes client
+  EXECUTE on `create_price_quote`, adds service-only `create_price_quote_for(customer, …)` (finite distance
+  ≤ 5,000 km, no client-provided distances, supply location must match the material);
+  `price_quote_for_job()` / `consume_price_quote()` (definer, caller's own quote only);
+  `tg_validate_job_budget`: client inserts of priced materials must carry a valid unexpired unconsumed quote
+  for the same customer/material/quantity and real delivery coordinates; **pickup set server-side** (quote
+  supply location → material pickup → Harare default); a quote that no longer fits the delivery location is
+  rejected; coordinates must be in Zimbabwe (all 74 live jobs checked inside); custom-material jobs drop
+  client pricing fields (they were the raise-budget cap). `jobs_guard_insert`: same coordinate check;
+  `preferred_driver_id` kept only for a verified driver (not self).
+- **App:** `booking.functions.ts` — quotes created via the service role bound to the customer + server-resolved
+  supply location; legacy-path pickup derived server-side (material pickup / Harare), never from the client.
+- **Tests:** `090_pricing_integrity.test.sql` 24 assertions. **DB 309/309, unit 30/30, tsc clean, build OK.**
+- **Deploy order:** app first (quotes start working), then migration (quotes become mandatory for priced
+  materials). A customer who waits > 30 min after quoting gets "get a new quote".
