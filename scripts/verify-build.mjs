@@ -14,6 +14,7 @@
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 const FUNC_DIR = path.resolve(
   process.cwd(),
@@ -83,7 +84,8 @@ async function main() {
   // --- Dynamic check: actually boot the function and hit real routes.
   let mod;
   try {
-    mod = await import(path.join(FUNC_DIR, "index.mjs"));
+    // pathToFileURL: a bare absolute path is not a valid ESM specifier on Windows.
+    mod = await import(pathToFileURL(path.join(FUNC_DIR, "index.mjs")).href);
   } catch (err) {
     fail(`Server module failed to import/initialize: ${err?.stack || err}`);
     console.error(

@@ -1,71 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const SUCCESS_STATUSES = ["paid", "awaiting delivery", "delivered"];
-const FAILED_STATUSES = ["cancelled", "failed", "disputed", "refunded"];
-
+// Paynow resultUrl (server-to-server notification). All decisions —
+// reference/amount verification, idempotency, no status regression — are made
+// by processPaynowIpn() + the apply_paynow_result() database function.
 async function handleIpn(request: Request): Promise<Response> {
-  const { getPaynowCredentials, verifyPaynowPayload } = await import("@/lib/paynow.server");
-  const creds = getPaynowCredentials();
-  if (!creds) return new Response("paynow_not_configured", { status: 503 });
+  const { getPaynowCredentials, processPaynowIpn } = await import("@/lib/paynow.server");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
   const raw = await request.text();
-  const fields: Array<[string, string]> = [...new URLSearchParams(raw).entries()];
-  if (fields.length === 0) return new Response("bad request", { status: 400 });
-
-  const valid = await verifyPaynowPayload(fields, creds.key);
-  if (!valid) return new Response("invalid hash", { status: 401 });
-
-  const map: Record<string, string> = {};
-  for (const [k, v] of fields) map[k.toLowerCase()] = v;
-
-  const reference = map["reference"];
-  const status = (map["status"] ?? "").toLowerCase();
-  if (!reference) return new Response("missing reference", { status: 400 });
-
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const db = supabaseAdmin as any;
-
-  const { data: payment } = await db
-    .from("payments")
-    .select("id, status, type")
-    .eq("id", reference)
-    .maybeSingle();
-
-  if (!payment) return new Response("unknown reference", { status: 404 });
-
-  if (SUCCESS_STATUSES.includes(status)) {
-    // Do NOT pre-set status to "paid" here — the RPCs below use status='paid'
-    // as their own idempotency guard and will skip processing if already set.
-    // Only store the paynow_reference; let the RPC be the sole place that
-    // transitions status and moves any money.
-    if (map["paynowreference"]) {
-      await db.from("payments").update({ paynow_reference: map["paynowreference"] }).eq("id", payment.id);
-    }
-    // Escrow (Con Z Pay) holds are marked paid without crediting any
-    // wallet — the money only moves to the driver on delivery confirmation
-    // or the 72h auto-release. Topups credit the paying user's own wallet
-    // immediately, as before.
-    const rpcName = payment.type === "escrow" ? "mark_escrow_payment_paid" : "credit_wallet_from_payment";
-    const { error } = await db.rpc(rpcName, { _payment_id: payment.id });
-    if (error) {
-      // Do NOT return 200 here — that tells Paynow the notification was
-      // handled and they will not resend it, permanently losing this
-      // payment's wallet credit (this is exactly how 4 real payments went
-      // uncredited in production before the RPC's own idempotency guard was
-      // fixed). Returning a non-2xx makes Paynow retry the same IPN; the
-      // RPC's status='paid' guard makes that retry safe either way — if
-      // this call actually failed before touching anything, status is
-      // still pre-paid and the retry credits normally; if it failed after
-      // the wallet was already credited, status is already 'paid' and the
-      // retry correctly no-ops instead of double-crediting.
-      console.error(`[paynow-ipn] ${rpcName} failed for payment ${payment.id} (ref ${reference})`, error.message);
-      return new Response("processing_failed", { status: 502 });
-    }
-  } else if (FAILED_STATUSES.includes(status)) {
-    await db.from("payments").update({ status: "failed" }).eq("id", payment.id);
-  }
-
-  return new Response("ok", { status: 200, headers: { "content-type": "text/plain" } });
+  const { status, body } = await processPaynowIpn(raw, {
+    integrationKey: getPaynowCredentials()?.key ?? null,
+    db: supabaseAdmin as never,
+  });
+  return new Response(body, { status, headers: { "content-type": "text/plain" } });
 }
 
 export const Route = createFileRoute("/api/public/paynow-ipn")({
