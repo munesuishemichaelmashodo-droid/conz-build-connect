@@ -29,6 +29,37 @@ export default defineConfig({
     // @ts-expect-error -- the wrapper's narrowed `nitro` type omits this key,
     // but it is passed through to Nitro unchanged at build time.
     noExternals: ["tslib"],
+    // Security headers. vercel.json "headers" are NOT applied when Nitro emits
+    // the Vercel Build Output API (.vercel/output/config.json is used instead),
+    // so they are declared here where Nitro writes them into that config.
+    // Content-Security-Policy is Report-Only on purpose: it surfaces anything
+    // that would break (Paynow redirect, OSM tiles, Supabase, push) in the
+    // browser console without blocking it. Promote to an enforced
+    // Content-Security-Policy once a real session shows no violations.
+    routeRules: {
+      "/**": {
+        headers: {
+          "X-Frame-Options": "DENY",
+          "X-Content-Type-Options": "nosniff",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+          "Permissions-Policy": "geolocation=(self), camera=(self), microphone=(self)",
+          "Content-Security-Policy-Report-Only": [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "font-src 'self' data: https://fonts.gstatic.com",
+            "img-src 'self' data: blob: https://*.supabase.co https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com",
+            "media-src 'self' blob: https://*.supabase.co",
+            "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://router.project-osrm.org https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org",
+            "frame-ancestors 'none'",
+            "base-uri 'self'",
+            "form-action 'self' https://www.paynow.co.zw https://*.paynow.co.zw",
+            "object-src 'none'",
+          ].join("; "),
+        },
+      },
+    },
   },
   vite: {
     ssr: {
