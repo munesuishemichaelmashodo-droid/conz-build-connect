@@ -490,3 +490,18 @@ backwards-compatible with the new DB, not vice versa), and keep the Paynow IPN p
 - **Not verifiable here:** an end-to-end Google sign-in on a real Android device (needs the APK + Google
   provider). Must be checked on staging before release. App Links (verified https callback) remain the
   long-term fix — Phase 20 (needs the release signing certificate fingerprint).
+
+### Phase 14 — Account deletion (F8 / M10) ✅ DB tested; auth/storage steps not runnable locally
+
+- **Migration:** `20261008060000_0081_account_deletion.sql` — `account_deletion_blockers(uid)` (wallet balance
+  ≠ 0, held commission, pending withdrawal/top-up, active jobs, payment/escrow/refund in flight, open disputes)
+  and `anonymize_deleted_account(uid)` (service only; refuses while blocked; one transaction: profile contact
+  data, **all** KYC fields incl. the 6 previously missed, PIN hash, de-verification, device/push tokens, GPS
+  rows, roles, truck plates, chat media refs; returns storage paths). **Retained:** wallets, wallet_transactions,
+  payments, platform_ledger, escrow_refunds, audit logs, counterparty job/message/bid/rating history.
+- **App:** `account-deletion.ts` rewritten (blockers → friendly message; storage deletes checked; auth e-mail
+  replaced, login banned, **all sessions revoked** via `auth.admin.signOut(token, "global")`; every step's
+  error checked). `profile.tsx` shows blockers. `privacy.tsx` now describes in-app deletion, what is deleted
+  and what is retained (was "contact us"). **Owner/legal should review the privacy wording.**
+- **Tests:** `100_account_deletion.test.sql` 18 assertions. **DB 327/327, tsc clean, build OK.**
+- **Not testable locally:** the Auth admin calls (ban, e-mail replace, global sign-out) — verify on staging.

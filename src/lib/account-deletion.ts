@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
@@ -7,63 +8,83 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  *
  * Deleting the auth user outright would CASCADE-delete the profiles row,
  * which would also destroy job/wallet/transaction records shared with other
- * users (e.g. a driver's completed-job history references the customer's
- * profile row). Instead: scrub all personal data, delete any stored ID
- * documents, and permanently ban the account from ever logging in again —
- * financial/audit records stay intact under an anonymised profile.
+ * users and needed for financial reconciliation. Instead (migration 0081):
+ *   1. refuse while money or work is in flight (account_deletion_blockers);
+ *   2. scrub all personal data in one transaction (anonymize_deleted_account)
+ *      — financial and audit records are retained under the anonymous id;
+ *   3. delete the person's KYC documents and chat media from storage;
+ *   4. replace the auth e-mail, ban the login and revoke every session.
+ * Each step's error is checked; nothing is silently skipped.
  */
+
+export type DeleteAccountResult =
+  | { ok: true; warnings: string[] }
+  | { ok: false; blockers: string[]; message: string };
+
+const BLOCKER_TEXT: Record<string, string> = {
+  wallet_balance_positive: "withdraw the money in your wallet",
+  wallet_balance_owed: "settle the amount you owe in your wallet",
+  commission_held: "finish the jobs that are holding commission",
+  withdrawal_pending: "wait for your pending withdrawal to be processed (or cancel it)",
+  topup_pending: "wait for your pending top-up to be processed (or cancel it)",
+  active_jobs: "complete or cancel your open and active jobs",
+  payment_in_progress: "wait for payments in progress or refunds owed to you to finish",
+  open_disputes: "wait for your open disputes to be resolved",
+};
+
 export const deleteMyAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .handler(async ({ context }): Promise<DeleteAccountResult> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 0081 RPCs aren't in the generated types yet.
     const db = supabaseAdmin as any;
     const userId = context.userId;
 
-    // Scrub personal data on the profile — keep the row so financial
-    // records and other users' job history referencing it stay intact.
-    // status='banned' matches the real, permanent login ban applied below —
-    // the admin Users list filters this out so a deleted account actually
-    // disappears from the normal list, per how account deletion is meant
-    // to look from the admin side.
-    await db
-      .from("profiles")
-      .update({
-        full_name: "Deleted user",
-        phone: null,
-        email: null,
-        avatar_url: null,
-        deleted_at: new Date().toISOString(),
-        status: "banned",
-      })
-      .eq("id", userId);
-
-    // Scrub driver-side PII if this account had a driver profile.
-    await db
-      .from("driver_profiles")
-      .update({
-        national_id: null,
-        national_id_url: null,
-        selfie_url: null,
-        license_url: null,
-        tipper_photo_url: null,
-        nationality: null,
-        withdrawal_pin_hash: null,
-        verification_notes: "Account deleted by user",
-      })
-      .eq("user_id", userId);
-
-    // Delete the actual ID document files from storage — the most
-    // sensitive PII, with no legitimate reason to keep once the account
-    // is gone.
-    const { data: files } = await db.storage.from("driver-docs").list(userId);
-    if (files?.length) {
-      await db.storage.from("driver-docs").remove(files.map((f: { name: string }) => `${userId}/${f.name}`));
+    const { data: blockers, error: blockersError } = await db.rpc("account_deletion_blockers", { _uid: userId });
+    if (blockersError) throw new Error("Could not check your account. Please try again.");
+    if (Array.isArray(blockers) && blockers.length > 0) {
+      const steps = blockers.map((b: string) => BLOCKER_TEXT[b] ?? b);
+      return {
+        ok: false,
+        blockers,
+        message: `Before we can delete your account, please ${steps.join("; ")}.`,
+      };
     }
 
-    // Permanently block login. Not a hard delete of the auth user — that
-    // would cascade and destroy shared financial/job records — but this
-    // makes the account unusable forever, same end result for the user.
-    await db.auth.admin.updateUserById(userId, { ban_duration: "876000h" });
+    const { data: scrubbed, error: scrubError } = await db.rpc("anonymize_deleted_account", { _uid: userId });
+    if (scrubError) throw new Error("Could not delete your account. Please try again or contact support.");
 
-    return { ok: true };
+    const warnings: string[] = [];
+    const docs: string[] = scrubbed?.driver_docs ?? [];
+    const media: string[] = scrubbed?.chat_media ?? [];
+    if (docs.length) {
+      const { error } = await db.storage.from("driver-docs").remove(docs);
+      if (error) warnings.push("documents");
+    }
+    if (media.length) {
+      const { error } = await db.storage.from("chat-media").remove(media);
+      if (error) warnings.push("chat media");
+    }
+
+    // Remove the e-mail from the auth record too and block the login forever.
+    const { error: banError } = await db.auth.admin.updateUserById(userId, {
+      email: `deleted-${userId}@deleted.conz.invalid`,
+      email_confirm: true,
+      user_metadata: {},
+      ban_duration: "876000h",
+    });
+    if (banError) warnings.push("login ban");
+
+    // Revoke every existing session (all devices), not just this browser.
+    const authHeader = getRequest()?.headers.get("authorization") ?? "";
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    if (token) {
+      const { error: signOutError } = await db.auth.admin.signOut(token, "global");
+      if (signOutError) warnings.push("session revocation");
+    }
+
+    if (warnings.length) {
+      console.error(`[account-deletion] ${userId}: incomplete steps: ${warnings.join(", ")}`);
+    }
+    return { ok: true, warnings };
   });

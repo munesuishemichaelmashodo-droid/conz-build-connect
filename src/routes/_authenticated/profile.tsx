@@ -283,7 +283,11 @@ function DeleteAccountCard() {
   const submit = async () => {
     setLoading(true);
     try {
-      await deleteMyAccount();
+      const res = await deleteMyAccount();
+      if (!res.ok) {
+        setLoading(false);
+        return toast.error(res.message, { duration: 10000 });
+      }
       toast.success("Your account has been deleted.");
       await supabase.auth.signOut();
       window.location.href = "/";
