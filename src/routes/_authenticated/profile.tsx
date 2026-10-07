@@ -14,6 +14,7 @@ import { Loader2, ShieldCheck, Truck, KeyRound, Camera, Image as ImageIcon, Aler
 import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
 import { AddTruckForm } from "@/components/AddTruckForm";
 import { deleteMyAccount } from "@/lib/account-deletion";
+import { rpcFailure } from "@/lib/rpc-result";
 import {
   Dialog,
   DialogContent,
@@ -358,9 +359,11 @@ function WithdrawalPinCard() {
     if (pin !== confirm) return toast.error("PINs do not match");
     if (hasPin && !/^\d{4,8}$/.test(currentPin)) return toast.error("Enter your current PIN to change it");
     setSaving(true);
-    const { error } = await (supabase as any).rpc("set_withdrawal_pin", { _pin: pin, _current_pin: hasPin ? currentPin : null });
+    const { data, error } = await (supabase as any).rpc("set_withdrawal_pin", { _pin: pin, _current_pin: hasPin ? currentPin : null });
     setSaving(false);
     if (error) return toast.error(error.message);
+    const failed = rpcFailure(data);
+    if (failed) return toast.error(failed.error === "wrong_pin" ? "Your current PIN is incorrect." : failed.message);
     setPin(""); setConfirm(""); setCurrentPin("");
     toast.success("Withdrawal PIN saved");
     qc.invalidateQueries({ queryKey: ["driver-pin-profile", userId] });

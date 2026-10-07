@@ -388,3 +388,26 @@ backwards-compatible with the new DB, not vice versa), and keep the Paynow IPN p
 - **Tests:** `060_kyc_protection.test.sql` 19 assertions (re-verification on ID/number/compliance change,
   no bidding while pending, no self-verify, approved files cannot be overwritten/deleted, new uploads allowed,
   applicant can manage files, cross-user read/upload denied, admin read, bucket limits). **DB 227/227.**
+
+### Phase 8 — PIN lockouts that count (F7 + NEW HIGH finding) ✅ tested locally
+
+- **New finding (proven, then fixed):** `request_withdrawal` and `driver_confirm_delivery_pin` incremented
+  their failure counters and then **raised**, which rolled the increment back with the request — so
+  **neither lockout ever engaged** (the probe test showed `fail_count = 0` after wrong PINs). Impact: unlimited
+  withdrawal-PIN guessing, and the assigned driver could **brute-force the customer's 6-digit escrow
+  delivery PIN** and release escrow to themselves. Severity **HIGH** (escrow integrity). The 04/10
+  remediation report marked the delivery-PIN lockout "FIXED"; it was not effective.
+- **Migration:** `20261008030000_0078_pin_lockout_that_counts.sql` — PIN checks now **return**
+  `{ok:false, error:"wrong_pin"|"locked", message, attempts_left|locked_until}` instead of raising, so the
+  counter commits. `check_withdrawal_pin()` (shared by `request_withdrawal` and `set_withdrawal_pin`):
+  locked → PIN not evaluated (no oracle); 5 failures → 15 min, 10+ → 24 h; only a correct PIN resets.
+  Delivery PIN: same policy per job, customer warned after 5 wrong codes. Return types changed
+  (row/void → jsonb): functions dropped/recreated with explicit grants.
+- **App:** `src/lib/rpc-result.ts` (`rpcFailure`, accepts old + new shapes) used in `wallet.tsx`,
+  `profile.tsx`, `jobs.$id.tsx`. **Deploy order: app first, then migration.**
+- **Tests:** `070_pin_lockout.test.sql` 31 assertions (counted, lock at 5, correct PIN refused while locked,
+  PIN change refused while locked, no requests created, unlock + reset, 24 h escalation, change-PIN oracle
+  counted, shared counter across both paths, old PIN invalid after change, delivery PIN counted/locked/
+  customer warned/correct refused while locked/release once). Unit `rpc-result.test.ts` 2.
+  **DB 258/258, unit 30/30, tsc clean.**
+- **Remaining:** no forgotten-PIN reset flow exists (a locked-out user waits; support has no tool) — product gap.

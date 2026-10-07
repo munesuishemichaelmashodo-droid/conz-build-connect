@@ -55,6 +55,7 @@ import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverB
 import { DriverNavigationButtons } from "@/components/DriverNavigationButtons";
 import type { RouteResult } from "@/components/RouteMap";
 import type { TrackStatus } from "@/components/JobTracker";
+import { rpcFailure } from "@/lib/rpc-result";
 import { ChevronDown, ChevronRight, Clock, Info, Navigation2, TrendingUp } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
@@ -1626,10 +1627,10 @@ function DeliveryPinEntry({ jobId, onConfirmed }: { jobId: string; onConfirmed: 
   const submit = async () => {
     if (pin.trim().length < 4) return toast.error("Enter the code the customer gave you");
     setSubmitting(true);
-    const { error } = await (supabase.rpc as unknown as (
+    const { data, error } = await (supabase.rpc as unknown as (
       f: string,
       a: Record<string, unknown>,
-    ) => Promise<{ error: { message: string } | null }>)("driver_confirm_delivery_pin", {
+    ) => Promise<{ data: unknown; error: { message: string } | null }>)("driver_confirm_delivery_pin", {
       _job_id: jobId,
       _pin: pin.trim(),
     });
@@ -1638,6 +1639,12 @@ function DeliveryPinEntry({ jobId, onConfirmed }: { jobId: string; onConfirmed: 
       if (/incorrect code/i.test(error.message)) return toast.error("That code doesn't match — double check with the customer.");
       if (/no confirmed escrow payment/i.test(error.message)) return toast.error("The customer hasn't paid through Con Z Pay yet.");
       return toast.error(error.message);
+    }
+    // A wrong code / lockout is returned (not raised) so the attempt counts.
+    const failed = rpcFailure(data);
+    if (failed) {
+      setPin("");
+      return toast.error(failed.error === "wrong_pin" ? "That code doesn't match — double check with the customer." : failed.message);
     }
     toast.success("Delivery confirmed — payment released to your wallet!");
     setPin("");

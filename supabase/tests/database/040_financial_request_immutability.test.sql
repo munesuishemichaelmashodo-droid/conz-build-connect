@@ -12,7 +12,7 @@ select set_config('t.super', tests.create_user('super', array['super_admin','adm
 -- Driver sets a PIN and submits a PIN-verified withdrawal.
 select tests.login_as(current_setting('t.drv')::uuid);
 select public.set_withdrawal_pin('4826', null);
-select set_config('t.wd', (public.request_withdrawal(50, 'ecocash', '0771234567', '4826')).id::text, true);
+select set_config('t.wd', public.request_withdrawal(50, 'ecocash', '0771234567', '4826')->'request'->>'id', true);
 
 -- ---------------------------------------------------------------------------
 -- The attack: change the payout after the PIN check
@@ -67,7 +67,7 @@ select throws_ok(format($$update public.wallet_withdrawal_requests set status = 
 
 -- Owner cancel (direct and via RPC)
 select tests.login_as(current_setting('t.drv')::uuid);
-select set_config('t.wd2', (public.request_withdrawal(10, 'ecocash', '0771234567', '4826')).id::text, true);
+select set_config('t.wd2', public.request_withdrawal(10, 'ecocash', '0771234567', '4826')->'request'->>'id', true);
 select lives_ok(format($$update public.wallet_withdrawal_requests set status = 'cancelled' where id = %L$$, current_setting('t.wd2')),
   'Owner can cancel their own pending withdrawal');
 -- RLS only exposes the owner's *pending* rows for UPDATE, so this matches

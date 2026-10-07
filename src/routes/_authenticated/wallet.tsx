@@ -27,6 +27,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { rpcFailure } from "@/lib/rpc-result";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/wallet")({
@@ -571,7 +572,7 @@ function WithdrawDialog({
     if (pin.length < 4) return toast.error("Enter your PIN");
     if (amount > balance) return toast.error("Amount exceeds balance");
     setSubmitting(true);
-    const { error } = await (supabase as any).rpc("request_withdrawal", {
+    const { data, error } = await (supabase as any).rpc("request_withdrawal", {
       _amount: amount,
       _method: method,
       _destination: destination,
@@ -580,6 +581,8 @@ function WithdrawDialog({
     setSubmitting(false);
     setPin("");
     if (error) return toast.error(error.message);
+    const failed = rpcFailure(data);
+    if (failed) return toast.error(failed.message);
     toast.success("Withdrawal request submitted");
     setDestination("");
     onOpenChange(false);
