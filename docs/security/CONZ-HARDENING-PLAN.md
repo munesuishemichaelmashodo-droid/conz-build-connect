@@ -527,3 +527,27 @@ backwards-compatible with the new DB, not vice versa), and keep the Paynow IPN p
   uncredited payments); wallets still match their transactions — verify against Paynow statements.
 - **Not covered:** Paynow settlement files (merchant statements) are not ingested; the ledger's
   `paynow_clearing` balance is the figure to match against Paynow statements manually.
+
+### Phase 16 — Database test suite + schema invariants ✅
+
+- **New regression guard:** `120_security_invariants.test.sql` (13): RLS on every public table; anon has no
+  write privilege on any money/audit table; signed-in clients cannot write ledger/audit tables; anonymous
+  EXECUTE limited to `compute_material_offer`, `get_public_tracking`, `has_role`, `public_material_pickups`;
+  every SECURITY DEFINER function pins `search_path`; 23 money/ledger/audit internals are not client-callable;
+  append-only tables reject edits; overflow values rejected.
+- **It found real gaps → `0083_security_invariants`:** anon still held INSERT/UPDATE/DELETE on `payments`
+  (+ UPDATE on request tables) and authenticated held writes on `payments` — RLS-blocked today, revoked now;
+  `notify_kyc_reverification` was callable for any id (admin notification spam) → self only;
+  `account_deletion_blockers` revealed another user's balance/activity → self only; referral trigger function
+  PUBLIC EXECUTE revoked.
+- **Fidelity gap closed → `0084_reconcile_live_only_objects`:** live-vs-fresh comparison of every trigger,
+  policy and constraint (read-only) showed production-only objects never committed to git:
+  **`wallet_transactions_immutable`** (the ledger immutability trigger), **`storage_evidence_guard`**, the 5
+  chat-media / job-proof storage policies and the `job-proof-photos` bucket. Recreated idempotently (no-op live).
+  The 4 live-only request policies are the ones 0075 drops on purpose.
+- **Suite now (12 files):** numeric integrity 39 · payment state machine 43 · escrow 54 · request immutability
+  27 · admin money 45 · KYC 20 · PIN 31 · roles/visibility 26 · pricing 24 · deletion 18 · ledger 24 ·
+  invariants 13 = **364/364 PASS** on a fresh local Supabase (Postgres 17).
+- **Not covered by pgTAP (single session):** true concurrency races. Mitigations are structural
+  (`FOR UPDATE` row locks, per-admin advisory locks, unique reversal index, state-machine trigger); a
+  multi-connection race test is listed for staging.
