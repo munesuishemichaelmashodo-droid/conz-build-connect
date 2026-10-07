@@ -194,3 +194,21 @@ stop this recurring, but verify rather than assume.
 (reorg only, no functional changes — see "What's been fixed recently").
 Still remaining: the post-a-job flow (`jobs.new.tsx`, `customer.book.tsx`),
 `chat.$jobId.tsx`.
+
+## 07/10/2026 — function EXECUTE lockdown (applied live, files committed same sitting)
+
+- `lockdown_function_execute_grants` (20261007064938): revoked PUBLIC/anon EXECUTE
+  on every SECURITY DEFINER function in `public`. Anon keeps only
+  `get_public_tracking`, `public_material_pickups`, `has_role`,
+  `compute_material_offer`.
+- `restrict_internal_functions_to_service_role` (20261007065034): money and
+  cron functions (escrow release, commission hold/release, credit_wallet_from_payment,
+  claim_super_admin, sweeps/expiries) are service_role-only.
+- `restore_prior_function_revokes` (20261007071444): the blanket grant in the first
+  migration briefly re-opened `wallet_available`, `recent_cancellation_strikes` and the
+  MFA RPCs that 29/08, 0061 and 0063 had closed; re-closed same session.
+  LESSON: never blanket-GRANT to authenticated; check earlier migrations first.
+- `0071_guard_triggers_security_invoker` was live but missing from git; recovered
+  verbatim from `supabase_migrations.schema_migrations`.
+- Still open: complete_job (direct-pay) has no PIN/evidence requirement; leaked-password
+  protection off; `pg_net` in public schema.
