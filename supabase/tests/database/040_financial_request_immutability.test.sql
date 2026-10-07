@@ -99,7 +99,7 @@ select is((select status from public.wallet_topup_requests where id = current_se
   'F4: super_admin direct-table approval no longer possible');
 select is(tests.balance(current_setting('t.other')::uuid), 0.00::numeric, 'No credit without the RPC');
 
-select tests.login_as(current_setting('t.super')::uuid);
+select tests.login_as_mfa(current_setting('t.super')::uuid);
 select lives_ok(format($$select public.admin_approve_topup(%L)$$, current_setting('t.tu')), 'Top-up approved through the RPC');
 select tests.as_owner();
 select is(tests.balance(current_setting('t.other')::uuid), 20.00::numeric, 'Credited exactly the submitted $20');

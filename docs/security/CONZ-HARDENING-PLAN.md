@@ -337,3 +337,35 @@ backwards-compatible with the new DB, not vice versa), and keep the Paynow IPN p
   rewrite after PIN check, self-approval, decision fields, other user, admin + super_admin direct approval,
   service_role rewrite, RPC approval debits exactly the authorised amount, final states, owner cancel,
   revive, delete, top-up amount/reference, ledger invariant). **DB total: 163/163.**
+
+### Phase 6 — Admin money controls (F5, F8 audit forgery) ✅ tested locally
+
+- **Migration:** `20261008010000_0076_admin_money_controls.sql`
+  - `admin_money_guard()` — single gate for every admin wallet change: admin/super_admin only, **no
+    self-target**, valid amount, advisory lock per admin (no cap race), **credits super_admin-only + MFA**,
+    super_admin debits need MFA, credits above the threshold raise `SECOND_APPROVAL_REQUIRED`, daily caps
+    per direction recorded in append-only `admin_money_actions`.
+  - Defaults in `system_settings.admin_money_controls` (changeable only via `admin_set_money_controls`,
+    super_admin + MFA, audited): admin debit $500/day, super_admin debit $500/day, super_admin credit
+    $500/day, **second approval above $100**. Production has 2 super_admins (checked read-only), so the
+    two-person flow is usable; with one, large credits are impossible (fail-safe).
+  - `admin_apply_wallet_change()` — wallet + ledger row + `platform_ledger` (admin_adjustments ↔
+    user_wallets) + audit + notification. `admin_wallet_adjust`, legacy `admin_credit_wallet`,
+    `admin_wallet_reverse` (super_admin + MFA, once only via unique index) all route through it.
+  - Two-person credits: `admin_credit_requests`, `admin_request_wallet_credit()` / `admin_decide_wallet_credit()`
+    (second super_admin, MFA, not requester, not target, 48h expiry, applied once).
+  - `admin_approve_topup` → super_admin + MFA; `admin_approve_withdrawal` → MFA when the approver is a super_admin.
+  - `log_admin_action` no longer client-executable; `admin_audit_log` append-only for every role; client
+    INSERT/UPDATE/DELETE revoked. `require_aal2()` now raises `MFA_REQUIRED: …` for the UI.
+- **App:** restored `/mfa` (enrol/challenge, from history `052e42c^`, now with `safeInternalPath`);
+  `src/lib/mfa.ts`, `src/lib/safe-redirect.ts`; `admin.users.tsx` (credit button super-only, MFA "Verify"
+  action, second-approval request flow), `admin.revenue.tsx` (MFA handling on approvals), new
+  **Admin → Approvals** (`admin.approvals.tsx`: escrow refund queue + credit requests), nav tab added.
+- **Tests:** `050_admin_money_controls.test.sql` 45 assertions (user/admin/super paths, caps cannot be split,
+  MFA, self-credit, threshold, two-person flow incl. requester/target/ordinary-admin/no-MFA denials,
+  reject, reversal once, controls tuning, audit forgery + append-only, ledger balance + invariant).
+  `tests/unit/safe-redirect.test.ts` 12 tests. **DB 208/208, unit 28/28, tsc clean, build + smoke pass.**
+- **Deployment consequence (owner action):** after deploy, every super_admin must enrol an authenticator
+  at `/mfa` before approving top-ups/withdrawals, crediting, reversing, or confirming refunds. Supabase
+  Auth TOTP MFA must be enabled for the project (it is on by default; verify in the dashboard). Lost
+  device recovery: remove the factor in Supabase dashboard → Authentication → Users.

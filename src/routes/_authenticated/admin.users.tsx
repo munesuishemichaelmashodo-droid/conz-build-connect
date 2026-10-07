@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { StatusBadge, EmptyState } from "@/components/ui-bits";
 import { money } from "@/lib/domain";
 import { useAuth } from "@/lib/auth";
+import { isMfaRequiredError, isSecondApprovalError, mfaVerifyHref, readableRpcError } from "@/lib/mfa";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
   component: AdminUsers,
@@ -29,7 +30,18 @@ const CATEGORIES: { value: AdjustCategory; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-const HIGH_VALUE_THRESHOLD = 500;
+// Server-enforced (admin_money_guard): ordinary admins can only deduct;
+// super admin credits need MFA, a daily cap, and a second super admin above
+// the threshold. The UI only mirrors those rules.
+function moneyActionError(error: { message?: string }) {
+  if (isMfaRequiredError(error)) {
+    toast.error(readableRpcError(error), {
+      action: { label: "Verify", onClick: () => window.location.assign(mfaVerifyHref()) },
+    });
+    return;
+  }
+  toast.error(readableRpcError(error));
+}
 
 type LedgerRow = {
   id: string;
@@ -249,8 +261,8 @@ function UserSheet({
     if (!v || isNaN(v) || v <= 0) return toast.error("Enter an amount");
     if (!category) return toast.error("Select a category");
     if (!reason.trim()) return toast.error("A written reason is required");
-    if (Math.abs(v) > HIGH_VALUE_THRESHOLD && !isSuper) {
-      return toast.error(`Amounts over ${money(HIGH_VALUE_THRESHOLD)} require a super admin`);
+    if (sign > 0 && !isSuper) {
+      return toast.error("Only a super admin can credit a wallet");
     }
     setConfirming({ sign, amount: v });
   };
@@ -270,7 +282,23 @@ function UserSheet({
     setBusy(false);
     setConfirming(null);
     if (error) {
-      return toast.error(error.message);
+      if (isSecondApprovalError(error) && confirming.sign > 0) {
+        if (!window.confirm(`${readableRpcError(error)}
+
+Send this credit to another super admin for approval?`)) return;
+        const { error: reqError } = await (supabase as any).rpc("admin_request_wallet_credit", {
+          _user_id: row.id,
+          _amount: Math.abs(confirming.amount),
+          _category: category,
+          _reason: reason.trim(),
+        });
+        if (reqError) return moneyActionError(reqError);
+        toast.success("Credit request sent — another super admin must approve it under Admin → Approvals");
+        setAmount("");
+        setReason("");
+        return;
+      }
+      return moneyActionError(error);
     }
     toast.success("Wallet updated — recorded in the audit log");
     setAmount("");
@@ -292,7 +320,7 @@ function UserSheet({
     });
     setBusy(false);
     if (error) {
-      return toast.error(error.message);
+      return moneyActionError(error);
     }
     toast.success("Transaction reversed");
     qc.invalidateQueries({ queryKey: ["wallet-ledger", row.id] });
@@ -369,15 +397,15 @@ function UserSheet({
             rows={2}
             className="w-full px-3 py-2 rounded-lg border bg-background text-sm resize-none"
           />
-          {Number(amount) > HIGH_VALUE_THRESHOLD && !isSuper && (
-            <div className="flex items-center gap-1.5 text-[11px] text-warning font-medium">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              Amounts over {money(HIGH_VALUE_THRESHOLD)} need a super admin.
-            </div>
-          )}
+          <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
+            {isSuper
+              ? "Credits need your authenticator code; large credits need a second super admin. Daily limits apply."
+              : "Admins can only deduct (corrections), within a daily limit. Only a super admin can credit."}
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <button
-              disabled={busy}
+              disabled={busy || !isSuper}
               onClick={() => startConfirm(1)}
               className="rounded-lg bg-success text-success-foreground font-semibold py-2 text-sm disabled:opacity-50"
             >

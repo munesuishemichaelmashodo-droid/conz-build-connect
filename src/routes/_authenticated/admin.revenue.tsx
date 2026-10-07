@@ -7,6 +7,7 @@ import { DollarSign, Download, Percent, Save, TrendingUp, Calendar, Users as Use
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { isMfaRequiredError, mfaVerifyHref, readableRpcError } from "@/lib/mfa";
 
 export const Route = createFileRoute("/_authenticated/admin/revenue")({
   beforeLoad: async () => {
@@ -351,8 +352,15 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
   const approve = async (kind: "topup" | "withdrawal", id: string) => {
     const rpc = kind === "topup" ? "admin_approve_topup" : "admin_approve_withdrawal";
     const { error } = await (supabase as any).rpc(rpc, { _id: id });
-    if (error) return toast.error(error.message);
-    toast.success("Approved & wallet credited");
+    if (error) {
+      if (isMfaRequiredError(error)) {
+        return toast.error(readableRpcError(error), {
+          action: { label: "Verify", onClick: () => window.location.assign(mfaVerifyHref()) },
+        });
+      }
+      return toast.error(readableRpcError(error));
+    }
+    toast.success(kind === "topup" ? "Approved & wallet credited" : "Approved & wallet debited");
   };
 
   const reject = async (kind: "topup" | "withdrawal", id: string) => {
