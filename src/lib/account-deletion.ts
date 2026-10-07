@@ -18,8 +18,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  */
 
 export type DeleteAccountResult =
-  | { ok: true; warnings: string[] }
-  | { ok: false; blockers: string[]; message: string };
+  { ok: true; warnings: string[] } | { ok: false; blockers: string[]; message: string };
 
 const BLOCKER_TEXT: Record<string, string> = {
   wallet_balance_positive: "withdraw the money in your wallet",
@@ -40,7 +39,9 @@ export const deleteMyAccount = createServerFn({ method: "POST" })
     const db = supabaseAdmin as any;
     const userId = context.userId;
 
-    const { data: blockers, error: blockersError } = await db.rpc("account_deletion_blockers", { _uid: userId });
+    const { data: blockers, error: blockersError } = await db.rpc("account_deletion_blockers", {
+      _uid: userId,
+    });
     if (blockersError) throw new Error("Could not check your account. Please try again.");
     if (Array.isArray(blockers) && blockers.length > 0) {
       const steps = blockers.map((b: string) => BLOCKER_TEXT[b] ?? b);
@@ -51,8 +52,11 @@ export const deleteMyAccount = createServerFn({ method: "POST" })
       };
     }
 
-    const { data: scrubbed, error: scrubError } = await db.rpc("anonymize_deleted_account", { _uid: userId });
-    if (scrubError) throw new Error("Could not delete your account. Please try again or contact support.");
+    const { data: scrubbed, error: scrubError } = await db.rpc("anonymize_deleted_account", {
+      _uid: userId,
+    });
+    if (scrubError)
+      throw new Error("Could not delete your account. Please try again or contact support.");
 
     const warnings: string[] = [];
     const docs: string[] = scrubbed?.driver_docs ?? [];

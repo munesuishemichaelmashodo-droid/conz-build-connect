@@ -110,12 +110,26 @@ async function resolvePickupAndDistance(
     deliveryLat?: number;
     deliveryLng?: number;
   },
-): Promise<{ distanceKm: number; source: DistanceSource; resolvedSource: ResolvedMaterialSource | null }> {
+): Promise<{
+  distanceKm: number;
+  source: DistanceSource;
+  resolvedSource: ResolvedMaterialSource | null;
+}> {
   if (data.deliveryLat != null && data.deliveryLng != null) {
-    const resolution = await resolveMaterialSource(sb, data.material, data.quantity, data.deliveryLat, data.deliveryLng);
+    const resolution = await resolveMaterialSource(
+      sb,
+      data.material,
+      data.quantity,
+      data.deliveryLat,
+      data.deliveryLng,
+    );
 
     if (resolution.status === "source_resolved") {
-      return { distanceKm: resolution.source.distanceKm, source: resolution.source.distanceSource, resolvedSource: resolution.source };
+      return {
+        distanceKm: resolution.source.distanceKm,
+        source: resolution.source.distanceSource,
+        resolvedSource: resolution.source,
+      };
     }
 
     if (resolution.status === "source_resolution_failed") {
@@ -144,7 +158,8 @@ async function serverPickupPoint(
   try {
     const { data } = await sb.rpc("public_material_pickups");
     const p = (data ?? {})[material] as { lat?: number | null; lng?: number | null } | undefined;
-    if (p && typeof p.lat === "number" && typeof p.lng === "number") return { lat: p.lat, lng: p.lng };
+    if (p && typeof p.lat === "number" && typeof p.lng === "number")
+      return { lat: p.lat, lng: p.lng };
   } catch {
     /* fall back to the default pickup */
   }
@@ -360,7 +375,10 @@ export const computePublicOffer = createServerFn({ method: "POST" })
   .inputValidator(parseOfferInput)
   .handler(async ({ data }): Promise<OfferResult> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { distanceKm, source, resolvedSource } = await resolvePickupAndDistance(supabaseAdmin, data);
+    const { distanceKm, source, resolvedSource } = await resolvePickupAndDistance(
+      supabaseAdmin,
+      data,
+    );
     if (distanceKm > MAX_SERVICE_KM) throw new Error(TOO_FAR_MESSAGE);
 
     // Anonymous quotes aren't tied to a customer and never feed a real job
@@ -379,6 +397,7 @@ export const computePublicOffer = createServerFn({ method: "POST" })
       _material: data.material,
       _quantity: data.quantity,
       _distance_km: distanceKm,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pre-existing: material enum typing for the public quote RPC
     } as any);
     if (error) throw new Error(error.message);
     const g = guide as OfferGuide;

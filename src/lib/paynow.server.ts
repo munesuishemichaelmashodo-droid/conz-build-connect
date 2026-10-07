@@ -114,7 +114,11 @@ export async function pollPaynowStatus(pollUrl: string): Promise<PollResult> {
   if (!isAllowedPollUrl(pollUrl)) return { ok: false, error: "poll_url_not_allowed" };
   let res: Response;
   try {
-    res = await fetch(pollUrl, { method: "GET", redirect: "error", signal: AbortSignal.timeout(10000) });
+    res = await fetch(pollUrl, {
+      method: "GET",
+      redirect: "error",
+      signal: AbortSignal.timeout(10000),
+    });
   } catch (err) {
     const timedOut = err instanceof Error && err.name === "TimeoutError";
     return { ok: false, error: timedOut ? "paynow_timeout" : "paynow_unreachable" };
@@ -200,10 +204,12 @@ export async function processPaynowIpn(
   if (!deps.integrationKey) return { status: 503, body: "paynow_not_configured" };
   const fields = parsePaynowFields(rawBody);
   if (!fields || fields.length === 0) return { status: 400, body: "bad request" };
-  if (!(await verifyPaynowPayload(fields, deps.integrationKey))) return { status: 401, body: "invalid hash" };
+  if (!(await verifyPaynowPayload(fields, deps.integrationKey)))
+    return { status: 401, body: "invalid hash" };
 
   const result = toVerifiedResult(fieldMap(fields));
-  if (!result.reference || !UUID_RE.test(result.reference)) return { status: 400, body: "missing reference" };
+  if (!result.reference || !UUID_RE.test(result.reference))
+    return { status: 400, body: "missing reference" };
 
   const applied = await applyPaynowResult(deps.db, result.reference, "ipn", result);
   if (!applied.ok) {
@@ -215,8 +221,7 @@ export async function processPaynowIpn(
 }
 
 export type InitiateResult =
-  | { ok: true; browserUrl: string; pollUrl: string }
-  | { ok: false; error: string };
+  { ok: true; browserUrl: string; pollUrl: string } | { ok: false; error: string };
 
 export async function initiatePaynowTransaction(args: {
   reference: string;

@@ -18,7 +18,10 @@ export type ReconcileSummary = {
 
 type ReconcileDb = PaynowResultDb & {
   rpc: PaynowResultDb["rpc"] &
-    ((fn: "expire_stale_paynow_payment", args: { _payment_id: string }) => PromiseLike<{ data: unknown; error: unknown }>);
+    ((
+      fn: "expire_stale_paynow_payment",
+      args: { _payment_id: string },
+    ) => PromiseLike<{ data: unknown; error: unknown }>);
 };
 
 const ABANDONED_AFTER_MS = 72 * 60 * 60 * 1000;

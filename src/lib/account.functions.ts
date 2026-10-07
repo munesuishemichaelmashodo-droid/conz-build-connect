@@ -24,7 +24,7 @@ export const activateAccount = createServerFn({ method: "POST" })
         ? meta.full_name.trim()
         : typeof meta.name === "string" && meta.name.trim()
           ? meta.name.trim()
-          : email ?? "Con Z user";
+          : (email ?? "Con Z user");
     const phone = typeof meta.phone === "string" ? meta.phone : null;
     const avatarUrl = typeof meta.avatar_url === "string" ? meta.avatar_url : null;
 
@@ -49,13 +49,17 @@ export const activateAccount = createServerFn({ method: "POST" })
       });
       if (profileError) throw new Error("Could not activate your profile");
     } else {
-      const missing: { full_name?: string; phone?: string; email?: string; avatar_url?: string } = {};
+      const missing: { full_name?: string; phone?: string; email?: string; avatar_url?: string } =
+        {};
       if (!existingProfile.full_name?.trim()) missing.full_name = fullName;
       if (!existingProfile.phone && phone) missing.phone = phone;
       if (existingProfile.email !== email && email) missing.email = email;
       if (!existingProfile.avatar_url && avatarUrl) missing.avatar_url = avatarUrl;
       if (Object.keys(missing).length > 0) {
-        const { error: profileError } = await supabaseAdmin.from("profiles").update(missing).eq("id", context.userId);
+        const { error: profileError } = await supabaseAdmin
+          .from("profiles")
+          .update(missing)
+          .eq("id", context.userId);
         if (profileError) throw new Error("Could not activate your profile");
       }
     }
@@ -98,11 +102,19 @@ export const activateAccount = createServerFn({ method: "POST" })
       }
     }
 
-    const needsDriverProfile = existingRoles.has("driver") || rolesToAdd.has("driver") || requestedRole === "driver";
+    const needsDriverProfile =
+      existingRoles.has("driver") || rolesToAdd.has("driver") || requestedRole === "driver";
     if (needsDriverProfile) {
       const [{ error: driverError }, { error: walletError }] = await Promise.all([
-        supabaseAdmin.from("driver_profiles").upsert({ user_id: context.userId }, { onConflict: "user_id", ignoreDuplicates: true }),
-        supabaseAdmin.from("wallets").upsert({ user_id: context.userId, balance: 0 }, { onConflict: "user_id", ignoreDuplicates: true }),
+        supabaseAdmin
+          .from("driver_profiles")
+          .upsert({ user_id: context.userId }, { onConflict: "user_id", ignoreDuplicates: true }),
+        supabaseAdmin
+          .from("wallets")
+          .upsert(
+            { user_id: context.userId, balance: 0 },
+            { onConflict: "user_id", ignoreDuplicates: true },
+          ),
       ]);
       if (driverError || walletError) throw new Error("Could not prepare your driver account");
     }

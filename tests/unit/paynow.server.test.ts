@@ -15,7 +15,10 @@ const PAYMENT_ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
 
 // Independent reference implementation (Node crypto) of the Paynow hash.
 function refHash(values: string[], key: string) {
-  return createHash("sha512").update(values.join("") + key, "utf8").digest("hex").toUpperCase();
+  return createHash("sha512")
+    .update(values.join("") + key, "utf8")
+    .digest("hex")
+    .toUpperCase();
 }
 
 function signedBody(fields: Array<[string, string]>, key = KEY) {
@@ -45,7 +48,16 @@ function mockDb(result: { data?: unknown; error?: { message: string; code?: stri
 
 describe("paynowHash", () => {
   it("matches an independent SHA-512 implementation", async () => {
-    const values = ["1201", "TEST REF", "99.99", "Info", "https://a", "https://b", "x@y.z", "Message"];
+    const values = [
+      "1201",
+      "TEST REF",
+      "99.99",
+      "Info",
+      "https://a",
+      "https://b",
+      "x@y.z",
+      "Message",
+    ];
     expect(await paynowHash(values, KEY)).toBe(refHash(values, KEY));
   });
 });
@@ -124,14 +136,20 @@ describe("processPaynowIpn", () => {
 
   it("returns 400 for duplicated fields", async () => {
     const { db, rpc } = mockDb({ data: {} });
-    const res = await processPaynowIpn(signedBody(ipnFields()) + "&status=Paid", { integrationKey: KEY, db });
+    const res = await processPaynowIpn(signedBody(ipnFields()) + "&status=Paid", {
+      integrationKey: KEY,
+      db,
+    });
     expect(res.status).toBe(400);
     expect(rpc).not.toHaveBeenCalled();
   });
 
   it("returns 400 when the reference is not a payment id", async () => {
     const { db, rpc } = mockDb({ data: {} });
-    const res = await processPaynowIpn(signedBody(ipnFields({ reference: "1; drop table" })), { integrationKey: KEY, db });
+    const res = await processPaynowIpn(signedBody(ipnFields({ reference: "1; drop table" })), {
+      integrationKey: KEY,
+      db,
+    });
     expect(res.status).toBe(400);
     expect(rpc).not.toHaveBeenCalled();
   });
@@ -150,7 +168,10 @@ describe("processPaynowIpn", () => {
 
   it("returns 200 for a rejected mismatch (recorded + alerted in the DB; retrying cannot help)", async () => {
     const { db } = mockDb({ data: { outcome: "rejected_amount_mismatch", status: "initiated" } });
-    const res = await processPaynowIpn(signedBody(ipnFields({ amount: "1.00" })), { integrationKey: KEY, db });
+    const res = await processPaynowIpn(signedBody(ipnFields({ amount: "1.00" })), {
+      integrationKey: KEY,
+      db,
+    });
     expect(res.status).toBe(200);
   });
 

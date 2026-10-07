@@ -9,7 +9,10 @@ export type RpcFailure = { error: string; message: string };
 export function rpcFailure(data: unknown): RpcFailure | null {
   if (data && typeof data === "object" && (data as { ok?: unknown }).ok === false) {
     const d = data as { error?: string; message?: string };
-    return { error: d.error ?? "failed", message: d.message ?? "That didn't work. Please try again." };
+    return {
+      error: d.error ?? "failed",
+      message: d.message ?? "That didn't work. Please try again.",
+    };
   }
   return null;
 }

@@ -24,7 +24,11 @@ export function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-export type WebhookHeaders = { id: string | null; timestamp: string | null; signature: string | null };
+export type WebhookHeaders = {
+  id: string | null;
+  timestamp: string | null;
+  signature: string | null;
+};
 
 /**
  * Standard Webhooks signature check used by Supabase Auth hooks:
@@ -50,8 +54,18 @@ export async function verifyStandardWebhook(
   } catch {
     return false;
   }
-  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${id}.${timestamp}.${rawBody}`));
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(`${id}.${timestamp}.${rawBody}`),
+  );
   const expected = bytesToBase64(sig);
   return signature
     .split(" ")

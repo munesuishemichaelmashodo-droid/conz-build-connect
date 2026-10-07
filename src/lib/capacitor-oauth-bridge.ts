@@ -39,15 +39,19 @@ let _pkce: SupabaseClient | undefined;
  */
 export function nativeOAuthClient(): SupabaseClient {
   if (!_pkce) {
-    _pkce = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, {
-      auth: {
-        flowType: "pkce",
-        storage: typeof window !== "undefined" ? localStorage : undefined,
-        persistSession: true,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
+    _pkce = createClient(
+      import.meta.env.VITE_SUPABASE_URL,
+      import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      {
+        auth: {
+          flowType: "pkce",
+          storage: typeof window !== "undefined" ? localStorage : undefined,
+          persistSession: true,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
       },
-    });
+    );
   }
   return _pkce;
 }

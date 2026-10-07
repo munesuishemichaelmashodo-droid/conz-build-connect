@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:db": "node scripts/db-test.mjs test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint:security": "eslint \"src/lib/paynow*.ts\" \"src/lib/{mfa,safe-redirect,rpc-result,oauth-callback-url,capacitor-oauth-bridge,account-deletion,account.functions,booking.functions}.ts\" \"src/routes/api/**/*.ts\" \"src/routes/_authenticated/{admin.approvals,mfa}.tsx\" \"supabase/functions/send-sms/verify.ts\" \"tests/unit/**/*.ts\" scripts/db-test.mjs vitest.config.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.2",

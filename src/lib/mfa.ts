@@ -14,11 +14,15 @@ export function isSecondApprovalError(error: RpcError): boolean {
 
 /** Strip the machine-readable prefix for display. */
 export function readableRpcError(error: RpcError): string {
-  return (error?.message ?? "Something went wrong").replace(/^(MFA_REQUIRED|SECOND_APPROVAL_REQUIRED):\s*/, "");
+  return (error?.message ?? "Something went wrong").replace(
+    /^(MFA_REQUIRED|SECOND_APPROVAL_REQUIRED):\s*/,
+    "",
+  );
 }
 
 /** Where to send the admin to verify, returning them to the current page. */
 export function mfaVerifyHref(): string {
-  const here = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/admin";
+  const here =
+    typeof window !== "undefined" ? window.location.pathname + window.location.search : "/admin";
   return `/mfa?next=${encodeURIComponent(here)}`;
 }

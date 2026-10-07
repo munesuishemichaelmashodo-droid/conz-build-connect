@@ -18,7 +18,16 @@
 //   node scripts/db-test.mjs reset   # rebuild the DB from migrations (fresh state)
 //   node scripts/db-test.mjs stop    # stop and discard the local stack
 
-import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -34,8 +43,15 @@ const PROJECT_ID = "conz-dbtest";
 
 // Services pgTAP does not need (keeps memory use low on laptops and CI).
 const EXCLUDE = [
-  "studio", "imgproxy", "vector", "logflare", "edge-runtime",
-  "supavisor", "realtime", "mailpit", "postgres-meta",
+  "studio",
+  "imgproxy",
+  "vector",
+  "logflare",
+  "edge-runtime",
+  "supavisor",
+  "realtime",
+  "mailpit",
+  "postgres-meta",
 ].join(",");
 
 function build() {
@@ -64,7 +80,8 @@ function build() {
 
 function syncTests() {
   rmSync(path.join(WD_SUPABASE, "tests"), { recursive: true, force: true });
-  if (existsSync(SRC_TESTS)) cpSync(SRC_TESTS, path.join(WD_SUPABASE, "tests"), { recursive: true });
+  if (existsSync(SRC_TESTS))
+    cpSync(SRC_TESTS, path.join(WD_SUPABASE, "tests"), { recursive: true });
 }
 
 function supabase(args) {

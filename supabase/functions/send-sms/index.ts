@@ -61,9 +61,13 @@ Deno.serve(async (req: Request) => {
 
   const phone = event?.user?.phone;
   const otp = event?.sms?.otp;
-  if (!phone || !otp || !/^\d{4,10}$/.test(otp)) return hookError(400, "Missing phone or otp in payload");
+  if (!phone || !otp || !/^\d{4,10}$/.test(otp))
+    return hookError(400, "Missing phone or otp in payload");
 
-  const allowed = (Deno.env.get("SMS_ALLOWED_COUNTRY_CODES") ?? "263").split(",").map((s) => s.trim()).filter(Boolean);
+  const allowed = (Deno.env.get("SMS_ALLOWED_COUNTRY_CODES") ?? "263")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   const toNumber = allowedDestination(phone, allowed);
   if (!toNumber) return hookError(400, "SMS to this country is not supported");
 
@@ -81,7 +85,11 @@ Deno.serve(async (req: Request) => {
   try {
     const atRes = await fetch("https://api.africastalking.com/version1/messaging", {
       method: "POST",
-      headers: { apiKey, "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+      headers: {
+        apiKey,
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      },
       body: form.toString(),
       signal: AbortSignal.timeout(15000),
     });
@@ -93,7 +101,8 @@ Deno.serve(async (req: Request) => {
       /* non-JSON response */
     }
     const recipients = parsed?.SMSMessageData?.Recipients;
-    const sent = atRes.ok && Array.isArray(recipients) && recipients.some((r) => r.status === "Success");
+    const sent =
+      atRes.ok && Array.isArray(recipients) && recipients.some((r) => r.status === "Success");
     if (!sent) {
       console.error("[send-sms] Africa's Talking failed", atRes.status, text.slice(0, 300));
       return hookError(500, "SMS provider error");

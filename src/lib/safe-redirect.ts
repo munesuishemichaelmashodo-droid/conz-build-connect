@@ -12,6 +12,7 @@ export function safeInternalPath(next: string | null | undefined): string | null
   if (!value.startsWith("/") || value.startsWith("//")) return null;
   // Backslashes and control characters are never needed in our paths and are
   // the usual way to smuggle a second origin past naive checks.
+  // eslint-disable-next-line no-control-regex -- matching control characters is the point of this check
   if (/[\\\u0000-\u001f\u007f]/.test(value)) return null;
   let url: URL;
   try {

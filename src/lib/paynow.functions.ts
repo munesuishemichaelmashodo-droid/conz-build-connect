@@ -21,6 +21,7 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
     if (!getPaynowCredentials()) return { ok: false, error: "paynow_not_configured" };
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service-role RPCs/tables added by 0073+ are not in the generated Supabase types yet
     const db = supabaseAdmin as any;
 
     const { data: payment, error } = await db
@@ -70,7 +71,16 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
 
 export type InitiateEscrowResult =
   | { ok: true; paymentId: string; redirectUrl: string }
-  | { ok: false; error: "paynow_not_configured" | "job_not_found" | "job_not_payable" | "not_your_job" | "already_paid" | string };
+  | {
+      ok: false;
+      error:
+        | "paynow_not_configured"
+        | "job_not_found"
+        | "job_not_payable"
+        | "not_your_job"
+        | "already_paid"
+        | string;
+    };
 
 /**
  * Con Z Pay — customer pays for a specific job into escrow, held until
@@ -91,6 +101,7 @@ export const initiateEscrowPayment = createServerFn({ method: "POST" })
     if (!getPaynowCredentials()) return { ok: false, error: "paynow_not_configured" };
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service-role RPCs/tables added by 0073+ are not in the generated Supabase types yet
     const db = supabaseAdmin as any;
 
     const { data: job } = await db
@@ -103,7 +114,8 @@ export const initiateEscrowPayment = createServerFn({ method: "POST" })
     if (job.payment_method !== "escrow") return { ok: false, error: "job_not_found" };
     // Only a job with a driver on it can be paid for — never a completed
     // or cancelled one.
-    if (job.status !== "accepted" && job.status !== "in_progress") return { ok: false, error: "job_not_payable" };
+    if (job.status !== "accepted" && job.status !== "in_progress")
+      return { ok: false, error: "job_not_payable" };
 
     const { data: previous } = await db
       .from("payments")
@@ -132,7 +144,8 @@ export const initiateEscrowPayment = createServerFn({ method: "POST" })
     // The amount is the accepted price, read server-side; the client never
     // supplies it. It must be a valid positive amount (audit F1).
     const amount = Number(job.final_price ?? job.budget ?? 0);
-    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000) return { ok: false, error: "job_not_payable" };
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000)
+      return { ok: false, error: "job_not_payable" };
 
     const { data: payment, error } = await db
       .from("payments")
@@ -188,6 +201,7 @@ export const reconcilePendingPaynowPayments = createServerFn({ method: "POST" })
   .handler(async ({ context }): Promise<ReconcileResult> => {
     const { reconcilePayments } = await import("@/lib/paynow.reconcile.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service-role RPCs/tables added by 0073+ are not in the generated Supabase types yet
     const db = supabaseAdmin as any;
 
     const { data: pending } = await db
@@ -203,6 +217,7 @@ export const reconcilePendingPaynowPayments = createServerFn({ method: "POST" })
     // Every result goes through apply_paynow_result(), which verifies the
     // reference and amount and never credits twice.
     const summary = await reconcilePayments(db, pending ?? [], "poll", { deadlineMs: 20_000 });
-    const credited = (summary.applied["credited"] ?? 0) + (summary.applied["escrow_marked_paid"] ?? 0);
+    const credited =
+      (summary.applied["credited"] ?? 0) + (summary.applied["escrow_marked_paid"] ?? 0);
     return { checked: summary.checked, credited };
   });

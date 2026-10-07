@@ -18,7 +18,10 @@ async function handleReconcile(request: Request): Promise<Response> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { reconcilePayments } = await import("@/lib/paynow.reconcile.server");
   const db = supabaseAdmin as never as Parameters<typeof reconcilePayments>[0] & {
-    rpc: (fn: "paynow_pending_for_reconcile", args: { _limit: number }) => PromiseLike<{
+    rpc: (
+      fn: "paynow_pending_for_reconcile",
+      args: { _limit: number },
+    ) => PromiseLike<{
       data: Array<{ id: string; paynow_poll_url: string | null; created_at: string }> | null;
       error: { message: string } | null;
     }>;
@@ -33,7 +36,10 @@ async function handleReconcile(request: Request): Promise<Response> {
   // Stay well inside the serverless time limit; the next run picks up the rest.
   const summary = await reconcilePayments(db, pending ?? [], "reconcile", { deadlineMs: 20_000 });
   console.log(`[paynow-reconcile] ${JSON.stringify(summary)}`);
-  return new Response(JSON.stringify(summary), { status: 200, headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify(summary), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
 }
 
 export const Route = createFileRoute("/api/internal/paynow-reconcile")({

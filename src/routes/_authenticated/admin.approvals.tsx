@@ -58,6 +58,7 @@ function AdminApprovals() {
   const qc = useQueryClient();
   const { userId, is } = useAuth();
   const isSuper = is("super_admin");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- escrow_refunds / admin_credit_requests (0074/0076) are not in the generated Supabase types yet
   const db = supabase as any;
 
   const { data: refunds } = useQuery({
@@ -66,7 +67,9 @@ function AdminApprovals() {
     queryFn: async () => {
       const { data } = await db
         .from("escrow_refunds")
-        .select("id,payment_id,job_id,user_id,amount,reason,status,created_at,paynow_refund_reference")
+        .select(
+          "id,payment_id,job_id,user_id,amount,reason,status,created_at,paynow_refund_reference",
+        )
         .order("created_at", { ascending: false })
         .limit(100);
       return (data ?? []) as RefundRow[];
@@ -79,7 +82,9 @@ function AdminApprovals() {
     queryFn: async () => {
       const { data } = await db
         .from("admin_credit_requests")
-        .select("id,requested_by,target_user_id,amount,category,reason,status,created_at,expires_at")
+        .select(
+          "id,requested_by,target_user_id,amount,category,reason,status,created_at,expires_at",
+        )
         .order("created_at", { ascending: false })
         .limit(100);
       return (data ?? []) as CreditRequestRow[];
@@ -118,7 +123,10 @@ function AdminApprovals() {
   };
 
   const decide = async (r: CreditRequestRow, approve: boolean) => {
-    const note = window.prompt(approve ? "Approval note (optional):" : "Why are you rejecting this request?") ?? "";
+    const note =
+      window.prompt(
+        approve ? "Approval note (optional):" : "Why are you rejecting this request?",
+      ) ?? "";
     if (!approve && !note.trim()) return;
     const { error } = await db.rpc("admin_decide_wallet_credit", {
       _request_id: r.id,
@@ -131,7 +139,13 @@ function AdminApprovals() {
   };
 
   if (!isSuper) {
-    return <EmptyState icon={ShieldCheck} title="Super admins only" hint="Money approvals need a super admin." />;
+    return (
+      <EmptyState
+        icon={ShieldCheck}
+        title="Super admins only"
+        hint="Money approvals need a super admin."
+      />
+    );
   }
 
   const dueRefunds = (refunds ?? []).filter((r) => r.status === "due");
@@ -144,15 +158,22 @@ function AdminApprovals() {
           <Undo2 className="w-4 h-4" /> Escrow refunds due ({dueRefunds.length})
         </h2>
         <p className="text-xs text-muted-foreground">
-          Refund each payment in the Paynow merchant portal first, then record the Paynow refund reference here.
-          Nothing is credited to in-app wallets.
+          Refund each payment in the Paynow merchant portal first, then record the Paynow refund
+          reference here. Nothing is credited to in-app wallets.
         </p>
         {(refunds ?? []).length === 0 ? (
-          <EmptyState icon={Undo2} title="No refunds" hint="Paid escrow on cancelled or refunded jobs appears here." />
+          <EmptyState
+            icon={Undo2}
+            title="No refunds"
+            hint="Paid escrow on cancelled or refunded jobs appears here."
+          />
         ) : (
           <div className="space-y-2">
             {(refunds ?? []).map((r) => (
-              <div key={r.id} className="rounded-xl border bg-card p-3 flex items-center justify-between gap-3">
+              <div
+                key={r.id}
+                className="rounded-xl border bg-card p-3 flex items-center justify-between gap-3"
+              >
                 <div className="min-w-0">
                   <div className="font-semibold">
                     {money(Number(r.amount))} · {nameOf(r.user_id)}
@@ -177,10 +198,15 @@ function AdminApprovals() {
 
       <section className="space-y-3">
         <h2 className="font-display font-bold uppercase tracking-wide text-sm flex items-center gap-2">
-          <HandCoins className="w-4 h-4" /> Wallet credits awaiting a second super admin ({pendingRequests.length})
+          <HandCoins className="w-4 h-4" /> Wallet credits awaiting a second super admin (
+          {pendingRequests.length})
         </h2>
         {(requests ?? []).length === 0 ? (
-          <EmptyState icon={HandCoins} title="No credit requests" hint="Large wallet credits need two super admins." />
+          <EmptyState
+            icon={HandCoins}
+            title="No credit requests"
+            hint="Large wallet credits need two super admins."
+          />
         ) : (
           <div className="space-y-2">
             {(requests ?? []).map((r) => {
@@ -193,14 +219,17 @@ function AdminApprovals() {
                         {money(Number(r.amount))} → {nameOf(r.target_user_id)}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Requested by {nameOf(r.requested_by)} · {r.category.replace(/_/g, " ")} · {r.reason}
+                        Requested by {nameOf(r.requested_by)} · {r.category.replace(/_/g, " ")} ·{" "}
+                        {r.reason}
                       </div>
                     </div>
                     <StatusBadge label={r.status} />
                   </div>
-                  {r.status === "pending" && (
-                    mine ? (
-                      <p className="text-xs text-muted-foreground">Another super admin must decide this request.</p>
+                  {r.status === "pending" &&
+                    (mine ? (
+                      <p className="text-xs text-muted-foreground">
+                        Another super admin must decide this request.
+                      </p>
                     ) : (
                       <div className="grid grid-cols-2 gap-2">
                         <Button size="sm" onClick={() => decide(r, true)}>
@@ -210,8 +239,7 @@ function AdminApprovals() {
                           Reject
                         </Button>
                       </div>
-                    )
-                  )}
+                    ))}
                 </div>
               );
             })}

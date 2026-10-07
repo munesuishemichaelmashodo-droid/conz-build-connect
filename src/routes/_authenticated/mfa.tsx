@@ -95,7 +95,10 @@ function MfaPage() {
     setQrCode(null);
     setSecret(null);
     setFactorId(null);
-    const { data: enrolled, error } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: "Con Z Admin" });
+    const { data: enrolled, error } = await supabase.auth.mfa.enroll({
+      factorType: "totp",
+      friendlyName: "Con Z Admin",
+    });
     if (error) return toast.error(error.message);
     if (enrolled) {
       setFactorId(enrolled.id);
@@ -107,9 +110,12 @@ function MfaPage() {
 
   const verify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!factorId || code.trim().length < 6) return toast.error("Enter the 6-digit code from your authenticator app");
+    if (!factorId || code.trim().length < 6)
+      return toast.error("Enter the 6-digit code from your authenticator app");
     setBusy(true);
-    const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId });
+    const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
+      factorId,
+    });
     if (challengeError || !challenge) {
       setBusy(false);
       return toast.error(challengeError?.message ?? "Could not start verification");
@@ -121,7 +127,11 @@ function MfaPage() {
     });
     setBusy(false);
     if (verifyError) {
-      return toast.error(verifyError.message.includes("Invalid") ? "That code didn't match — try the current one from your app" : verifyError.message);
+      return toast.error(
+        verifyError.message.includes("Invalid")
+          ? "That code didn't match — try the current one from your app"
+          : verifyError.message,
+      );
     }
     toast.success(stage === "enroll" ? "Authenticator app linked" : "Verified");
     nav({ to: safeNext as "/admin", replace: true });
@@ -176,7 +186,13 @@ function MfaPage() {
                 <p className="text-sm text-muted-foreground">
                   You have an unfinished setup. Request a fresh QR code to continue.
                 </p>
-                <Button type="button" variant="outline" size="sm" className="mt-2" onClick={restartEnrollment}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={restartEnrollment}
+                >
                   Get a new QR code
                 </Button>
               </div>
@@ -203,12 +219,17 @@ function MfaPage() {
                 />
               </div>
             </div>
-            <Button type="submit" disabled={busy || code.length < 6} className="w-full h-11 font-display uppercase tracking-wide">
+            <Button
+              type="submit"
+              disabled={busy || code.length < 6}
+              className="w-full h-11 font-display uppercase tracking-wide"
+            >
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify & continue"}
             </Button>
             {stage === "challenge" && (
               <p className="text-[11px] text-muted-foreground text-center">
-                Lost access to your authenticator app? The project owner can remove the factor in the Supabase dashboard (Authentication → Users), then you can enrol again.
+                Lost access to your authenticator app? The project owner can remove the factor in
+                the Supabase dashboard (Authentication → Users), then you can enrol again.
               </p>
             )}
           </form>

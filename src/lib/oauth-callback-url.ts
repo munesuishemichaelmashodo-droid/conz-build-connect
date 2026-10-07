@@ -20,15 +20,24 @@ export function parseNativeOAuthCallback(url: string): NativeOAuthCallback {
   const rest = url.slice(CUSTOM_SCHEME_PREFIX.length);
   const queryIndex = rest.indexOf("?");
   const hashIndex = rest.indexOf("#");
-  const query = queryIndex >= 0 ? rest.slice(queryIndex + 1, hashIndex > queryIndex ? hashIndex : undefined) : "";
+  const query =
+    queryIndex >= 0
+      ? rest.slice(queryIndex + 1, hashIndex > queryIndex ? hashIndex : undefined)
+      : "";
   const fragment = hashIndex >= 0 ? rest.slice(hashIndex + 1) : "";
   const q = new URLSearchParams(query);
   const f = new URLSearchParams(fragment);
 
-  if (f.has("access_token") || f.has("refresh_token") || q.has("access_token") || q.has("refresh_token")) {
+  if (
+    f.has("access_token") ||
+    f.has("refresh_token") ||
+    q.has("access_token") ||
+    q.has("refresh_token")
+  ) {
     return { kind: "tokens_refused" };
   }
-  const error = q.get("error_description") ?? q.get("error") ?? f.get("error_description") ?? f.get("error");
+  const error =
+    q.get("error_description") ?? q.get("error") ?? f.get("error_description") ?? f.get("error");
   if (error) return { kind: "error", message: error };
   const code = q.get("code");
   if (code && /^[A-Za-z0-9-_.]{8,512}$/.test(code)) return { kind: "code", code };
