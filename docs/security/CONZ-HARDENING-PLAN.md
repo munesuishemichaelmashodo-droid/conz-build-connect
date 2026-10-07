@@ -295,3 +295,31 @@ backwards-compatible with the new DB, not vice versa), and keep the Paynow IPN p
   official Paynow SDKs do); an unsigned/invalid response fails the initiation instead of redirecting.
 - **Remaining risk:** real Paynow message formats (amount formatting, status strings) are verified only
   against the documented format until the staging test-mode run (Phase 18).
+
+### Phase 4 — Escrow refund lifecycle (F2) ✅ tested locally
+
+- **Migration:** `20261007230000_0074_escrow_refund_lifecycle.sql`
+  - `require_aal2()` (MFA session check) — first user: refund confirmation.
+  - `platform_ledger` — append-only double-entry ledger (debit +, credit −, every group sums to 0;
+    super_admin read). Escrow postings: `escrow_paid` (paynow_clearing / escrow_held),
+    `escrow_released` (escrow_held / user_wallets + platform_revenue), `escrow_refund_due`
+    (escrow_held / refunds_payable), `escrow_refunded` (refunds_payable / paynow_clearing).
+  - `escrow_refunds` work queue; `escrow_mark_refund_due()` (paid → refund_due, queue, ledger, alerts
+    to customer + super admins; idempotent) used by `cancel_job`, `expire_stale_accepted_jobs`,
+    `resolve_dispute('refund')`, and `mark_escrow_payment_paid` (payment landing after the job closed,
+    or a duplicate payment).
+  - `resolve_dispute`: escrow `refund` = full refund_due + job cancelled + held commission released;
+    any other outcome keeps escrow held for normal release ("release in full"); refund requested after
+    release → super admins alerted, no automatic credit; **admins can no longer resolve disputes on jobs
+    they are a party to.**
+  - `admin_mark_escrow_refunded()` — super_admin + **MFA (aal2)**, not own payment, Paynow refund
+    reference required, idempotent, full amount, ledger + audit + customer notification.
+- **App:** `jobs.$id.tsx` shows the customer "being refunded / refunded" for refund_due/refunded escrow.
+- **Tests:** `030_escrow_lifecycle.test.sql` 54 assertions — pay→complete→release ($279 to driver,
+  $21 revenue), double release, refund-after-release, cancel→refund_due→refunded (admin denied,
+  super_admin without MFA denied, with MFA OK, idempotent), release-after-refund (incl. direct status
+  UPDATE as service_role), 24h expiry→refund_due, dispute→refund in full, dispute other outcome→release,
+  self-dealing dispute blocked, late payment after cancel, duplicate payment, ledger: every group
+  balances, escrow_held = Σ paid escrow, refunds_payable = Σ refund_due, append-only.
+  **DB total: 136/136.** `tsc` clean.
+- **Pending (Phase 6):** admin screen to work the refund queue (needs the MFA sign-in flow).

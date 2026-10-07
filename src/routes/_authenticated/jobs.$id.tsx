@@ -369,10 +369,19 @@ function JobDetail() {
         .order("created_at", { ascending: false })
         .limit(10);
       const rows = (data ?? []) as { id: string; status: string; amount: number }[];
-      return rows.find((r) => r.status === "paid" || r.status === "released") ?? rows[0] ?? null;
+      return (
+        rows.find((r) => r.status === "paid" || r.status === "released") ??
+        rows.find((r) => r.status === "refund_due" || r.status === "refunded") ??
+        rows[0] ??
+        null
+      );
     },
   });
   const escrowPaid = escrowPayment?.status === "paid" || escrowPayment?.status === "released";
+  // Paid escrow on a cancelled / expired / refunded-dispute job is returned
+  // through Paynow (refund_due -> refunded); never shown as payable again.
+  const escrowRefund =
+    escrowPayment?.status === "refund_due" || escrowPayment?.status === "refunded" ? escrowPayment : null;
 
   // Returning from Paynow lands back on this page — reconcile any pending
   // escrow payment via the poll URL rather than only relying on the webhook.
@@ -594,6 +603,20 @@ function JobDetail() {
             )}
           </div>
         </div>
+
+        {isOwner && escrowRefund && (
+          <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4 space-y-1">
+            <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
+              <ShieldCheck className="w-4 h-4 text-primary" />
+              Con Z Pay refund
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {escrowRefund.status === "refunded"
+                ? `Your ${money(Number(escrowRefund.amount))} payment has been refunded through Paynow.`
+                : `Your ${money(Number(escrowRefund.amount))} payment is being refunded through Paynow. We'll notify you when it's done.`}
+            </p>
+          </div>
+        )}
 
         {showActionSection && (
           <Section id="tour-next-steps" title="What's next">
