@@ -505,3 +505,25 @@ backwards-compatible with the new DB, not vice versa), and keep the Paynow IPN p
   and what is retained (was "contact us"). **Owner/legal should review the privacy wording.**
 - **Tests:** `100_account_deletion.test.sql` 18 assertions. **DB 327/327, tsc clean, build OK.**
 - **Not testable locally:** the Auth admin calls (ban, e-mail replace, global sign-out) — verify on staging.
+
+### Phase 15 — Platform ledger + reconciliation (F9) ✅ tested locally
+
+- **Migration:** `20261008070000_0082_ledger_and_reconciliation.sql` — every wallet movement now posts a
+  balanced double-entry group: Paynow top-up, manual top-up, withdrawal, direct-pay commission, dispute
+  commission refund, referral reward (trigger on `referral_bonus`), plus escrow (0074) and admin changes (0076).
+  Opening balances posted for existing wallets so `−Σ user_wallets = Σ wallets.balance` from day one.
+  `financial_reconciliation()` (9 read-only checks: balanced groups, wallet = its transactions, ledger user
+  money = balances, escrow liability, refunds owed, no double top-up credit, no stranded escrow, releases
+  posted once, held commission = active jobs). `run_financial_reconciliation()` stores to append-only
+  `reconciliation_runs` and alerts super admins; pg_cron daily 02:00 Harare. **Flags, never fixes.**
+- **Accounts:** paynow_clearing, manual_topups_clearing, payouts_clearing, escrow_held, refunds_payable,
+  user_wallets, platform_revenue, admin_adjustments, referral_expense, opening_balance.
+- **Tests:** `110_ledger_reconciliation.test.sql` 24 assertions — 8 money flows through the real RPCs, exact
+  balances per account, all checks pass, injected "money from nowhere" detected + recorded + alerted and not
+  auto-corrected, clients cannot trigger runs. **DB 351/351.**
+- **Live preview (read-only):** 0 wallet/transaction mismatches, 0 duplicate credits, 0 stranded escrow, held
+  commission ($39.90) matches active jobs → clean first run expected. **Historical note for the owner:** 3 of
+  12 paid Paynow top-ups have no `paynow_topup_credited` audit entry (likely the earlier manually-fixed
+  uncredited payments); wallets still match their transactions — verify against Paynow statements.
+- **Not covered:** Paynow settlement files (merchant statements) are not ingested; the ledger's
+  `paynow_clearing` balance is the figure to match against Paynow statements manually.
