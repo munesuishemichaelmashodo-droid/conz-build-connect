@@ -57,3 +57,8 @@ types.new.ts
 
 # local pgTAP stack (scripts/db-test.mjs)
 .dbtest/
+
+# Android release signing — never commit keys
+*.jks
+*.keystore
+keystore.properties
