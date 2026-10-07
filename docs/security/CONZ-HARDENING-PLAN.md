@@ -369,3 +369,22 @@ backwards-compatible with the new DB, not vice versa), and keep the Paynow IPN p
   at `/mfa` before approving top-ups/withdrawals, crediting, reversing, or confirming refunds. Supabase
   Auth TOTP MFA must be enabled for the project (it is on by default; verify in the dashboard). Lost
   device recovery: remove the factor in Supabase dashboard → Authentication → Users.
+
+### Phase 7 — KYC protection (F6) ✅ tested locally
+
+- **Migration:** `20261008020000_0077_kyc_protection.sql`
+  - `driver_profiles_guard_direct_write`: a **verified** driver changing any identity/document column
+    (national ID + number, nationality, selfie, licence, operator licence, fitness certificate, GIT
+    insurance, ZINARA, tipper photos) is automatically returned to `pending` (verified_at/reverify cleared,
+    note recorded, admins notified) → cannot bid until re-approved. Drivers also can no longer set
+    `verified_at` / `reverify_due_at`.
+  - `driver-docs` storage: owner read + upload of new files in own folder only; overwrite/delete only while
+    **not verified**; other users no access; admin policy recreated. Buckets created idempotently with limits:
+    `driver-docs` 15 MB images+PDF, `chat-media` 15 MB images+audio (live objects checked: only JPEG/PNG ≤ 3.2 MB).
+  - Note: the local test DB had no storage buckets/policies (baseline covered `public` only); this
+    migration is self-contained so fresh and live databases converge.
+- **App:** KYC uploads use `upsert: false` (paths are already unique); voice notes upload with the bare
+  MIME type (`audio/webm`, not `audio/webm;codecs=opus`).
+- **Tests:** `060_kyc_protection.test.sql` 19 assertions (re-verification on ID/number/compliance change,
+  no bidding while pending, no self-verify, approved files cannot be overwritten/deleted, new uploads allowed,
+  applicant can manage files, cross-user read/upload denied, admin read, bucket limits). **DB 227/227.**

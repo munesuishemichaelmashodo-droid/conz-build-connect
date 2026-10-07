@@ -296,7 +296,7 @@ function ComplianceDocRow({
   const upload = async (file: File) => {
     setUploading(true);
     const path = `${userId}/${field}-${Date.now()}-${file.name.replace(/[^a-z0-9.]/gi, "_")}`;
-    const { error: uerr } = await supabase.storage.from("driver-docs").upload(path, file, { upsert: true });
+    const { error: uerr } = await supabase.storage.from("driver-docs").upload(path, file, { upsert: false });
     if (uerr) { setUploading(false); return toast.error(uerr.message); }
     const patch = { [field]: path };
     const { error } = await supabase.from("driver_profiles").update(patch as never).eq("user_id", userId);
@@ -328,7 +328,7 @@ function PhotoStep({
   const upload = async (file: File) => {
     setUploading(true);
     const path = `${userId}/${field}-${Date.now()}-${file.name.replace(/[^a-z0-9.]/gi, "_")}`;
-    const { error: uerr } = await supabase.storage.from("driver-docs").upload(path, file, { upsert: true });
+    const { error: uerr } = await supabase.storage.from("driver-docs").upload(path, file, { upsert: false });
     if (uerr) { setUploading(false); return toast.error(uerr.message); }
     const patch = { [field]: path, verification_status: "pending" as const };
     const { error } = await supabase.from("driver_profiles").update(patch as never).eq("user_id", userId);
