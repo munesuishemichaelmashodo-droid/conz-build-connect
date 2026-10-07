@@ -459,3 +459,19 @@ backwards-compatible with the new DB, not vice versa), and keep the Paynow IPN p
 - **Tests:** `090_pricing_integrity.test.sql` 24 assertions. **DB 309/309, unit 30/30, tsc clean, build OK.**
 - **Deploy order:** app first (quotes start working), then migration (quotes become mandatory for priced
   materials). A customer who waits > 30 min after quoting gets "get a new quote".
+
+### Phase 12 — Edge Functions & SMS (F8 / H9) ✅ code + unit-tested; NOT deployed
+
+- `supabase/functions/send-sms/` added to git (live v8 was never committed). Now **fails closed**: no
+  `SEND_SMS_HOOK_SECRET` → 500 and nothing sent; Standard-Webhooks HMAC verified (constant-time, key-rotation
+  aware); timestamp must be within 5 min (replay); OTP format checked; destination country allowlist via
+  `SMS_ALLOWED_COUNTRY_CODES` (default `263`, Zimbabwe) to block SMS-pumping/toll fraud; provider error text no
+  longer echoed to the caller. Pure logic in `verify.ts`, unit-tested (`tests/unit/send-sms.verify.test.ts`, 8).
+- **Demo functions (live, unused by the app — grep confirms no references):** `quick-responder` calls
+  OpenRouteService with the owner's `ORS_API_KEY` for anyone holding the public publishable key (quota/cost
+  abuse); `smooth-handler` is a leftover demo. **Recommend deleting both — requires owner approval
+  (destructive production action).**
+- `send-push` already secret-gated (0069); unchanged.
+- **Deployment (owner approval):** `supabase functions deploy send-sms --no-verify-jwt` after confirming
+  `SEND_SMS_HOOK_SECRET` is set; if it is not set today, phone OTP will stop working until it is (that is
+  the intended fail-closed behaviour — set it first).
