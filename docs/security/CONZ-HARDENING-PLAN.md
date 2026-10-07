@@ -551,3 +551,22 @@ backwards-compatible with the new DB, not vice versa), and keep the Paynow IPN p
 - **Not covered by pgTAP (single session):** true concurrency races. Mitigations are structural
   (`FOR UPDATE` row locks, per-admin advisory locks, unique reversal index, state-machine trigger); a
   multi-connection race test is listed for staging.
+
+### Phase 17 — CI & application tests ✅ (CI runs once the branch is pushed)
+
+- `verify-build.yml`: typecheck → `lint:security` → `vitest` → build+smoke; new `database-tests` job (fresh
+  local Supabase in the GitHub runner, full pgTAP suite); APK build waits on both. No production secrets in CI.
+- `lint:security` gates all payment/auth/admin-money/deletion code (clean). Full-repo lint is **not** gated:
+  historical debt (~1.7k: prettier formatting in ~190 untouched files, ~155 `any`) — reformatting the whole
+  repo would collide with parallel sessions; recommended as one formatting-only commit later.
+- `.prettierrc` `endOfLine: "auto"` removes the Windows CRLF false positives. Windows smoke-test path fixed
+  (Phase 2). **Local: tsc 0 · lint:security 0 · unit 42/42 · DB 364/364 · build+smoke OK.**
+- **Not run:** GitHub Actions itself (the branch has not been pushed — needs owner approval).
+
+### Phase 18 — Staging ⛔ BLOCKED on owner decision (runbook ready)
+
+- `docs/security/STAGING-RUNBOOK.md`: project creation, schema build from git, staging-only secrets, Paynow
+  test-mode scenarios P1–P11, multi-connection race tests.
+- **Blocker:** Supabase org is on the **Free plan (2 active projects, both in use)** → pause `venmax-admin` or
+  upgrade to Pro. Pro also brings backups/PITR, which production should have before 0072–0084 are applied.
+- Also needed from the owner: a **separate Paynow integration in test mode** (credentials).
