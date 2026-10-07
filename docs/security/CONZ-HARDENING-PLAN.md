@@ -411,3 +411,27 @@ backwards-compatible with the new DB, not vice versa), and keep the Paynow IPN p
   customer warned/correct refused while locked/release once). Unit `rpc-result.test.ts` 2.
   **DB 258/258, unit 30/30, tsc clean.**
 - **Remaining:** no forgotten-PIN reset flow exists (a locked-out user waits; support has no tool) — product gap.
+
+### Phases 9–10 — Roles, open-job visibility, tracking (F8) ✅ tested locally
+
+- **Migration:** `20261008040000_0079_roles_and_job_visibility.sql`
+  - `is_verified_driver(uid)` = driver role + verified profile + not past re-verification. Used by the
+    `Jobs visibility` policy (open jobs), `driver_available_jobs` and `find_next_loads_for_driver` (return
+    nothing to unverified callers instead of every open job's address/coords/notes/token).
+  - Tracking token **rotated when a job leaves `open`** (trigger), so a token seen during bidding never
+    reveals the assigned driver's live location; `get_public_tracking` returns nothing for cancelled jobs or
+    90 days after completion. (Chosen over column revocation because three pages `select("*")` from jobs.)
+  - `admin_grant_role` → MFA required for admin / super_admin grants.
+  - `driver` stays self-grantable as an *applicant* marker (become-driver flow); all driver capability is
+    gated on verification. admin/super_admin cannot be self-granted (RPC whitelist + super-only policy).
+- **App:** `activateAccount` no longer grants super_admin by hard-coded e-mail (production already has its 2
+  super admins; nothing revoked); sign-up metadata can only yield `customer` / `driver` (applicant).
+  Role-toggle MFA errors route to `/mfa`.
+- **Tests:** `080_roles_and_visibility.test.sql` 26 assertions (self-grant admin/super, direct role insert,
+  admin_grant_role by user/admin/super-without-MFA, applicant sees 0 open jobs / 0 RPC rows, verified driver
+  sees them, re-verification overdue loses access, token rotation, old token dead, guessed token, other drivers
+  lose access after acceptance, no delivery PIN on row, cancelled + 90-day expiry, recent receipt works).
+  `060` adjusted: a pending driver's bid is now refused earlier (cannot see the job) — asserts "throws and no
+  bid created". **DB 285/285, tsc clean.**
+- **Side effect to note:** a tracking link shared by a customer *before* acceptance stops working at acceptance
+  (the job page always shows the current link).

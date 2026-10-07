@@ -2,7 +2,7 @@
 -- documents are private and frozen once approved.
 
 begin;
-select plan(19);
+select plan(20);
 
 select set_config('t.drv',   tests.create_driver('kyc', 0)::text, true);   -- verified
 select set_config('t.new',   tests.create_user('applicant', array['driver'])::text, true);
@@ -40,7 +40,12 @@ select set_config('t.job',  tests.create_job(current_setting('t.cust')::uuid)::t
 select tests.login_as(current_setting('t.drv')::uuid);
 select throws_ok(format($$insert into public.bids (job_id, driver_id, price, truck_id) values (%L, auth.uid(), 300, %L)$$,
                         current_setting('t.job'), tests.truck_of(current_setting('t.drv')::uuid)),
-  '42501', null, 'F6: a driver pending re-review cannot bid');
+  null, null, 'F6: a driver pending re-review cannot bid');
+-- (Since 0079 the pending driver cannot even see the open job, so the insert
+-- is refused before the bids policy check; the property is "no bid".)
+select tests.as_owner();
+select is((select count(*)::int from public.bids where driver_id = current_setting('t.drv')::uuid), 0, 'F6: no bid was created');
+select tests.login_as(current_setting('t.drv')::uuid);
 select throws_ok($$update public.driver_profiles set verification_status = 'verified' where user_id = auth.uid()$$,
   '42501', null, 'Driver cannot re-verify themselves');
 select throws_ok($$update public.driver_profiles set verified_at = now() where user_id = auth.uid()$$,

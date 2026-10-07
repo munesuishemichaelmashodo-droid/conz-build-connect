@@ -68,14 +68,13 @@ export const activateAccount = createServerFn({ method: "POST" })
 
     const existingRoles = new Set((roleRows ?? []).map((row) => row.role));
     const rolesToAdd = new Set<AppRole>();
+    // Only a base role, and only on first activation. The sign-up metadata
+    // ("customer" | "driver") is user-controlled, so it can never yield more:
+    // "driver" is an applicant marker — every driver capability is gated on
+    // admin verification in the database (is_verified_driver, 0079).
+    // Privileged roles are granted only by a super admin with MFA
+    // (admin_grant_role); there is no e-mail based bootstrap any more.
     if (existingRoles.size === 0) rolesToAdd.add(requestedRole);
-    const emailConfirmed = !!(authData.user as { email_confirmed_at?: string | null }).email_confirmed_at;
-    if (emailConfirmed && email?.toLowerCase() === "munesuishemichaelmashodo@gmail.com") {
-      rolesToAdd.add("super_admin");
-      rolesToAdd.add("admin");
-      rolesToAdd.add("customer");
-      rolesToAdd.add("driver");
-    }
 
     if (rolesToAdd.size > 0) {
       const { error } = await supabaseAdmin.from("user_roles").upsert(

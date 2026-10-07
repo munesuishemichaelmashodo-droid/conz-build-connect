@@ -331,6 +331,7 @@ Send this credit to another super admin for approval?`)) return;
     const has = row.roles.includes(role);
     const rpc = has ? "admin_revoke_role" : "admin_grant_role";
     const { error } = await supabase.rpc(rpc, { _user_id: row.id, _role: role });
+    if (error && isMfaRequiredError(error)) return moneyActionError(error);
     if (error) return toast.error(error.message);
     toast.success(has ? `${role} removed` : `${role} granted`);
     onChanged();
