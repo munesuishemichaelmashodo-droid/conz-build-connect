@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { COUNTRY_CODES } from "@/lib/country-codes";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { safeInternalPath } from "@/lib/safe-redirect";
 import { toast } from "sonner";
 
 const searchSchema = z.object({
@@ -34,7 +35,8 @@ function AuthPage() {
   const [tab, setTab] = useState<"login" | "register">(mode ?? (initialRole ? "register" : "login"));
 
   // Only allow same-origin relative paths.
-  const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
+  // safeInternalPath rejects "/\evil.com"-style bypasses (audit F8 open redirect).
+  const safeNext = safeInternalPath(next);
   const goPostAuth = () => {
     if (safeNext) {
       window.location.replace(safeNext);
@@ -250,9 +252,11 @@ function AuthPage() {
       // capacitor-oauth-bridge.ts (registered at app startup), which
       // converts the custom-scheme callback into the same web URL this
       // page's polling logic already handles.
-      const { isNativePlatform } = await import("@/lib/capacitor-oauth-bridge");
+      const { isNativePlatform, nativeOAuthClient } = await import("@/lib/capacitor-oauth-bridge");
       if (isNativePlatform()) {
-        const { data, error } = await supabase.auth.signInWithOAuth({
+        // PKCE: the custom-scheme redirect carries only a one-time code
+        // that is useless to any other app (audit H8).
+        const { data, error } = await nativeOAuthClient().auth.signInWithOAuth({
           provider: "google",
           options: {
             redirectTo: "com.conz.app://oauth-callback",

@@ -475,3 +475,18 @@ backwards-compatible with the new DB, not vice versa), and keep the Paynow IPN p
 - **Deployment (owner approval):** `supabase functions deploy send-sms --no-verify-jwt` after confirming
   `SEND_SMS_HOOK_SECRET` is set; if it is not set today, phone OTP will stop working until it is (that is
   the intended fail-closed behaviour — set it first).
+
+### Phase 13 — Auth / OAuth (F8 open redirect, H8) ✅ unit-tested; native flow NOT device-tested
+
+- **Open redirect:** `auth.tsx` and `oauth-callback.tsx` now use `safeInternalPath()` (rejects `/\evil.com`,
+  `//`, schemes, control characters; must resolve to our own origin). The restored `/mfa` uses it too.
+- **Native Google sign-in token interception (H8):** the Supabase client uses the implicit flow, so the
+  `com.conz.app://oauth-callback` redirect carried access + refresh tokens that any app claiming the scheme
+  could capture. Native sign-in now uses a dedicated **PKCE** client (`nativeOAuthClient`, same storage key):
+  the redirect carries only a one-time code, exchanged in-app with the verifier that never leaves the WebView;
+  token-bearing redirects are refused and nothing from the URL is forwarded (`src/lib/oauth-callback-url.ts`).
+  The main client stays implicit so password-reset / email links keep working across devices.
+- **Tests:** unit `oauth-callback-url.test.ts` (4) + `safe-redirect.test.ts` (12). **Unit 42/42, tsc clean, build OK.**
+- **Not verifiable here:** an end-to-end Google sign-in on a real Android device (needs the APK + Google
+  provider). Must be checked on staging before release. App Links (verified https callback) remain the
+  long-term fix — Phase 20 (needs the release signing certificate fingerprint).
