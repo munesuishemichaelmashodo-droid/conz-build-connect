@@ -323,3 +323,17 @@ backwards-compatible with the new DB, not vice versa), and keep the Paynow IPN p
   balances, escrow_held = Σ paid escrow, refunds_payable = Σ refund_due, append-only.
   **DB total: 136/136.** `tsc` clean.
 - **Pending (Phase 6):** admin screen to work the refund queue (needs the MFA sign-in flow).
+
+### Phase 5 — Financial request immutability (F4) ✅ tested locally
+
+- **Migration:** `20261008000000_0075_financial_request_immutability.sql` — `financial_request_guard()` on
+  `wallet_withdrawal_requests` + `wallet_topup_requests` for **every role**: amount, method, note,
+  destination/reference, owner, created_at frozen; status only pending → cancelled|approved|rejected,
+  decided requests final; client roles may only cancel their own pending request. Dropped
+  `wd_admin_update` / `topup_super_admin_update` (direct approval skipped the money movement) and the
+  dead INSERT policies; revoked client DELETE/TRUNCATE.
+- **App impact:** none — the UI already uses `request_*`, `cancel_*`, `admin_approve_*`, `admin_reject_*`.
+- **Tests:** `040_financial_request_immutability.test.sql` 27 assertions (destination/amount/method/note
+  rewrite after PIN check, self-approval, decision fields, other user, admin + super_admin direct approval,
+  service_role rewrite, RPC approval debits exactly the authorised amount, final states, owner cancel,
+  revive, delete, top-up amount/reference, ledger invariant). **DB total: 163/163.**
