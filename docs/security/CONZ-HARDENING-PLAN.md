@@ -185,6 +185,15 @@ and fed to the handler; a real end-to-end run happens only on staging with a sep
 4. **Admin adjustment limits (Phase 6)** — per-call / per-day caps and whether ordinary admins may
    credit at all.
 
+**Owner decisions (07/10/2026):**
+
+| # | Decision |
+|---|---|
+| 1 | **Test DB:** fix Docker locally → local Supabase (`supabase start`) + pgTAP; same in GitHub CI. A staging Supabase project is still required later for the Paynow test-mode run (gate G7). |
+| 2 | **Escrow refunds via Paynow:** paid escrow on cancel / expiry / customer-favoured dispute → `refund_due` + admin alert; a super_admin refunds through the Paynow merchant portal, then marks the payment `refunded` in Con Z (ledger entry, idempotent, ≤ escrow amount). Nothing is credited to in-app wallets. Disputes: release or refund **in full**, no partial splits. |
+| 3 | **Admin money protection: MFA *and* caps.** Re-enable TOTP (Supabase `aal2`) and require it for super_admin money actions (credits, adjustments, withdrawal/top-up approvals, refund marking, reversals); plus daily caps and a second-admin approval above a threshold. |
+| 4 | **`admin_wallet_adjust`:** ordinary admins may only **debit**; credits are super_admin only, never self-targeted, capped per day (default $500/day). |
+
 Defaults taken without asking (preserve existing behaviour):
 
 - Driver wallets may still go **negative** only through the existing direct-pay commission debit
