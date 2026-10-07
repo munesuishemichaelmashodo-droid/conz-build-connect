@@ -55,7 +55,7 @@ select is(
        'anonymize_deleted_account','run_financial_reconciliation','create_price_quote_for','log_admin_action',
        'check_withdrawal_pin','hold_job_commission','release_job_commission','auto_release_escrow_payments',
        'expire_stale_accepted_jobs','paynow_pending_for_reconcile','expire_stale_paynow_payment','request_paynow_reconcile',
-       'notify_payment_anomaly','record_payment_event']) f
+       'notify_payment_anomaly','record_payment_event','financial_reconciliation']) f
     where exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                    where n.nspname = 'public' and p.proname = f
                      and has_function_privilege('authenticated', p.oid, 'EXECUTE'))),
