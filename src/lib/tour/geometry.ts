@@ -93,9 +93,11 @@ export function computeDockedCardPlacement(
   viewportWidth: number,
   viewportHeight: number,
   margin = 16,
+  /** Never rise above this y (e.g. just below the search row). */
+  minTop = 0,
 ): CardPlacement {
   return {
-    top: Math.max(margin, viewportHeight - cardHeight - margin),
+    top: Math.max(margin, minTop, viewportHeight - cardHeight - margin),
     left: margin,
     width: Math.max(0, viewportWidth - margin * 2),
     placement: "top",

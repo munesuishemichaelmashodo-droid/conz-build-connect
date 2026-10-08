@@ -58,6 +58,22 @@ export function GuidedTourOverlay({
   const [viewport, setViewport] = useState({ w: 0, h: 0 });
   const reduceMotion = useReducedMotion();
 
+  // True while a text field is focused (on-screen keyboard up). Bottom-docked
+  // cards step aside then, so they can't cover the search results or the map.
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    const isText = (el: EventTarget | null) =>
+      el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
+    const onIn = (e: FocusEvent) => isText(e.target) && setTyping(true);
+    const onOut = () => setTyping(false);
+    document.addEventListener("focusin", onIn);
+    document.addEventListener("focusout", onOut);
+    return () => {
+      document.removeEventListener("focusin", onIn);
+      document.removeEventListener("focusout", onOut);
+    };
+  }, []);
+
   useLayoutEffect(() => {
     // visualViewport shrinks when the on-screen keyboard opens (typing the
     // address), keeping the card above it instead of hidden behind it.
@@ -111,9 +127,19 @@ export function GuidedTourOverlay({
   const hasRect = status === "ready" && !!targetRect && viewport.w > 0;
   const spotlight = hasRect && !isUnspotlightable(targetRect!, viewport.w, viewport.h);
   const bands = spotlight ? computeSpotlightBands(targetRect!, viewport.w, viewport.h) : null;
-  const cardPos = spotlight && step.cardPosition !== "bottom"
+  const compact = step.cardPosition === "bottom";
+  const keyboardUp = typeof window !== "undefined" && window.innerHeight - viewport.h > 150;
+  if (compact && (typing || keyboardUp)) return null;
+  const cardPos = spotlight && !compact
     ? computeCardPlacement(targetRect!, cardHeight, viewport.w, viewport.h)
-    : computeDockedCardPlacement(cardHeight, viewport.w, viewport.h);
+    : computeDockedCardPlacement(
+        cardHeight,
+        viewport.w,
+        viewport.h,
+        16,
+        // Never rise above the target (the search row) — it must stay visible.
+        compact && targetRect ? targetRect.bottom + 12 : 0,
+      );
   const body = (waiting || nextBlocked) && step.waitingText ? step.waitingText : step.description;
 
   return createPortal(
@@ -184,7 +210,7 @@ export function GuidedTourOverlay({
           <h2 className="font-display font-bold text-lg leading-snug">{step.title}</h2>
           <p className="text-sm text-muted-foreground mt-1">{body}</p>
 
-          <div className="flex items-center justify-center gap-1.5 mt-3">
+          <div className={`flex items-center justify-center gap-1.5 mt-3 ${compact ? "hidden" : ""}`}>
             {Array.from({ length: totalSteps }).map((_, i) => (
               <div
                 key={i}

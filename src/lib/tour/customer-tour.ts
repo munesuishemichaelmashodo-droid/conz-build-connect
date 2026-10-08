@@ -81,8 +81,7 @@ const steps: TourStep[] = [
   {
     id: "customer-location",
     title: "Set the delivery point",
-    description:
-      "Pickup is arranged for you — you only choose where it's delivered. Search your address at the top, or tap the map to drop a pin. The tour continues once your pin is set.",
+    description: "Search your address at the top or tap the map to drop a pin. Pickup is arranged for you.",
     route: BOOK,
     target: '[data-tour="book-address"]',
     // The card sits at the bottom so it never covers the search results
@@ -90,7 +89,7 @@ const steps: TourStep[] = [
     cardPosition: "bottom",
     advance: "done",
     doneWhen: '[data-tour="book-see-price"][data-location-ready="true"]',
-    waitingText: "Search for your address or tap the map to drop a pin — the tour continues once it's set.",
+    waitingText: "Set your delivery pin — search or tap the map. The tour continues once it's set.",
     waitForUser: true,
   },
   {

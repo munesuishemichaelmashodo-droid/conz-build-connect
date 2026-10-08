@@ -59,6 +59,12 @@ describe("spotlight", () => {
     expect(isUnspotlightable(rect(16, 16, 358, 56), 390, 844)).toBe(false);
   });
 
+  it("never lets a docked card rise above minTop (the search row)", () => {
+    // Keyboard open: visible viewport only 300px tall, card 180px.
+    const p = computeDockedCardPlacement(180, 390, 300, 16, 110);
+    expect(p.top).toBeGreaterThanOrEqual(110);
+  });
+
   it("docks the card at the bottom of the visible viewport", () => {
     const p = computeDockedCardPlacement(180, 390, 600);
     expect(p.top + 180).toBeLessThanOrEqual(600);
