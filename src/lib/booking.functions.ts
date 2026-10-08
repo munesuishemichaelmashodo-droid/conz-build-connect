@@ -110,12 +110,26 @@ async function resolvePickupAndDistance(
     deliveryLat?: number;
     deliveryLng?: number;
   },
-): Promise<{ distanceKm: number; source: DistanceSource; resolvedSource: ResolvedMaterialSource | null }> {
+): Promise<{
+  distanceKm: number;
+  source: DistanceSource;
+  resolvedSource: ResolvedMaterialSource | null;
+}> {
   if (data.deliveryLat != null && data.deliveryLng != null) {
-    const resolution = await resolveMaterialSource(sb, data.material, data.quantity, data.deliveryLat, data.deliveryLng);
+    const resolution = await resolveMaterialSource(
+      sb,
+      data.material,
+      data.quantity,
+      data.deliveryLat,
+      data.deliveryLng,
+    );
 
     if (resolution.status === "source_resolved") {
-      return { distanceKm: resolution.source.distanceKm, source: resolution.source.distanceSource, resolvedSource: resolution.source };
+      return {
+        distanceKm: resolution.source.distanceKm,
+        source: resolution.source.distanceSource,
+        resolvedSource: resolution.source,
+      };
     }
 
     if (resolution.status === "source_resolution_failed") {
@@ -124,8 +138,32 @@ async function resolvePickupAndDistance(
 
     // status === "no_source_configured" — fall through to the legacy path below.
   }
-  const fallback = await resolveDistance(data);
+  // Legacy path: the pickup point is derived server-side (the material's
+  // configured pickup, else the Harare default) — never taken from the
+  // client, which previously let a customer shorten the priced distance.
+  const pickup = await serverPickupPoint(sb, data.material);
+  const fallback = await resolveDistance({ ...data, pickupLat: pickup.lat, pickupLng: pickup.lng });
   return { ...fallback, resolvedSource: null };
+}
+
+// Same fallback the booking UI uses (PICKUP_POINT in customer.book.tsx /
+// quote.tsx) and that tg_validate_job_budget applies (0080).
+const DEFAULT_PICKUP = { lat: -17.8292, lng: 31.0522 };
+
+async function serverPickupPoint(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- matches this file's existing RPC typing pattern.
+  sb: any,
+  material: string,
+): Promise<{ lat: number; lng: number }> {
+  try {
+    const { data } = await sb.rpc("public_material_pickups");
+    const p = (data ?? {})[material] as { lat?: number | null; lng?: number | null } | undefined;
+    if (p && typeof p.lat === "number" && typeof p.lng === "number")
+      return { lat: p.lat, lng: p.lng };
+  } catch {
+    /* fall back to the default pickup */
+  }
+  return DEFAULT_PICKUP;
 }
 
 /**
@@ -140,24 +178,35 @@ async function resolvePickupAndDistance(
  * validation (unchanged prior behaviour), so we swallow errors.
  */
 async function tryCreateQuote(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- create_price_quote isn't in the generated Supabase types (added via a fresh migration); matches this file's existing `as any` pattern for RPC calls.
-  sb: any,
+  customerId: string | null,
   material: string,
   quantity: number,
   distanceKm: number,
   source: DistanceSource,
+  supplyLocationId: string | null,
 ): Promise<string | null> {
   if (source === "client_provided") return null;
+  // Quotes are created only by the server (service role), bound to the
+  // customer and the server-resolved supply location (0080). The previous
+  // client-side call hit an ambiguous overload and always failed silently.
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   try {
-    const { data, error } = await sb.rpc("create_price_quote", {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- create_price_quote_for isn't in the generated Supabase types yet.
+    const { data, error } = await (supabaseAdmin as any).rpc("create_price_quote_for", {
+      _customer_id: customerId,
       _material: material,
       _quantity_m3: quantity,
       _distance_km: distanceKm,
       _distance_source: source,
+      _supply_location_id: supplyLocationId,
     });
-    if (error) return null;
+    if (error) {
+      console.error("[quote] create_price_quote_for failed:", error.message);
+      return null;
+    }
     return typeof data === "string" ? data : null;
-  } catch {
+  } catch (err) {
+    console.error("[quote] create_price_quote_for threw:", err);
     return null;
   }
 }
@@ -293,11 +342,12 @@ export const computeOffer = createServerFn({ method: "POST" })
     if (distanceKm > MAX_SERVICE_KM) throw new Error(TOO_FAR_MESSAGE);
 
     const quoteId = await tryCreateQuote(
-      supabase,
+      context.userId,
       data.material,
       data.quantity,
       distanceKm,
       source,
+      resolvedSource?.supplyLocationId ?? null,
     );
 
     const { data: guide, error } = await supabase.rpc("compute_material_offer", {
@@ -325,24 +375,29 @@ export const computePublicOffer = createServerFn({ method: "POST" })
   .inputValidator(parseOfferInput)
   .handler(async ({ data }): Promise<OfferResult> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { distanceKm, source, resolvedSource } = await resolvePickupAndDistance(supabaseAdmin, data);
+    const { distanceKm, source, resolvedSource } = await resolvePickupAndDistance(
+      supabaseAdmin,
+      data,
+    );
     if (distanceKm > MAX_SERVICE_KM) throw new Error(TOO_FAR_MESSAGE);
 
     // Anonymous quotes aren't tied to a customer and never feed a real job
     // insert from this page, but persisting them the same way keeps the
     // pricing path identical and costs nothing (unused quotes just expire).
     const quoteId = await tryCreateQuote(
-      supabaseAdmin,
+      null,
       data.material,
       data.quantity,
       distanceKm,
       source,
+      resolvedSource?.supplyLocationId ?? null,
     );
 
     const { data: guide, error } = await supabaseAdmin.rpc("compute_material_offer", {
       _material: data.material,
       _quantity: data.quantity,
       _distance_km: distanceKm,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pre-existing: material enum typing for the public quote RPC
     } as any);
     if (error) throw new Error(error.message);
     const g = guide as OfferGuide;

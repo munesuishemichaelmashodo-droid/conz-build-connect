@@ -330,7 +330,11 @@ function ChatPage() {
     try {
       const ext = blob.type.includes("webm") ? "webm" : "m4a";
       const path = `${jobId}/${userId}/${Date.now()}-voice.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from("chat-media").upload(path, blob, { contentType: blob.type });
+      const { error: uploadErr } = await supabase.storage.from("chat-media").upload(path, blob, {
+        // MediaRecorder reports e.g. "audio/webm;codecs=opus"; the bucket allowlist
+        // (0077) matches the bare type.
+        contentType: blob.type.split(";")[0] || "audio/webm",
+      });
       if (uploadErr) throw new Error(uploadErr.message);
       await sendMessage({ audioPath: path, audioDuration: duration });
     } catch (err) {

@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { safeInternalPath } from "@/lib/safe-redirect";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/oauth-callback")({
@@ -27,7 +28,8 @@ function AuthCallbackPage() {
     try {
       const stashed = sessionStorage.getItem("conz.postAuthNext");
       sessionStorage.removeItem("conz.postAuthNext");
-      if (stashed && stashed.startsWith("/") && !stashed.startsWith("//")) return stashed;
+      const safe = safeInternalPath(stashed);
+      if (safe) return safe;
     } catch {
       /* ignore */
     }

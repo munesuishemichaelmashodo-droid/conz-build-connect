@@ -55,6 +55,7 @@ import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverB
 import { DriverNavigationButtons } from "@/components/DriverNavigationButtons";
 import type { RouteResult } from "@/components/RouteMap";
 import type { TrackStatus } from "@/components/JobTracker";
+import { rpcFailure } from "@/lib/rpc-result";
 import { ChevronDown, ChevronRight, Clock, Info, Navigation2, TrendingUp } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
@@ -369,10 +370,19 @@ function JobDetail() {
         .order("created_at", { ascending: false })
         .limit(10);
       const rows = (data ?? []) as { id: string; status: string; amount: number }[];
-      return rows.find((r) => r.status === "paid" || r.status === "released") ?? rows[0] ?? null;
+      return (
+        rows.find((r) => r.status === "paid" || r.status === "released") ??
+        rows.find((r) => r.status === "refund_due" || r.status === "refunded") ??
+        rows[0] ??
+        null
+      );
     },
   });
   const escrowPaid = escrowPayment?.status === "paid" || escrowPayment?.status === "released";
+  // Paid escrow on a cancelled / expired / refunded-dispute job is returned
+  // through Paynow (refund_due -> refunded); never shown as payable again.
+  const escrowRefund =
+    escrowPayment?.status === "refund_due" || escrowPayment?.status === "refunded" ? escrowPayment : null;
 
   // Returning from Paynow lands back on this page — reconcile any pending
   // escrow payment via the poll URL rather than only relying on the webhook.
@@ -594,6 +604,20 @@ function JobDetail() {
             )}
           </div>
         </div>
+
+        {isOwner && escrowRefund && (
+          <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4 space-y-1">
+            <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
+              <ShieldCheck className="w-4 h-4 text-primary" />
+              Con Z Pay refund
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {escrowRefund.status === "refunded"
+                ? `Your ${money(Number(escrowRefund.amount))} payment has been refunded through Paynow.`
+                : `Your ${money(Number(escrowRefund.amount))} payment is being refunded through Paynow. We'll notify you when it's done.`}
+            </p>
+          </div>
+        )}
 
         {showActionSection && (
           <Section id="tour-next-steps" title="What's next">
@@ -1603,10 +1627,10 @@ function DeliveryPinEntry({ jobId, onConfirmed }: { jobId: string; onConfirmed: 
   const submit = async () => {
     if (pin.trim().length < 4) return toast.error("Enter the code the customer gave you");
     setSubmitting(true);
-    const { error } = await (supabase.rpc as unknown as (
+    const { data, error } = await (supabase.rpc as unknown as (
       f: string,
       a: Record<string, unknown>,
-    ) => Promise<{ error: { message: string } | null }>)("driver_confirm_delivery_pin", {
+    ) => Promise<{ data: unknown; error: { message: string } | null }>)("driver_confirm_delivery_pin", {
       _job_id: jobId,
       _pin: pin.trim(),
     });
@@ -1615,6 +1639,12 @@ function DeliveryPinEntry({ jobId, onConfirmed }: { jobId: string; onConfirmed: 
       if (/incorrect code/i.test(error.message)) return toast.error("That code doesn't match — double check with the customer.");
       if (/no confirmed escrow payment/i.test(error.message)) return toast.error("The customer hasn't paid through Con Z Pay yet.");
       return toast.error(error.message);
+    }
+    // A wrong code / lockout is returned (not raised) so the attempt counts.
+    const failed = rpcFailure(data);
+    if (failed) {
+      setPin("");
+      return toast.error(failed.error === "wrong_pin" ? "That code doesn't match — double check with the customer." : failed.message);
     }
     toast.success("Delivery confirmed — payment released to your wallet!");
     setPin("");

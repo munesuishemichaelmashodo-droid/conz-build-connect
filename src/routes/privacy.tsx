@@ -108,8 +108,16 @@ function PrivacyPage() {
           <Section title="5. Retention">
             <p>
               We retain profile, job, wallet and dispute records for as long as your account is
-              active and for a reasonable period afterward to meet legal, accounting, and dispute
-              obligations. Live location records are automatically deleted after 24 hours.
+              active. Live location records are automatically deleted after 24 hours.
+            </p>
+            <p className="mt-2">
+              When you delete your account we remove your name, phone number, e-mail address,
+              profile photo, identity and vehicle documents, withdrawal PIN, saved devices, location
+              history and the photos and voice notes you sent in chat, and we disable your login on
+              every device. We keep financial and audit records (payments, wallet transactions,
+              refunds and the administrative audit log) and the job records you shared with other
+              users, without your personal details, because we are required to be able to account
+              for every payment and to handle disputes.
             </p>
           </Section>
 
@@ -126,7 +134,11 @@ function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-1">
               <li>Update your profile details at any time from the Profile page.</li>
               <li>Toggle live location sharing on or off from the Location Privacy panel.</li>
-              <li>Request account deletion by contacting us — some records may be retained where required.</li>
+              <li>
+                Delete your account yourself from Profile → Delete account. Deletion waits until any
+                money in your wallet has been withdrawn and your active jobs, payments and disputes are
+                finished. You can also ask us to delete it for you.
+              </li>
             </ul>
           </Section>
 

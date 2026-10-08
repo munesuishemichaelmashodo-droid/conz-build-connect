@@ -7,6 +7,7 @@ import { DollarSign, Download, Percent, Save, TrendingUp, Calendar, Users as Use
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { isMfaRequiredError, mfaVerifyHref, readableRpcError } from "@/lib/mfa";
 
 export const Route = createFileRoute("/_authenticated/admin/revenue")({
   beforeLoad: async () => {
@@ -114,7 +115,14 @@ function RevenueDashboard() {
     const reason = window.prompt("Why is the commission rate changing? (recorded in the audit log)") ?? undefined;
     if (!reason?.trim() || reason.trim().length < 5) return toast.error("Give a reason (at least 5 characters)");
     const { error } = await supabase.rpc("admin_set_commission", { _rate: v, _reason: reason.trim() });
-    if (error) return toast.error(error.message);
+    if (error) {
+      if (isMfaRequiredError(error)) {
+        return toast.error(readableRpcError(error), {
+          action: { label: "Verify", onClick: () => window.location.assign(mfaVerifyHref()) },
+        });
+      }
+      return toast.error(readableRpcError(error));
+    }
     toast.success(`Commission set to ${v}%`);
     qc.invalidateQueries({ queryKey: ["commission-rate"] });
     qc.invalidateQueries({ queryKey: ["admin-dash"] });
@@ -351,8 +359,15 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
   const approve = async (kind: "topup" | "withdrawal", id: string) => {
     const rpc = kind === "topup" ? "admin_approve_topup" : "admin_approve_withdrawal";
     const { error } = await (supabase as any).rpc(rpc, { _id: id });
-    if (error) return toast.error(error.message);
-    toast.success("Approved & wallet credited");
+    if (error) {
+      if (isMfaRequiredError(error)) {
+        return toast.error(readableRpcError(error), {
+          action: { label: "Verify", onClick: () => window.location.assign(mfaVerifyHref()) },
+        });
+      }
+      return toast.error(readableRpcError(error));
+    }
+    toast.success(kind === "topup" ? "Approved & wallet credited" : "Approved & wallet debited");
   };
 
   const reject = async (kind: "topup" | "withdrawal", id: string) => {

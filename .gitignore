@@ -54,3 +54,11 @@ types.new.ts
 *.bak
 /wallet.tsx
 /customer.book.tsx
+
+# local pgTAP stack (scripts/db-test.mjs)
+.dbtest/
+
+# Android release signing — never commit keys
+*.jks
+*.keystore
+keystore.properties

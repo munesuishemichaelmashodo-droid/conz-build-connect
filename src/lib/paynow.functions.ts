@@ -21,6 +21,7 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
     if (!getPaynowCredentials()) return { ok: false, error: "paynow_not_configured" };
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service-role RPCs/tables added by 0073+ are not in the generated Supabase types yet
     const db = supabaseAdmin as any;
 
     const { data: payment, error } = await db
@@ -70,7 +71,16 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
 
 export type InitiateEscrowResult =
   | { ok: true; paymentId: string; redirectUrl: string }
-  | { ok: false; error: "paynow_not_configured" | "job_not_found" | "job_not_payable" | "not_your_job" | "already_paid" | string };
+  | {
+      ok: false;
+      error:
+        | "paynow_not_configured"
+        | "job_not_found"
+        | "job_not_payable"
+        | "not_your_job"
+        | "already_paid"
+        | string;
+    };
 
 /**
  * Con Z Pay — customer pays for a specific job into escrow, held until
@@ -86,10 +96,12 @@ export const initiateEscrowPayment = createServerFn({ method: "POST" })
     return { jobId: data.jobId };
   })
   .handler(async ({ data, context }): Promise<InitiateEscrowResult> => {
-    const { getPaynowCredentials, initiatePaynowTransaction, pollPaynowStatus } = await import("@/lib/paynow.server");
+    const { getPaynowCredentials, initiatePaynowTransaction } = await import("@/lib/paynow.server");
+    const { reconcilePayments } = await import("@/lib/paynow.reconcile.server");
     if (!getPaynowCredentials()) return { ok: false, error: "paynow_not_configured" };
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service-role RPCs/tables added by 0073+ are not in the generated Supabase types yet
     const db = supabaseAdmin as any;
 
     const { data: job } = await db
@@ -102,34 +114,38 @@ export const initiateEscrowPayment = createServerFn({ method: "POST" })
     if (job.payment_method !== "escrow") return { ok: false, error: "job_not_found" };
     // Only a job with a driver on it can be paid for — never a completed
     // or cancelled one.
-    if (job.status !== "accepted" && job.status !== "in_progress") return { ok: false, error: "job_not_payable" };
+    if (job.status !== "accepted" && job.status !== "in_progress")
+      return { ok: false, error: "job_not_payable" };
 
     const { data: previous } = await db
       .from("payments")
-      .select("id, status, paynow_poll_url")
+      .select("id, status, paynow_poll_url, created_at")
       .eq("job_id", data.jobId)
       .eq("type", "escrow")
-      .in("status", ["initiated", "paid", "released"]);
-    if ((previous ?? []).some((p: { status: string }) => p.status === "paid" || p.status === "released")) {
+      .in("status", ["initiated", "paid", "released", "refund_due", "refunded"]);
+    if ((previous ?? []).some((p: { status: string }) => p.status !== "initiated")) {
       return { ok: false, error: "already_paid" };
     }
     // A customer who started a Paynow payment, left, and taps Pay again may
     // actually have completed the first one. Check those attempts with
-    // Paynow before starting another, so they aren't charged twice.
-    for (const p of previous ?? []) {
-      if (!p.paynow_poll_url) continue;
-      const polled = await pollPaynowStatus(p.paynow_poll_url);
-      if (polled.ok && SUCCESS_STATUSES.has(polled.status)) {
-        if (polled.paynowReference) {
-          await db.from("payments").update({ paynow_reference: polled.paynowReference }).eq("id", p.id);
-        }
-        await db.rpc("mark_escrow_payment_paid", { _payment_id: p.id });
-        return { ok: false, error: "already_paid" };
-      }
+    // Paynow (verified through apply_paynow_result) before starting another,
+    // so they aren't charged twice.
+    if ((previous ?? []).length > 0) {
+      await reconcilePayments(db, previous, "poll", { deadlineMs: 20_000 });
+      const { data: after } = await db
+        .from("payments")
+        .select("id")
+        .eq("job_id", data.jobId)
+        .eq("type", "escrow")
+        .in("status", ["paid", "released", "refund_due", "refunded"]);
+      if ((after ?? []).length > 0) return { ok: false, error: "already_paid" };
     }
 
+    // The amount is the accepted price, read server-side; the client never
+    // supplies it. It must be a valid positive amount (audit F1).
     const amount = Number(job.final_price ?? job.budget ?? 0);
-    if (!amount || amount <= 0) return { ok: false, error: "job_not_found" };
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000)
+      return { ok: false, error: "job_not_payable" };
 
     const { data: payment, error } = await db
       .from("payments")
@@ -172,9 +188,6 @@ export const initiateEscrowPayment = createServerFn({ method: "POST" })
     return { ok: true, paymentId: payment.id, redirectUrl: result.browserUrl };
   });
 
-const SUCCESS_STATUSES = new Set(["paid", "awaiting delivery", "delivered"]);
-const FAILED_STATUSES = new Set(["cancelled", "failed", "disputed", "refunded"]);
-
 export type ReconcileResult = { checked: number; credited: number };
 
 /**
@@ -186,13 +199,14 @@ export type ReconcileResult = { checked: number; credited: number };
 export const reconcilePendingPaynowPayments = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<ReconcileResult> => {
-    const { pollPaynowStatus } = await import("@/lib/paynow.server");
+    const { reconcilePayments } = await import("@/lib/paynow.reconcile.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service-role RPCs/tables added by 0073+ are not in the generated Supabase types yet
     const db = supabaseAdmin as any;
 
     const { data: pending } = await db
       .from("payments")
-      .select("id, paynow_poll_url, type")
+      .select("id, paynow_poll_url, created_at")
       .eq("user_id", context.userId)
       .in("type", ["topup", "escrow"])
       .eq("status", "initiated")
@@ -200,22 +214,10 @@ export const reconcilePendingPaynowPayments = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false })
       .limit(5);
 
-    let credited = 0;
-    for (const p of pending ?? []) {
-      const result = await pollPaynowStatus(p.paynow_poll_url);
-      if (!result.ok) continue;
-      if (SUCCESS_STATUSES.has(result.status)) {
-        // Do NOT pre-set status to "paid" — the RPCs use that as their own
-        // idempotency guard and would skip crediting if already set.
-        if (result.paynowReference) {
-          await db.from("payments").update({ paynow_reference: result.paynowReference }).eq("id", p.id);
-        }
-        const rpcName = p.type === "escrow" ? "mark_escrow_payment_paid" : "credit_wallet_from_payment";
-        const { error } = await db.rpc(rpcName, { _payment_id: p.id });
-        if (!error) credited += 1;
-      } else if (FAILED_STATUSES.has(result.status)) {
-        await db.from("payments").update({ status: "failed" }).eq("id", p.id).eq("status", "initiated");
-      }
-    }
-    return { checked: pending?.length ?? 0, credited };
+    // Every result goes through apply_paynow_result(), which verifies the
+    // reference and amount and never credits twice.
+    const summary = await reconcilePayments(db, pending ?? [], "poll", { deadlineMs: 20_000 });
+    const credited =
+      (summary.applied["credited"] ?? 0) + (summary.applied["escrow_marked_paid"] ?? 0);
+    return { checked: summary.checked, credited };
   });

@@ -7,8 +7,10 @@ android {
         applicationId "com.conz.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // Each Play upload needs a higher versionCode: pass -PversionCode=N
+        // (and -PversionName=x.y.z) from the release build; defaults keep debug builds unchanged.
+        versionCode((project.findProperty("versionCode") ?: "1") as Integer)
+        versionName((project.findProperty("versionName") ?: "1.0") as String)
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +18,26 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Release signing comes from the environment (CI secret / local shell),
+    // never from files in git. Without these variables the release build is
+    // unsigned, exactly as before. See docs/play/PLAY-STORE-READINESS.md.
+    signingConfigs {
+        release {
+            if (System.getenv("CONZ_KEYSTORE_PATH")) {
+                storeFile file(System.getenv("CONZ_KEYSTORE_PATH"))
+                storePassword System.getenv("CONZ_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("CONZ_KEY_ALIAS")
+                keyPassword System.getenv("CONZ_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
+            if (System.getenv("CONZ_KEYSTORE_PATH")) {
+                signingConfig signingConfigs.release
+            }
+            // Kept off: the app logic runs in the WebView, R8 gives little
+            // benefit here and cannot be verified without a device build.
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

@@ -27,6 +27,7 @@ import { Route as AuthenticatedCustomerRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedDriverRouteImport } from './routes/_authenticated/driver'
 import { Route as AuthenticatedHelpRouteImport } from './routes/_authenticated/help'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
+import { Route as AuthenticatedMfaRouteImport } from './routes/_authenticated/mfa'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedReferRouteImport } from './routes/_authenticated/refer'
 import { Route as AuthenticatedReportRouteImport } from './routes/_authenticated/report'
@@ -35,6 +36,7 @@ import { Route as TrackTokenRouteImport } from './routes/track.$token'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
+import { Route as AuthenticatedAdminApprovalsRouteImport } from './routes/_authenticated/admin.approvals'
 import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin.audit'
 import { Route as AuthenticatedAdminDisputesRouteImport } from './routes/_authenticated/admin.disputes'
 import { Route as AuthenticatedAdminLedgerRouteImport } from './routes/_authenticated/admin.ledger'
@@ -51,6 +53,7 @@ import { Route as AuthenticatedCustomerBookRouteImport } from './routes/_authent
 import { Route as AuthenticatedJobsIndexRouteImport } from './routes/_authenticated/jobs.index'
 import { Route as AuthenticatedJobsIdRouteImport } from './routes/_authenticated/jobs.$id'
 import { Route as AuthenticatedJobsNewRouteImport } from './routes/_authenticated/jobs.new'
+import { Route as ApiInternalPaynowReconcileRouteImport } from './routes/api/internal/paynow-reconcile'
 import { Route as ApiPublicPaynowIpnRouteImport } from './routes/api/public/paynow-ipn'
 
 const IndexRoute = IndexRouteImport.update({
@@ -145,6 +148,11 @@ const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
   path: '/home',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMfaRoute = AuthenticatedMfaRouteImport.update({
+  id: '/mfa',
+  path: '/mfa',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -186,6 +194,12 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedAdminApprovalsRoute =
+  AuthenticatedAdminApprovalsRouteImport.update({
+    id: '/approvals',
+    path: '/approvals',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
@@ -276,6 +290,12 @@ const AuthenticatedJobsNewRoute = AuthenticatedJobsNewRouteImport.update({
   path: '/jobs/new',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiInternalPaynowReconcileRoute =
+  ApiInternalPaynowReconcileRouteImport.update({
+    id: '/api/internal/paynow-reconcile',
+    path: '/api/internal/paynow-reconcile',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPaynowIpnRoute = ApiPublicPaynowIpnRouteImport.update({
   id: '/api/public/paynow-ipn',
   path: '/api/public/paynow-ipn',
@@ -300,6 +320,7 @@ export interface FileRoutesByFullPath {
   '/driver': typeof AuthenticatedDriverRoute
   '/help': typeof AuthenticatedHelpRoute
   '/home': typeof AuthenticatedHomeRoute
+  '/mfa': typeof AuthenticatedMfaRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/refer': typeof AuthenticatedReferRoute
   '/report': typeof AuthenticatedReportRoute
@@ -307,6 +328,7 @@ export interface FileRoutesByFullPath {
   '/track/$token': typeof TrackTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/admin/approvals': typeof AuthenticatedAdminApprovalsRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/disputes': typeof AuthenticatedAdminDisputesRoute
   '/admin/ledger': typeof AuthenticatedAdminLedgerRoute
@@ -321,6 +343,7 @@ export interface FileRoutesByFullPath {
   '/customer/book': typeof AuthenticatedCustomerBookRoute
   '/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/jobs/new': typeof AuthenticatedJobsNewRoute
+  '/api/internal/paynow-reconcile': typeof ApiInternalPaynowReconcileRoute
   '/api/public/paynow-ipn': typeof ApiPublicPaynowIpnRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/customer/': typeof AuthenticatedCustomerIndexRoute
@@ -342,6 +365,7 @@ export interface FileRoutesByTo {
   '/driver': typeof AuthenticatedDriverRoute
   '/help': typeof AuthenticatedHelpRoute
   '/home': typeof AuthenticatedHomeRoute
+  '/mfa': typeof AuthenticatedMfaRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/refer': typeof AuthenticatedReferRoute
   '/report': typeof AuthenticatedReportRoute
@@ -349,6 +373,7 @@ export interface FileRoutesByTo {
   '/track/$token': typeof TrackTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/admin/approvals': typeof AuthenticatedAdminApprovalsRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/disputes': typeof AuthenticatedAdminDisputesRoute
   '/admin/ledger': typeof AuthenticatedAdminLedgerRoute
@@ -363,6 +388,7 @@ export interface FileRoutesByTo {
   '/customer/book': typeof AuthenticatedCustomerBookRoute
   '/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/jobs/new': typeof AuthenticatedJobsNewRoute
+  '/api/internal/paynow-reconcile': typeof ApiInternalPaynowReconcileRoute
   '/api/public/paynow-ipn': typeof ApiPublicPaynowIpnRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/customer': typeof AuthenticatedCustomerIndexRoute
@@ -388,6 +414,7 @@ export interface FileRoutesById {
   '/_authenticated/driver': typeof AuthenticatedDriverRoute
   '/_authenticated/help': typeof AuthenticatedHelpRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
+  '/_authenticated/mfa': typeof AuthenticatedMfaRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/refer': typeof AuthenticatedReferRoute
   '/_authenticated/report': typeof AuthenticatedReportRoute
@@ -395,6 +422,7 @@ export interface FileRoutesById {
   '/track/$token': typeof TrackTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/_authenticated/admin/approvals': typeof AuthenticatedAdminApprovalsRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/_authenticated/admin/disputes': typeof AuthenticatedAdminDisputesRoute
   '/_authenticated/admin/ledger': typeof AuthenticatedAdminLedgerRoute
@@ -409,6 +437,7 @@ export interface FileRoutesById {
   '/_authenticated/customer/book': typeof AuthenticatedCustomerBookRoute
   '/_authenticated/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/_authenticated/jobs/new': typeof AuthenticatedJobsNewRoute
+  '/api/internal/paynow-reconcile': typeof ApiInternalPaynowReconcileRoute
   '/api/public/paynow-ipn': typeof ApiPublicPaynowIpnRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/customer/': typeof AuthenticatedCustomerIndexRoute
@@ -434,6 +463,7 @@ export interface FileRouteTypes {
     | '/driver'
     | '/help'
     | '/home'
+    | '/mfa'
     | '/profile'
     | '/refer'
     | '/report'
@@ -441,6 +471,7 @@ export interface FileRouteTypes {
     | '/track/$token'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/admin/approvals'
     | '/admin/audit'
     | '/admin/disputes'
     | '/admin/ledger'
@@ -455,6 +486,7 @@ export interface FileRouteTypes {
     | '/customer/book'
     | '/jobs/$id'
     | '/jobs/new'
+    | '/api/internal/paynow-reconcile'
     | '/api/public/paynow-ipn'
     | '/admin/'
     | '/customer/'
@@ -476,6 +508,7 @@ export interface FileRouteTypes {
     | '/driver'
     | '/help'
     | '/home'
+    | '/mfa'
     | '/profile'
     | '/refer'
     | '/report'
@@ -483,6 +516,7 @@ export interface FileRouteTypes {
     | '/track/$token'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/admin/approvals'
     | '/admin/audit'
     | '/admin/disputes'
     | '/admin/ledger'
@@ -497,6 +531,7 @@ export interface FileRouteTypes {
     | '/customer/book'
     | '/jobs/$id'
     | '/jobs/new'
+    | '/api/internal/paynow-reconcile'
     | '/api/public/paynow-ipn'
     | '/admin'
     | '/customer'
@@ -521,6 +556,7 @@ export interface FileRouteTypes {
     | '/_authenticated/driver'
     | '/_authenticated/help'
     | '/_authenticated/home'
+    | '/_authenticated/mfa'
     | '/_authenticated/profile'
     | '/_authenticated/refer'
     | '/_authenticated/report'
@@ -528,6 +564,7 @@ export interface FileRouteTypes {
     | '/track/$token'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/_authenticated/admin/approvals'
     | '/_authenticated/admin/audit'
     | '/_authenticated/admin/disputes'
     | '/_authenticated/admin/ledger'
@@ -542,6 +579,7 @@ export interface FileRouteTypes {
     | '/_authenticated/customer/book'
     | '/_authenticated/jobs/$id'
     | '/_authenticated/jobs/new'
+    | '/api/internal/paynow-reconcile'
     | '/api/public/paynow-ipn'
     | '/_authenticated/admin/'
     | '/_authenticated/customer/'
@@ -564,6 +602,7 @@ export interface RootRouteChildren {
   TrackTokenRoute: typeof TrackTokenRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
+  ApiInternalPaynowReconcileRoute: typeof ApiInternalPaynowReconcileRoute
   ApiPublicPaynowIpnRoute: typeof ApiPublicPaynowIpnRoute
 }
 
@@ -695,6 +734,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHomeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/mfa': {
+      id: '/_authenticated/mfa'
+      path: '/mfa'
+      fullPath: '/mfa'
+      preLoaderRoute: typeof AuthenticatedMfaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
       path: '/profile'
@@ -749,6 +795,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/approvals': {
+      id: '/_authenticated/admin/approvals'
+      path: '/approvals'
+      fullPath: '/admin/approvals'
+      preLoaderRoute: typeof AuthenticatedAdminApprovalsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/audit': {
@@ -863,6 +916,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedJobsNewRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/internal/paynow-reconcile': {
+      id: '/api/internal/paynow-reconcile'
+      path: '/api/internal/paynow-reconcile'
+      fullPath: '/api/internal/paynow-reconcile'
+      preLoaderRoute: typeof ApiInternalPaynowReconcileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/paynow-ipn': {
       id: '/api/public/paynow-ipn'
       path: '/api/public/paynow-ipn'
@@ -874,6 +934,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminApprovalsRoute: typeof AuthenticatedAdminApprovalsRoute
   AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
   AuthenticatedAdminDisputesRoute: typeof AuthenticatedAdminDisputesRoute
   AuthenticatedAdminLedgerRoute: typeof AuthenticatedAdminLedgerRoute
@@ -888,6 +949,7 @@ interface AuthenticatedAdminRouteChildren {
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminApprovalsRoute: AuthenticatedAdminApprovalsRoute,
   AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
   AuthenticatedAdminDisputesRoute: AuthenticatedAdminDisputesRoute,
   AuthenticatedAdminLedgerRoute: AuthenticatedAdminLedgerRoute,
@@ -926,6 +988,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDriverRoute: typeof AuthenticatedDriverRoute
   AuthenticatedHelpRoute: typeof AuthenticatedHelpRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
+  AuthenticatedMfaRoute: typeof AuthenticatedMfaRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedReferRoute: typeof AuthenticatedReferRoute
   AuthenticatedReportRoute: typeof AuthenticatedReportRoute
@@ -943,6 +1006,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDriverRoute: AuthenticatedDriverRoute,
   AuthenticatedHelpRoute: AuthenticatedHelpRoute,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
+  AuthenticatedMfaRoute: AuthenticatedMfaRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedReferRoute: AuthenticatedReferRoute,
   AuthenticatedReportRoute: AuthenticatedReportRoute,
@@ -973,6 +1037,7 @@ const rootRouteChildren: RootRouteChildren = {
   TrackTokenRoute: TrackTokenRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
+  ApiInternalPaynowReconcileRoute: ApiInternalPaynowReconcileRoute,
   ApiPublicPaynowIpnRoute: ApiPublicPaynowIpnRoute,
 }
 export const routeTree = rootRouteImport

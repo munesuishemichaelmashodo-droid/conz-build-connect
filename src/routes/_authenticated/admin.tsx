@@ -1,6 +1,6 @@
 ﻿import { createFileRoute, Outlet, Link, useRouterState, redirect } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { LayoutDashboard, Users, ShieldCheck, Gavel, Settings as SettingsIcon, TrendingUp, ScrollText, BookOpen, MessageSquareWarning, Gift, MapPin } from "lucide-react";
+import { LayoutDashboard, Users, ShieldCheck, Gavel, Settings as SettingsIcon, TrendingUp, ScrollText, BookOpen, MessageSquareWarning, Gift, MapPin, HandCoins } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -17,9 +17,10 @@ export const Route = createFileRoute("/_authenticated/admin")({
     if (!list.includes("admin") && !list.includes("super_admin")) {
       throw redirect({ to: "/home" });
     }
-    // Admin access is password + role only: the authenticator-app (MFA)
-    // requirement was removed 2026-09-17 and the MFA screens (/mfa, the
-    // Security tab) were removed 2026-09-25 — see migration 0061.
+    // Admin pages open with password + role. Super-admin MONEY actions
+    // (credits, approvals, refunds, reversals) additionally require an MFA
+    // (aal2) session, enforced in the database (0074/0076); the UI sends the
+    // admin to /mfa when an action needs it.
   },
   component: AdminLayout,
 });
@@ -27,6 +28,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
 const TABS: { to: string; label: string; icon: typeof Users; exact?: boolean; superOnly?: boolean }[] = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/admin/revenue", label: "Revenue", icon: TrendingUp, superOnly: true },
+  { to: "/admin/approvals", label: "Approvals", icon: HandCoins, superOnly: true },
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/verifications", label: "Verify", icon: ShieldCheck },
   { to: "/admin/disputes", label: "Disputes", icon: Gavel },
