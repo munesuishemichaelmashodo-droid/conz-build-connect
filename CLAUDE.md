@@ -212,3 +212,16 @@ Still remaining: the post-a-job flow (`jobs.new.tsx`, `customer.book.tsx`),
   verbatim from `supabase_migrations.schema_migrations`.
 - Still open: complete_job (direct-pay) has no PIN/evidence requirement; leaked-password
   protection off; `pg_net` in public schema.
+
+## 07-08/10/2026 — security hardening programme (branch `security/hardening`, local)
+
+- Plan, phase log and owner decisions: `docs/security/CONZ-HARDENING-PLAN.md`; second audit:
+  `docs/security/CONZ-SECOND-AUDIT.md`; final status: `docs/security/CONZ-FINAL-READINESS-REPORT.md`.
+- Migrations `0072`–`0086` written and tested (pgTAP 380/380 on a fresh local Supabase via
+  `node scripts/db-test.mjs start|test`; the full history is NOT replayable — the harness uses the 13/08
+  baseline + later files).
+- **Applied to production so far: ONLY `0072_financial_numeric_integrity`** (applied as `20261007231311`,
+  statement md5 verified equal to the git file). `0073`–`0086` are NOT live; several require the app to be
+  deployed first (see the final report's deployment order).
+- `0084` commits production-only objects that were never in git (`wallet_transactions_immutable`,
+  `storage_evidence_guard`, chat-media / job-proof storage policies).

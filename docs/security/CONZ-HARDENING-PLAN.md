@@ -570,3 +570,10 @@ backwards-compatible with the new DB, not vice versa), and keep the Paynow IPN p
 - **Blocker:** Supabase org is on the **Free plan (2 active projects, both in use)** → pause `venmax-admin` or
   upgrade to Pro. Pro also brings backups/PITR, which production should have before 0072–0084 are applied.
 - Also needed from the owner: a **separate Paynow integration in test mode** (credentials).
+
+### Production change log
+
+| When | What | Evidence |
+|---|---|---|
+| 08/10/2026 ~01:13 Harare | **`0072_financial_numeric_integrity` applied to production** (owner's "deploy changes as long as u fix" + F1 is CRITICAL and live-exploitable; app-compatible; no drift: 10 target function md5s matched the 07/10 snapshot; only the known cancelled $0 job violates, untouched by NOT VALID) | recorded as `20261007231311`; statement md5 `4f5c4942…` = git file; 16 constraints present, wallets validated, 10 functions guarded, grants unchanged |
+| 08/10/2026 | `0075` apply attempted — tool returned "Invalid or expired requestState"; verified **nothing applied** (no record, no triggers, old policies intact). Not retried unattended. | read-only check |
