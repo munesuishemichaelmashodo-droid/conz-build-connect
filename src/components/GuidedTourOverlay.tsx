@@ -3,7 +3,13 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronLeft, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { computeCardPlacement, computeSpotlightBands, type Rect } from "@/lib/tour/geometry";
+import {
+  computeCardPlacement,
+  computeDockedCardPlacement,
+  computeSpotlightBands,
+  isUnspotlightable,
+  type Rect,
+} from "@/lib/tour/geometry";
 import type { TourStep } from "@/lib/tour/types";
 import type { TourStatus } from "@/hooks/useGuidedTour";
 
@@ -25,6 +31,8 @@ export function GuidedTourOverlay({
   totalSteps,
   status,
   targetRect,
+  waiting,
+  nextBlocked,
   onNext,
   onBack,
   onSkip,
@@ -34,6 +42,10 @@ export function GuidedTourOverlay({
   totalSteps: number;
   status: TourStatus;
   targetRect: Rect | null;
+  /** waitForUser step whose target hasn't appeared yet. */
+  waiting: boolean;
+  /** "done" step whose action the user hasn't completed yet. */
+  nextBlocked: boolean;
   onNext: () => void;
   onBack: () => void;
   onSkip: () => void;
@@ -47,13 +59,21 @@ export function GuidedTourOverlay({
   const reduceMotion = useReducedMotion();
 
   useLayoutEffect(() => {
-    const update = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
+    // visualViewport shrinks when the on-screen keyboard opens (typing the
+    // address), keeping the card above it instead of hidden behind it.
+    const update = () =>
+      setViewport({
+        w: window.visualViewport?.width ?? window.innerWidth,
+        h: window.visualViewport?.height ?? window.innerHeight,
+      });
+    window.visualViewport?.addEventListener("resize", update);
     update();
     window.addEventListener("resize", update);
     window.addEventListener("orientationchange", update);
     return () => {
       window.removeEventListener("resize", update);
       window.removeEventListener("orientationchange", update);
+      window.visualViewport?.removeEventListener("resize", update);
     };
   }, []);
 
@@ -84,11 +104,17 @@ export function GuidedTourOverlay({
   // thing that actually needs the user's attention right now).
   if (status === "paused") return null;
 
-  const visible = status === "ready" && !!targetRect && viewport.w > 0;
-  const bands = visible ? computeSpotlightBands(targetRect!, viewport.w, viewport.h) : null;
-  const cardPos = visible
+  // While merely locating (navigating / polling) show nothing at all — the
+  // old full-screen click-blocking scrim here is what froze the UI.
+  if (status === "locating" && !waiting) return null;
+
+  const hasRect = status === "ready" && !!targetRect && viewport.w > 0;
+  const spotlight = hasRect && !isUnspotlightable(targetRect!, viewport.w, viewport.h);
+  const bands = spotlight ? computeSpotlightBands(targetRect!, viewport.w, viewport.h) : null;
+  const cardPos = spotlight && step.cardPosition !== "bottom"
     ? computeCardPlacement(targetRect!, cardHeight, viewport.w, viewport.h)
-    : { top: viewport.h / 2 - cardHeight / 2, left: 16, width: Math.max(0, viewport.w - 32), placement: "bottom" as const };
+    : computeDockedCardPlacement(cardHeight, viewport.w, viewport.h);
+  const body = (waiting || nextBlocked) && step.waitingText ? step.waitingText : step.description;
 
   return createPortal(
     // pointer-events-none on the outer wrapper too, not just the band
@@ -126,15 +152,7 @@ export function GuidedTourOverlay({
             style={rectStyle(bands.ring)}
           />
         </>
-      ) : (
-        // Still locating (navigating / waiting for the target) — a plain
-        // full-screen dim so the page underneath doesn't feel interactive
-        // mid-transition, with no false-positive highlight ring. This one
-        // *does* block clicks (pointer-events-auto, unlike the bands
-        // above) — deliberately, since there's no known-good target yet
-        // to let the user interact around.
-        <div className="fixed inset-0 bg-black/70 pointer-events-auto" />
-      )}
+      ) : null}
 
       <AnimatePresence mode="wait">
         <motion.div
@@ -164,7 +182,7 @@ export function GuidedTourOverlay({
           </div>
 
           <h2 className="font-display font-bold text-lg leading-snug">{step.title}</h2>
-          <p className="text-sm text-muted-foreground mt-1">{step.description}</p>
+          <p className="text-sm text-muted-foreground mt-1">{body}</p>
 
           <div className="flex items-center justify-center gap-1.5 mt-3">
             {Array.from({ length: totalSteps }).map((_, i) => (
@@ -186,8 +204,12 @@ export function GuidedTourOverlay({
                 <ChevronLeft className="w-4 h-4" />
               </Button>
             )}
-            <Button onClick={onNext} className="flex-1 h-11 font-display uppercase tracking-wide">
-              {stepIndex + 1 === totalSteps ? "Finish" : "Next"}
+            <Button
+              onClick={onNext}
+              disabled={waiting || nextBlocked}
+              className="flex-1 h-11 font-display uppercase tracking-wide"
+            >
+              {waiting || nextBlocked ? "Waiting for you…" : stepIndex + 1 === totalSteps ? "Finish" : "Next"}
             </Button>
           </div>
         </motion.div>

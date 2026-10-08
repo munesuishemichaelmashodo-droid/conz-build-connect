@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import type { TourConfig, TourEventType, TourStep } from "@/lib/tour/types";
 import { needsScrollIntoView, rectFromElement, type Rect } from "@/lib/tour/geometry";
+import { advanceMode, clickAdvances, isStepDone, locateTimeoutMs } from "@/lib/tour/step-logic";
 
 export type TourStatus = "idle" | "locating" | "ready" | "paused" | "done";
 
@@ -41,6 +42,8 @@ export function useGuidedTour(options?: {
   const [status, setStatus] = useState<TourStatus>("idle");
   const [targetRect, setTargetRect] = useState<Rect | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  // True while a waitForUser step's target hasn't appeared yet.
+  const [waiting, setWaiting] = useState(false);
 
   // Bump this to force the current step's locate effect to re-run (e.g.
   // after `next()`/`back()` even if stepIndex momentarily doesn't change,
@@ -149,16 +152,20 @@ export function useGuidedTour(options?: {
       }
       if (cancelled || myRun !== runId.current) return;
 
-      // 2) Poll for the target element.
-      const waitMs = step.waitMs ?? DEFAULT_WAIT_MS;
-      const deadline = Date.now() + waitMs;
+      // 2) Poll for the target element. Steps that depend on the user's own
+      // action (locateTimeoutMs -> null) wait indefinitely and never skip on
+      // a timer; the page stays usable and the card shows `waitingText`.
+      const waitMs = locateTimeoutMs(step, DEFAULT_WAIT_MS);
+      const deadline = waitMs === null ? Infinity : Date.now() + waitMs;
       let el: Element | null = null;
       while (Date.now() < deadline) {
         el = document.querySelector(step.target);
         if (el) break;
+        if (waitMs === null) setWaiting(true);
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
         if (cancelled || myRun !== runId.current) return;
       }
+      setWaiting(false);
       if (!el) {
         await skipThisStep(`target "${step.target}" never appeared`);
         return;
@@ -180,23 +187,76 @@ export function useGuidedTour(options?: {
 
     return () => {
       cancelled = true;
+      setWaiting(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, stepIndex, config, userId]);
 
-  // --- Interactive steps: clicking the real target advances the tour. ---
+  // Latest next(), so the listeners below never fire a stale closure.
+  const nextRef = useRef(next);
+  nextRef.current = next;
+
+  // --- "click" steps: a real click on the highlighted control advances the
+  // tour. Delegated on document (capture) so it survives React replacing the
+  // element, and only ever fires from an actual user click event. ---
   useEffect(() => {
-    if (status !== "ready" || !step?.interactive) return;
-    const el = document.querySelector(step.target);
-    if (!el) return;
-    const handler = () => {
+    if (status !== "ready" || !step || advanceMode(step) !== "click") return;
+    const handler = (e: MouseEvent) => {
+      if (!e.isTrusted || !clickAdvances(step, e.target as Element | null)) return;
       // Let the element's own click handler (select material, open a
       // link, etc.) run first.
-      setTimeout(() => next(), 50);
+      setTimeout(() => nextRef.current(), 50);
     };
-    el.addEventListener("click", handler);
-    return () => el.removeEventListener("click", handler);
-  }, [status, step, next]);
+    document.addEventListener("click", handler, true);
+    return () => document.removeEventListener("click", handler, true);
+  }, [status, step]);
+
+  // --- "done" steps: Next stays disabled until the user has actually done
+  // the thing (doneWhen appears in the DOM), then the tour moves on by
+  // itself after a beat so the change is visible. ---
+  const [nextBlocked, setNextBlocked] = useState(false);
+  useEffect(() => {
+    if (status !== "ready" || !step || advanceMode(step) !== "done") {
+      setNextBlocked(false);
+      return;
+    }
+    let advanced = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const check = () => {
+      const done = isStepDone(step, document);
+      setNextBlocked(!done);
+      if (done && !advanced) {
+        advanced = true;
+        timer = setTimeout(() => nextRef.current(), 600);
+      }
+    };
+    check();
+    // The address screen is a Leaflet map: panning/zooming mutates DOM
+    // attributes hundreds of times a second. Coalesce to one check per frame
+    // and only watch the attributes doneWhen selectors can depend on.
+    let raf: number | null = null;
+    const schedule = () => {
+      if (raf !== null) return;
+      raf = requestAnimationFrame(() => {
+        raf = null;
+        check();
+      });
+    };
+    const mo = new MutationObserver(schedule);
+    mo.observe(document.body, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+      attributeFilter: ["data-location-ready", "data-tour", "disabled"],
+    });
+    const poll = setInterval(check, 300);
+    return () => {
+      mo.disconnect();
+      clearInterval(poll);
+      if (raf !== null) cancelAnimationFrame(raf);
+      if (timer) clearTimeout(timer);
+    };
+  }, [status, step]);
 
   // --- Recompute on viewport resize/rotation — required, not optional. ---
   useEffect(() => {
@@ -289,12 +349,14 @@ export function useGuidedTour(options?: {
       step,
       status: visualStatus,
       targetRect,
+      waiting,
+      nextBlocked,
       pathname,
       start,
       next,
       back,
       skipTour,
     }),
-    [active, config, stepIndex, step, visualStatus, targetRect, pathname, start, next, back, skipTour],
+    [active, config, stepIndex, step, visualStatus, targetRect, waiting, nextBlocked, pathname, start, next, back, skipTour],
   );
 }

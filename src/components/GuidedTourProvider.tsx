@@ -191,6 +191,8 @@ export function GuidedTourProvider({ children }: { children: ReactNode }) {
         totalSteps={tour.totalSteps}
         status={tour.status}
         targetRect={tour.targetRect}
+        waiting={tour.waiting}
+        nextBlocked={tour.nextBlocked}
         onNext={tour.next}
         onBack={tour.back}
         onSkip={tour.skipTour}

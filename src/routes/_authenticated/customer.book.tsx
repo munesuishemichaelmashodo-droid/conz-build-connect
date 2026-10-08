@@ -426,6 +426,9 @@ function BookDelivery() {
       <CzScreen>
         <div className="relative h-[100dvh] overflow-hidden">
           <div id="tour-book-address">
+            {/* The wrapper above has no in-flow content (the picker is
+                absolutely positioned), so it measures 0px tall — the tour
+                now targets the picker's floating search field instead. */}
             <AddressPicker
               variant="fullscreen"
               label="Deliver to"
@@ -459,7 +462,7 @@ function BookDelivery() {
                 </HintBox>
               )}
 
-              <div id="tour-book-material" className="space-y-3">
+              <div id="tour-book-material" data-tour="book-material" className="space-y-3">
                 <h1 className="cz-display font-bold text-[26px] leading-tight">What do you need delivered?</h1>
                 <MaterialChips
                   options={BOOKABLE_MATERIALS.map((m) => ({ value: m.value, label: m.label }))}
@@ -468,7 +471,7 @@ function BookDelivery() {
                 />
               </div>
 
-              <div className="flex items-center justify-between gap-2 rounded-[14px] border border-cz-border bg-cz-surface py-2 pl-4 pr-2">
+              <div data-tour="book-quantity" className="flex items-center justify-between gap-2 rounded-[14px] border border-cz-border bg-cz-surface py-2 pl-4 pr-2">
                 <label htmlFor="qty" className="flex flex-col min-w-0">
                   <span className="text-[13px] text-cz-muted">Quantity</span>
                   <span className="text-xs text-cz-faint">
@@ -522,6 +525,7 @@ function BookDelivery() {
 
               <details
                 id="tour-book-review"
+                data-tour="book-review"
                 className="group rounded-[14px] border border-cz-border bg-cz-surface"
                 onToggle={(e) => setSheetOpenExtra((e.target as HTMLDetailsElement).open)}
               >
@@ -576,7 +580,12 @@ function BookDelivery() {
                 </p>
               )}
 
-              <CzButton onClick={goToOffer} disabled={computing || !quantityValid || !locationValid}>
+              <CzButton
+                data-tour="book-see-price"
+                data-location-ready={locationValid ? "true" : "false"}
+                onClick={goToOffer}
+                disabled={computing || !quantityValid || !locationValid}
+              >
                 {computing ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" /> Calculating…
@@ -611,7 +620,7 @@ function BookDelivery() {
       />
 
       <div className="flex-1 space-y-4 px-5 pb-6">
-        <div id="tour-book-offer" className="space-y-3">
+        <div id="tour-book-offer" data-tour="book-offer" className="space-y-3">
           <div role="radiogroup" aria-label="Your price" className="grid gap-2.5">
             {tiers.map((t) => {
               const on = offer === t.value;
@@ -739,7 +748,7 @@ function BookDelivery() {
       </div>
 
       <footer className="sticky bottom-0 z-20 space-y-2 border-t border-cz-border bg-cz-surface px-5 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))]">
-        <CzButton id="tour-book-confirm" onClick={confirm} disabled={posting}>
+        <CzButton id="tour-book-confirm" data-tour="book-confirm" onClick={confirm} disabled={posting}>
           {posting ? <Loader2 className="w-5 h-5 animate-spin" /> : `Post job · ${usd(offer)}`}
         </CzButton>
         <p className="text-center text-[11px] text-cz-faint">We'll immediately search for the closest verified tipper truck.</p>

@@ -288,7 +288,7 @@ export function AddressPicker({
           </MapContainer>
         </div>
 
-        <div className="absolute inset-x-4 top-4 z-30 space-y-2">
+        <div data-tour="book-address" className="absolute inset-x-4 top-4 z-30 space-y-2">
           <div className="flex items-center gap-2.5">
             {leading}
             <div className="relative flex-1 min-w-0">

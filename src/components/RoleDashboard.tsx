@@ -89,7 +89,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
       </header>
 
       <div className="px-5 space-y-4">
-        <div id="tour-dashboard-hero" className="relative overflow-hidden rounded-[20px] border border-cz-border bg-cz-surface p-5">
+        <div id="tour-dashboard-hero" data-tour="dashboard-hero" className="relative overflow-hidden rounded-[20px] border border-cz-border bg-cz-surface p-5">
           <RouteLine opacity={0.12} animate />
           <div className="relative space-y-3">
             <StatusPill tone="green" icon={<ShieldCheck className="w-3.5 h-3.5" />} className="px-2.5 py-1 text-xs">
@@ -98,7 +98,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
             <h1 className="cz-display font-bold text-[30px] leading-[1.05]">What do you need delivered today?</h1>
             <p className="text-sm text-cz-muted">River sand, stones, gravel and more — priced in seconds, delivered by verified tipper trucks.</p>
             {!restricted && (
-              <Link id="tour-book-delivery-cta" to="/customer/book" className={czButtonClass("primary")}>
+              <Link id="tour-book-delivery-cta" data-tour="book-delivery-cta" to="/customer/book" className={czButtonClass("primary")}>
                 <Plus className="w-5 h-5" /> Book a delivery
               </Link>
             )}
