@@ -1,15 +1,5 @@
 import { getRoute } from "@/lib/routing.functions";
 
-// Conservative pricing safety margin for REGIONAL sources (supplier/market
-// presence confirmed, but coordinates are a best-available reference
-// point rather than a verified quarry/depot gate). Applied to the real
-// road distance before it's used for ranking/pricing, so a location whose
-// true site might sit farther than the reference point doesn't get
-// under-priced. Never applied to the service-radius eligibility check
-// (that stays on the honest, unbuffered distance) and never applied to
-// EXACT sources.
-const REGIONAL_DISTANCE_BUFFER = 1.2;
-
 export type ResolvedMaterialSource = {
   supplyLocationId: string;
   supplierId: string;
@@ -21,7 +11,7 @@ export type ResolvedMaterialSource = {
   lng: number;
   distanceKm: number;
   distanceSource: "osrm" | "haversine";
-  locationPrecision: "exact" | "regional";
+  locationPrecision: "exact";
 };
 
 type Candidate = {
@@ -38,6 +28,10 @@ type Candidate = {
   location_precision: "exact" | "regional";
 };
 
+type RouteLookup = (args: {
+  data: { startLat: number; startLng: number; destLat: number; destLng: number };
+}) => Promise<{ distanceKm: number; source: "osrm" | "haversine" }>;
+
 /**
  * Discriminated result, so the caller can never conflate "nothing was
  * configured yet" with "something failed" -- the two must never share a
@@ -46,14 +40,14 @@ type Candidate = {
  * fix.
  *
  * no_source_configured: this material has zero material_supply_locations
- *   rows at all. Safe to use today's existing legacy pickup fallback
- *   (materialPickups[material] ?? PICKUP_POINT) -- unchanged behavior.
+ *   rows at all. The caller must fail closed; legacy material-price pickup
+ *   settings and city defaults are not valid supplier evidence.
  *
  * source_resolution_failed: this material HAS configured supply
- *   locations, but resolution could not produce a trustworthy answer (the
- *   eligibility RPC itself failed, or every eligible candidate's route
- *   could not be determined). The caller MUST surface a controlled error
- *   and MUST NOT fall back to Harare or any other unrelated default.
+ *   locations, but resolution could not produce a trustworthy answer (no
+ *   exact-coordinate, verified, in-stock site; the eligibility RPC failed;
+ *   or every eligible candidate's route failed). The caller MUST surface a
+ *   controlled error and MUST NOT fall back to Harare or another default.
  *
  * source_resolved: a specific verified, eligible supply location was
  *   selected by real road distance (priority as a tiebreak only on an
@@ -82,6 +76,7 @@ export async function resolveMaterialSource(
   quantityM3: number,
   deliveryLat: number,
   deliveryLng: number,
+  routeLookup: RouteLookup = getRoute,
 ): Promise<MaterialSourceResolution> {
   // Step 0: does this material have ANY configured supply locations at
   // all, regardless of status/verification? This existence check is what
@@ -120,20 +115,19 @@ export async function resolveMaterialSource(
     if (error) {
       return { status: "source_resolution_failed", reason: "candidates_rpc_error" };
     }
-    candidates = Array.isArray(data) ? (data as Candidate[]) : [];
+    candidates = Array.isArray(data)
+      ? (data as Candidate[]).filter((candidate) => candidate.location_precision === "exact")
+      : [];
   } catch {
     return { status: "source_resolution_failed", reason: "candidates_rpc_exception" };
   }
 
   if (candidates.length === 0) {
     // Rows exist for this material, but none are currently eligible
-    // (unverified, paused/closed, no coordinates, or insufficient tracked
+    // (unverified, paused/closed, regional/approximate coordinates, no
+    // tracked stock, no coordinates, or insufficient quantity
     // quantity for this order). This must NOT fall back to the legacy
-    // pickup: once Con Z has started configuring supply locations for a
-    // material, silently reverting to the old materialPickups/Harare path
-    // could produce an incorrect route and price. Only a true zero-rows
-    // material (hasAnyConfiguredRow === false, handled above) may use the
-    // legacy fallback.
+    // pickup: no legacy material-pickup or city fallback is safe.
     return { status: "source_resolution_failed", reason: "no_eligible_source" };
   }
 
@@ -145,15 +139,9 @@ export async function resolveMaterialSource(
   const resolved: (ResolvedMaterialSource & { priority: number })[] = [];
   for (const c of candidates) {
     try {
-      const route = await getRoute({
+      const route = await routeLookup({
         data: { startLat: c.lat, startLng: c.lng, destLat: deliveryLat, destLng: deliveryLng },
       });
-      // Regional sources: apply the conservative pricing buffer to the
-      // real road distance now, so it's the number used for BOTH ranking
-      // and pricing from here on -- a single consistent "best conservative
-      // estimate", not a price-only adjustment tacked on after the fact.
-      const bufferedDistanceKm =
-        c.location_precision === "regional" ? route.distanceKm * REGIONAL_DISTANCE_BUFFER : route.distanceKm;
       resolved.push({
         supplyLocationId: c.supply_location_id,
         supplierId: c.supplier_id,
@@ -163,9 +151,9 @@ export async function resolveMaterialSource(
         address: c.address,
         lat: Number(c.lat),
         lng: Number(c.lng),
-        distanceKm: bufferedDistanceKm,
+        distanceKm: route.distanceKm,
         distanceSource: route.source,
-        locationPrecision: c.location_precision,
+        locationPrecision: "exact",
         priority: c.priority ?? 100,
       });
     } catch {

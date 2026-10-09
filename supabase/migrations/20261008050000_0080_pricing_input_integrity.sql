@@ -23,29 +23,97 @@
 --      to the server-resolved supply location).
 --   2. tg_validate_job_budget: a CLIENT insert of a price-enforced material
 --      must reference a valid, unexpired, unconsumed quote for the same
---      customer/material/quantity, and delivery coordinates; the pickup point
---      is set server-side (quote supply location -> material pickup ->
---      Harare default, the same fallback the app uses) — client pickup
---      coordinates are ignored. A quote whose distance no longer fits the
---      delivery coordinates is rejected rather than silently replaced.
+--      customer/material/quantity, verified in-stock supply location, and
+--      delivery coordinates; the pickup point is set only from that source.
+--      There is no material-pickup or Harare fallback. A quote whose source
+--      is no longer eligible or whose route no longer fits is rejected.
 --   3. jobs_guard_insert: coordinates must lie inside Zimbabwe (generous box;
 --      all 74 live jobs checked inside); preferred_driver_id kept only if it is
 --      a verified driver.
 --
--- DEPLOY ORDER: ship the app (which now creates quotes successfully) BEFORE
--- applying this migration, otherwise bookings fail with "get a new quote".
+-- DEPLOY ORDER: ship the compatible app first, then apply this migration.
+-- The app fails closed during the gap because create_price_quote_for is not
+-- present yet, so schedule both steps together and do not reopen bookings
+-- until the RPC and an eligible verified in-stock source are confirmed.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
 -- 1. Quotes are server-created only
 -- -----------------------------------------------------------------------------
+-- Replace the earlier permissive supply resolver in the same deployment:
+-- automatic pricing requires exact site coordinates, supplier and location
+-- verification, a tracked quantity large enough for this job, and a service
+-- radius covering the customer's actual delivery pin. NULL stock is unknown,
+-- so it cannot be treated as unlimited.
+create or replace function public.resolve_material_source_candidates(
+  _material public.material_category,
+  _quantity_m3 numeric,
+  _delivery_lat numeric,
+  _delivery_lng numeric
+) returns table (
+  supply_location_id uuid,
+  supplier_id uuid,
+  supplier_name text,
+  source_type text,
+  label text,
+  address text,
+  lat numeric,
+  lng numeric,
+  priority int,
+  haversine_km numeric,
+  location_precision text
+)
+language sql
+stable
+security definer
+set search_path to 'public'
+as $$
+  select
+    msl.id,
+    msl.supplier_id,
+    s.name,
+    msl.source_type,
+    msl.label,
+    msl.address,
+    msl.lat,
+    msl.lng,
+    msl.priority,
+    round((2 * 6371 * asin(sqrt(
+      power(sin(radians(_delivery_lat - msl.lat) / 2), 2) +
+      cos(radians(msl.lat)) * cos(radians(_delivery_lat)) *
+      power(sin(radians(_delivery_lng - msl.lng) / 2), 2)
+    )))::numeric, 2) as haversine_km,
+    msl.location_precision
+  from public.material_supply_locations msl
+  join public.suppliers s on s.id = msl.supplier_id
+  where msl.material = _material
+    and msl.status = 'active'
+    and msl.verification_status = 'verified'
+    and s.verification_status = 'verified'
+    and msl.location_precision = 'exact'
+    and msl.lat is not null
+    and msl.lng is not null
+    and msl.available_quantity_m3 >= _quantity_m3
+    and msl.service_radius_km > 0
+    and (2 * 6371 * asin(sqrt(
+          power(sin(radians(_delivery_lat - msl.lat) / 2), 2) +
+          cos(radians(msl.lat)) * cos(radians(_delivery_lat)) *
+          power(sin(radians(_delivery_lng - msl.lng) / 2), 2)
+        ))) <= msl.service_radius_km
+  order by haversine_km asc
+  limit 5;
+$$;
+
+comment on function public.resolve_material_source_candidates is
+  'Pricing candidates must have exact verified supplier-site coordinates, tracked stock sufficient for the order, and an explicit service radius containing the actual customer delivery pin. The server then ranks these candidates by road distance.';
+
 drop function if exists public.create_price_quote(text, numeric, numeric, text);
 revoke execute on function public.create_price_quote(text, numeric, numeric, text, uuid) from public, anon, authenticated;
 grant execute on function public.create_price_quote(text, numeric, numeric, text, uuid) to service_role;
 
 create or replace function public.create_price_quote_for(
   _customer_id uuid, _material text, _quantity_m3 numeric, _distance_km numeric,
-  _distance_source text, _supply_location_id uuid default null
+  _distance_source text, _supply_location_id uuid
 )
 returns uuid
 language plpgsql
@@ -66,9 +134,19 @@ begin
   if not exists (select 1 from public.material_prices where material::text = _material) then
     raise exception 'invalid_material';
   end if;
-  if _supply_location_id is not null and not exists (
+  if _supply_location_id is null or not exists (
        select 1 from public.material_supply_locations
-        where id = _supply_location_id and material::text = _material) then
+        where id = _supply_location_id
+          and material::text = _material
+          and status = 'active'
+          and verification_status = 'verified'
+          and lat is not null and lng is not null
+          and available_quantity_m3 >= _quantity_m3
+          and service_radius_km > 0
+          and location_precision = 'exact'
+          and exists (select 1 from public.suppliers s
+                       where s.id = material_supply_locations.supplier_id
+                         and s.verification_status = 'verified')) then
     raise exception 'invalid_supply_location';
   end if;
 
@@ -122,6 +200,41 @@ $$;
 revoke all on function public.consume_price_quote(uuid, uuid) from public, anon;
 grant execute on function public.consume_price_quote(uuid, uuid) to authenticated, service_role;
 
+-- Return only the pickup fields needed by the job trigger. Customers cannot
+-- read material_supply_locations directly, so keep this lookup behind a
+-- narrowly scoped definer function bound to their own live quote.
+create or replace function public.verified_quote_supply_for_job(
+  _quote_id uuid, _customer_id uuid, _material text, _quantity numeric
+)
+returns table (lat numeric, lng numeric, service_radius_km numeric)
+language sql
+stable
+security definer
+set search_path to 'public'
+as $$
+  select msl.lat, msl.lng, msl.service_radius_km
+    from public.price_quotes q
+    join public.material_supply_locations msl on msl.id = q.supply_location_id
+    join public.suppliers s on s.id = msl.supplier_id
+   where q.id = _quote_id
+     and (q.customer_id is null or q.customer_id = _customer_id)
+     and q.material::text = _material
+     and q.quantity_m3 = _quantity
+     and q.consumed_at is null
+     and q.expires_at > now()
+     and (auth.uid() is null or auth.uid() = _customer_id)
+     and msl.material::text = _material
+     and msl.status = 'active'
+     and msl.verification_status = 'verified'
+     and s.verification_status = 'verified'
+     and msl.lat is not null and msl.lng is not null
+     and msl.available_quantity_m3 >= _quantity
+     and msl.service_radius_km > 0
+     and msl.location_precision = 'exact';
+$$;
+revoke all on function public.verified_quote_supply_for_job(uuid, uuid, text, numeric) from public, anon;
+grant execute on function public.verified_quote_supply_for_job(uuid, uuid, text, numeric) to authenticated, service_role;
+
 -- -----------------------------------------------------------------------------
 -- 2. Budget validation with server-derived pickup (live body + F11 blocks)
 -- -----------------------------------------------------------------------------
@@ -138,7 +251,7 @@ declare
   _offer jsonb;
   _min numeric;
   _max numeric;
-  _loc public.material_supply_locations;
+  _loc record;
   _client_insert boolean := tg_op = 'INSERT' and current_user in ('authenticated', 'anon');
   _quote_ok boolean := false;
 begin
@@ -179,19 +292,16 @@ begin
     if new.delivery_lat is null or new.delivery_lng is null then
       raise exception 'Choose the delivery location on the map to get a price.' using errcode = '22023';
     end if;
-    if _quote.supply_location_id is not null then
-      select * into _loc from public.material_supply_locations where id = _quote.supply_location_id;
+    select * into _loc
+      from public.verified_quote_supply_for_job(
+        _quote.id, new.customer_id, new.material::text, new.quantity_m3
+      );
+    if not found then
+      raise exception 'The selected supplier is no longer verified or has insufficient stock — please get a new quote.'
+        using errcode = '22023';
     end if;
-    if _loc.id is not null and _loc.lat is not null and _loc.lng is not null then
-      new.pickup_lat := _loc.lat;
-      new.pickup_lng := _loc.lng;
-    elsif _mp.pickup_lat is not null and _mp.pickup_lng is not null then
-      new.pickup_lat := _mp.pickup_lat;
-      new.pickup_lng := _mp.pickup_lng;
-    else
-      new.pickup_lat := -17.8292;   -- Harare: the app's default pickup point
-      new.pickup_lng := 31.0522;
-    end if;
+    new.pickup_lat := _loc.lat;
+    new.pickup_lng := _loc.lng;
   end if;
 
   if new.pickup_lat is not null and new.pickup_lng is not null
@@ -203,6 +313,11 @@ begin
     ));
   else
     _haversine_km := 15;
+  end if;
+
+  if _client_insert and _haversine_km > _loc.service_radius_km then
+    raise exception 'The selected supplier no longer serves this delivery location — please get a new quote.'
+      using errcode = '22023';
   end if;
 
   _distance_km := _haversine_km;

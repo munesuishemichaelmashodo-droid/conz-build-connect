@@ -23,15 +23,10 @@ const TOO_FAR_MESSAGE =
 const OfferInput = z.object({
   material: z.enum(MATERIALS),
   quantity: z.number().positive().max(50),
-  // Client-provided distance is now only a last-resort fallback, used when
-  // pickup/delivery coordinates aren't supplied. Whenever coordinates ARE
-  // supplied, the server derives distance itself (see resolveDistance) —
-  // the client can no longer just send a favorable distanceKm number.
-  distanceKm: z.number().min(0).optional(),
-  pickupLat: z.number().optional(),
-  pickupLng: z.number().optional(),
-  deliveryLat: z.number().optional(),
-  deliveryLng: z.number().optional(),
+  // Only the customer delivery pin is accepted. Supplier pickup and route
+  // distance are selected and calculated server-side.
+  deliveryLat: z.number().finite().min(-23).max(-15),
+  deliveryLng: z.number().finite().min(25).max(33.5),
   address: z.string().max(200).optional(),
 });
 
@@ -43,60 +38,12 @@ function parseOfferInput(input: unknown) {
   return result.data;
 }
 
-type DistanceSource = "osrm" | "haversine" | "client_provided";
+type DistanceSource = "osrm" | "haversine";
 
 /**
- * The single place distance is derived for pricing. Prefers a real
- * server-side OSRM road-distance lookup (with getRoute's own haversine
- * fallback if OSRM is slow/unreachable) computed from pickup/delivery
- * coordinates; only falls back to a bare client-supplied distanceKm number
- * when no coordinates were given at all. The client never determines the
- * distance used for pricing when coordinates are available.
- */
-async function resolveDistance(data: {
-  distanceKm?: number;
-  pickupLat?: number;
-  pickupLng?: number;
-  deliveryLat?: number;
-  deliveryLng?: number;
-}): Promise<{ distanceKm: number; source: DistanceSource }> {
-  if (
-    data.pickupLat != null &&
-    data.pickupLng != null &&
-    data.deliveryLat != null &&
-    data.deliveryLng != null
-  ) {
-    try {
-      const route = await getRoute({
-        data: {
-          startLat: data.pickupLat,
-          startLng: data.pickupLng,
-          destLat: data.deliveryLat,
-          destLng: data.deliveryLng,
-        },
-      });
-      return { distanceKm: route.distanceKm, source: route.source };
-    } catch {
-      // getRoute already falls back to haversine internally and shouldn't
-      // throw — but if it somehow does, fall through to the client-provided
-      // fallback below rather than failing the whole quote.
-    }
-  }
-  return { distanceKm: data.distanceKm ?? 15, source: "client_provided" };
-}
-
-/**
- * Server-authoritative: tries material-source resolution first (using ONLY
- * material/quantity/delivery coordinates — never a client-supplied pickup
- * coordinate). The legacy fallback (materialPickups[material] ??
- * PICKUP_POINT, resolved client-side and passed in as
- * data.pickupLat/pickupLng) is used ONLY for the "no_source_configured"
- * case — a material with zero configured supply locations, i.e. unchanged
- * from today. A genuine resolution failure ("source_resolution_failed")
- * must NEVER fall back to the legacy pickup, since that material has real
- * configured sources and silently substituting Harare (or anything else)
- * would be exactly the wrong-location bug this feature exists to close —
- * it throws a controlled, retryable error instead.
+ * Server-authoritative supplier selection and route distance. Missing or
+ * unusable verified supply fails closed; no client or city-origin fallback
+ * can influence a quote.
  */
 async function resolvePickupAndDistance(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- resolve_material_source_candidates isn't in the generated Supabase types (added via a fresh, unapplied migration); matches this file's existing `as any` pattern for RPC calls.
@@ -104,78 +51,41 @@ async function resolvePickupAndDistance(
   data: {
     material: string;
     quantity: number;
-    distanceKm?: number;
-    pickupLat?: number;
-    pickupLng?: number;
-    deliveryLat?: number;
-    deliveryLng?: number;
+    deliveryLat: number;
+    deliveryLng: number;
   },
 ): Promise<{
   distanceKm: number;
   source: DistanceSource;
-  resolvedSource: ResolvedMaterialSource | null;
+  resolvedSource: ResolvedMaterialSource;
 }> {
-  if (data.deliveryLat != null && data.deliveryLng != null) {
-    const resolution = await resolveMaterialSource(
-      sb,
-      data.material,
-      data.quantity,
-      data.deliveryLat,
-      data.deliveryLng,
-    );
+  const resolution = await resolveMaterialSource(
+    sb,
+    data.material,
+    data.quantity,
+    data.deliveryLat,
+    data.deliveryLng,
+  );
 
-    if (resolution.status === "source_resolved") {
-      return {
-        distanceKm: resolution.source.distanceKm,
-        source: resolution.source.distanceSource,
-        resolvedSource: resolution.source,
-      };
-    }
-
-    if (resolution.status === "source_resolution_failed") {
-      throw new Error("Unable to determine a verified material pickup location. Please try again.");
-    }
-
-    // status === "no_source_configured" — fall through to the legacy path below.
+  if (resolution.status === "source_resolved") {
+    return {
+      distanceKm: resolution.source.distanceKm,
+      source: resolution.source.distanceSource,
+      resolvedSource: resolution.source,
+    };
   }
-  // Legacy path: the pickup point is derived server-side (the material's
-  // configured pickup, else the Harare default) — never taken from the
-  // client, which previously let a customer shorten the priced distance.
-  const pickup = await serverPickupPoint(sb, data.material);
-  const fallback = await resolveDistance({ ...data, pickupLat: pickup.lat, pickupLng: pickup.lng });
-  return { ...fallback, resolvedSource: null };
-}
-
-// Same fallback the booking UI uses (PICKUP_POINT in customer.book.tsx /
-// quote.tsx) and that tg_validate_job_budget applies (0080).
-const DEFAULT_PICKUP = { lat: -17.8292, lng: 31.0522 };
-
-async function serverPickupPoint(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- matches this file's existing RPC typing pattern.
-  sb: any,
-  material: string,
-): Promise<{ lat: number; lng: number }> {
-  try {
-    const { data } = await sb.rpc("public_material_pickups");
-    const p = (data ?? {})[material] as { lat?: number | null; lng?: number | null } | undefined;
-    if (p && typeof p.lat === "number" && typeof p.lng === "number")
-      return { lat: p.lat, lng: p.lng };
-  } catch {
-    /* fall back to the default pickup */
+  if (resolution.status === "no_source_configured") {
+    throw new Error("No verified supplier pickup is configured for this material yet.");
   }
-  return DEFAULT_PICKUP;
+  throw new Error("Unable to determine a verified material pickup location. Please try again.");
 }
 
 /**
  * Persists the server-derived distance as a single-use, tamper-proof quote
  * the client can later reference (by opaque id) at job creation, so
  * tg_validate_job_budget can use the SAME distance instead of recomputing a
- * cheaper haversine straight-line figure. Never persists a bare
- * client-provided distance as "trusted" — only real osrm/haversine
- * server-side calculations from actual coordinates are eligible. Best
- * effort: a failure here must never block the customer from seeing a quote,
- * it just means that job falls back to the trigger's own haversine
- * validation (unchanged prior behaviour), so we swallow errors.
+ * cheaper haversine straight-line figure. Quote persistence is required: a
+ * price without a bound verified supplier and route must not be displayed.
  */
 async function tryCreateQuote(
   customerId: string | null,
@@ -183,9 +93,8 @@ async function tryCreateQuote(
   quantity: number,
   distanceKm: number,
   source: DistanceSource,
-  supplyLocationId: string | null,
-): Promise<string | null> {
-  if (source === "client_provided") return null;
+  supplyLocationId: string,
+): Promise<string> {
   // Quotes are created only by the server (service role), bound to the
   // customer and the server-resolved supply location (0080). The previous
   // client-side call hit an ambiguous overload and always failed silently.
@@ -202,12 +111,13 @@ async function tryCreateQuote(
     });
     if (error) {
       console.error("[quote] create_price_quote_for failed:", error.message);
-      return null;
+      throw new Error("We couldn't secure this price quote. Please try again in a moment.");
     }
-    return typeof data === "string" ? data : null;
+    if (typeof data === "string") return data;
+    throw new Error("We couldn't secure this price quote. Please try again in a moment.");
   } catch (err) {
     console.error("[quote] create_price_quote_for threw:", err);
-    return null;
+    throw new Error("We couldn't secure this price quote. Please try again in a moment.");
   }
 }
 
@@ -255,17 +165,14 @@ export type OfferResult = {
   // Opaque reference to a server-computed, tamper-proof distance snapshot.
   // Pass this back at job creation (jobs.quote_id) so the DB trigger uses
   // the same road distance instead of recomputing a cheaper haversine
-  // figure. Null when no coordinates were supplied (falls back to the
-  // trigger's own haversine calculation, same as before this change).
-  quoteId: string | null;
+  // figure. A quote is mandatory for a displayed price.
+  quoteId: string;
   // Server-resolved material supply source, for transparency display only
   // ("picked up from Pomona Stone Quarries") — the client never supplies
   // or influences this; it's purely informational, mirroring how
-  // pricingVersion/tripCount are shown without being client-editable. Null
-  // whenever no eligible verified supply location was configured for this
-  // material (today's materialPickups/Harare-fallback behavior was used
-  // instead, unchanged).
-  resolvedSource: ResolvedMaterialSource | null;
+  // pricingVersion/tripCount are shown without being client-editable. Always
+  // present because a quote requires an eligible verified supply location.
+  resolvedSource: ResolvedMaterialSource;
 };
 
 type OfferGuide = {
@@ -293,8 +200,8 @@ function buildOfferResult(
   material: string,
   quantity: number,
   distanceKm: number,
-  quoteId: string | null,
-  resolvedSource: ResolvedMaterialSource | null,
+  quoteId: string,
+  resolvedSource: ResolvedMaterialSource,
 ): OfferResult {
   const offer = Number(g.offer ?? 0);
   const min = Number(g.min ?? 0);
@@ -347,7 +254,7 @@ export const computeOffer = createServerFn({ method: "POST" })
       data.quantity,
       distanceKm,
       source,
-      resolvedSource?.supplyLocationId ?? null,
+      resolvedSource.supplyLocationId,
     );
 
     const { data: guide, error } = await supabase.rpc("compute_material_offer", {
@@ -390,7 +297,7 @@ export const computePublicOffer = createServerFn({ method: "POST" })
       data.quantity,
       distanceKm,
       source,
-      resolvedSource?.supplyLocationId ?? null,
+      resolvedSource.supplyLocationId,
     );
 
     const { data: guide, error } = await supabaseAdmin.rpc("compute_material_offer", {
