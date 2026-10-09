@@ -1,14 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { advanceMode, clickAdvances, isStepDone, locateTimeoutMs, nextDisabled } from "../../src/lib/tour/step-logic";
+import {
+  advanceMode,
+  clickAdvances,
+  isStepDone,
+  locateTimeoutMs,
+  nextDisabled,
+} from "../../src/lib/tour/step-logic";
 import type { TourStep } from "../../src/lib/tour/types";
 
-const base: TourStep = { id: "s", title: "t", description: "d", route: "/x", target: '[data-tour="a"]' };
-const dom = (present: string[]) => ({ querySelector: (sel: string) => (present.includes(sel) ? {} : null) });
+const base: TourStep = {
+  id: "s",
+  title: "t",
+  description: "d",
+  route: "/x",
+  target: '[data-tour="a"]',
+};
+const dom = (present: string[]) => ({
+  querySelector: (sel: string) => (present.includes(sel) ? {} : null),
+});
 
 describe("advanceMode", () => {
   it("defaults to next-only", () => expect(advanceMode(base)).toBe("next"));
-  it("maps legacy interactive to click", () => expect(advanceMode({ ...base, interactive: true })).toBe("click"));
-  it("prefers explicit advance", () => expect(advanceMode({ ...base, interactive: true, advance: "done" })).toBe("done"));
+  it("maps legacy interactive to click", () =>
+    expect(advanceMode({ ...base, interactive: true })).toBe("click"));
+  it("prefers explicit advance", () =>
+    expect(advanceMode({ ...base, interactive: true, advance: "done" })).toBe("done"));
 });
 
 describe("done steps (interactive waiting)", () => {
@@ -26,7 +42,9 @@ describe("done steps (interactive waiting)", () => {
 
 describe("click steps", () => {
   const step: TourStep = { ...base, advance: "click" };
-  const el = (matches: string[]) => ({ closest: (sel: string) => (matches.includes(sel) ? {} : null) });
+  const el = (matches: string[]) => ({
+    closest: (sel: string) => (matches.includes(sel) ? {} : null),
+  });
   it("advances only for a click inside the highlighted target", () => {
     expect(clickAdvances(step, el([base.target]))).toBe(true);
     expect(clickAdvances(step, el([]))).toBe(false);

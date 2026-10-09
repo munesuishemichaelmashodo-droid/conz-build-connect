@@ -12,7 +12,10 @@ const appSource = [
 ].join("\n");
 
 // First-order steps = everything up to and including the confirm step.
-const firstOrder = customerTour.steps.slice(0, customerTour.steps.findIndex((s) => s.id === "customer-post") + 1);
+const firstOrder = customerTour.steps.slice(
+  0,
+  customerTour.steps.findIndex((s) => s.id === "customer-post") + 1,
+);
 const attr = (sel: string) => /\[data-tour="([^"]+)"\](?:\[([^\]]+)\])?/.exec(sel);
 
 describe("customer first-order tour", () => {
@@ -35,16 +38,19 @@ describe("customer first-order tour", () => {
     ]);
   });
 
-  it.each(firstOrder.map((s) => [s.id, s] as const))("%s uses a stable data-tour selector that exists in the app", (_id, step) => {
-    const m = attr(step.target);
-    expect(m, `target ${step.target} should be a [data-tour="…"] selector`).not.toBeNull();
-    expect(appSource).toContain(`data-tour="${m![1]}"`);
-    if (step.doneWhen) {
-      const d = attr(step.doneWhen);
-      expect(d).not.toBeNull();
-      expect(appSource).toContain(`data-tour="${d![1]}"`);
-    }
-  });
+  it.each(firstOrder.map((s) => [s.id, s] as const))(
+    "%s uses a stable data-tour selector that exists in the app",
+    (_id, step) => {
+      const m = attr(step.target);
+      expect(m, `target ${step.target} should be a [data-tour="…"] selector`).not.toBeNull();
+      expect(appSource).toContain(`data-tour="${m![1]}"`);
+      if (step.doneWhen) {
+        const d = attr(step.doneWhen);
+        expect(d).not.toBeNull();
+        expect(appSource).toContain(`data-tour="${d![1]}"`);
+      }
+    },
+  );
 
   it("location step waits for the user's pin instead of timing out", () => {
     const loc = customerTour.steps.find((s) => s.id === "customer-location")!;
@@ -61,6 +67,7 @@ describe("customer first-order tour", () => {
     for (const s of firstOrder.slice(2)) expect(locateTimeoutMs(s, 2500)).toBeNull();
     const confirm = customerTour.steps.find((s) => s.id === "customer-post")!;
     expect(advanceMode(confirm)).toBe("next"); // posting a job is never implied by the tour
-    for (const s of firstOrder) expect(advanceMode(s) === "click" && s.target.includes("confirm")).toBe(false);
+    for (const s of firstOrder)
+      expect(advanceMode(s) === "click" && s.target.includes("confirm")).toBe(false);
   });
 });

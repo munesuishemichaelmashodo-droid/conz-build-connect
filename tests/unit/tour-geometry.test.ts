@@ -23,7 +23,11 @@ describe("responsive card placement", () => {
     [768, 1024],
     [1280, 800],
   ])("keeps the card fully on-screen at %ix%i", (w, h) => {
-    for (const target of [rect(20, 16, w - 32, 56), rect(h / 2, 16, w - 32, 60), rect(h - 90, 16, w - 32, 56)]) {
+    for (const target of [
+      rect(20, 16, w - 32, 56),
+      rect(h / 2, 16, w - 32, 60),
+      rect(h - 90, 16, w - 32, 56),
+    ]) {
       const p = computeCardPlacement(target, 170, w, h);
       expect(p.left).toBeGreaterThanOrEqual(0);
       expect(p.left + p.width).toBeLessThanOrEqual(w);
