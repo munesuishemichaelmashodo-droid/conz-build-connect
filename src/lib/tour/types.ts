@@ -39,6 +39,29 @@ export type TourStep = {
    * deliberately pressing Next, never a synthesized/implied action.
    */
   interactive?: boolean;
+  /**
+   * How the step moves on. "next" (default): only the card's Next button.
+   * "click": a real click on `clickTarget ?? target` also advances (same
+   * safety rule as `interactive`, which is the legacy spelling of this).
+   * "done": the user must do something on the real page; the step advances
+   * by itself once `doneWhen` matches, and Next stays disabled until then.
+   */
+  advance?: "next" | "click" | "done";
+  /** advance:"click" — selector whose click advances (defaults to target). */
+  clickTarget?: string;
+  /** advance:"done" — selector that appears in the DOM once the user has
+   *  finished the action (e.g. a button's data-location-ready="true"). */
+  doneWhen?: string;
+  /** The target only appears after the user does something (e.g. reaching
+   *  the price screen). Never auto-skip: wait for it indefinitely, showing
+   *  `waitingText`, while the page stays fully usable. */
+  waitForUser?: boolean;
+  /** "bottom" docks the card at the bottom of the screen instead of next to
+   *  the target — for steps where the area around the target (a map to tap,
+   *  a search dropdown that opens below it) must stay uncovered. */
+  cardPosition?: "auto" | "bottom";
+  /** Shown on the card while a waitForUser/done step is not yet satisfied. */
+  waitingText?: string;
 };
 
 export type TourKey = "customer" | "driver";

@@ -1,6 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { AddressPicker } from "@/components/AddressPicker";
 import { SpotlightCallout } from "@/components/SpotlightCallout";
@@ -63,15 +62,6 @@ const BOOKABLE_MATERIALS = MATERIALS.filter((m) => m.value !== "custom");
 // to a full truck-load bucket price.
 const MIN_QUANTITY_M3 = 0.25;
 
-// Average tipper truck fuel consumption, litres per 100 km.
-const FUEL_LITRES_PER_100KM = 32;
-
-// Default supplier pickup point, Harare CBD.
-// Later this can become a real supplier pickup location.
-const PICKUP_POINT = { lat: -17.8292, lng: 31.0522 };
-const PICKUP_ADDRESS = "Harare CBD supplier pickup point";
-
-
 function BookDelivery() {
   const { userId, is } = useAuth();
   const nav = useNavigate();
@@ -96,7 +86,6 @@ function BookDelivery() {
   const [offer, setOffer] = useState<number>(0);
   const [posting, setPosting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"direct" | "escrow">("direct");
-  const [roadDistanceKm, setRoadDistanceKm] = useState<number | null>(null);
   // Redesign: the date/notes drawer grows the sheet, so the map controls move up.
   const [sheetOpenExtra, setSheetOpenExtra] = useState(false);
   // The booking sheet's real height, so the map's locate button / status pill
@@ -112,158 +101,8 @@ function BookDelivery() {
     return () => ro.disconnect();
   }, [sheetEl]);
 
-  const { data: materialPickups } = useQuery({
-    queryKey: ["material-pickups"],
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const { data } = await (supabase.rpc as unknown as (f: string) => Promise<{ data: unknown }>)("public_material_pickups");
-      return (data ?? {}) as Record<string, { lat: number | null; lng: number | null; label: string | null }>;
-    },
-  });
-
-  // Distance/price used to always be measured from one hardcoded Harare
-  // point regardless of material — but different materials genuinely come
-  // from different real pickup sites. Use the material-specific one where
-  // an admin has set it, falling back to the Harare default otherwise.
-  const pickupPoint = useMemo(() => {
-    const p = materialPickups?.[material];
-    if (p?.lat != null && p?.lng != null) return { lat: p.lat, lng: p.lng };
-    return PICKUP_POINT;
-  }, [materialPickups, material]);
-  const pickupLabel = materialPickups?.[material]?.label ?? null;
-
-  useEffect(() => {
-    if (!coords) {
-      setRoadDistanceKm(null);
-      return;
-    }
-     const dest = coords;
-    
-    
-     let cancelled = false;
-    async function loadRoute() {
-      try {
-        const { getRoute } = await import("@/lib/routing.functions");
-
-        const r = await getRoute({
-          data: {
-            startLat: pickupPoint.lat,
-            startLng: pickupPoint.lng,
-            destLat: dest.lat,
-            destLng: dest.lng,
-          },
-        });
-
-        if (!cancelled && typeof r.distanceKm === "number") {
-          setRoadDistanceKm(r.distanceKm);
-        }
-      } catch {
-        // Fall back to haversine.
-      }
-    }
-
-    loadRoute();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [coords, pickupPoint.lat, pickupPoint.lng]);
-
-  const { data: matPrice } = useQuery({
-    queryKey: ["material-price", material],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("material_prices")
-        .select("min_price,max_price,label")
-        .eq("material", material)
-        .maybeSingle();
-
-      return data;
-    },
-  });
-
-  const { data: dieselPrice } = useQuery({
-    queryKey: ["diesel-price"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("system_settings")
-        .select("value")
-        .eq("key", "diesel_price_per_liter")
-        .maybeSingle();
-
-      return Number(data?.value ?? 1.87);
-    },
-  });
-
-  const { data: commissionRate } = useQuery({
-    queryKey: ["commission-rate"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("system_settings")
-        .select("value")
-        .eq("key", "commission_rate")
-        .maybeSingle();
-
-      return Number(data?.value ?? 7);
-    },
-  });
-
-  const suggestion = useMemo(() => {
-    if (!matPrice || !coords) return null;
-
-    const distanceKm = roadDistanceKm ?? haversineKm(pickupPoint, coords);
-    // matPrice.min_price/max_price are now true per-m³ rates (matches how
-    // Zimbabwe tipper operators actually quote — "$18/cubic" — rather
-    // than a fixed price for a nominal load band).
-    const midPerM3 = (Number(matPrice.min_price) + Number(matPrice.max_price)) / 2;
-    const materialCost = midPerM3 * Math.max(quantity, 1);
-    // Zone-banded transport cost, matching how operators actually price
-    // a trip (a flat local rate, not a raw distance × fuel calculation)
-    // — past 50km, where no standard band exists, the marginal rate
-    // comes from the real diesel price (32L/100km × diesel price ×
-    // 1.5x markup for driver time/wear), matching the server formula.
-    const longHaulRate = (FUEL_LITRES_PER_100KM / 100) * Number(dieselPrice ?? 1.87) * 1.5;
-    const zoneBandCost =
-      distanceKm <= 10 ? 20 :
-      distanceKm <= 20 ? 30 :
-      distanceKm <= 30 ? 40 :
-      distanceKm <= 50 ? 60 :
-      60 + (distanceKm - 50) * longHaulRate;
-    // Above 20 m³ the reference truck (10 m³) needs multiple trips —
-    // mirrors compute_material_offer's Mode C: trip_count = ceil(qty / 10),
-    // transport = zone-band cost × trip_count. This preview is not the
-    // authoritative price (that's always computeOffer/compute_material_offer),
-    // but it must not understate it either.
-    const tripCount = quantity > 20 ? Math.ceil(quantity / 10) : 1;
-    const fuelCost = zoneBandCost * tripCount;
-    const commission = (materialCost + fuelCost) * (Number(commissionRate ?? 7) / 100);
-    const total = materialCost + fuelCost + commission;
-    // Floor only — deliberately no ceiling at matPrice.max_price. That
-    // clamp used to silently discount every long-distance or large-load
-    // job back down to the same price as a small nearby one, which is
-    // exactly backwards: those are the jobs where real fuel/material
-    // cost matters most.
-    const floor = Number(matPrice.min_price) * Math.max(quantity, 1);
-    const low = Math.max(floor, Math.round(total * 0.9));
-    const high = Math.max(low, Math.round(total * 1.1));
-
-    return {
-      low,
-      high,
-      distanceKm,
-      fuelCost,
-      commission,
-      total: Math.round(total),
-    };
-  }, [matPrice, coords, pickupPoint, dieselPrice, commissionRate, roadDistanceKm, quantity]);
-
-  useEffect(() => {
-    void suggestion;
-  }, [suggestion]);
-
-  // Approximate (~1 km) Online trucks around the pin, or Harare by default
-  // (migration 0062).
-  const nearbyTrucks = useNearbyTrucks(coords ?? { lat: -17.8252, lng: 31.0335 });
+  // Approximate (~1 km) Online trucks around the selected delivery pin.
+  const nearbyTrucks = useNearbyTrucks(coords);
 
   if (!is("customer")) {
     return (
@@ -292,19 +131,10 @@ function BookDelivery() {
     setComputing(true);
 
     try {
-      const distanceKm =
-        roadDistanceKm ?? (coords ? haversineKm(pickupPoint, coords) : 15);
-
       const result = await runOffer({
         data: {
           material,
           quantity,
-          // Fallback only, used if coordinates below are somehow missing —
-          // the server derives the authoritative distance itself from
-          // pickupLat/pickupLng/deliveryLat/deliveryLng when present.
-          distanceKm,
-          pickupLat: pickupPoint.lat,
-          pickupLng: pickupPoint.lng,
           deliveryLat: coords.lat,
           deliveryLng: coords.lng,
           address,
@@ -374,9 +204,9 @@ function BookDelivery() {
         delivery_lat: coords.lat,
         delivery_lng: coords.lng,
 
-        pickup_address: offerData.resolvedSource?.label ?? offerData.resolvedSource?.address ?? PICKUP_ADDRESS,
-        pickup_lat: offerData.resolvedSource?.lat ?? pickupPoint.lat,
-        pickup_lng: offerData.resolvedSource?.lng ?? pickupPoint.lng,
+        pickup_address: offerData.resolvedSource.label ?? offerData.resolvedSource.address ?? "Verified supplier location",
+        pickup_lat: offerData.resolvedSource.lat,
+        pickup_lng: offerData.resolvedSource.lng,
 
 
         budget: offer,
@@ -412,8 +242,7 @@ function BookDelivery() {
   // ---------------------------------------------------------------------
   const quantityValid = quantity >= MIN_QUANTITY_M3 && quantity <= 30;
   const locationValid = address.trim().length > 2 && !!coords;
-  // Mirrors compute_material_offer's reference-truck trip rule (see
-  // suggestion above) — display only.
+  // Mirrors compute_material_offer's reference-truck trip rule — display only.
   const tripsEstimate = quantity > 20 ? Math.ceil(quantity / 10) : 1;
   const stepQty = (dir: -1 | 1) => {
     const stepSize = quantity < 1 || (dir < 0 && quantity <= 1) ? 0.25 : 1;
@@ -426,6 +255,9 @@ function BookDelivery() {
       <CzScreen>
         <div className="relative h-[100dvh] overflow-hidden">
           <div id="tour-book-address">
+            {/* The wrapper above has no in-flow content (the picker is
+                absolutely positioned), so it measures 0px tall — the tour
+                now targets the picker's floating search field instead. */}
             <AddressPicker
               variant="fullscreen"
               label="Deliver to"
@@ -459,7 +291,7 @@ function BookDelivery() {
                 </HintBox>
               )}
 
-              <div id="tour-book-material" className="space-y-3">
+              <div id="tour-book-material" data-tour="book-material" className="space-y-3">
                 <h1 className="cz-display font-bold text-[26px] leading-tight">What do you need delivered?</h1>
                 <MaterialChips
                   options={BOOKABLE_MATERIALS.map((m) => ({ value: m.value, label: m.label }))}
@@ -468,7 +300,7 @@ function BookDelivery() {
                 />
               </div>
 
-              <div className="flex items-center justify-between gap-2 rounded-[14px] border border-cz-border bg-cz-surface py-2 pl-4 pr-2">
+              <div data-tour="book-quantity" className="flex items-center justify-between gap-2 rounded-[14px] border border-cz-border bg-cz-surface py-2 pl-4 pr-2">
                 <label htmlFor="qty" className="flex flex-col min-w-0">
                   <span className="text-[13px] text-cz-muted">Quantity</span>
                   <span className="text-xs text-cz-faint">
@@ -522,6 +354,7 @@ function BookDelivery() {
 
               <details
                 id="tour-book-review"
+                data-tour="book-review"
                 className="group rounded-[14px] border border-cz-border bg-cz-surface"
                 onToggle={(e) => setSheetOpenExtra((e.target as HTMLDetailsElement).open)}
               >
@@ -564,19 +397,21 @@ function BookDelivery() {
                 </div>
               </details>
 
-              {suggestion && (
-                <p className="text-[13px] text-cz-muted">
-                  Usually {money(suggestion.low)}–{money(suggestion.high)} for {matPrice?.label ?? "this material"}, ~
-                  {suggestion.distanceKm.toFixed(1)} km from pickup (incl. {commissionRate ?? 7}% platform commission).
-                </p>
-              )}
+              <p className="text-[13px] text-cz-muted">
+                We’ll calculate the price using an eligible material pickup and the route to your delivery point.
+              </p>
               {address.trim().length > 2 && !coords && (
                 <p className="text-[13px] text-cz-danger-text">
                   Tap the map or pick a search result so the driver can navigate accurately.
                 </p>
               )}
 
-              <CzButton onClick={goToOffer} disabled={computing || !quantityValid || !locationValid}>
+              <CzButton
+                data-tour="book-see-price"
+                data-location-ready={locationValid ? "true" : "false"}
+                onClick={goToOffer}
+                disabled={computing || !quantityValid || !locationValid}
+              >
                 {computing ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" /> Calculating…
@@ -611,7 +446,7 @@ function BookDelivery() {
       />
 
       <div className="flex-1 space-y-4 px-5 pb-6">
-        <div id="tour-book-offer" className="space-y-3">
+        <div id="tour-book-offer" data-tour="book-offer" className="space-y-3">
           <div role="radiogroup" aria-label="Your price" className="grid gap-2.5">
             {tiers.map((t) => {
               const on = offer === t.value;
@@ -678,7 +513,7 @@ function BookDelivery() {
           {offerData.transportCost > 0 && (
             <MoneyRow label={`Transport (${offerData.distanceKm} km)`} value={usd2(offerData.transportCost)} />
           )}
-          {pickupLabel && <MoneyRow label="Picked up from" value={pickupLabel} valueClassName="text-cz-muted text-sm" />}
+          <MoneyRow label="Picked up from" value={offerData.resolvedSource.label || offerData.resolvedSource.address || "Verified supplier location"} valueClassName="text-cz-muted text-sm" />
           <p className="text-[13px] text-cz-muted">
             Estimated {offerData.tripCount} trip{offerData.tripCount === 1 ? "" : "s"}, based on a {offerData.referenceCapacityM3} m³
             reference truck. All amounts in USD.
@@ -739,25 +574,11 @@ function BookDelivery() {
       </div>
 
       <footer className="sticky bottom-0 z-20 space-y-2 border-t border-cz-border bg-cz-surface px-5 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))]">
-        <CzButton id="tour-book-confirm" onClick={confirm} disabled={posting}>
+        <CzButton id="tour-book-confirm" data-tour="book-confirm" onClick={confirm} disabled={posting}>
           {posting ? <Loader2 className="w-5 h-5 animate-spin" /> : `Post job · ${usd(offer)}`}
         </CzButton>
         <p className="text-center text-[11px] text-cz-faint">We'll immediately search for the closest verified tipper truck.</p>
       </footer>
     </CzScreen>
   );
-}
-
-function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
-  const R = 6371;
-  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
-  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
-
-  const s =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((a.lat * Math.PI) / 180) *
-      Math.cos((b.lat * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
-
-  return 2 * R * Math.asin(Math.sqrt(s));
 }

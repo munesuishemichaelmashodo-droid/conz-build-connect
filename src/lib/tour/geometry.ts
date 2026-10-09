@@ -78,6 +78,32 @@ export function computeCardPlacement(
   return { top, left, width, placement };
 }
 
+/** A target covering most of the screen (or measuring ~0px) can't be
+ *  meaningfully spotlighted — a ring around it just dims nothing or hides
+ *  everything. Callers drop the dim and dock the card instead. */
+export function isUnspotlightable(target: Rect, viewportWidth: number, viewportHeight: number): boolean {
+  if (target.width < 2 || target.height < 2) return true;
+  return (target.width * target.height) / Math.max(1, viewportWidth * viewportHeight) > 0.6;
+}
+
+/** Card position for steps with no usable spotlight: docked at the bottom
+ *  of the visible viewport so the page stays fully usable above it. */
+export function computeDockedCardPlacement(
+  cardHeight: number,
+  viewportWidth: number,
+  viewportHeight: number,
+  margin = 16,
+  /** Never rise above this y (e.g. just below the search row). */
+  minTop = 0,
+): CardPlacement {
+  return {
+    top: Math.max(margin, minTop, viewportHeight - cardHeight - margin),
+    left: margin,
+    width: Math.max(0, viewportWidth - margin * 2),
+    placement: "top",
+  };
+}
+
 /** Is the target sufficiently visible already, or do we need to scroll? */
 export function needsScrollIntoView(target: Rect, viewportHeight: number, safeMargin = 24): boolean {
   return target.top < safeMargin || target.bottom > viewportHeight - safeMargin;

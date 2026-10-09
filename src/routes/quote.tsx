@@ -1,9 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect, useMemo } from "react";
+import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { MATERIALS, money, type MaterialCategory } from "@/lib/domain";
 import { AddressPicker } from "@/components/AddressPicker";
-import { supabase } from "@/integrations/supabase/client";
 import { computePublicOffer } from "@/lib/booking.functions";
 import { Button } from "@/components/ui/button";
 import { Minus, Plus, Loader2, Sparkles, ShieldCheck, Camera, MapPinned } from "lucide-react";
@@ -15,7 +14,6 @@ export const Route = createFileRoute("/quote")({
 });
 
 const BOOKABLE_MATERIALS = MATERIALS.filter((m) => m.value !== "custom");
-const PICKUP_POINT = { lat: -17.8292, lng: 31.0522 };
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -43,36 +41,26 @@ function PublicQuotePage() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [offer, setOffer] = useState<OfferResult | null>(null);
-
-  const [materialPickups, setMaterialPickups] = useState<Record<string, { lat: number | null; lng: number | null; label: string | null }>>({});
-  useEffect(() => {
-    (supabase.rpc as unknown as (f: string) => Promise<{ data: unknown }>)("public_material_pickups")
-      .then(({ data }) => setMaterialPickups((data ?? {}) as typeof materialPickups))
-      .catch(() => {});
-  }, []);
-  const pickupPoint = useMemo(() => {
-    const p = materialPickups[material];
-    if (p?.lat != null && p?.lng != null) return { lat: p.lat, lng: p.lng };
-    return PICKUP_POINT;
-  }, [materialPickups, material]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const checkPrice = async () => {
     if (!coords) return;
     setLoading(true);
     setOffer(null);
+    setErrorMessage(null);
     try {
       const result = await runOffer({
         data: {
           material,
           quantity,
-          pickupLat: pickupPoint.lat,
-          pickupLng: pickupPoint.lng,
           deliveryLat: coords.lat,
           deliveryLng: coords.lng,
           address,
         },
       });
       setOffer(result);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not calculate a price. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -124,6 +112,8 @@ function PublicQuotePage() {
           }}
         />
 
+        {errorMessage && <p role="alert" className="text-sm text-destructive">{errorMessage}</p>}
+
         <Button onClick={checkPrice} disabled={!coords || loading} className="w-full">
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Check price <Sparkles className="w-4 h-4 ml-1" /></>}
         </Button>
@@ -136,6 +126,9 @@ function PublicQuotePage() {
               <div className="text-xs text-muted-foreground mt-1">
                 Market range {money(offer.min)}–{money(offer.max)} · ~{offer.etaMinutes} min ETA
               </div>
+              {offer.resolvedSource && (
+                <div className="text-xs text-muted-foreground mt-1">Pickup from {offer.resolvedSource.supplierName}</div>
+              )}
             </div>
             <div className="grid grid-cols-1 gap-2 text-xs text-muted-foreground border-t pt-3">
               <div className="flex items-center gap-2">

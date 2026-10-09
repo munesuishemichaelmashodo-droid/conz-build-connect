@@ -3,7 +3,7 @@
 -- coordinate sanity, preferred-driver validation.
 
 begin;
-select plan(24);
+select plan(29);
 
 select set_config('t.cust',  tests.create_user('cust')::text, true);
 select set_config('t.other', tests.create_user('other')::text, true);
@@ -11,13 +11,30 @@ select set_config('t.drv',   tests.create_driver('drv', 100)::text, true);
 select set_config('t.nodrv', tests.create_user('notadriver')::text, true);
 select set_config('t.other_supply', (select id::text from public.material_supply_locations where material::text <> 'river_sand' limit 1), true);
 
--- Delivery ~14 km north of the Harare default pickup; quoted road distance 20 km.
+-- Quote fixtures need an explicit verified, in-stock supplier site.
+select tests.as_owner();
+do $$
+declare _supplier uuid; _location uuid;
+begin
+  insert into public.suppliers (name, verification_status)
+  values ('Pricing Integrity Test Supplier', 'verified') returning id into _supplier;
+  insert into public.material_supply_locations
+    (supplier_id, material, source_type, label, address, lat, lng, status,
+     verification_status, available_quantity_m3, priority, service_radius_km, location_precision)
+  values (_supplier, 'river_sand', 'supplier', 'Test supplier site', 'Test address',
+          -17.80, 31.05, 'active', 'verified', 100, 1, 100, 'exact')
+  returning id into _location;
+  perform set_config('t.supply', _location::text, true);
+end $$;
+
+-- Delivery is ~11 km north of the test supplier; quoted road distance 20 km.
 create or replace function pg_temp.quote(_customer text, _qty numeric default 12, _km numeric default 20, _supply uuid default null)
 returns uuid language plpgsql as $$
 declare _id uuid;
 begin
   perform tests.as_service();
-  _id := public.create_price_quote_for(nullif(_customer, '')::uuid, 'river_sand', _qty, _km, 'osrm', _supply);
+  _id := public.create_price_quote_for(nullif(_customer, '')::uuid, 'river_sand', _qty, _km, 'osrm',
+    coalesce(_supply, nullif(current_setting('t.supply', true), '')::uuid));
   perform tests.as_owner();
   return _id;
 end $$;
@@ -42,13 +59,21 @@ select throws_ok($$select public.create_price_quote('river_sand', 12, 0, 'osrm',
 select throws_ok($$select public.create_price_quote_for(auth.uid(), 'river_sand', 12, 0, 'osrm', null)$$, '42501', null,
   'Clients cannot call the server quote function');
 select tests.as_service();
+select is((select count(*)::int from public.resolve_material_source_candidates('river_sand', 12, -17.70, 31.05)), 1,
+  'Only an exact, verified source with tracked stock is eligible');
+select is((select count(*)::int from public.resolve_material_source_candidates('river_sand', 101, -17.70, 31.05)), 0,
+  'A source with less stock than the order is excluded');
 select throws_ok($$select public.create_price_quote_for(null, 'river_sand', 12, 'NaN', 'osrm', null)$$, null, null, 'NaN distance rejected');
 select throws_ok($$select public.create_price_quote_for(null, 'river_sand', 12, 20, 'client_provided', null)$$, null, null,
   'A client-provided distance can never become a quote');
 select throws_ok(format($$select public.create_price_quote_for(null, 'river_sand', 12, 20, 'osrm', %L)$$, current_setting('t.other_supply')),
   null, null, 'Supply location must belong to the quoted material');
-select ok(public.create_price_quote_for(null, 'river_sand', 12, 20, 'osrm', null) is not null,
-  'The 4-argument quote call is no longer ambiguous (was failing live)');
+select ok(public.create_price_quote_for(null, 'river_sand', 12, 20, 'osrm', current_setting('t.supply')::uuid) is not null,
+  'Quote can be created with its verified supplier location');
+select throws_ok($$select public.create_price_quote_for(null, 'river_sand', 12, 20, 'osrm', null)$$, null, null,
+  'A quote without a supplier location is rejected');
+select throws_ok(format($$select public.create_price_quote_for(null, 'river_sand', 101, 20, 'osrm', %L)$$, current_setting('t.supply')),
+  null, null, 'A quote exceeding the source stock is rejected');
 
 -- ---------------------------------------------------------------------------
 -- Booking a priced material requires a valid quote; pickup is server-set
@@ -60,11 +85,20 @@ select tests.login_as(current_setting('t.cust')::uuid);
 select lives_ok(pg_temp.book(current_setting('t.q1')::uuid), 'Booking with a valid quote works');
 select tests.as_owner();
 select set_config('t.job1', (select id::text from public.jobs where quote_id = current_setting('t.q1')::uuid), true);
-select is((select pickup_lat from public.jobs where id = current_setting('t.job1')::uuid), -17.8292::double precision,
-  'P: client pickup coordinate ignored — server pickup used');
+select is((select pickup_lat from public.jobs where id = current_setting('t.job1')::uuid), -17.80::double precision,
+  'P: client pickup coordinate ignored — verified supplier coordinates used');
 select is((select (pricing_breakdown->>'distance_km')::numeric from public.jobs where id = current_setting('t.job1')::uuid), 20.0,
   'P: priced on the server quote''s road distance');
 select ok((select consumed_at is not null from public.price_quotes where id = current_setting('t.q1')::uuid), 'Quote consumed');
+
+select set_config('t.qstock', pg_temp.quote(current_setting('t.cust'))::text, true);
+select tests.as_owner();
+update public.material_supply_locations set available_quantity_m3 = 0 where id = current_setting('t.supply')::uuid;
+select tests.login_as(current_setting('t.cust')::uuid);
+select throws_like(pg_temp.book(current_setting('t.qstock')::uuid), '%supplier%',
+  'A quote is rejected if its source stock is no longer sufficient');
+select tests.as_owner();
+update public.material_supply_locations set available_quantity_m3 = 100 where id = current_setting('t.supply')::uuid;
 
 select tests.login_as(current_setting('t.cust')::uuid);
 select throws_like(pg_temp.book(current_setting('t.q1')::uuid), '%quote%', 'A quote cannot be used twice');
@@ -82,7 +116,7 @@ select throws_like(pg_temp.book(current_setting('t.q3')::uuid), '%quote%', 'An e
 
 select set_config('t.q4', pg_temp.quote(current_setting('t.cust'))::text, true);
 select tests.login_as(current_setting('t.cust')::uuid);
-select throws_like(pg_temp.book(current_setting('t.q4')::uuid, 230, -20.15, 28.58), '%changed after your quote%',
+select throws_like(pg_temp.book(current_setting('t.q4')::uuid, 230, -20.15, 28.58), '%supplier no longer serves this delivery location%',
   'A 20 km quote cannot price a delivery ~400 km away');
 select throws_like(pg_temp.book(current_setting('t.q4')::uuid, 50), '%outside the allowed range%',
   'Budget below the server range is still rejected');
