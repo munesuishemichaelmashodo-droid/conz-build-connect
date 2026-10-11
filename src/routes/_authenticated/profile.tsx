@@ -351,9 +351,11 @@ function WithdrawalPinCard() {
   const { data: driver } = useQuery({
     queryKey: ["driver-pin-profile", userId],
     enabled: !!userId,
-    queryFn: async () => (await supabase.from("driver_profiles").select("withdrawal_pin_hash").eq("user_id", userId!).maybeSingle()).data,
+    // Filter server-side: the browser only learns whether a PIN exists, never the hash.
+    queryFn: async () =>
+      (await supabase.from("driver_profiles").select("user_id").eq("user_id", userId!).not("withdrawal_pin_hash", "is", null).maybeSingle()).data,
   });
-  const hasPin = !!driver?.withdrawal_pin_hash;
+  const hasPin = !!driver;
   const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
   const [currentPin, setCurrentPin] = useState("");
@@ -383,7 +385,7 @@ function WithdrawalPinCard() {
         {hasPin && <StatusBadge label="Set" className="bg-success/15 text-success border-success/30" />}
       </div>
       <p className="text-xs text-muted-foreground">
-        Required to authorise withdrawals from your wallet. 4–8 digits. Five wrong entries locks withdrawals for 15 minutes.
+        Required to authorise withdrawals from your wallet. 4–8 digits. Five wrong entries lock withdrawals for 15 minutes; ten lock them for 24 hours. There is no self-service reset yet — contact support.
       </p>
       {hasPin && (
         <div>

@@ -341,6 +341,36 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
     },
   });
 
+  // Wallet context for reviewers: what the driver actually has available.
+  const wdUserIds = Array.from(new Set((wds ?? []).filter((r) => r.status === "pending").map((r) => r.user_id)));
+  const { data: walletsByUser } = useQuery({
+    queryKey: ["admin-wd-wallets", wdUserIds.join(",")],
+    enabled: wdUserIds.length > 0,
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("wallets").select("user_id,balance,held").in("user_id", wdUserIds);
+      return new Map<string, { balance: number; held: number }>(
+        ((data ?? []) as any[]).map((w) => [w.user_id, { balance: Number(w.balance), held: Number(w.held ?? 0) }]),
+      );
+    },
+  });
+
+  // Rows with a decision in flight: blocks repeat clicks (the database is also
+  // idempotent — a second approve fails with "Cannot approve").
+  const [busy, setBusy] = useState<Set<string>>(new Set());
+  const withBusy = async (id: string, fn: () => Promise<void>) => {
+    if (busy.has(id)) return;
+    setBusy((b) => new Set(b).add(id));
+    try {
+      await fn();
+    } finally {
+      setBusy((b) => {
+        const n = new Set(b);
+        n.delete(id);
+        return n;
+      });
+    }
+  };
+
   useEffect(() => {
     const ch = supabase
       .channel("admin-wallet-reqs")
@@ -356,28 +386,49 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
     };
   }, [qc]);
 
-  const approve = async (kind: "topup" | "withdrawal", id: string) => {
-    const rpc = kind === "topup" ? "admin_approve_topup" : "admin_approve_withdrawal";
-    const { error } = await (supabase as any).rpc(rpc, { _id: id });
-    if (error) {
-      if (isMfaRequiredError(error)) {
-        return toast.error(readableRpcError(error), {
-          action: { label: "Verify", onClick: () => window.location.assign(mfaVerifyHref()) },
-        });
+  const approve = (kind: "topup" | "withdrawal", id: string) =>
+    withBusy(id, async () => {
+      if (kind === "withdrawal") {
+        const r = (wds ?? []).find((w) => w.id === id);
+        const w = r ? walletsByUser?.get(r.user_id) : undefined;
+        const ok = window.confirm(
+          `Approve withdrawal of ${money(Number(r?.amount ?? 0))} via ${(r?.method ?? "").toUpperCase()} to ${r?.destination ?? "?"}?` +
+            (w ? `\n\nDriver wallet: balance ${money(w.balance)}, held ${money(w.held)}.` : "") +
+            "\n\nThis debits the driver's wallet now. It does NOT send money — you must make the transfer manually.",
+        );
+        if (!ok) return;
       }
-      return toast.error(readableRpcError(error));
-    }
-    toast.success(kind === "topup" ? "Approved & wallet credited" : "Approved & wallet debited");
-  };
+      const rpc = kind === "topup" ? "admin_approve_topup" : "admin_approve_withdrawal";
+      const { error } = await (supabase as any).rpc(rpc, { _id: id });
+      if (error) {
+        if (isMfaRequiredError(error)) {
+          return void toast.error(readableRpcError(error), {
+            action: { label: "Verify", onClick: () => window.location.assign(mfaVerifyHref()) },
+          });
+        }
+        return void toast.error(readableRpcError(error));
+      }
+      toast.success(
+        kind === "topup"
+          ? "Approved & wallet credited"
+          : "Approved — wallet debited. Remember to send the payout manually; nothing has been transferred.",
+      );
+      qc.invalidateQueries({ queryKey: ["admin-withdrawals"] });
+      qc.invalidateQueries({ queryKey: ["admin-topups"] });
+    });
 
-  const reject = async (kind: "topup" | "withdrawal", id: string) => {
-    const reason = window.prompt("Reason for rejection?") ?? "";
-    if (!reason.trim()) return;
-    const rpc = kind === "topup" ? "admin_reject_topup" : "admin_reject_withdrawal";
-    const { error } = await (supabase as any).rpc(rpc, { _id: id, _reason: reason });
-    if (error) return toast.error(error.message);
-    toast.success("Rejected");
-  };
+  const reject = (kind: "topup" | "withdrawal", id: string) =>
+    withBusy(id, async () => {
+      const reason = (window.prompt("Reason for rejection (shown to the driver, min 5 characters)?") ?? "").trim();
+      if (!reason) return;
+      if (reason.length < 5) return void toast.error("Please give a reason of at least 5 characters.");
+      const rpc = kind === "topup" ? "admin_reject_topup" : "admin_reject_withdrawal";
+      const { error } = await (supabase as any).rpc(rpc, { _id: id, _reason: reason });
+      if (error) return void toast.error(readableRpcError(error));
+      toast.success("Rejected");
+      qc.invalidateQueries({ queryKey: ["admin-withdrawals"] });
+      qc.invalidateQueries({ queryKey: ["admin-topups"] });
+    });
 
   const pendingTopups = (topups ?? []).filter((r) => r.status === "pending");
   const pendingWds = (wds ?? []).filter((r) => r.status === "pending");
@@ -496,21 +547,37 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
                     <div className="text-[11px] text-muted-foreground truncate">
                       {r.method.toUpperCase()} • {dest || "—"} • {new Date(r.created_at).toLocaleString()}
                     </div>
+                    {!isTopup && r.status === "pending" && walletsByUser?.get(r.user_id) && (
+                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                        Wallet: balance {money(walletsByUser.get(r.user_id)!.balance)} · held {money(walletsByUser.get(r.user_id)!.held)} · available{" "}
+                        {money(walletsByUser.get(r.user_id)!.balance - walletsByUser.get(r.user_id)!.held)}
+                      </div>
+                    )}
+                    {!isTopup && r.status === "approved" && (
+                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                        Wallet already debited. The system does not record the external transfer — confirm payment outside the app.
+                      </div>
+                    )}
                     <div className="mt-2 flex items-center justify-between gap-2">
                       <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase", statusTone[r.status])}>
-                        <Clock className="w-3 h-3" /> {r.status}
+                        <Clock className="w-3 h-3" />{" "}
+                        {!isTopup && r.status === "pending" ? "Awaiting review" : !isTopup && r.status === "approved" ? "Approved · pay manually" : r.status}
                       </span>
                       {r.status === "pending" && (
                         <div className="flex gap-1.5">
                           <button
+                            type="button"
+                            disabled={busy.has(r.id)}
                             onClick={() => reject(isTopup ? "topup" : "withdrawal", r.id)}
-                            className="rounded-lg border border-destructive/40 text-destructive px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1"
+                            className="disabled:opacity-50 rounded-lg border border-destructive/40 text-destructive px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1"
                           >
                             <X className="w-3 h-3" /> Reject
                           </button>
                           <button
+                            type="button"
+                            disabled={busy.has(r.id)}
                             onClick={() => approve(isTopup ? "topup" : "withdrawal", r.id)}
-                            className="rounded-lg bg-success text-success-foreground px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1"
+                            className="disabled:opacity-50 rounded-lg bg-success text-success-foreground px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1"
                           >
                             <Check className="w-3 h-3" /> Approve
                           </button>
