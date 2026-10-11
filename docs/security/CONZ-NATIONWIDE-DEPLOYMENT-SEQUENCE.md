@@ -19,6 +19,7 @@ Live migration list read (read-only) on 11/10/2026: last recorded = `20261008045
 | 0088 sourcing workflow | 0087, **0080** (`create_price_quote_for`), 0072 (`is_valid_money`) | cannot be applied before 0080 |
 | 0089 geographic dispatch | live `accept_dispatch_offer` body (= 0053 + 0072), `driver_can_accept`, `hold_job_commission` | no migration 0077–0086 redefines these |
 | 0090 sourcing booking radius | **0080** (base body), 0088 | fixes: customers could not book a sourcing quote |
+| 0091 flat commission | 0072 (hold/complete bodies), 0074 (escrow body), 0082 (complete_job body), 0065 | one `commission_amount()`; flat rate for every level; no data change needed (live check 11/10: 7 drivers all bronze, all completed charges already flat) |
 
 ## Sequence
 
@@ -28,13 +29,13 @@ Live migration list read (read-only) on 11/10/2026: last recorded = `20261008045
 3. Confirm Vercel serves `main` (hardened app). Smoke: login, wallet, job page.
 4. `0078`, then `0080`. Verify one priced test booking (quote created, `quote_id` on job, `consumed_at` set) and a wrong PIN.
 5. Owner decision: record `0087` in migration history (only the record; no SQL effect on live).
-6. `0088`, then `0090`, then `0089`. Run `select * from financial_reconciliation()` afterwards.
+6. `0088`, then `0090`, then `0089`, then `0091` (0091 must come after 0072/0074/0082 because it replaces their function bodies). Run `select * from financial_reconciliation()` afterwards.
 7. Deploy the feature-branch app (merge via PR). Safe if it lands before 0088: customers outside coverage get a
    controlled "couldn't record your sourcing request" error instead of a request; nothing else changes.
 8. Operate: an admin must verify at least one supplier site per material region, and drivers must be
    `available` with a fresh position and a registered truck, or 0089 offers nobody (admins get a `dispatch_manual_needed` notification).
 
-## Not changed (needs owner decision)
+## Owner decisions applied (11/10/2026)
 
-* Commission: hold/gate use the base rate, charge uses `rate x level multiplier` (`170_commission_level_multiplier`).
-* Open-job feed and bidding are not location-restricted (verified drivers see/bid on every open job).
+* Commission is a flat `commission_rate` (7%) for every driver level (0091 + `170_flat_commission`). Levels carry no fee discount; the app copy that promised discounts was removed.
+* Open-jobs feed: distance and "far from you" flag are shown in the app (`src/lib/jobDistance.ts`); nothing is hidden and bidding is not geo-restricted (`180_open_jobs_nationwide`). Instant dispatch stays geographic (0089).

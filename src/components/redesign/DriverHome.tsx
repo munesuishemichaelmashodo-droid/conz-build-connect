@@ -14,6 +14,7 @@ import { NotificationsBell } from "@/components/NotificationsBell";
 import { SidePanel } from "@/components/SidePanel";
 import { CzScreen, MaterialChips, usd2 } from "@/components/redesign";
 import { FeedJobCard, type FeedJob } from "@/components/redesign/FeedJobCard";
+import type { DriverFix } from "@/lib/jobDistance";
 import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 import { useQuickAccept } from "@/components/redesign/useQuickAccept";
 import { driverTodayEarnings, useCustomerCards } from "@/components/redesign/rpc";
@@ -75,6 +76,27 @@ export function DriverHome({
   });
 
   const capacities = (trucks ?? []).map((t) => Number(t.capacity_m3));
+
+  // The driver's own last position (set by the availability toggle). Display
+  // only: it drives the "how far is this pickup" line, never visibility.
+  const { data: driverFix } = useQuery({
+    queryKey: ["driver-fix", userId],
+    enabled: !!userId,
+    refetchInterval: 60_000,
+    queryFn: async (): Promise<DriverFix> => {
+      const { data } = await supabase
+        .from("driver_availability")
+        .select("lat,lng,updated_at")
+        .eq("driver_id", userId!)
+        .maybeSingle();
+      if (!data) return null;
+      return {
+        lat: data.lat != null ? Number(data.lat) : null,
+        lng: data.lng != null ? Number(data.lng) : null,
+        updatedAt: data.updated_at ?? null,
+      };
+    },
+  });
 
   // Migration 0060: today's earnings (Zimbabwe time) and customer cards.
   const { data: today } = useQuery({
@@ -146,12 +168,6 @@ export function DriverHome({
                 {level.nextAt != null && (
                   <span className="text-[11px] text-cz-faint">
                     {Math.max(0, level.nextAt - driver.jobs_completed)} to next level
-                    {level.discountPct > 0 ? ` · ${level.discountPct}% off fees` : ""}
-                  </span>
-                )}
-                {level.nextAt == null && level.discountPct > 0 && (
-                  <span className="text-[11px] text-cz-faint">
-                    {level.discountPct}% off Con Z fees
                   </span>
                 )}
               </div>
@@ -216,6 +232,7 @@ export function DriverHome({
                 onAccept={() => accept(j)}
                 accepting={busyJobId === j.id}
                 customer={cards[j.id]}
+                driverFix={driverFix ?? null}
               />
             ))
           )}

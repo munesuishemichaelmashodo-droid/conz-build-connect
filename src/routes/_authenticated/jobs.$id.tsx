@@ -1192,9 +1192,9 @@ function BidForm({
   const budget = Number(job?.budget ?? 0);
   const priceNum = Math.max(0, Number(price) || 0);
   const setPriceNum = (n: number) => setPrice(String(Math.max(5, Math.round(n * 100) / 100)));
-  const discountPct = driverProfile ? levelInfo(driverProfile.level).discountPct : 0;
   const firstJobFree = driverProfile ? driverProfile.first_job_free_used === false : false;
-  const effectivePct = commissionRate != null ? commissionRate * (1 - discountPct / 100) : null;
+  // Flat commission for every driver level (owner decision 11/10/2026).
+  const effectivePct = commissionRate != null ? commissionRate : null;
   const fee = effectivePct != null ? (firstJobFree ? 0 : Math.round(priceNum * effectivePct) / 100) : null;
   const pctLabel = effectivePct != null ? `${Number(effectivePct.toFixed(2))}%` : "";
   const chips = budget > 0 ? [budget, budget + 10, budget + 20, budget + 30] : [];
@@ -2665,7 +2665,7 @@ function DriverPaid({ ctx }: { ctx: JobScreenCtx }) {
               <div className="h-2 rounded-full bg-cz-amber" style={{ width: `${progress}%` }} />
             </div>
             <p className="text-[13px] text-cz-muted">
-              {next ? `${next.label} drivers get ${next.discountPct}% off Con Z fees.` : `You get ${lvl.discountPct}% off Con Z fees.`}
+              {next ? `Reach ${next.label} by completing more jobs with good ratings.` : "You're at the top level."} The Con Z fee is the same at every level.
             </p>
           </CzCard>
         )}
