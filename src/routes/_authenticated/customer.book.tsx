@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { AddressPicker } from "@/components/AddressPicker";
 import { SpotlightCallout } from "@/components/SpotlightCallout";
@@ -23,7 +23,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
-import { computeOffer, explainOffer, type OfferResult } from "@/lib/booking.functions";
+import {
+  computeOffer,
+  explainOffer,
+  getSourcingOffer,
+  type AwaitingSourcingResult,
+  type OfferResult,
+} from "@/lib/booking.functions";
 import { motion } from "framer-motion";
 import {
   CzScreen,
@@ -49,6 +55,8 @@ const bookSearchSchema = z.object({
   lat: z.coerce.number().optional(),
   lng: z.coerce.number().optional(),
   driverId: z.string().optional(),
+  // Set when the customer returns to book an admin-issued sourcing quote.
+  sourcingRequestId: z.string().uuid().optional(),
 });
 
 export const Route = createFileRoute("/_authenticated/customer/book")({
@@ -69,6 +77,7 @@ function BookDelivery() {
 
   const runOffer = useServerFn(computeOffer);
   const runExplain = useServerFn(explainOffer);
+  const runSourcingOffer = useServerFn(getSourcingOffer);
 
   const [step, setStep] = useState<number>(0);
   const [address, setAddress] = useState(search.address ?? "");
@@ -84,6 +93,17 @@ function BookDelivery() {
   const [computing, setComputing] = useState(false);
   const [offerData, setOfferData] = useState<OfferResult | null>(null);
   const [offer, setOffer] = useState<number>(0);
+  // "No verified supplier yet": the request was recorded for sourcing instead of quoted.
+  const [sourcingResult, setSourcingResult] = useState<AwaitingSourcingResult | null>(null);
+  // One idempotency key per distinct request, so a retried submit maps to the same sourcing request.
+  const attemptRef = useRef<{ sig: string; key: string } | null>(null);
+  const attemptKey = () => {
+    const sig = [material, quantity, coords?.lat, coords?.lng, address.trim()].join("|");
+    if (!attemptRef.current || attemptRef.current.sig !== sig) {
+      attemptRef.current = { sig, key: `req-${crypto.randomUUID()}` };
+    }
+    return attemptRef.current.key;
+  };
   const [posting, setPosting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"direct" | "escrow">("direct");
   // Redesign: the date/notes drawer grows the sheet, so the map controls move up.
@@ -100,6 +120,36 @@ function BookDelivery() {
     ro.observe(sheetEl);
     return () => ro.disconnect();
   }, [sheetEl]);
+
+  // Returning from the sourcing tracker with a ready quote: rebuild the offer
+  // server-side from the stored quote (re-validated there) and go to confirm.
+  useEffect(() => {
+    const id = search.sourcingRequestId;
+    if (!id) return;
+    let cancelled = false;
+    setComputing(true);
+    runSourcingOffer({ data: { requestId: id } })
+      .then((r) => {
+        if (cancelled) return;
+        setMaterial(r.material as MaterialCategory);
+        setQuantity(r.quantity);
+        setAddress(r.delivery.address);
+        setCoords({ lat: r.delivery.lat, lng: r.delivery.lng });
+        setOfferData(r);
+        setOffer(r.offer);
+        setStep(5);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) toast.error(e instanceof Error ? e.message : "Could not load your sourcing quote");
+      })
+      .finally(() => {
+        if (!cancelled) setComputing(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per sourcing request id
+  }, [search.sourcingRequestId]);
 
   // Approximate (~1 km) Online trucks around the selected delivery pin.
   const nearbyTrucks = useNearbyTrucks(coords);
@@ -138,8 +188,15 @@ function BookDelivery() {
           deliveryLat: coords.lat,
           deliveryLng: coords.lng,
           address,
+          idempotencyKey: attemptKey(),
         },
       });
+
+      if (result.status === "awaiting_sourcing") {
+        attemptRef.current = null;
+        setSourcingResult(result);
+        return;
+      }
 
       setOfferData(result);
       setOffer(result.offer);
@@ -249,6 +306,29 @@ function BookDelivery() {
     const next = Math.round((quantity + dir * stepSize) * 100) / 100;
     setQuantity(Math.min(30, Math.max(MIN_QUANTITY_M3, next)));
   };
+
+  if (sourcingResult) {
+    return (
+      <CzScreen>
+        <CzHeader title="Finding a supplier" onBack={() => setSourcingResult(null)} />
+        <div className="px-5 pb-8 space-y-4" role="status">
+          <CzCard>
+            <div className="space-y-3 p-4">
+              <h1 className="cz-display font-bold text-[22px] leading-tight">We're sourcing this for you</h1>
+              <p className="text-sm text-cz-text-2">{sourcingResult.message}</p>
+              <p className="text-sm text-cz-text-2">
+                {sourcingResult.quantity} m³ · {material.replace("_", " ")} · {address}
+              </p>
+            </div>
+          </CzCard>
+          <CzButton onClick={() => nav({ to: "/customer/sourcing" })}>Track my sourcing requests</CzButton>
+          <CzButton kind="secondary" onClick={() => setSourcingResult(null)}>
+            Change details
+          </CzButton>
+        </div>
+      </CzScreen>
+    );
+  }
 
   if (step !== 5 || !offerData) {
     return (

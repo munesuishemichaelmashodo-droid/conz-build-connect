@@ -3,6 +3,14 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getRoute } from "@/lib/routing.functions";
 import { resolveMaterialSource, type ResolvedMaterialSource } from "@/lib/materialSource.functions";
+import {
+  anonymousAwaitingSourcing,
+  classifyResolution,
+  createSourcingFallback,
+  type AwaitingSourcingResult,
+} from "@/lib/sourcingFallback";
+
+export type { AwaitingSourcingResult } from "@/lib/sourcingFallback";
 
 const MATERIALS = [
   "river_sand",
@@ -28,6 +36,10 @@ const OfferInput = z.object({
   deliveryLat: z.number().finite().min(-23).max(-15),
   deliveryLng: z.number().finite().min(25).max(33.5),
   address: z.string().max(200).optional(),
+  // Optional client-generated key so a retried "no supplier" submit maps to
+  // the same sourcing request (the database also de-duplicates identical open
+  // requests when no key is sent).
+  idempotencyKey: z.string().min(8).max(128).optional(),
 });
 
 function parseOfferInput(input: unknown) {
@@ -54,11 +66,15 @@ async function resolvePickupAndDistance(
     deliveryLat: number;
     deliveryLng: number;
   },
-): Promise<{
-  distanceKm: number;
-  source: DistanceSource;
-  resolvedSource: ResolvedMaterialSource;
-}> {
+): Promise<
+  | {
+      kind: "resolved";
+      distanceKm: number;
+      source: DistanceSource;
+      resolvedSource: ResolvedMaterialSource;
+    }
+  | { kind: "no_supply"; reason: "no_source_configured" | "no_eligible_source" }
+> {
   const resolution = await resolveMaterialSource(
     sb,
     data.material,
@@ -67,16 +83,20 @@ async function resolvePickupAndDistance(
     data.deliveryLng,
   );
 
-  if (resolution.status === "source_resolved") {
+  const outcome = classifyResolution(resolution);
+  if (outcome.kind === "resolved" && resolution.status === "source_resolved") {
     return {
+      kind: "resolved",
       distanceKm: resolution.source.distanceKm,
       source: resolution.source.distanceSource,
       resolvedSource: resolution.source,
     };
   }
-  if (resolution.status === "no_source_configured") {
-    throw new Error("No verified supplier pickup is configured for this material yet.");
-  }
+  // No verified, in-stock supplier for this order: the caller records a
+  // sourcing request instead of rejecting (or inventing) anything.
+  if (outcome.kind === "no_supply") return { kind: "no_supply", reason: outcome.reason };
+  // We could not determine availability (infrastructure / routing). Retryable
+  // error -- must NOT be reported to the customer as "no supplier".
   throw new Error("Unable to determine a verified material pickup location. Please try again.");
 }
 
@@ -144,6 +164,7 @@ function customQuoteMessage(
 }
 
 export type OfferResult = {
+  status: "offer";
   offer: number;
   min: number;
   max: number;
@@ -211,6 +232,7 @@ function buildOfferResult(
   const tripCount = Number(g.tripCount ?? 1);
 
   return {
+    status: "offer",
     offer,
     min,
     max,
@@ -243,9 +265,13 @@ function buildOfferResult(
 export const computeOffer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(parseOfferInput)
-  .handler(async ({ data, context }): Promise<OfferResult> => {
+  .handler(async ({ data, context }): Promise<OfferResult | AwaitingSourcingResult> => {
     const { supabase } = context;
-    const { distanceKm, source, resolvedSource } = await resolvePickupAndDistance(supabase, data);
+    const picked = await resolvePickupAndDistance(supabase, data);
+    if (picked.kind === "no_supply") {
+      return createSourcingFallback(supabase as never, data, picked.reason);
+    }
+    const { distanceKm, source, resolvedSource } = picked;
     if (distanceKm > MAX_SERVICE_KM) throw new Error(TOO_FAR_MESSAGE);
 
     const quoteId = await tryCreateQuote(
@@ -280,12 +306,13 @@ export const computeOffer = createServerFn({ method: "POST" })
  */
 export const computePublicOffer = createServerFn({ method: "POST" })
   .inputValidator(parseOfferInput)
-  .handler(async ({ data }): Promise<OfferResult> => {
+  .handler(async ({ data }): Promise<OfferResult | AwaitingSourcingResult> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { distanceKm, source, resolvedSource } = await resolvePickupAndDistance(
-      supabaseAdmin,
-      data,
-    );
+    const picked = await resolvePickupAndDistance(supabaseAdmin, data);
+    // Anonymous visitors: nothing is stored and no price is invented. They are
+    // told honestly that sourcing is needed and asked to sign in to request it.
+    if (picked.kind === "no_supply") return anonymousAwaitingSourcing(data, picked.reason);
+    const { distanceKm, source, resolvedSource } = picked;
     if (distanceKm > MAX_SERVICE_KM) throw new Error(TOO_FAR_MESSAGE);
 
     // Anonymous quotes aren't tied to a customer and never feed a real job
@@ -314,6 +341,110 @@ export const computePublicOffer = createServerFn({ method: "POST" })
     }
 
     return buildOfferResult(g, data.material, data.quantity, distanceKm, quoteId, resolvedSource);
+  });
+
+const SourcingOfferInput = z.object({ requestId: z.string().uuid() });
+
+export type SourcingOfferResult = OfferResult & {
+  sourcingRequestId: string;
+  material: string;
+  quantity: number;
+  validUntil: string;
+  terms: string | null;
+  delivery: { address: string; lat: number; lng: number };
+};
+
+/**
+ * Turns an admin-issued, engine-priced sourcing quote back into the same
+ * OfferResult the normal booking flow consumes, so the customer books it
+ * through the existing job/payment path. Nothing here is client-trusted: the
+ * request is read through the customer's own RLS, and the quote, supply
+ * location and price are re-read and re-validated server-side. Booking is
+ * still the customer's explicit action -- this never creates a job.
+ */
+export const getSourcingOffer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => SourcingOfferInput.parse(input))
+  .handler(async ({ data, context }): Promise<SourcingOfferResult> => {
+    const { supabase, userId } = context;
+    /* eslint-disable @typescript-eslint/no-explicit-any -- sourcing tables/columns are not in the generated Supabase types yet (0087/0088 unapplied). */
+    const { data: req, error } = await (supabase as any)
+      .from("material_sourcing_requests")
+      .select(
+        "id, customer_id, material, quantity_m3, status, quote_id, quote_valid_until, terms, delivery_address, delivery_lat, delivery_lng, supply_location_id",
+      )
+      .eq("id", data.requestId)
+      .maybeSingle();
+    if (error || !req || req.customer_id !== userId) throw new Error("Sourcing request not found.");
+    if (req.status !== "quote_ready" || !req.quote_id || !req.supply_location_id || !req.quote_valid_until) {
+      throw new Error("This sourcing request doesn't have an active quote.");
+    }
+    if (new Date(req.quote_valid_until).getTime() <= Date.now()) {
+      throw new Error("This quote has expired. Please request sourcing again.");
+    }
+    if (req.delivery_lat == null || req.delivery_lng == null) {
+      throw new Error("This request has no delivery pin, so it can't be booked.");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as any;
+    const { data: quote } = await admin
+      .from("price_quotes")
+      .select("id, customer_id, distance_km, distance_source, expires_at, consumed_at, supply_location_id")
+      .eq("id", req.quote_id)
+      .maybeSingle();
+    if (
+      !quote ||
+      quote.customer_id !== userId ||
+      quote.consumed_at ||
+      quote.supply_location_id !== req.supply_location_id ||
+      new Date(quote.expires_at).getTime() <= Date.now() ||
+      (quote.distance_source !== "osrm" && quote.distance_source !== "haversine")
+    ) {
+      throw new Error("This quote is no longer valid. Please request sourcing again.");
+    }
+    const { data: loc } = await admin
+      .from("material_supply_locations")
+      .select("id, supplier_id, source_type, label, address, lat, lng, suppliers(name)")
+      .eq("id", req.supply_location_id)
+      .maybeSingle();
+    if (!loc || loc.lat == null || loc.lng == null) {
+      throw new Error("The supplier location for this quote is no longer available.");
+    }
+
+    const { data: guide, error: guideErr } = await admin.rpc("compute_material_offer", {
+      _material: req.material,
+      _quantity: Number(req.quantity_m3),
+      _distance_km: Number(quote.distance_km),
+    });
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+    if (guideErr) throw new Error(guideErr.message);
+    const g = guide as OfferGuide;
+    if (g.requiresCustomQuote) throw new Error(customQuoteMessage(g, Number(req.quantity_m3)));
+
+    const resolvedSource: ResolvedMaterialSource = {
+      supplyLocationId: loc.id,
+      supplierId: loc.supplier_id,
+      supplierName: loc.suppliers?.name ?? "Verified supplier",
+      sourceType: loc.source_type,
+      label: loc.label ?? null,
+      address: loc.address ?? null,
+      lat: Number(loc.lat),
+      lng: Number(loc.lng),
+      distanceKm: Number(quote.distance_km),
+      distanceSource: quote.distance_source,
+      locationPrecision: "exact",
+    };
+    const offer = buildOfferResult(g, req.material, Number(req.quantity_m3), Number(quote.distance_km), req.quote_id, resolvedSource);
+    return {
+      ...offer,
+      sourcingRequestId: req.id,
+      material: req.material,
+      quantity: Number(req.quantity_m3),
+      validUntil: req.quote_valid_until,
+      terms: req.terms ?? null,
+      delivery: { address: req.delivery_address, lat: Number(req.delivery_lat), lng: Number(req.delivery_lng) },
+    };
   });
 
 const ExplainInput = z.object({

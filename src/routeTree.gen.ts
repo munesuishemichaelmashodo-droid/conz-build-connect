@@ -44,12 +44,14 @@ import { Route as AuthenticatedAdminReferralsRouteImport } from './routes/_authe
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
 import { Route as AuthenticatedAdminRevenueRouteImport } from './routes/_authenticated/admin.revenue'
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
+import { Route as AuthenticatedAdminSourcingRouteImport } from './routes/_authenticated/admin.sourcing'
 import { Route as AuthenticatedAdminSupplyCoverageRouteImport } from './routes/_authenticated/admin.supply-coverage'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedAdminVerificationsRouteImport } from './routes/_authenticated/admin.verifications'
 import { Route as AuthenticatedChatJobIdRouteImport } from './routes/_authenticated/chat.$jobId'
 import { Route as AuthenticatedCustomerIndexRouteImport } from './routes/_authenticated/customer.index'
 import { Route as AuthenticatedCustomerBookRouteImport } from './routes/_authenticated/customer.book'
+import { Route as AuthenticatedCustomerSourcingRouteImport } from './routes/_authenticated/customer.sourcing'
 import { Route as AuthenticatedJobsIndexRouteImport } from './routes/_authenticated/jobs.index'
 import { Route as AuthenticatedJobsIdRouteImport } from './routes/_authenticated/jobs.$id'
 import { Route as AuthenticatedJobsNewRouteImport } from './routes/_authenticated/jobs.new'
@@ -241,6 +243,12 @@ const AuthenticatedAdminSettingsRoute =
     path: '/settings',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminSourcingRoute =
+  AuthenticatedAdminSourcingRouteImport.update({
+    id: '/sourcing',
+    path: '/sourcing',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminSupplyCoverageRoute =
   AuthenticatedAdminSupplyCoverageRouteImport.update({
     id: '/supply-coverage',
@@ -273,6 +281,12 @@ const AuthenticatedCustomerBookRoute =
   AuthenticatedCustomerBookRouteImport.update({
     id: '/book',
     path: '/book',
+    getParentRoute: () => AuthenticatedCustomerRoute,
+  } as any)
+const AuthenticatedCustomerSourcingRoute =
+  AuthenticatedCustomerSourcingRouteImport.update({
+    id: '/sourcing',
+    path: '/sourcing',
     getParentRoute: () => AuthenticatedCustomerRoute,
   } as any)
 const AuthenticatedJobsIndexRoute = AuthenticatedJobsIndexRouteImport.update({
@@ -336,11 +350,13 @@ export interface FileRoutesByFullPath {
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/revenue': typeof AuthenticatedAdminRevenueRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
+  '/admin/sourcing': typeof AuthenticatedAdminSourcingRoute
   '/admin/supply-coverage': typeof AuthenticatedAdminSupplyCoverageRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/verifications': typeof AuthenticatedAdminVerificationsRoute
   '/chat/$jobId': typeof AuthenticatedChatJobIdRoute
   '/customer/book': typeof AuthenticatedCustomerBookRoute
+  '/customer/sourcing': typeof AuthenticatedCustomerSourcingRoute
   '/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/jobs/new': typeof AuthenticatedJobsNewRoute
   '/api/internal/paynow-reconcile': typeof ApiInternalPaynowReconcileRoute
@@ -381,11 +397,13 @@ export interface FileRoutesByTo {
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/revenue': typeof AuthenticatedAdminRevenueRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
+  '/admin/sourcing': typeof AuthenticatedAdminSourcingRoute
   '/admin/supply-coverage': typeof AuthenticatedAdminSupplyCoverageRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/verifications': typeof AuthenticatedAdminVerificationsRoute
   '/chat/$jobId': typeof AuthenticatedChatJobIdRoute
   '/customer/book': typeof AuthenticatedCustomerBookRoute
+  '/customer/sourcing': typeof AuthenticatedCustomerSourcingRoute
   '/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/jobs/new': typeof AuthenticatedJobsNewRoute
   '/api/internal/paynow-reconcile': typeof ApiInternalPaynowReconcileRoute
@@ -430,11 +448,13 @@ export interface FileRoutesById {
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/revenue': typeof AuthenticatedAdminRevenueRoute
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
+  '/_authenticated/admin/sourcing': typeof AuthenticatedAdminSourcingRoute
   '/_authenticated/admin/supply-coverage': typeof AuthenticatedAdminSupplyCoverageRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/admin/verifications': typeof AuthenticatedAdminVerificationsRoute
   '/_authenticated/chat/$jobId': typeof AuthenticatedChatJobIdRoute
   '/_authenticated/customer/book': typeof AuthenticatedCustomerBookRoute
+  '/_authenticated/customer/sourcing': typeof AuthenticatedCustomerSourcingRoute
   '/_authenticated/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/_authenticated/jobs/new': typeof AuthenticatedJobsNewRoute
   '/api/internal/paynow-reconcile': typeof ApiInternalPaynowReconcileRoute
@@ -479,11 +499,13 @@ export interface FileRouteTypes {
     | '/admin/reports'
     | '/admin/revenue'
     | '/admin/settings'
+    | '/admin/sourcing'
     | '/admin/supply-coverage'
     | '/admin/users'
     | '/admin/verifications'
     | '/chat/$jobId'
     | '/customer/book'
+    | '/customer/sourcing'
     | '/jobs/$id'
     | '/jobs/new'
     | '/api/internal/paynow-reconcile'
@@ -524,11 +546,13 @@ export interface FileRouteTypes {
     | '/admin/reports'
     | '/admin/revenue'
     | '/admin/settings'
+    | '/admin/sourcing'
     | '/admin/supply-coverage'
     | '/admin/users'
     | '/admin/verifications'
     | '/chat/$jobId'
     | '/customer/book'
+    | '/customer/sourcing'
     | '/jobs/$id'
     | '/jobs/new'
     | '/api/internal/paynow-reconcile'
@@ -572,11 +596,13 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/revenue'
     | '/_authenticated/admin/settings'
+    | '/_authenticated/admin/sourcing'
     | '/_authenticated/admin/supply-coverage'
     | '/_authenticated/admin/users'
     | '/_authenticated/admin/verifications'
     | '/_authenticated/chat/$jobId'
     | '/_authenticated/customer/book'
+    | '/_authenticated/customer/sourcing'
     | '/_authenticated/jobs/$id'
     | '/_authenticated/jobs/new'
     | '/api/internal/paynow-reconcile'
@@ -853,6 +879,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSettingsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/sourcing': {
+      id: '/_authenticated/admin/sourcing'
+      path: '/sourcing'
+      fullPath: '/admin/sourcing'
+      preLoaderRoute: typeof AuthenticatedAdminSourcingRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/supply-coverage': {
       id: '/_authenticated/admin/supply-coverage'
       path: '/supply-coverage'
@@ -893,6 +926,13 @@ declare module '@tanstack/react-router' {
       path: '/book'
       fullPath: '/customer/book'
       preLoaderRoute: typeof AuthenticatedCustomerBookRouteImport
+      parentRoute: typeof AuthenticatedCustomerRoute
+    }
+    '/_authenticated/customer/sourcing': {
+      id: '/_authenticated/customer/sourcing'
+      path: '/sourcing'
+      fullPath: '/customer/sourcing'
+      preLoaderRoute: typeof AuthenticatedCustomerSourcingRouteImport
       parentRoute: typeof AuthenticatedCustomerRoute
     }
     '/_authenticated/jobs/': {
@@ -942,6 +982,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
   AuthenticatedAdminRevenueRoute: typeof AuthenticatedAdminRevenueRoute
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
+  AuthenticatedAdminSourcingRoute: typeof AuthenticatedAdminSourcingRoute
   AuthenticatedAdminSupplyCoverageRoute: typeof AuthenticatedAdminSupplyCoverageRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedAdminVerificationsRoute: typeof AuthenticatedAdminVerificationsRoute
@@ -957,6 +998,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
   AuthenticatedAdminRevenueRoute: AuthenticatedAdminRevenueRoute,
   AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
+  AuthenticatedAdminSourcingRoute: AuthenticatedAdminSourcingRoute,
   AuthenticatedAdminSupplyCoverageRoute: AuthenticatedAdminSupplyCoverageRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedAdminVerificationsRoute: AuthenticatedAdminVerificationsRoute,
@@ -968,11 +1010,13 @@ const AuthenticatedAdminRouteWithChildren =
 
 interface AuthenticatedCustomerRouteChildren {
   AuthenticatedCustomerBookRoute: typeof AuthenticatedCustomerBookRoute
+  AuthenticatedCustomerSourcingRoute: typeof AuthenticatedCustomerSourcingRoute
   AuthenticatedCustomerIndexRoute: typeof AuthenticatedCustomerIndexRoute
 }
 
 const AuthenticatedCustomerRouteChildren: AuthenticatedCustomerRouteChildren = {
   AuthenticatedCustomerBookRoute: AuthenticatedCustomerBookRoute,
+  AuthenticatedCustomerSourcingRoute: AuthenticatedCustomerSourcingRoute,
   AuthenticatedCustomerIndexRoute: AuthenticatedCustomerIndexRoute,
 }
 

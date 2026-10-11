@@ -1,6 +1,6 @@
 ﻿import { createFileRoute, Outlet, Link, useRouterState, redirect } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { LayoutDashboard, Users, ShieldCheck, Gavel, Settings as SettingsIcon, TrendingUp, ScrollText, BookOpen, MessageSquareWarning, Gift, MapPin, HandCoins } from "lucide-react";
+import { LayoutDashboard, Users, ShieldCheck, Gavel, Settings as SettingsIcon, TrendingUp, ScrollText, BookOpen, MessageSquareWarning, Gift, MapPin, HandCoins, PackageSearch } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -34,6 +34,7 @@ const TABS: { to: string; label: string; icon: typeof Users; exact?: boolean; su
   { to: "/admin/disputes", label: "Disputes", icon: Gavel },
   { to: "/admin/referrals", label: "Referrals", icon: Gift },
   { to: "/admin/reports", label: "Reports", icon: MessageSquareWarning },
+  { to: "/admin/sourcing", label: "Sourcing", icon: PackageSearch },
   { to: "/admin/supply-coverage", label: "Supply", icon: MapPin },
   { to: "/admin/audit", label: "Audit", icon: ScrollText, superOnly: true },
   { to: "/admin/ledger", label: "Ledger", icon: BookOpen, superOnly: true },
