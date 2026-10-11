@@ -145,11 +145,11 @@ select throws_ok(format($$select public.issue_sourcing_quote(%L, %L, %L, 'NaN', 
   null, null, 'A non-finite distance is rejected');
 select throws_ok(format($$select public.issue_sourcing_quote(%L, %L, %L, 20, 'client_provided', 48, 'Pay on booking')$$, current_setting('t.r1'), current_setting('t.admin'), current_setting('t.loc')),
   null, null, 'A client-provided distance can never become a quote');
-select set_config('t.q1', public.issue_sourcing_quote(current_setting('t.r1')::uuid, current_setting('t.admin')::uuid, current_setting('t.loc')::uuid, 20, 'osrm', 48, 'Pay on booking; pickup Bulawayo', 'verified by phone')::text, true);
+select set_config('t.q1', public.issue_sourcing_quote(current_setting('t.r1')::uuid, current_setting('t.admin')::uuid, current_setting('t.loc')::uuid, 400, 'osrm', 48, 'Pay on booking; pickup Bulawayo', 'verified by phone')::text, true);
 select tests.as_owner();
 select is((select status from public.material_sourcing_requests where id = current_setting('t.r1')::uuid), 'quote_ready', 'A valid, verified supply location produces a quote');
 select is((select quoted_total from public.material_sourcing_requests where id = current_setting('t.r1')::uuid),
-  (public.compute_material_offer('river_sand', 12, 20)->>'offer')::numeric,
+  (public.compute_material_offer('river_sand', 12, 400)->>'offer')::numeric,
   'The quoted total is exactly what the pricing engine produces (admins never type a price)');
 select is((select customer_id from public.price_quotes where id = current_setting('t.q1')::uuid), current_setting('t.c1')::uuid, 'The quote is bound to the requesting customer');
 select cmp_ok((select expires_at from public.price_quotes where id = current_setting('t.q1')::uuid), '>', now() + interval '47 hours', 'The quote lives for the validity window');
