@@ -4,7 +4,7 @@
 -- commission discount. $400 job at 7% = $28.00 for bronze/silver/gold/platinum.
 
 begin;
-select plan(31);
+select plan(33);
 
 select set_config('t.cust',  tests.create_user('fc_cust')::text, true);
 select set_config('t.super', tests.create_user('fc_super', array['super_admin','admin'])::text, true);
@@ -158,6 +158,14 @@ select is((select commission from public.jobs where id = current_setting('t.jc')
 select tests.as_service();
 select is((select count(*)::int from public.financial_reconciliation() where not ok), 0, 'financial reconciliation: every check ok');
 select is((select ok from public.financial_reconciliation() where check_name = 'held_commission_matches_jobs'), true, 'held commission matches active jobs');
+
+-- 31-32: the legacy per-level multiplier can no longer express a discount
+select tests.as_service();
+select is((select count(distinct public.driver_level_commission_multiplier(l))::int from unnest(enum_range(null::public.driver_level)) l), 1,
+  'every driver level maps to the same commission multiplier');
+select is((select min(public.driver_level_commission_multiplier(l)) from unnest(enum_range(null::public.driver_level)) l), 1.00::numeric,
+  'and that multiplier is 1.00 (no level discount)');
+select tests.as_owner();
 
 select * from finish();
 rollback;

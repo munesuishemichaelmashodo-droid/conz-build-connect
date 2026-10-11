@@ -14,7 +14,8 @@
 //
 // Usage:
 //   node scripts/db-test.mjs start   # build .dbtest/ and start a fresh local stack
-//   node scripts/db-test.mjs test    # (re)sync tests and run pgTAP
+//   node scripts/db-test.mjs test    # rebuild the DB from the CURRENT migrations, then run pgTAP
+//                                    #   (add --keep to skip the rebuild and reuse the running DB)
 //   node scripts/db-test.mjs reset   # rebuild the DB from migrations (fresh state)
 //   node scripts/db-test.mjs stop    # stop and discard the local stack
 
@@ -84,6 +85,20 @@ function syncTests() {
     cpSync(SRC_TESTS, path.join(WD_SUPABASE, "tests"), { recursive: true });
 }
 
+// Run the CLI, echo its output, and keep a copy in .dbtest/last-run.txt so a
+// failed run can be inspected without copying anything from the terminal.
+function supabaseLogged(args) {
+  const r = spawnSync("npx", ["supabase", ...args, "--workdir", WORKDIR], {
+    encoding: "utf8",
+    maxBuffer: 256 * 1024 * 1024,
+    shell: process.platform === "win32",
+  });
+  const text = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+  process.stdout.write(text);
+  writeFileSync(path.join(WORKDIR, "last-run.txt"), text);
+  if (r.status !== 0) process.exit(r.status ?? 1);
+}
+
 function supabase(args) {
   const r = spawnSync("npx", ["supabase", ...args, "--workdir", WORKDIR], {
     stdio: "inherit",
@@ -103,8 +118,16 @@ switch (cmd) {
     supabase(["db", "reset", "--local"]);
     break;
   case "test":
-    syncTests();
-    supabase(["test", "db", "--local"]);
+    // A running local DB keeps whatever migrations it was started with, so
+    // `test` alone silently ran new tests against an old schema (missing
+    // functions, old signatures). Rebuild from the current migrations first.
+    if (process.argv.includes("--keep")) {
+      syncTests();
+    } else {
+      build();
+      supabase(["db", "reset", "--local"]);
+    }
+    supabaseLogged(["test", "db", "--local"]);
     break;
   case "stop":
     supabase(["stop", "--no-backup"]);

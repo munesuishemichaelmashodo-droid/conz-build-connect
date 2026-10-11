@@ -16,7 +16,7 @@ do $$
 declare _good uuid; _unver uuid; _loc uuid; _bad_loc uuid; _low uuid; _pend uuid;
 begin
   insert into public.suppliers (name, verification_status) values ('Sourcing Test Good', 'verified') returning id into _good;
-  insert into public.suppliers (name, verification_status) values ('Sourcing Test Unverified', 'pending') returning id into _unver;
+  insert into public.suppliers (name, verification_status) values ('Sourcing Test Unverified', 'unverified') returning id into _unver;
   insert into public.material_supply_locations
     (supplier_id, material, source_type, label, address, lat, lng, status, verification_status,
      available_quantity_m3, priority, service_radius_km, location_precision)
@@ -38,7 +38,7 @@ begin
   insert into public.material_supply_locations
     (supplier_id, material, source_type, label, address, lat, lng, status, verification_status,
      available_quantity_m3, priority, service_radius_km, location_precision)
-  values (_good, 'river_sand', 'supplier', 'Unverified site', 'x', -20.15, 28.58, 'active', 'pending', 100, 1, 50, 'exact')
+  values (_good, 'river_sand', 'supplier', 'Unverified site', 'x', -20.15, 28.58, 'active', 'unverified', 100, 1, 50, 'exact')
   returning id into _pend;
   perform set_config('t.loc_pending', _pend::text, true);
 end $$;
