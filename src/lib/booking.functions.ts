@@ -376,7 +376,12 @@ export const getSourcingOffer = createServerFn({ method: "POST" })
       .eq("id", data.requestId)
       .maybeSingle();
     if (error || !req || req.customer_id !== userId) throw new Error("Sourcing request not found.");
-    if (req.status !== "quote_ready" || !req.quote_id || !req.supply_location_id || !req.quote_valid_until) {
+    if (
+      req.status !== "quote_ready" ||
+      !req.quote_id ||
+      !req.supply_location_id ||
+      !req.quote_valid_until
+    ) {
       throw new Error("This sourcing request doesn't have an active quote.");
     }
     if (new Date(req.quote_valid_until).getTime() <= Date.now()) {
@@ -390,7 +395,9 @@ export const getSourcingOffer = createServerFn({ method: "POST" })
     const admin = supabaseAdmin as any;
     const { data: quote } = await admin
       .from("price_quotes")
-      .select("id, customer_id, distance_km, distance_source, expires_at, consumed_at, supply_location_id")
+      .select(
+        "id, customer_id, distance_km, distance_source, expires_at, consumed_at, supply_location_id",
+      )
       .eq("id", req.quote_id)
       .maybeSingle();
     if (
@@ -399,7 +406,7 @@ export const getSourcingOffer = createServerFn({ method: "POST" })
       quote.consumed_at ||
       quote.supply_location_id !== req.supply_location_id ||
       new Date(quote.expires_at).getTime() <= Date.now() ||
-      (quote.distance_source !== "osrm" && quote.distance_source !== "haversine")
+      quote.distance_source !== "osrm"
     ) {
       throw new Error("This quote is no longer valid. Please request sourcing again.");
     }
@@ -435,7 +442,14 @@ export const getSourcingOffer = createServerFn({ method: "POST" })
       distanceSource: quote.distance_source,
       locationPrecision: "exact",
     };
-    const offer = buildOfferResult(g, req.material, Number(req.quantity_m3), Number(quote.distance_km), req.quote_id, resolvedSource);
+    const offer = buildOfferResult(
+      g,
+      req.material,
+      Number(req.quantity_m3),
+      Number(quote.distance_km),
+      req.quote_id,
+      resolvedSource,
+    );
     return {
       ...offer,
       sourcingRequestId: req.id,
@@ -443,7 +457,11 @@ export const getSourcingOffer = createServerFn({ method: "POST" })
       quantity: Number(req.quantity_m3),
       validUntil: req.quote_valid_until,
       terms: req.terms ?? null,
-      delivery: { address: req.delivery_address, lat: Number(req.delivery_lat), lng: Number(req.delivery_lng) },
+      delivery: {
+        address: req.delivery_address,
+        lat: Number(req.delivery_lat),
+        lng: Number(req.delivery_lng),
+      },
     };
   });
 
