@@ -82,6 +82,8 @@ function BookDelivery() {
   const [notes, setNotes] = useState("");
   const [date, setDate] = useState("");
   const [computing, setComputing] = useState(false);
+  const [sourceUnavailable, setSourceUnavailable] = useState(false);
+  const [sourcingSubmitted, setSourcingSubmitted] = useState(false);
   const [offerData, setOfferData] = useState<OfferResult | null>(null);
   const [offer, setOffer] = useState<number>(0);
   const [posting, setPosting] = useState(false);
@@ -128,6 +130,8 @@ function BookDelivery() {
 
     if (!quantity || quantity < MIN_QUANTITY_M3) return toast.error("Enter quantity");
 
+    setSourceUnavailable(false);
+    setSourcingSubmitted(false);
     setComputing(true);
 
     try {
@@ -153,9 +157,56 @@ function BookDelivery() {
           // Keep fallback explanation.
         });
     } catch (e: any) {
-      toast.error(e?.message ?? "Could not calculate offer");
+      const message = String(e?.message ?? "Could not calculate offer");
+      if (message.includes("No eligible verified supplier is currently available for this material and quantity.") || message.includes("No verified supplier pickup is configured for this material yet.")) {
+        setSourceUnavailable(true);
+        toast.error("No eligible verified supplier is available right now. You can request sourcing instead.");
+      } else {
+        toast.error(message);
+      }
     } finally {
       setComputing(false);
+    }
+  };
+
+  const requestSourcing = async () => {
+    if (!userId) {
+      toast.error("Please sign in again to submit your request.");
+      return;
+    }
+    if (!coords || !address.trim()) {
+      toast.error("Please select your delivery point on the map.");
+      return;
+    }
+
+    setPosting(true);
+    try {
+      // The RPC is defined by migration 0087. It creates a sourcing request,
+      // never a job or a fabricated quote.
+      const { error } = await (supabase as any).rpc("create_material_sourcing_request", {
+        p_material: material,
+        p_custom_material: null,
+        p_quantity_m3: quantity,
+        p_delivery_address: address.trim(),
+        p_delivery_lat: coords.lat,
+        p_delivery_lng: coords.lng,
+        p_preferred_date: date || null,
+        p_notes: notes.trim() || null,
+      });
+
+      if (error) throw error;
+
+      setSourcingSubmitted(true);
+      toast.success("Sourcing request submitted. No booking or price has been created.");
+    } catch (error: any) {
+      console.error("[material sourcing] request failed:", error);
+      toast.error(
+        error?.message?.includes("create_material_sourcing_request")
+          ? "Sourcing requests are not enabled on the server yet. Please try again later."
+          : error?.message ?? "Could not submit the sourcing request.",
+      );
+    } finally {
+      setPosting(false);
     }
   };
 
@@ -424,6 +475,24 @@ function BookDelivery() {
                   "See price"
                 )}
               </CzButton>
+              {sourceUnavailable && (
+                <div className="space-y-3 rounded-[16px] border border-cz-border bg-cz-surface p-4">
+                  <div className="font-semibold">We need to find a supplier first</div>
+                  <p className="text-sm text-cz-muted">
+                    No eligible verified supplier currently has enough recorded stock for this request.
+                    You can ask ConZ to source the material. This does not create a booking or guarantee a price.
+                  </p>
+                  {sourcingSubmitted ? (
+                    <HintBox tone="green" icon={<CheckCircle2 className="w-4 h-4" />}>
+                      Your sourcing request was submitted. We will confirm supplier availability before a booking can be made.
+                    </HintBox>
+                  ) : (
+                    <CzButton onClick={requestSourcing} disabled={posting}>
+                      {posting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Request supplier sourcing"}
+                    </CzButton>
+                  )}
+                </div>
+              )}
             </div>
           </section>
         </div>

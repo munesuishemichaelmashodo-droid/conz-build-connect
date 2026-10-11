@@ -77,6 +77,16 @@ async function resolvePickupAndDistance(
   if (resolution.status === "no_source_configured") {
     throw new Error("No verified supplier pickup is configured for this material yet.");
   }
+
+  if (
+    resolution.status === "source_resolution_failed" &&
+    resolution.reason === "no_eligible_source"
+  ) {
+    throw new Error(
+      "No eligible verified supplier is currently available for this material and quantity.",
+    );
+  }
+
   throw new Error("Unable to determine a verified material pickup location. Please try again.");
 }
 
