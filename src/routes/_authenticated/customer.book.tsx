@@ -1,3 +1,4 @@
+import { stockStatusCopy } from "@/lib/stockStatus";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
@@ -594,6 +595,7 @@ function BookDelivery() {
             <MoneyRow label={`Transport (${offerData.distanceKm} km)`} value={usd2(offerData.transportCost)} />
           )}
           <MoneyRow label="Picked up from" value={offerData.resolvedSource.label || offerData.resolvedSource.address || "Verified supplier location"} valueClassName="text-cz-muted text-sm" />
+          <StockStatusNote status={offerData.resolvedSource.stockStatus} />
           <p className="text-[13px] text-cz-muted">
             Estimated {offerData.tripCount} trip{offerData.tripCount === 1 ? "" : "s"}, based on a {offerData.referenceCapacityM3} m³
             reference truck. All amounts in USD.
@@ -660,5 +662,15 @@ function BookDelivery() {
         <p className="text-center text-[11px] text-cz-faint">We'll immediately search for the closest verified tipper truck.</p>
       </footer>
     </CzScreen>
+  );
+}
+
+function StockStatusNote({ status }: { status: unknown }) {
+  const copy = stockStatusCopy(status);
+  return (
+    <div className="rounded-xl border border-cz-border p-3 text-[13px]" data-testid="stock-status">
+      <div className="font-semibold">{copy.title}</div>
+      <div className="text-cz-muted">{copy.detail}</div>
+    </div>
   );
 }

@@ -3,7 +3,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getRoute } from "@/lib/routing.functions";
-import { resolveMaterialSource, type ResolvedMaterialSource } from "@/lib/materialSource.functions";
+import {
+  resolveMaterialSource,
+  withStockStatus,
+  type ResolvedMaterialSource,
+} from "@/lib/materialSource.functions";
 import {
   anonymousAwaitingSourcing,
   classifyResolution,
@@ -95,7 +99,7 @@ async function resolvePickupAndDistance(
       resolvedSource: resolution.source,
     };
   }
-  // No verified, in-stock supplier for this order: the caller records a
+  // No verified supplier site covers this order: the caller records a
   // sourcing request instead of rejecting (or inventing) anything.
   if (outcome.kind === "no_supply") return { kind: "no_supply", reason: outcome.reason };
   // We could not determine availability (infrastructure / routing). Retryable
@@ -298,7 +302,14 @@ export const computeOffer = createServerFn({ method: "POST" })
       throw new Error(customQuoteMessage(g, data.quantity));
     }
 
-    return buildOfferResult(g, data.material, data.quantity, distanceKm, quoteId, resolvedSource);
+    return buildOfferResult(
+      g,
+      data.material,
+      data.quantity,
+      distanceKm,
+      quoteId,
+      await withStockStatus(supabase, resolvedSource, data.quantity),
+    );
   });
 
 /**
@@ -343,7 +354,14 @@ export const computePublicOffer = createServerFn({ method: "POST" })
       throw new Error(customQuoteMessage(g, data.quantity));
     }
 
-    return buildOfferResult(g, data.material, data.quantity, distanceKm, quoteId, resolvedSource);
+    return buildOfferResult(
+      g,
+      data.material,
+      data.quantity,
+      distanceKm,
+      quoteId,
+      await withStockStatus(supabaseAdmin, resolvedSource, data.quantity),
+    );
   });
 
 const SourcingOfferInput = z.object({ requestId: z.string().uuid() });
@@ -451,7 +469,7 @@ export const getSourcingOffer = createServerFn({ method: "POST" })
       Number(req.quantity_m3),
       Number(quote.distance_km),
       req.quote_id,
-      resolvedSource,
+      await withStockStatus(admin, resolvedSource, Number(req.quantity_m3)),
     );
     return {
       ...offer,

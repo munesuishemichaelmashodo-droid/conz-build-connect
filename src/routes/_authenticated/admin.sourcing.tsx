@@ -73,6 +73,7 @@ function QuoteForm({ row, onDone }: { row: Row; onDone: () => void }) {
     queryFn: async () => {
       // Only sites that could pass the server's validation are offered; the
       // database re-checks everything on issue regardless of this filter.
+      // Recorded stock is advisory (never a filter): unknown stock must not hide a site.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from("material_supply_locations")
@@ -80,8 +81,7 @@ function QuoteForm({ row, onDone }: { row: Row; onDone: () => void }) {
         .eq("material", row.material)
         .eq("status", "active")
         .eq("verification_status", "verified")
-        .eq("location_precision", "exact")
-        .gte("available_quantity_m3", row.quantity_m3);
+        .eq("location_precision", "exact");
       if (error) throw error;
       return (data ?? []) as Loc[];
     },
@@ -123,18 +123,23 @@ function QuoteForm({ row, onDone }: { row: Row; onDone: () => void }) {
           onChange={(e) => setLoc(e.target.value)}
           aria-label="Supply location"
         >
-          <option value="">Choose a verified, in-stock site…</option>
+          <option value="">Choose a verified site…</option>
           {locs.map((l) => (
             <option key={l.id} value={l.id}>
-              {l.suppliers?.name ?? "Supplier"} — {l.label ?? l.address} ({l.available_quantity_m3}{" "}
-              m³ in stock)
+              {l.suppliers?.name ?? "Supplier"} — {l.label ?? l.address} (
+              {l.available_quantity_m3 == null
+                ? "stock unknown — confirm before promising"
+                : l.available_quantity_m3 >= row.quantity_m3
+                  ? `${l.available_quantity_m3} m³ recorded`
+                  : `only ${l.available_quantity_m3} m³ recorded — confirm`}
+              )
             </option>
           ))}
         </select>
       ) : (
         <p className="text-sm text-warning">
-          No verified, exact-coordinate site has {row.quantity_m3} m³ of this material in stock. Add
-          or verify one in Supply, then return.
+          No verified, exact-coordinate site exists for this material. Add or verify one in Supply,
+          then return.
         </p>
       )}
       <div className="flex items-center gap-2 text-sm">

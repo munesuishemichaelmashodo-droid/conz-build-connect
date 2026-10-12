@@ -1,3 +1,4 @@
+import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -655,6 +656,10 @@ function JobDetail() {
                 : `Your ${money(Number(escrowRefund.amount))} payment is being refunded through Paynow. We'll notify you when it's done.`}
             </p>
           </div>
+        )}
+
+        {!isOwner && !isAssignedDriver && (
+          <SupplyConfirmationCard job={job} viewer="admin" />
         )}
 
         {showActionSection && (
@@ -2590,6 +2595,8 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
 
         <ContactCard ctx={ctx} role="customer" subtitle={`${mat} · ${Number(job.quantity_m3)} m³`} />
 
+        <SupplyConfirmationCard job={job} viewer="driver" />
+
         <div id="tour-tracking">
           <DriverShareLocation jobId={id} driverId={ctx.userId!} compact />
         </div>
@@ -3073,6 +3080,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
           title="Watch your driver in real time"
           body="Once your driver starts sharing their location, you'll see them move on this map right up to your delivery point."
         />
+        <SupplyConfirmationCard job={job} viewer="customer" />
         <div id="tour-next-steps" className="space-y-4">
           <StepProgress current={step} />
           <div className="space-y-1.5">

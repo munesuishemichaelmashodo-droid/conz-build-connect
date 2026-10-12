@@ -6,6 +6,7 @@ import { Percent, Save, ShieldAlert, Fuel, Package } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AddressPicker } from "@/components/AddressPicker";
+import { isMfaRequiredError, mfaVerifyHref, readableRpcError } from "@/lib/mfa";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
   beforeLoad: async () => {
@@ -86,11 +87,21 @@ function AdminSettings() {
     },
   });
 
+  // Price changes need a super admin AND a fresh second factor (database-enforced, 0103).
+  const failWithStepUp = (error: { message?: string }) => {
+    if (isMfaRequiredError(error)) {
+      return toast.error(readableRpcError(error), {
+        action: { label: "Verify", onClick: () => window.location.assign(mfaVerifyHref()) },
+      });
+    }
+    return toast.error(readableRpcError(error));
+  };
+
   const saveDiesel = async () => {
     const v = Number(dieselValue);
     if (isNaN(v) || v <= 0 || v > 100) return toast.error("Diesel price must be between 0 and 100");
     const { error } = await supabase.rpc("admin_set_diesel_price", { _price: v });
-    if (error) return toast.error(error.message);
+    if (error) return failWithStepUp(error);
     toast.success(`Diesel price set to $${v.toFixed(2)}/liter`);
     qc.invalidateQueries({ queryKey: ["diesel-price"] });
   };
@@ -104,7 +115,7 @@ function AdminSettings() {
       _multiplier: v,
       _reason: reason.trim(),
     });
-    if (error) return toast.error(error.message);
+    if (error) return failWithStepUp(error);
     toast.success(`Price multiplier set to ${v.toFixed(2)}`);
     qc.invalidateQueries({ queryKey: ["admin-material-prices-full"] });
   };

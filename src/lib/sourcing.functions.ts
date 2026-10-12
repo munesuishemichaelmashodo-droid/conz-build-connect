@@ -105,7 +105,7 @@ export async function issueSourcingQuote(
 export function friendlyQuoteError(message: string): string {
   if (/Not authorised/i.test(message)) return "You are not authorised to issue sourcing quotes.";
   if (/invalid_supply_location/.test(message)) {
-    return "That supply location isn't eligible: it must be verified, active, exact-coordinate, belong to a verified supplier and have enough tracked stock.";
+    return "That supply location isn't eligible: it must be verified, active, exact-coordinate, and belong to a verified supplier. (Recorded stock is advisory and never blocks a quote.)";
   }
   if (/terms_required/.test(message)) return "Add the quote terms before issuing.";
   if (/custom_material_requires_manual_quote/.test(message)) {
