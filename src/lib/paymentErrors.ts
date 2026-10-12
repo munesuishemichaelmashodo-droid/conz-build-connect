@@ -59,7 +59,8 @@ export function friendlyPaymentError(
   if (NETWORK_PATTERN.test(text)) return NETWORK_ERROR_MESSAGE;
   // Machine-looking tokens (snake_case, no spaces) are not for humans.
   if (/^[a-z0-9_]+$/i.test(text)) return fallback;
-  return text;
+  // "WITHDRAWALS_PAUSED: …" — drop the machine prefix, keep the sentence the database wrote.
+  return text.replace(/^[A-Z][A-Z_]{3,}:\s*/, "");
 }
 
 /** Smallest top-up the UI offers and the server accepts (USD). */

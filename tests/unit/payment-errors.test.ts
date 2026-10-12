@@ -66,4 +66,12 @@ describe("topupAmountError", () => {
   it("rejects amounts over the maximum", () => {
     expect(topupAmountError(100001)).toMatch(/maximum/i);
   });
+
+  it("drops the machine prefix from database errors but keeps the sentence", () => {
+    expect(
+      friendlyPaymentError({
+        message: "WITHDRAWALS_PAUSED: withdrawals are paused for 24 hours after a PIN reset.",
+      }),
+    ).toBe("withdrawals are paused for 24 hours after a PIN reset.");
+  });
 });

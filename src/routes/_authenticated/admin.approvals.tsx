@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { EmptyState, StatusBadge } from "@/components/ui-bits";
-import { ShieldCheck, Undo2, HandCoins } from "lucide-react";
+import { ShieldCheck, Undo2, HandCoins, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { money } from "@/lib/domain";
 import { useAuth } from "@/lib/auth";
@@ -246,6 +246,126 @@ function AdminApprovals() {
           </div>
         )}
       </section>
+
+      <PinRecoveryQueue enabled={isSuper} />
     </div>
+  );
+}
+
+type PinRecoveryRow = {
+  id: string;
+  user_id: string;
+  status: string;
+  created_at: string;
+  expires_at: string;
+  verification_note: string | null;
+};
+
+// Forgotten withdrawal PINs (0097). The admin verifies the driver OUTSIDE the app, records how, and
+// approves with a fresh second factor; the driver then sets a new PIN. Enforced in the database.
+function PinRecoveryQueue({ enabled }: { enabled: boolean }) {
+  const qc = useQueryClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pin_recovery_requests (0097) is not in the generated Supabase types yet
+  const db = supabase as any;
+  const { data: rows } = useQuery({
+    queryKey: ["admin-pin-recovery"],
+    enabled,
+    queryFn: async () => {
+      const { data } = await db
+        .from("pin_recovery_requests")
+        .select("id,user_id,status,created_at,expires_at,verification_note")
+        .in("status", ["pending", "approved"])
+        .order("created_at", { ascending: true })
+        .limit(100);
+      return (data ?? []) as PinRecoveryRow[];
+    },
+  });
+  const ids = (rows ?? []).map((r) => r.user_id);
+  const { data: people } = useQuery({
+    queryKey: ["admin-pin-recovery-people", ids.join(",")],
+    enabled: ids.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase.from("profiles").select("id,full_name,phone").in("id", ids);
+      return new Map((data ?? []).map((p) => [p.id, p]));
+    },
+  });
+
+  const decide = async (r: PinRecoveryRow, approve: boolean) => {
+    const note = (
+      window.prompt(
+        approve
+          ? "How did you verify this driver's identity outside the app? (call, video, ID check — recorded in the audit log)"
+          : "Why is the request being rejected? (recorded in the audit log)",
+      ) ?? ""
+    ).trim();
+    if (!note) return;
+    if (note.length < 10) return void toast.error("Please write at least 10 characters.");
+    const { error } = await db.rpc("admin_decide_pin_recovery", {
+      _id: r.id,
+      _approve: approve,
+      _note: note,
+    });
+    if (error) return onMoneyError(error);
+    toast.success(approve ? "Approved. The driver has 24 hours to set a new PIN." : "Rejected");
+    qc.invalidateQueries({ queryKey: ["admin-pin-recovery"] });
+  };
+
+  return (
+    <section className="space-y-3">
+      <h2 className="font-display font-bold uppercase tracking-wide text-sm flex items-center gap-2">
+        <KeyRound className="w-4 h-4" /> Withdrawal PIN reset requests (
+        {(rows ?? []).filter((r) => r.status === "pending").length})
+      </h2>
+      {(rows ?? []).length === 0 ? (
+        <EmptyState
+          icon={KeyRound}
+          title="No open PIN reset requests"
+          hint="Drivers who forget their withdrawal PIN appear here."
+        />
+      ) : (
+        <div className="space-y-2">
+          {(rows ?? []).map((r) => {
+            const person = people?.get(r.user_id);
+            return (
+              <div key={r.id} className="rounded-xl border bg-card p-3 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-semibold">
+                      {person?.full_name ?? r.user_id.slice(0, 8)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {person?.phone ?? "no phone on file"} · asked{" "}
+                      {new Date(r.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                  <StatusBadge label={r.status} />
+                </div>
+                {r.status === "pending" ? (
+                  <>
+                    <p className="text-xs text-muted-foreground">
+                      Verify who this is before approving. Approval needs a fresh authenticator
+                      code, and withdrawals pause for 24 hours after the reset.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button size="sm" onClick={() => decide(r, true)}>
+                        Approve
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => decide(r, false)}>
+                        Reject
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Approved. Waiting for the driver to set a new PIN (until{" "}
+                    {new Date(r.expires_at).toLocaleString()}).
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }

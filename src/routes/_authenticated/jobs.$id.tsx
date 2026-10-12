@@ -57,6 +57,7 @@ import { DriverNavigationButtons } from "@/components/DriverNavigationButtons";
 import type { RouteResult } from "@/components/RouteMap";
 import type { TrackStatus } from "@/components/JobTracker";
 import { rpcFailure } from "@/lib/rpc-result";
+import { completeJobArgs, deliveryConfirmErrorMessage, interpretCompleteResult, isMissingFunctionError } from "@/lib/deliveryConfirm";
 import { ChevronDown, ChevronRight, Clock, Info, Navigation2, TrendingUp } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
@@ -479,21 +480,25 @@ function JobDetail() {
   // match. The customer's own code is sent here; the server decides.
   const completeJob = async () => {
     if (completingRef.current) return;
-    if (!deliveryPin) {
-      toast.error("Your delivery code isn't available. Refresh the page, or tap \"New code\" and try again.");
-      return;
-    }
     completingRef.current = true;
     try {
-      const { data, error } = await supabase.rpc("complete_job", { _job_id: id, _pin: deliveryPin });
-      if (error) { toast.error(friendlyPaymentError(error)); return; }
-      const failed = rpcFailure(data);
-      if (failed) {
-        toast.error(failed.error === "pin_expired" ? "This delivery code has expired. Tap \"New code\" to get a fresh one." : failed.message);
-        qc.invalidateQueries({ queryKey: ["delivery-pin", id] });
+      // Send the customer's own code when we have it. On a database that predates the
+      // code parameter (rollout window) retry once without it; on a current database the
+      // server still enforces evidence + code either way.
+      type Rpc = (f: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>;
+      const call = supabase.rpc as unknown as Rpc;
+      let res = await call("complete_job", completeJobArgs(id, deliveryPin));
+      if (res.error && deliveryPin && isMissingFunctionError(res.error)) {
+        res = await call("complete_job", completeJobArgs(id, deliveryPin, false));
+      }
+      if (res.error) { toast.error(deliveryConfirmErrorMessage(friendlyPaymentError(res.error))); return; }
+      const outcome = interpretCompleteResult(res.data);
+      if (outcome.kind === "failed") {
+        toast.error(outcome.message);
+        if (outcome.refreshCode) qc.invalidateQueries({ queryKey: ["delivery-pin", id] });
         return;
       }
-      toast.success("Delivery confirmed.");
+      toast.success(outcome.already ? "This delivery was already confirmed." : "Delivery confirmed.");
       qc.invalidateQueries({ queryKey: ["job", id] });
     } catch (err) {
       toast.error(friendlyPaymentError(err));
@@ -1672,9 +1677,7 @@ function DeliveryPinEntry({ jobId, onConfirmed }: { jobId: string; onConfirmed: 
     });
     setSubmitting(false);
     if (error) {
-      if (/incorrect code/i.test(error.message)) return toast.error("That code doesn't match — double check with the customer.");
-      if (/no confirmed escrow payment/i.test(error.message)) return toast.error("The customer hasn't paid through Con Z Pay yet.");
-      return toast.error(error.message);
+      return toast.error(deliveryConfirmErrorMessage(error.message));
     }
     // A wrong code / lockout is returned (not raised) so the attempt counts.
     const failed = rpcFailure(data);
@@ -1682,7 +1685,7 @@ function DeliveryPinEntry({ jobId, onConfirmed }: { jobId: string; onConfirmed: 
       setPin("");
       return toast.error(failed.error === "wrong_pin" ? "That code doesn't match — double check with the customer." : failed.message);
     }
-    toast.success("Delivery confirmed — payment released to your wallet!");
+    toast.success("Delivery confirmed. The job is settled.");
     setPin("");
     onConfirmed();
   };

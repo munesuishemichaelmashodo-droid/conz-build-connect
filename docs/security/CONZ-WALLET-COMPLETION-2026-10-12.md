@@ -53,3 +53,21 @@ Unchanged: first completed job of a newly verified driver is commission-free; la
 - Stand-in Postgres 16 (not Supabase, pgTAP emulated): 26 files / 742 assertions pass. Stand-in only.
 - Not verified: browser/device behaviour of the new PIN screens, Paynow, push delivery.
 - Known gaps: forgotten-PIN recovery (customer can issue a new code while the job is open); push trigger URL is hard-coded to production.
+
+---
+# Addendum (same day, later): rollout compatibility and PIN recovery (migration 0097)
+
+* **Compatibility fix (app):** `src/lib/deliveryConfirm.ts` — the customer confirm button sends the delivery code when it has one and
+  works against a database that predates 0096 (retries without the code on "function not found"). The database remains the security
+  boundary. Unit tests: `tests/unit/deliveryConfirm.test.ts`. See `CONZ-ROLLOUT-PLAN-2026-10-12.md` for the safe order.
+* **Forgotten withdrawal-PIN recovery (0097, local, not applied anywhere):** driver requests a reset (max 3/24 h, one open) → an admin
+  verifies the driver OUTSIDE the app, records how (mandatory note), and approves with a fresh second factor (cannot approve their own) →
+  the same signed-in driver sets a new PIN within 24 h, once → old PIN dies, lockout cleared, driver notified, withdrawals paused 24 h.
+  All steps in `wallet_audit_log` / `admin_audit_log`. UI: Profile → Withdrawal PIN → "Forgot your PIN?"; admin queue in Admin → Approvals.
+  Tests: `270_withdrawal_pin_recovery.test.sql` (46 assertions). Residual risk: security depends on the admin actually verifying identity.
+* **Verification this session:** stand-in database 27 files / 788 assertions pass; concurrency S1–S8 pass; tsc, 149 unit tests,
+  lint:security, build pass. The real CI run for 9b774dd passed (log unreadable from here, counts unconfirmed); CI has NOT run 0097.
+* **Notifications:** database rows are created by the RPCs (tested). Delivery to a device goes trigger → pg_net → `send-push` edge
+  function (shared secret). pg_net is fire-and-forget, so a failed push is not retried. Not tested on any real device.
+* **Open, non-blocking:** admin per-withdrawal history view; partial refunds (refunds are whole-payment); real-device and Paynow tests.
+
