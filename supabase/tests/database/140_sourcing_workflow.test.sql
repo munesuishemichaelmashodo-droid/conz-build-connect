@@ -137,8 +137,8 @@ select throws_ok(format($$select public.issue_sourcing_quote(%L, %L, %L, 20, 'os
   null, 'invalid_supply_location', 'A site of an unverified supplier is rejected');
 select throws_ok(format($$select public.issue_sourcing_quote(%L, %L, %L, 20, 'osrm', 48, 'Pay on booking')$$, current_setting('t.r1'), current_setting('t.admin'), current_setting('t.loc_pending')),
   null, 'invalid_supply_location', 'An unverified site is rejected');
-select throws_ok(format($$select public.issue_sourcing_quote(%L, %L, %L, 20, 'osrm', 48, 'Pay on booking')$$, current_setting('t.r1'), current_setting('t.admin'), current_setting('t.loc_low')),
-  null, 'invalid_supply_location', 'A site without enough tracked stock is rejected');
+select is(public.supply_stock_status(current_setting('t.loc_low')::uuid, 12), 'below_requested',
+  'A site with lower recorded stock is no longer rejected for stock (0101; issuing is covered in 310) and is labelled below_requested');
 select throws_ok(format($$select public.issue_sourcing_quote(%L, %L, %L, 20, 'osrm', 48, '   ')$$, current_setting('t.r1'), current_setting('t.admin'), current_setting('t.loc')),
   null, 'terms_required', 'Terms are mandatory');
 select throws_ok(format($$select public.issue_sourcing_quote(%L, %L, %L, 'NaN', 'osrm', 48, 'Pay on booking')$$, current_setting('t.r1'), current_setting('t.admin'), current_setting('t.loc')),

@@ -25,14 +25,14 @@ select is((public.compute_material_offer(material, 12, 25)->>'offer') is not nul
   from t_mat order by material::text;
 
 -- 2. Sourcing for every material at a delivery point 5 km away, 12 m3
-select is((select count(*)::int from public.resolve_material_source_candidates(material, 12, -17.8292, 31.0522)),
+select is((select count(*)::int from public.resolve_material_source_candidates(material, 12, -17.8292, 31.0522) where supplier_id = '00000000-0000-0000-0000-0000000000a1'),
           case when material = 'custom' then 0 else 1 end,
           'source: ' || material || case when material = 'custom' then ' has no verified location' else ' resolves to the verified exact location' end)
   from t_mat order by material::text;
 
 -- 3. Capacity, radius, verification and precision guards
-select is((select count(*)::int from public.resolve_material_source_candidates('river_sand', 60, -17.8292, 31.0522)), 0,
-  'capacity: 60 m3 is refused when only 50 m3 is tracked');
+select is((select count(*)::int from public.resolve_material_source_candidates('river_sand', 60, -17.8292, 31.0522) where supplier_id = '00000000-0000-0000-0000-0000000000a1'), 1,
+  'capacity: 60 m3 is STILL offered when only 50 m3 is tracked (0101: stock is advisory, never a gate)');
 select is((select count(*)::int from public.resolve_material_source_candidates('river_sand', 12, -20.15, 28.58)), 0,
   'radius: a delivery ~370 km away is outside the 40 km service radius');
 update public.material_supply_locations set verification_status = 'unverified' where material = 'pit_sand' and supplier_id = '00000000-0000-0000-0000-0000000000a1';
@@ -42,17 +42,17 @@ update public.material_supply_locations set location_precision = 'regional' wher
 select is((select count(*)::int from public.resolve_material_source_candidates('gravel', 12, -17.8292, 31.0522)), 0,
   'precision: a regional (approximate) location is never offered');
 
--- 4. Untracked stock and unverified supplier fail closed (0080)
+-- 4. Untracked stock is advisory (0101); unverified supplier / paused location still fail closed
 update public.material_supply_locations set available_quantity_m3 = null where material = 'top_soil';
-select is((select count(*)::int from public.resolve_material_source_candidates('top_soil', 1, -17.8292, 31.0522)), 0,
-  'stock: a location with untracked (NULL) stock is not eligible');
+select is((select count(*)::int from public.resolve_material_source_candidates('top_soil', 1, -17.8292, 31.0522) where supplier_id = '00000000-0000-0000-0000-0000000000a1'), 1,
+  'stock: a location with untracked (NULL) stock IS eligible (0101); it is labelled unknown, never confirmed');
 update public.material_supply_locations set supplier_id = '00000000-0000-0000-0000-0000000000a2' where material = 'filling_soil';
 select is((select count(*)::int from public.resolve_material_source_candidates('filling_soil', 12, -17.8292, 31.0522)), 0,
   'supplier: a location of an unverified supplier is not eligible');
 update public.material_supply_locations set status = 'paused' where material = 'stones';
 select is((select count(*)::int from public.resolve_material_source_candidates('stones', 12, -17.8292, 31.0522)), 0,
   'status: a paused location is not eligible');
-select is((select count(*)::int from public.resolve_material_source_candidates('crusher_run', 50, -17.8292, 31.0522)), 1,
+select is((select count(*)::int from public.resolve_material_source_candidates('crusher_run', 50, -17.8292, 31.0522) where supplier_id = '00000000-0000-0000-0000-0000000000a1'), 1,
   'capacity: an order equal to the tracked stock is eligible');
 
 select * from finish();
