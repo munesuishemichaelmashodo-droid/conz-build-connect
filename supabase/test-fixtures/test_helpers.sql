@@ -27,8 +27,30 @@ begin
   perform set_config('role', 'authenticated', true);
 end $$;
 
--- Same as login_as but with a multi-factor (aal2) session.
+-- Same as login_as but with a FRESH multi-factor session: aal2, and the token's
+-- amr claim says a TOTP code was verified just now (what Supabase puts there).
 create or replace function tests.login_as_mfa(_uid uuid)
+returns void language plpgsql as $$
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', _uid, 'role', 'authenticated', 'aal', 'aal2',
+      'amr', json_build_array(json_build_object('method', 'totp', 'timestamp', extract(epoch from now())::bigint)))::text, true);
+  perform set_config('role', 'authenticated', true);
+end $$;
+
+-- aal2 whose TOTP verification happened _minutes ago (an aged / expired step-up).
+create or replace function tests.login_as_mfa_aged(_uid uuid, _minutes integer)
+returns void language plpgsql as $$
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', _uid, 'role', 'authenticated', 'aal', 'aal2',
+      'amr', json_build_array(json_build_object('method', 'totp',
+        'timestamp', (extract(epoch from now()) - _minutes * 60)::bigint)))::text, true);
+  perform set_config('role', 'authenticated', true);
+end $$;
+
+-- aal2 claim with no amr claim at all (no timing information in the token).
+create or replace function tests.login_as_mfa_no_amr(_uid uuid)
 returns void language plpgsql as $$
 begin
   perform set_config('request.jwt.claims',
@@ -137,6 +159,34 @@ create or replace function tests.ledger_matches(_uid uuid)
 returns boolean language sql stable as $$
   select coalesce((select sum(amount) from public.wallet_transactions where user_id = _uid), 0)
          = coalesce((select balance from public.wallets where user_id = _uid), 0)
+$$;
+
+-- Delivery proof as the app records it: a real job_evidence row of kind 'delivery'
+-- for this job and its driver, jobs.delivery_photo_url pointing at it, and a delivery
+-- code. Returns the code (NULL for a job with no driver yet). Safe to call twice.
+create or replace function tests.deliver(_job uuid)
+returns text language plpgsql security definer set search_path to 'public', 'extensions' as $$
+declare _j public.jobs; _path text;
+begin
+  select * into _j from public.jobs where id = _job;
+  if not found or _j.driver_id is null then return null; end if;
+  _path := coalesce(_j.delivery_photo_url, 'test/' || _job || '/delivery.jpg');
+  if not exists (select 1 from public.job_evidence
+                  where job_id = _job and kind = 'delivery' and storage_path = _path and uploaded_by = _j.driver_id) then
+    insert into public.job_evidence (job_id, kind, storage_path, uploaded_by) values (_job, 'delivery', _path, _j.driver_id);
+  end if;
+  if _j.delivery_photo_url is null then
+    update public.jobs set delivery_photo_url = _path where id = _job;
+  end if;
+  insert into public.job_delivery_pins (job_id, pin) values (_job, '123456') on conflict (job_id) do nothing;
+  return (select pin from public.job_delivery_pins where job_id = _job);
+end $$;
+
+-- "The customer confirms delivery" the legitimate way: evidence + code, then the real
+-- complete_job. Run it logged in as the customer.
+create or replace function tests.complete(_job uuid)
+returns jsonb language sql as $$
+  select public.complete_job(_job, tests.deliver(_job))
 $$;
 
 grant execute on all functions in schema tests to anon, authenticated, service_role;

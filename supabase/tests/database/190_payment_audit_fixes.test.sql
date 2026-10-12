@@ -56,16 +56,16 @@ select throws_like(format($$select public.admin_wallet_adjust(%L, -90, 'other', 
 select tests.as_owner();
 select is(tests.balance(current_setting('t.drv')::uuid), 100.00::numeric, 'D: balance untouched by the refused debit');
 select tests.login_as(current_setting('t.admin')::uuid);
-select lives_ok(format($$select public.admin_wallet_adjust(%L, -70, 'other', 'debit that leaves the held commission intact')$$, current_setting('t.drv')),
-  'D: a debit that leaves the held amount in place still works');
+select lives_ok(format($$select public.admin_wallet_adjust(%L, -60, 'other', 'debit that leaves the held commission and the pending withdrawal intact')$$, current_setting('t.drv')),
+  'D: a debit that leaves the held commission and the pending withdrawal reservation in place still works');
 select tests.as_owner();
-select is(tests.balance(current_setting('t.drv')::uuid), 30.00::numeric, 'D: balance is 100 - 70, still covering the $28.00 hold');
+select is(tests.balance(current_setting('t.drv')::uuid), 40.00::numeric, 'D: balance is 100 - 60, still covering the $28.00 hold + the $10 pending withdrawal');
 
 -- ===========================================================================
 -- C. the commission is refunded once per job, however many disputes
 -- ===========================================================================
 select tests.login_as(current_setting('t.cust')::uuid);
-select public.complete_job(current_setting('t.job')::uuid);
+select tests.complete(current_setting('t.job')::uuid);
 select tests.login_as(current_setting('t.drv')::uuid);
 select set_config('t.d2', (public.raise_dispute(current_setting('t.job')::uuid, null, 'other', 'second dispute from the driver'))."id"::text, true);
 select tests.as_owner();

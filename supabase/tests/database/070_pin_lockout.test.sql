@@ -87,6 +87,8 @@ select set_config('t.cust', tests.create_user('pincust')::text, true);
 select set_config('t.job', tests.create_job(current_setting('t.cust')::uuid, 300, 'escrow')::text, true);
 update public.jobs set status = 'in_progress', driver_id = current_setting('t.a')::uuid, final_price = 300,
        delivery_photo_url = 'job/delivery.jpg' where id = current_setting('t.job')::uuid;
+insert into public.job_evidence (job_id, kind, storage_path, uploaded_by)
+values (current_setting('t.job')::uuid, 'delivery', 'job/delivery.jpg', current_setting('t.a')::uuid);
 insert into public.job_delivery_pins (job_id, pin) values (current_setting('t.job')::uuid, '482913')
   on conflict (job_id) do update set pin = excluded.pin, attempts = 0, locked_until = null;
 insert into public.payments (user_id, job_id, type, amount, currency, method, status)

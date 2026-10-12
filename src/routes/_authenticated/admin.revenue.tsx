@@ -311,6 +311,8 @@ type WdReq = {
   destination: string;
   status: string;
   created_at: string;
+  paid_at?: string | null;
+  payout_reference?: string | null;
 };
 
 function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; email: string | null }> | undefined }) {
@@ -430,8 +432,55 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
       qc.invalidateQueries({ queryKey: ["admin-topups"] });
     });
 
+  // Sensitive payout actions need a fresh second factor (enforced by the database).
+  // Ordinary admin work does not. Say so clearly and offer the verify step.
+  const toastRpcError = (error: { message?: string }) => {
+    if (isMfaRequiredError(error)) {
+      toast.error(readableRpcError(error), {
+        action: { label: "Verify", onClick: () => window.location.assign(mfaVerifyHref()) },
+      });
+      return;
+    }
+    toast.error(readableRpcError(error));
+  };
+
+  // Approved = wallet debited, payout still owed. Paid = an admin recorded the transfer reference.
+  const markPaid = (id: string) =>
+    withBusy(id, async () => {
+      const r = (wds ?? []).find((w) => w.id === id);
+      const reference = (
+        window.prompt(
+          `Enter the transfer reference for the ${money(Number(r?.amount ?? 0))} payout you have ALREADY sent to ${r?.destination ?? "the driver"} via ${(r?.method ?? "").toUpperCase()}.\n\nOnly record this after the money has really been sent.`,
+        ) ?? ""
+      ).trim();
+      if (!reference) return;
+      if (reference.length < 3) return void toast.error("Enter the transfer reference (at least 3 characters).");
+      const { error } = await (supabase as any).rpc("admin_mark_withdrawal_paid", { _id: id, _reference: reference, _note: null });
+      if (error) return void toastRpcError(error);
+      toast.success("Payout recorded. The driver has been notified.");
+      qc.invalidateQueries({ queryKey: ["admin-withdrawals"] });
+    });
+
+  // The manual payout could not be made: return the debit to the driver's wallet (reversal, never a delete).
+  const markFailed = (id: string) =>
+    withBusy(id, async () => {
+      const r = (wds ?? []).find((w) => w.id === id);
+      const reason = (
+        window.prompt(
+          `The ${money(Number(r?.amount ?? 0))} payout to ${r?.destination ?? "the driver"} could NOT be sent.\n\nThis returns the money to the driver's wallet. Give the reason (min 5 characters):`,
+        ) ?? ""
+      ).trim();
+      if (!reason) return;
+      if (reason.length < 5) return void toast.error("Please give a reason of at least 5 characters.");
+      const { error } = await (supabase as any).rpc("admin_mark_withdrawal_failed", { _id: id, _reason: reason });
+      if (error) return void toastRpcError(error);
+      toast.success("Payout marked failed. The money is back in the driver's wallet.");
+      qc.invalidateQueries({ queryKey: ["admin-withdrawals"] });
+    });
+
   const pendingTopups = (topups ?? []).filter((r) => r.status === "pending");
   const pendingWds = (wds ?? []).filter((r) => r.status === "pending");
+  const awaitingPayout = (wds ?? []).filter((r) => r.status === "approved" && !r.paid_at);
 
   const list = tab === "topups" ? topups ?? [] : wds ?? [];
 
@@ -441,7 +490,7 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
     const isTopup = tab === "topups";
     const header = isTopup
       ? ["Date", "User", "Email", "Method", "Reference", "Amount (USD)", "Status"]
-      : ["Date", "User", "Email", "Method", "Destination", "Amount (USD)", "Status"];
+      : ["Date", "User", "Email", "Method", "Destination", "Amount (USD)", "Status", "Payout recorded at", "Payout reference"];
     const rows = [
       header,
       ...list.map((r) => {
@@ -453,7 +502,8 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
           r.method,
           isTopup ? (r as TopupReq).reference ?? "" : (r as WdReq).destination ?? "",
           Number(r.amount).toFixed(2),
-          r.status,
+          isTopup ? r.status : (r as WdReq).status === "approved" && !(r as WdReq).paid_at ? "approved_payout_pending" : r.status,
+          ...(isTopup ? [] : [(r as WdReq).paid_at ?? "", (r as WdReq).payout_reference ?? ""]),
         ];
       }),
     ];
@@ -507,6 +557,11 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
           )}
         >
           Withdrawals
+          {awaitingPayout.length > 0 && (
+            <span title="Approved, payout not yet recorded" className="ml-1.5 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-warning text-warning-foreground text-[10px] font-bold">
+              {awaitingPayout.length}
+            </span>
+          )}
           {pendingWds.length > 0 && (
             <span className="ml-1.5 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
               {pendingWds.length}
@@ -529,6 +584,7 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
               approved: "bg-success/15 text-success border-success/30",
               rejected: "bg-destructive/15 text-destructive border-destructive/30",
               cancelled: "bg-muted text-muted-foreground border-border",
+              failed: "bg-destructive/15 text-destructive border-destructive/30",
             };
             return (
               <div key={r.id} className="rounded-xl border p-3">
@@ -553,16 +609,47 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
                         {money(walletsByUser.get(r.user_id)!.balance - walletsByUser.get(r.user_id)!.held)}
                       </div>
                     )}
-                    {!isTopup && r.status === "approved" && (
+                    {!isTopup && r.status === "approved" && !(r as WdReq).paid_at && (
                       <div className="text-[11px] text-muted-foreground mt-0.5">
-                        Wallet already debited. The system does not record the external transfer — confirm payment outside the app.
+                        Wallet already debited. Send the payout yourself, then record the transfer reference below. Until then the driver sees "payout pending".
+                      </div>
+                    )}
+                    {!isTopup && r.status === "approved" && (r as WdReq).paid_at && (
+                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                        Recorded {new Date((r as WdReq).paid_at!).toLocaleString()} · ref {(r as WdReq).payout_reference}
                       </div>
                     )}
                     <div className="mt-2 flex items-center justify-between gap-2">
                       <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase", statusTone[r.status])}>
                         <Clock className="w-3 h-3" />{" "}
-                        {!isTopup && r.status === "pending" ? "Awaiting review" : !isTopup && r.status === "approved" ? "Approved · pay manually" : r.status}
+                        {!isTopup && r.status === "pending"
+                          ? "Awaiting review"
+                          : !isTopup && r.status === "approved"
+                          ? (r as WdReq).paid_at
+                            ? "Payout recorded"
+                            : "Approved · payout owed"
+                          : r.status}
                       </span>
+                      {!isTopup && r.status === "approved" && !(r as WdReq).paid_at && (
+                        <button
+                          type="button"
+                          disabled={busy.has(r.id)}
+                          onClick={() => markPaid(r.id)}
+                          className="disabled:opacity-50 rounded-lg bg-primary text-primary-foreground px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1"
+                        >
+                          <Check className="w-3 h-3" /> Record payout sent
+                        </button>
+                      )}
+                      {!isTopup && r.status === "approved" && !(r as WdReq).paid_at && (
+                        <button
+                          type="button"
+                          disabled={busy.has(r.id)}
+                          onClick={() => markFailed(r.id)}
+                          className="disabled:opacity-50 rounded-lg border border-destructive/40 text-destructive px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1"
+                        >
+                          <X className="w-3 h-3" /> Payout failed
+                        </button>
+                      )}
                       {r.status === "pending" && (
                         <div className="flex gap-1.5">
                           <button

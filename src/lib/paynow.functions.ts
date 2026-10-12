@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequestUrl } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { SITE_URL } from "@/lib/site";
+import { topupAmountError } from "@/lib/paymentErrors";
 
 export type InitiateTopupResult =
   | { ok: true; paymentId: string; redirectUrl: string }
@@ -11,7 +12,9 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { amount: number }) => {
     const amount = Number(data?.amount);
-    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000) {
+    // Same rule the wallet screen applies (min $1, max $100,000) — enforced here
+    // too because the client check can be bypassed.
+    if (topupAmountError(amount)) {
       throw new Error("Enter a valid amount between $1 and $100,000");
     }
     return { amount: Math.round(amount * 100) / 100 };

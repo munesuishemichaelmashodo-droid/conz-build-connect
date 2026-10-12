@@ -1,3 +1,4 @@
+import { assertRoadDistance } from "@/lib/roadDistance";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -85,6 +86,8 @@ async function resolvePickupAndDistance(
 
   const outcome = classifyResolution(resolution);
   if (outcome.kind === "resolved" && resolution.status === "source_resolved") {
+    // Never price from a straight-line fallback: fail closed and let the customer retry.
+    assertRoadDistance(resolution.source.distanceSource);
     return {
       kind: "resolved",
       distanceKm: resolution.source.distanceKm,

@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { initiatePaynowTopup, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
+import { friendlyPaymentError, topupAmountError } from "@/lib/paymentErrors";
 import {
   Wallet as WalletIcon,
   Fuel,
@@ -29,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { rpcFailure } from "@/lib/rpc-result";
 import { toast } from "sonner";
+import { withdrawalStage } from "@/lib/withdrawalStatus";
 
 export const Route = createFileRoute("/_authenticated/wallet")({
   component: WalletPage,
@@ -62,13 +64,14 @@ type PaynowTopup = {
 // Withdrawal payouts are manual: "approved" means the request was accepted and
 // the amount was debited from the wallet. It does NOT mean money has arrived.
 const WITHDRAWAL_STATUS: Record<string, { label: string; note?: string }> = {
-  pending: { label: "Awaiting review", note: "An admin has not reviewed this yet. You can cancel it." },
+  pending: { label: "Awaiting review", note: "An admin has not reviewed this yet. The amount is reserved so it cannot be spent elsewhere; cancel to release it." },
   approved: {
     label: "Approved · payout pending",
     note: "Debited from your wallet. ConZ sends the payout manually — this is not confirmation that money has arrived.",
   },
   rejected: { label: "Rejected" },
   cancelled: { label: "Cancelled" },
+  failed: { label: "Payout failed · money returned", note: "The payout could not be sent. The amount is back in your wallet." },
 };
 const TOPUP_STATUS: Record<string, string> = {
   pending: "Awaiting review",
@@ -94,6 +97,9 @@ type WithdrawReq = {
   status: string;
   reject_reason: string | null;
   created_at: string;
+  // Set only when an admin records the manual transfer (migration 0094).
+  paid_at?: string | null;
+  payout_reference?: string | null;
 };
 
 function WalletPage() {
@@ -237,11 +243,12 @@ function WalletPage() {
       </AppShell>
     );
 
-  // Figures come from the wallets row; available = balance - held (the same
+  // Figures come from the wallets row; available = balance - held - reserved (the same
   // rule the database enforces on withdrawals and approvals).
   const balance = Number(wallet?.balance ?? 0);
   const held = Number((wallet as any)?.held ?? 0);
-  const available = Math.max(0, Math.round((balance - held) * 100) / 100);
+  const reserved = Number((wallet as any)?.withdrawal_reserved ?? 0); // pending withdrawals (0095)
+  const available = Math.max(0, Math.round((balance - held - reserved) * 100) / 100);
   const pendingWithdrawal = (withdrawals ?? [])
     .filter((w) => w.status === "pending")
     .reduce((sum, w) => sum + Number(w.amount), 0);
@@ -318,7 +325,7 @@ function WalletPage() {
 
         <p className="text-[11px] text-white/60 mt-4 relative">
           Held funds are the 7% commission reserved for your active jobs; they can't be withdrawn.
-          A pending withdrawal is not yet reserved — it is debited only when an admin approves it.
+          A pending withdrawal is reserved straight away, so it is not counted as available; it is debited when an admin approves it, and released if it is rejected or cancelled.
         </p>
       </motion.div>
 
@@ -411,9 +418,14 @@ function WalletPage() {
                   rejectReason={r.reject_reason}
                   createdAt={r.created_at}
                   onCancel={async () => {
-                    const { error } = await (supabase as any).rpc("cancel_topup", { _id: r.id });
-                    if (error) toast.error(error.message);
-                    else toast.success("Request cancelled");
+                    try {
+                      const { error } = await (supabase as any).rpc("cancel_topup", { _id: r.id });
+                      if (error) return void toast.error(friendlyPaymentError(error));
+                      toast.success("Request cancelled");
+                      qc.invalidateQueries({ queryKey: ["topups", userId] });
+                    } catch (err) {
+                      toast.error(friendlyPaymentError(err));
+                    }
                   }}
                 />
               ))}
@@ -427,10 +439,18 @@ function WalletPage() {
                   status={r.status}
                   rejectReason={r.reject_reason}
                   createdAt={r.created_at}
+                  paidAt={r.paid_at ?? null}
+                  payoutReference={r.payout_reference ?? null}
                   onCancel={async () => {
-                    const { error } = await (supabase as any).rpc("cancel_withdrawal", { _id: r.id });
-                    if (error) toast.error(error.message);
-                    else toast.success("Request cancelled");
+                    try {
+                      const { error } = await (supabase as any).rpc("cancel_withdrawal", { _id: r.id });
+                      if (error) return void toast.error(friendlyPaymentError(error));
+                      toast.success("Request cancelled — the reserved amount is available again.");
+                      qc.invalidateQueries({ queryKey: ["withdrawals", userId] });
+                      qc.invalidateQueries({ queryKey: ["wallet", userId] });
+                    } catch (err) {
+                      toast.error(friendlyPaymentError(err));
+                    }
                   }}
                 />
               ))}
@@ -494,6 +514,8 @@ function RequestRow({
   status,
   rejectReason,
   createdAt,
+  paidAt,
+  payoutReference,
   onCancel,
 }: {
   kind: "topup" | "withdrawal";
@@ -503,16 +525,28 @@ function RequestRow({
   status: string;
   rejectReason: string | null;
   createdAt: string;
+  paidAt?: string | null;
+  payoutReference?: string | null;
   onCancel: () => void | Promise<void>;
 }) {
   const isTopup = kind === "topup";
   const [cancelling, setCancelling] = useState(false);
-  const info = isTopup ? { label: TOPUP_STATUS[status] ?? status } : WITHDRAWAL_STATUS[status] ?? { label: status };
+  const stage = withdrawalStage(status, paidAt);
+  const paid = !isTopup && stage === "payout_recorded";
+  const info: { label: string; note?: string } = isTopup
+    ? { label: TOPUP_STATUS[status] ?? status }
+    : paid
+    ? {
+        label: "Payout recorded as sent",
+        note: `ConZ recorded the transfer on ${new Date(paidAt!).toLocaleDateString()}${payoutReference ? ` (ref ${payoutReference})` : ""}. If it hasn't arrived, contact support.`,
+      }
+    : WITHDRAWAL_STATUS[status] ?? { label: status };
   const statusTone: Record<string, string> = {
     pending: "bg-warning/15 text-warning border-warning/30",
-    approved: isTopup ? "bg-success/15 text-success border-success/30" : "bg-primary/15 text-primary border-primary/30",
+    approved: isTopup || paid ? "bg-success/15 text-success border-success/30" : "bg-primary/15 text-primary border-primary/30",
     rejected: "bg-destructive/15 text-destructive border-destructive/30",
     cancelled: "bg-muted text-muted-foreground border-border",
+    failed: "bg-destructive/15 text-destructive border-destructive/30",
   };
   return (
     <div className="rounded-2xl bg-card border p-3">
@@ -554,8 +588,8 @@ function RequestRow({
               </button>
             )}
           </div>
-          {"note" in info && info.note && <div className="text-[11px] text-muted-foreground mt-1">{info.note}</div>}
-          {status === "rejected" && rejectReason && (
+          {info.note && <div className="text-[11px] text-muted-foreground mt-1">{info.note}</div>}
+          {(status === "rejected" || status === "failed") && rejectReason && (
             <div className="text-[11px] text-destructive mt-1">Reason: {rejectReason}</div>
           )}
         </div>
@@ -599,21 +633,20 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
   const presets = [10, 20, 50, 100];
 
   const submit = async () => {
-    if (!amount || amount <= 0) return toast.error("Enter an amount");
+    if (submitting) return;
+    const invalid = topupAmountError(amount);
+    if (invalid) return toast.error(invalid);
     setSubmitting(true);
     try {
       const res = await initiatePaynowTopup({ data: { amount } });
       if (!res.ok) {
         setSubmitting(false);
-        if (res.error === "paynow_not_configured") {
-          return toast.error("Online payments are unavailable right now. Please contact support.");
-        }
-        return toast.error(res.error || "Could not start payment");
+        return toast.error(friendlyPaymentError(res.error, "Could not start payment. Please try again."));
       }
       window.location.href = res.redirectUrl;
     } catch (err) {
       setSubmitting(false);
-      toast.error(err instanceof Error ? err.message : "Could not start payment. Please try again.");
+      toast.error(friendlyPaymentError(err, "Could not start payment. Please try again."));
     }
   };
 
@@ -728,7 +761,7 @@ function WithdrawDialog({
       setPin("");
       if (error) {
         setStep("form");
-        return toast.error(error.message);
+        return toast.error(friendlyPaymentError(error));
       }
       const failed = rpcFailure(data);
       if (failed) {
@@ -741,6 +774,9 @@ function WithdrawDialog({
       setDestination("");
       reset();
       onOpenChange(false);
+    } catch (err) {
+      setStep("form");
+      toast.error(friendlyPaymentError(err));
     } finally {
       setSubmitting(false);
     }

@@ -46,15 +46,15 @@ select is(pg_temp.pstatus('a'), 'paid', 'A: escrow payment is paid (held)');
 select is(tests.balance(current_setting('t.drv')::uuid), 100.00::numeric, 'A: nothing reaches the driver before delivery');
 
 select tests.login_as(current_setting('t.cust')::uuid);
-select lives_ok(format($$select public.complete_job(%L)$$, current_setting('t.ja')), 'A: customer confirms delivery');
+select lives_ok(format($$select tests.complete(%L)$$, current_setting('t.ja')), 'A: customer confirms delivery');
 select tests.as_owner();
 select is(pg_temp.pstatus('a'), 'released', 'A: payment released');
 select is(tests.balance(current_setting('t.drv')::uuid), 379.00::numeric, 'A: driver receives $300 - 7% ($21) = $279');
 select is((select status::text from public.jobs where id = current_setting('t.ja')::uuid), 'completed', 'A: job completed');
 
 select tests.login_as(current_setting('t.cust')::uuid);
-select throws_ok(format($$select public.complete_job(%L)$$, current_setting('t.ja')), null, null,
-  'A: double release is impossible');
+select is((tests.complete(current_setting('t.ja')::uuid))->>'already', 'true',
+  'A: a repeated confirmation is an idempotent no-op (double release is impossible)');
 select throws_ok(format($$select public.cancel_job(%L, 'changed my mind')$$, current_setting('t.ja')), null, null,
   'A: a completed (released) job cannot be cancelled into a refund');
 select tests.as_service();
@@ -146,7 +146,7 @@ select lives_ok(format($$select public.resolve_dispute(%L, 'no_action', 'Deliver
 select tests.as_owner();
 select is(pg_temp.pstatus('e'), 'paid', 'D: escrow stays held for normal release');
 select tests.login_as(current_setting('t.cust')::uuid);
-select lives_ok(format($$select public.complete_job(%L)$$, current_setting('t.je')), 'D: release in full after the dispute closes');
+select lives_ok(format($$select tests.complete(%L)$$, current_setting('t.je')), 'D: release in full after the dispute closes');
 select tests.as_owner();
 select is(pg_temp.pstatus('e'), 'released', 'D: escrow released');
 

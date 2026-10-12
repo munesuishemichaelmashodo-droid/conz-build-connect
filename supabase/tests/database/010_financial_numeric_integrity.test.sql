@@ -135,7 +135,7 @@ alter table public.jobs add constraint jobs_final_price_valid
   check (final_price is null or (final_price > 0 and final_price <= 100000)) not valid;
 
 select tests.login_as(current_setting('t.customer')::uuid);
-select throws_ok(format($$select public.complete_job(%L)$$, current_setting('t.job3')),
+select throws_ok(format($$select tests.complete(%L)$$, current_setting('t.job3')),
   null, null, 'F1: complete_job refuses a negative final price (no negative commission)');
 select tests.as_owner();
 select is(tests.balance(current_setting('t.drv3')::uuid), 100.00::numeric,
@@ -174,7 +174,7 @@ select tests.as_owner();
 select is((select held_commission from public.jobs where id = current_setting('t.job5')::uuid), 28.00::numeric,
   'Happy path: 7% commission ($28) reserved on acceptance');
 select tests.login_as(current_setting('t.customer')::uuid);
-select lives_ok(format($$select public.complete_job(%L)$$, current_setting('t.job5')),
+select lives_ok(format($$select tests.complete(%L)$$, current_setting('t.job5')),
   'Happy path: customer confirms completion');
 select tests.as_owner();
 select is(tests.balance(current_setting('t.drv5')::uuid), 72.00::numeric,

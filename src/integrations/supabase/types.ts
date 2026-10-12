@@ -2836,62 +2836,8 @@ export type Database = {
       };
       claim_super_admin: { Args: never; Returns: undefined };
       complete_job: {
-        Args: { _job_id: string };
-        Returns: {
-          accepted_bid_id: string | null;
-          budget: number;
-          cancellation_reason: string | null;
-          cancellation_stage: string | null;
-          cancelled_at: string | null;
-          cancelled_by: string | null;
-          commission: number | null;
-          completed_at: string | null;
-          created_at: string;
-          custom_material: string | null;
-          customer_id: string;
-          delivered_quantity_m3: number | null;
-          delivery_address: string;
-          delivery_lat: number | null;
-          delivery_lng: number | null;
-          delivery_photo_taken_at: string | null;
-          delivery_photo_url: string | null;
-          delivery_pin: string | null;
-          driver_arrived_dropoff_at: string | null;
-          driver_arrived_pickup_at: string | null;
-          driver_id: string | null;
-          dropoff_address: string | null;
-          dropoff_lat: number | null;
-          dropoff_lng: number | null;
-          expires_at: string | null;
-          final_price: number | null;
-          held_commission: number | null;
-          id: string;
-          material: Database["public"]["Enums"]["material_category"];
-          notes: string | null;
-          payment_method: string;
-          pickup_address: string | null;
-          pickup_lat: number | null;
-          pickup_lng: number | null;
-          pickup_photo_taken_at: string | null;
-          pickup_photo_url: string | null;
-          preferred_date: string | null;
-          preferred_driver_id: string | null;
-          pricing_breakdown: Json | null;
-          pricing_version: string | null;
-          quantity_m3: number;
-          quote_id: string | null;
-          receiver_name: string | null;
-          status: Database["public"]["Enums"]["job_status"];
-          supply_location_id: string | null;
-          tracking_token: string;
-          updated_at: string;
-        };
-        SetofOptions: {
-          from: "*";
-          to: "jobs";
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
+        Args: { _job_id: string; _pin?: string };
+        Returns: Json;
       };
       compute_material_offer: {
         Args: {

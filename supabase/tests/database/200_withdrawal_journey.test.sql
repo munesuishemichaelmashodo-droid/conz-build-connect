@@ -45,7 +45,7 @@ select tests.login_as(current_setting('t.plain')::uuid);
 select throws_like(format($$select public.admin_approve_withdrawal(%L)$$, current_setting('t.wd')), '%Forbidden%', 'A non-admin cannot approve');
 
 -- 5. Rejection needs a real reason; empty / tiny reasons change nothing
-select tests.login_as(current_setting('t.admin')::uuid);
+select tests.login_as_mfa(current_setting('t.admin')::uuid);
 select throws_like(format($$select public.admin_reject_withdrawal(%L, 'x')$$, current_setting('t.wd')), '%at least 5 characters%', 'Rejecting with a 1-character reason is refused');
 select throws_like(format($$select public.admin_reject_withdrawal(%L, NULL)$$, current_setting('t.wd')), '%at least 5 characters%', 'Rejecting with no reason is refused');
 select tests.as_owner();
@@ -63,7 +63,7 @@ select tests.login_as(current_setting('t.drv')::uuid);
 select public.request_withdrawal(40, 'ecocash', '0771234567', '4826');
 select tests.as_owner();
 select set_config('t.wd2', (select id::text from public.wallet_withdrawal_requests where user_id = current_setting('t.drv')::uuid and status = 'pending'), true);
-select tests.login_as(current_setting('t.admin')::uuid);
+select tests.login_as_mfa(current_setting('t.admin')::uuid);
 select lives_ok(format($$select public.admin_approve_withdrawal(%L)$$, current_setting('t.wd2')), 'Admin approves');
 select throws_like(format($$select public.admin_approve_withdrawal(%L)$$, current_setting('t.wd2')), '%', 'Approving the same request twice is refused');
 select tests.as_owner();

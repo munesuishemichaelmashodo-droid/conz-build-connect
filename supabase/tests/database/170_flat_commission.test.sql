@@ -53,7 +53,7 @@ begin
     update public.driver_profiles set level = _relevel::public.driver_level where user_id = _drv;
   end if;
   perform tests.login_as(current_setting('t.cust')::uuid);
-  perform public.complete_job(_j);
+  perform tests.complete(_j);
   perform tests.as_owner();
   insert into res
   select _who, _h, (select commission from public.jobs where id = _j),
@@ -124,7 +124,7 @@ select tests.as_service();
 select public.apply_paynow_result(current_setting('t.pe')::uuid, 'ipn', 'Paid', '400.00', current_setting('t.pe'));
 select public.apply_paynow_result(current_setting('t.pe')::uuid, 'ipn', 'Paid', '400.00', current_setting('t.pe'));
 select tests.login_as(current_setting('t.cust')::uuid);
-select public.complete_job(current_setting('t.je')::uuid);
+select tests.complete(current_setting('t.je')::uuid);
 select tests.as_owner();
 select is((select commission from public.jobs where id = current_setting('t.je')::uuid), 28.00::numeric, 'escrow: gold driver commission = $28.00');
 select is(tests.balance(current_setting('t.d_esc')::uuid), 100.00::numeric + 372.00::numeric, 'escrow: payout = 400 - 28 added once (duplicate IPN ignored)');
@@ -132,7 +132,7 @@ select is((select held from public.wallets where user_id = current_setting('t.d_
 
 -- 24-25: duplicate completion does not charge twice
 select tests.login_as(current_setting('t.cust')::uuid);
-select throws_ok(format($$select public.complete_job(%L)$$, current_setting('t.je')), null, null, 'a second completion is refused');
+select is((tests.complete(current_setting('t.je')::uuid))->>'already', 'true', 'a second completion is an idempotent no-op');
 select tests.as_owner();
 select is(tests.balance(current_setting('t.d_esc')::uuid), 472.00::numeric, 'balance unchanged by the duplicate request');
 
