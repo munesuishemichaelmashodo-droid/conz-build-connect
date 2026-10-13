@@ -195,23 +195,31 @@ function BookDelivery() {
       .insert({
         customer_id: userId!,
 
-        material,
-        custom_material: null,
+        // Open request (no ConZ supplier): posted as the existing unpriced
+        // "custom" type so no supplier quote is required; the real material
+        // is kept as the label and in the notes. Drivers bid their own price.
+        material: offerData.openRequest ? "custom" : material,
+        custom_material: offerData.openRequest ? offerData.label : null,
         quantity_m3: quantity,
-        quote_id: offerData.quoteId,
+        quote_id: offerData.openRequest ? null : offerData.quoteId,
 
         delivery_address: address.trim(),
         delivery_lat: coords.lat,
         delivery_lng: coords.lng,
 
-        pickup_address: offerData.resolvedSource.label ?? offerData.resolvedSource.address ?? "Verified supplier location",
-        pickup_lat: offerData.resolvedSource.lat,
-        pickup_lng: offerData.resolvedSource.lng,
+        pickup_address: offerData.resolvedSource
+          ? (offerData.resolvedSource.label ?? offerData.resolvedSource.address ?? "Verified supplier location")
+          : "Driver arranges pickup",
+        pickup_lat: offerData.resolvedSource ? offerData.resolvedSource.lat : null,
+        pickup_lng: offerData.resolvedSource ? offerData.resolvedSource.lng : null,
 
 
         budget: offer,
         preferred_date: date || null,
-        notes: notes.trim() || null,
+        notes:
+          [offerData.openRequest ? `Open request: ${offerData.label} — driver arranges pickup and bids their own price.` : "", notes.trim()]
+            .filter(Boolean)
+            .join(" ") || null,
         preferred_driver_id: search.driverId || null,
         payment_method: paymentMethod,
       } as any)
@@ -442,7 +450,7 @@ function BookDelivery() {
       <CzHeader
         title="Choose your price"
         onBack={goBack}
-        subtitle={`${offerData.label} · ${quantity} m³ → ${areaOf(address) || address} · ${offerData.distanceKm} km`}
+        subtitle={`${offerData.label} · ${quantity} m³ → ${areaOf(address) || address} · ${offerData.openRequest ? "open request" : `${offerData.distanceKm} km`}`}
       />
 
       <div className="flex-1 space-y-4 px-5 pb-6">
@@ -513,7 +521,18 @@ function BookDelivery() {
           {offerData.transportCost > 0 && (
             <MoneyRow label={`Transport (${offerData.distanceKm} km)`} value={usd2(offerData.transportCost)} />
           )}
-          <MoneyRow label="Picked up from" value={offerData.resolvedSource.label || offerData.resolvedSource.address || "Verified supplier location"} valueClassName="text-cz-muted text-sm" />
+          {offerData.resolvedSource ? (
+            <MoneyRow label="Picked up from" value={offerData.resolvedSource.label || offerData.resolvedSource.address || "Verified supplier location"} valueClassName="text-cz-muted text-sm" />
+          ) : (
+            <>
+              <MoneyRow label="Pickup" value="Driver arranges it" valueClassName="text-cz-muted text-sm" />
+              <p className="rounded-[12px] bg-cz-amber-tint px-3 py-2 text-[13px] text-cz-amber-text">
+                Open request: the price above is only a guide. Drivers see your order, collect the material from their
+                own source and bid their own amount — you choose the offer you like. Availability is confirmed by the
+                driver, not by ConZ.
+              </p>
+            </>
+          )}
           <p className="text-[13px] text-cz-muted">
             Estimated {offerData.tripCount} trip{offerData.tripCount === 1 ? "" : "s"}, based on a {offerData.referenceCapacityM3} m³
             reference truck. All amounts in USD.

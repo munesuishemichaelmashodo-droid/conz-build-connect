@@ -1402,9 +1402,9 @@ function BidForm({
             </summary>
             <div className="px-4 pb-4 -mt-2">
               <DriverNavigationButtons
-                pickup={{ lat: job.pickup_lat ?? -17.8292, lng: job.pickup_lng ?? 31.0522 }}
+                pickup={{ lat: job.pickup_lat, lng: job.pickup_lng }}
                 dropoff={{ lat: job.delivery_lat, lng: job.delivery_lng }}
-                pickupLabel={job.pickup_address ?? "Harare CBD supplier pickup point"}
+                pickupLabel={job.pickup_address ?? "Pickup"}
                 dropoffLabel={job.delivery_address ?? "Drop-off"}
               />
             </div>
@@ -2568,9 +2568,9 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
           </summary>
           <div className="px-4 pb-4 -mt-2">
             <DriverNavigationButtons
-              pickup={{ lat: job.pickup_lat ?? -17.8292, lng: job.pickup_lng ?? 31.0522 }}
+              pickup={{ lat: job.pickup_lat, lng: job.pickup_lng }}
               dropoff={{ lat: job.delivery_lat, lng: job.delivery_lng }}
-              pickupLabel={job.pickup_address ?? "Harare CBD supplier pickup point"}
+              pickupLabel={job.pickup_address ?? "Pickup"}
               dropoffLabel={job.delivery_address ?? "Drop-off"}
             />
           </div>

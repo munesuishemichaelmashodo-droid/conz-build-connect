@@ -54,11 +54,15 @@ async function resolvePickupAndDistance(
     deliveryLat: number;
     deliveryLng: number;
   },
-): Promise<{
-  distanceKm: number;
-  source: DistanceSource;
-  resolvedSource: ResolvedMaterialSource;
-}> {
+): Promise<
+  | {
+      openRequest: false;
+      distanceKm: number;
+      source: DistanceSource;
+      resolvedSource: ResolvedMaterialSource;
+    }
+  | { openRequest: true }
+> {
   const resolution = await resolveMaterialSource(
     sb,
     data.material,
@@ -69,13 +73,21 @@ async function resolvePickupAndDistance(
 
   if (resolution.status === "source_resolved") {
     return {
+      openRequest: false,
       distanceKm: resolution.source.distanceKm,
       source: resolution.source.distanceSource,
       resolvedSource: resolution.source,
     };
   }
-  if (resolution.status === "no_source_configured") {
-    throw new Error("No verified supplier pickup is configured for this material yet.");
+  // No ConZ supplier exists for this material, or none covers this delivery
+  // point. That is NOT an error any more: the customer can post an open
+  // request and drivers bid their own price (see buildOpenRequestOffer).
+  // Transient failures (database / routing errors) still fail closed below.
+  if (
+    resolution.status === "no_source_configured" ||
+    (resolution.status === "source_resolution_failed" && resolution.reason === "no_eligible_source")
+  ) {
+    return { openRequest: true };
   }
   throw new Error("Unable to determine a verified material pickup location. Please try again.");
 }
@@ -166,13 +178,17 @@ export type OfferResult = {
   // Pass this back at job creation (jobs.quote_id) so the DB trigger uses
   // the same road distance instead of recomputing a cheaper haversine
   // figure. A quote is mandatory for a displayed price.
-  quoteId: string;
+  quoteId: string | null;
+  // True when no ConZ supplier covers this order: the job is posted as an open
+  // request (driver arranges pickup, driver bids their own price). The price
+  // shown is then an indicative range, not a supplier-backed quote.
+  openRequest: boolean;
   // Server-resolved material supply source, for transparency display only
   // ("picked up from Pomona Stone Quarries") — the client never supplies
   // or influences this; it's purely informational, mirroring how
   // pricingVersion/tripCount are shown without being client-editable. Always
   // present because a quote requires an eligible verified supply location.
-  resolvedSource: ResolvedMaterialSource;
+  resolvedSource: ResolvedMaterialSource | null;
 };
 
 type OfferGuide = {
@@ -233,7 +249,82 @@ function buildOfferResult(
     referenceCapacityM3: Number(g.referenceCapacityM3 ?? 10),
     pricingVersion: g.pricingVersion ?? "v1.1",
     quoteId,
+    openRequest: false,
     resolvedSource,
+  };
+}
+
+/**
+ * Assumed one-way haul distances (pickup -> delivery) used ONLY to show an
+ * indicative guide range for an open request, where nobody has chosen a
+ * supplier yet. The real distance depends on where the driver collects.
+ * Owner-adjustable constants; not used for any supplier-backed quote.
+ */
+export const OPEN_REQUEST_HAUL_KM = { low: 25, typical: 60, high: 120 } as const;
+
+/**
+ * Open request: no ConZ supplier covers this order. Drivers already know where
+ * to collect, so we show an honest indicative range (reference price at a
+ * short, typical and long haul) and the driver bids their own amount.
+ * Nothing here claims stock or a fixed supplier.
+ */
+export async function buildOpenRequestOffer(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- same untyped RPC client pattern as the rest of this file.
+  sb: any,
+  data: { material: string; quantity: number },
+): Promise<OfferResult> {
+  const at = async (km: number): Promise<OfferGuide> => {
+    const { data: guide, error } = await sb.rpc("compute_material_offer", {
+      _material: data.material,
+      _quantity: data.quantity,
+      _distance_km: km,
+    });
+    if (error) throw new Error(error.message);
+    const g = guide as OfferGuide;
+    if (g.requiresCustomQuote || g.enforced === false) {
+      throw new Error(customQuoteMessage(g, data.quantity));
+    }
+    return g;
+  };
+  const [lo, mid, hi] = await Promise.all([
+    at(OPEN_REQUEST_HAUL_KM.low),
+    at(OPEN_REQUEST_HAUL_KM.typical),
+    at(OPEN_REQUEST_HAUL_KM.high),
+  ]);
+  const min = Number(lo.min ?? 0);
+  const max = Number(hi.max ?? 0);
+  if (!(min > 0) || !(max >= min)) {
+    throw new Error(customQuoteMessage({ enforced: true, requiresCustomQuote: true }, data.quantity));
+  }
+  const label = mid.label ?? data.material.replace("_", " ");
+  const tripCount = Number(mid.tripCount ?? 1);
+  const clamp = (v: number) => Math.min(max, Math.max(min, v));
+  const typical = clamp(Number(mid.recommended ?? mid.offer ?? min));
+  return {
+    offer: typical,
+    min,
+    max,
+    low: clamp(Number(lo.recommended ?? min)),
+    recommended: typical,
+    high: clamp(Number(hi.recommended ?? max)),
+    step: Number(mid.step ?? 10),
+    label,
+    unit: mid.unit ?? "per load",
+    enforced: true,
+    etaMinutes: Math.max(10, Math.round((OPEN_REQUEST_HAUL_KM.typical / 40) * 60) + 20),
+    distanceKm: OPEN_REQUEST_HAUL_KM.typical,
+    explanation:
+      `Open request for ${label} — ${data.quantity} m³. No ConZ supplier covers this, so a driver arranges the pickup ` +
+      `and bids their own price. This is an indicative range for hauls of ${OPEN_REQUEST_HAUL_KM.low}–${OPEN_REQUEST_HAUL_KM.high} km; ` +
+      `availability is not confirmed until a driver accepts.`,
+    materialCost: 0,
+    transportCost: 0,
+    tripCount,
+    referenceCapacityM3: Number(mid.referenceCapacityM3 ?? 10),
+    pricingVersion: mid.pricingVersion ?? "v1.1",
+    quoteId: null,
+    openRequest: true,
+    resolvedSource: null,
   };
 }
 
@@ -245,7 +336,9 @@ export const computeOffer = createServerFn({ method: "POST" })
   .inputValidator(parseOfferInput)
   .handler(async ({ data, context }): Promise<OfferResult> => {
     const { supabase } = context;
-    const { distanceKm, source, resolvedSource } = await resolvePickupAndDistance(supabase, data);
+    const resolved = await resolvePickupAndDistance(supabase, data);
+    if (resolved.openRequest) return buildOpenRequestOffer(supabase, data);
+    const { distanceKm, source, resolvedSource } = resolved;
     if (distanceKm > MAX_SERVICE_KM) throw new Error(TOO_FAR_MESSAGE);
 
     const quoteId = await tryCreateQuote(
@@ -282,10 +375,13 @@ export const computePublicOffer = createServerFn({ method: "POST" })
   .inputValidator(parseOfferInput)
   .handler(async ({ data }): Promise<OfferResult> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { distanceKm, source, resolvedSource } = await resolvePickupAndDistance(
-      supabaseAdmin,
-      data,
-    );
+    const resolved = await resolvePickupAndDistance(supabaseAdmin, data);
+    if (resolved.openRequest) {
+      throw new Error(
+        "We have no listed supplier for this material near you. Sign in and book it as an open request — drivers bid their own price.",
+      );
+    }
+    const { distanceKm, source, resolvedSource } = resolved;
     if (distanceKm > MAX_SERVICE_KM) throw new Error(TOO_FAR_MESSAGE);
 
     // Anonymous quotes aren't tied to a customer and never feed a real job
