@@ -2,6 +2,7 @@
 
 begin;
 select plan(27);
+select tests.enable_launch_features();
 
 select set_config('t.drv',   tests.create_driver('rs_drv', 100)::text, true);
 select set_config('t.neg',   tests.create_driver('rs_neg', 100)::text, true);

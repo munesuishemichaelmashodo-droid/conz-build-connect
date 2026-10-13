@@ -4,6 +4,7 @@
 
 begin;
 select plan(21);
+select tests.enable_launch_features();
 
 select set_config('t.drv',   tests.create_driver('wj_drv', 100)::text, true);
 select set_config('t.nopin', tests.create_driver('wj_nopin', 100)::text, true);

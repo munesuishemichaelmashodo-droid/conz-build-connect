@@ -29,6 +29,7 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { rpcFailure } from "@/lib/rpc-result";
+import { useLaunchSwitches } from "@/lib/launch-switches";
 import { toast } from "sonner";
 import { withdrawalStage } from "@/lib/withdrawalStatus";
 
@@ -108,6 +109,8 @@ function WalletPage() {
   const [tab, setTab] = useState<"summary" | "history" | "requests">("summary");
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const launch = useLaunchSwitches();
+  const canWithdraw = launch.withdrawalsEnabled;
 
   const { data: wallet } = useQuery({
     queryKey: ["wallet", userId],
@@ -285,7 +288,7 @@ function WalletPage() {
         <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-primary/20 blur-3xl" />
         <div className="flex items-start justify-between relative">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.2em] text-white/60">Available to withdraw</div>
+            <div className="text-[10px] uppercase tracking-[0.2em] text-white/60">{canWithdraw ? "Available to withdraw" : "ConZ credit available"}</div>
             <div className="font-display font-bold text-primary text-5xl mt-1 tracking-tight" aria-label={`Available balance ${money(available)}`}>{money(available)}</div>
             <div className={cn("inline-flex items-center gap-1.5 mt-3 text-xs font-semibold", status.tone)}>
               <span className={cn("w-2 h-2 rounded-full", status.dot)} />
@@ -311,22 +314,35 @@ function WalletPage() {
         </dl>
 
         <div className="mt-5 grid grid-cols-2 gap-2 relative">
-          <Button onClick={() => setTopUpOpen(true)} className="h-11 rounded-xl font-display uppercase tracking-wide">
+          <Button
+            onClick={() => setTopUpOpen(true)}
+            className={cn("h-11 rounded-xl font-display uppercase tracking-wide", !canWithdraw && "col-span-2")}
+          >
             <Plus className="w-4 h-4 mr-1" /> Top Up
           </Button>
-          <Button
-            onClick={() => setWithdrawOpen(true)}
-            variant="secondary"
-            className="h-11 rounded-xl font-display uppercase tracking-wide bg-white/10 text-white hover:bg-white/20 border-white/10"
-          >
-            <Banknote className="w-4 h-4 mr-1" /> Withdraw
-          </Button>
+          {canWithdraw && (
+            <Button
+              onClick={() => setWithdrawOpen(true)}
+              variant="secondary"
+              className="h-11 rounded-xl font-display uppercase tracking-wide bg-white/10 text-white hover:bg-white/20 border-white/10"
+            >
+              <Banknote className="w-4 h-4 mr-1" /> Withdraw
+            </Button>
+          )}
         </div>
 
+        {!canWithdraw && (
+          <p className="text-[11px] text-white/60 mt-4 relative">
+            Your ConZ credit pays our 7% fee on jobs you complete. Part of it is held while a job is active. Withdrawals are paused for now;
+            to get unused credit back, contact support. You can hold up to {money(launch.maxWalletBalance)} in credit.
+          </p>
+        )}
+        {canWithdraw && (
         <p className="text-[11px] text-white/60 mt-4 relative">
           Held funds are the 7% commission reserved for your active jobs; they can't be withdrawn.
           A pending withdrawal is reserved straight away, so it is not counted as available; it is debited when an admin approves it, and released if it is rejected or cancelled.
         </p>
+        )}
       </motion.div>
 
       <div className="mt-5 flex gap-1 rounded-xl bg-muted p-1">

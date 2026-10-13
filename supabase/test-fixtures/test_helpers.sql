@@ -122,6 +122,15 @@ returns uuid language sql stable as $$
   select id from public.trucks where driver_id = _driver order by created_at limit 1
 $$;
 
+-- 0107 pauses escrow and withdrawals and caps job/bid/wallet amounts by default (the MVP
+-- launch settings). Tests of those older features call this first; 370_mvp_launch_switches
+-- does NOT, so it proves the real defaults.
+create or replace function tests.enable_launch_features()
+returns void language sql as $$
+  update public.system_settings set value = 'true'::jsonb where key in ('escrow_enabled', 'withdrawals_enabled');
+  update public.system_settings set value = '100000'::jsonb where key in ('max_job_budget', 'max_wallet_balance');
+$$;
+
 -- An open job. 'custom' material is not price-enforced, which is the
 -- material the F1 budget path relies on.
 create or replace function tests.create_job(_customer uuid, _budget numeric default 400,

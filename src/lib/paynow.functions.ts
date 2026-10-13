@@ -107,6 +107,13 @@ export const initiateEscrowPayment = createServerFn({ method: "POST" })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service-role RPCs/tables added by 0073+ are not in the generated Supabase types yet
     const db = supabaseAdmin as any;
 
+    // MVP launch: Con Z Pay (escrow) is paused until the owner switches it on (migration 0107).
+    // Fail closed: if the switch cannot be read, the payment is not started.
+    const { data: switches } = await db.rpc("launch_switches");
+    if (!(switches as { escrowEnabled?: boolean } | null)?.escrowEnabled) {
+      return { ok: false, error: "escrow_unavailable" };
+    }
+
     const { data: job } = await db
       .from("jobs")
       .select("id,customer_id,payment_method,status,final_price,budget,material")

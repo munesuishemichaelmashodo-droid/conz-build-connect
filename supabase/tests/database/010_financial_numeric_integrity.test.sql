@@ -10,6 +10,7 @@
 
 begin;
 select plan(39);
+select tests.enable_launch_features();
 
 -- ---------------------------------------------------------------------------
 -- Fixtures

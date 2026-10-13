@@ -6,6 +6,7 @@
 
 begin;
 select plan(16);
+select tests.enable_launch_features();
 
 select set_config('t.cust',  tests.create_user('af_cust')::text, true);
 select set_config('t.drv',   tests.create_driver('af_drv', 100)::text, true);

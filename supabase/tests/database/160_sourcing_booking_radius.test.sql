@@ -6,6 +6,7 @@
 
 begin;
 select plan(8);
+select tests.enable_launch_features();
 
 select set_config('t.c1',    tests.create_user('rad_c1')::text, true);
 select set_config('t.c2',    tests.create_user('rad_c2')::text, true);

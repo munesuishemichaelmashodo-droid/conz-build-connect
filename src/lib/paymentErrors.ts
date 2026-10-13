@@ -28,6 +28,7 @@ const PAYNOW_CODES: Record<string, string> = {
   paynow_bad_signature: "Paynow's reply could not be verified, so the payment was not started.",
   paynow_bad_poll_url: "Paynow's reply could not be verified, so the payment was not started.",
   payment_create_failed: "We couldn't start this payment. Nothing was charged. Please try again.",
+  escrow_unavailable: "Con Z Pay is not available yet. Please pay the driver directly.",
   already_paid: "This job has already been paid for.",
   job_not_payable: "This job can't be paid for right now.",
   job_not_found: "We couldn't find that job.",

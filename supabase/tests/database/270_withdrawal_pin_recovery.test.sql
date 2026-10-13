@@ -4,6 +4,7 @@
 
 begin;
 select plan(46);
+select tests.enable_launch_features();
 
 select set_config('t.admin', tests.create_user('pr_admin', array['admin'])::text, true);
 select set_config('t.drv',   tests.create_driver('pr_drv', 100)::text, true);

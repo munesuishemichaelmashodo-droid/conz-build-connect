@@ -4,6 +4,7 @@
 
 begin;
 select plan(54);
+select tests.enable_launch_features();
 
 select set_config('t.cust',  tests.create_user('dp_cust')::text, true);
 select set_config('t.cust2', tests.create_user('dp_cust2')::text, true);

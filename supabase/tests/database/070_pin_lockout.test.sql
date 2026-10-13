@@ -7,6 +7,7 @@
 
 begin;
 select plan(31);
+select tests.enable_launch_features();
 
 select set_config('t.a', tests.create_driver('pinA', 100)::text, true);
 select set_config('t.b', tests.create_driver('pinB', 100)::text, true);

@@ -5,6 +5,7 @@
 
 begin;
 select plan(34);
+select tests.enable_launch_features();
 
 select set_config('t.admin', tests.create_user('su_admin', array['admin'])::text, true);
 select set_config('t.super', tests.create_user('su_super', array['super_admin','admin'])::text, true);

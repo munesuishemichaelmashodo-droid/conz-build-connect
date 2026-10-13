@@ -3,6 +3,7 @@
 
 begin;
 select plan(12);
+select tests.enable_launch_features();
 
 select set_config('t.cust', tests.create_user('ph_cust')::text, true);
 select set_config('t.drv',  tests.create_driver('ph_drv', 100, true)::text, true);

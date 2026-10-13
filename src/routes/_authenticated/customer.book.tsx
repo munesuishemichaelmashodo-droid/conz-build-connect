@@ -22,6 +22,7 @@ import {
 import { MATERIALS, type MaterialCategory, money } from "@/lib/domain";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useLaunchSwitches } from "@/lib/launch-switches";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -107,6 +108,9 @@ function BookDelivery() {
   };
   const [posting, setPosting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"direct" | "escrow">("direct");
+  // MVP launch: Con Z Pay (escrow) stays hidden until the owner turns it on (database-enforced too).
+  const launch = useLaunchSwitches();
+  const effectivePaymentMethod = launch.escrowEnabled ? paymentMethod : "direct";
   // Redesign: the date/notes drawer grows the sheet, so the map controls move up.
   const [sheetOpenExtra, setSheetOpenExtra] = useState(false);
   // The booking sheet's real height, so the map's locate button / status pill
@@ -271,7 +275,7 @@ function BookDelivery() {
         preferred_date: date || null,
         notes: notes.trim() || null,
         preferred_driver_id: search.driverId || null,
-        payment_method: paymentMethod,
+        payment_method: effectivePaymentMethod,
       } as any)
       .select()
       .single();
@@ -602,6 +606,22 @@ function BookDelivery() {
           </p>
         </CzCard>
 
+        {!launch.escrowEnabled && (
+          <div className="space-y-2">
+            <div className="text-sm font-semibold text-cz-muted">How will you pay?</div>
+            <div className="flex items-start gap-3 rounded-[16px] border border-cz-amber bg-cz-amber-tint px-4 py-3.5">
+              <HandCoins className="w-4 h-4 mt-0.5 text-cz-muted" aria-hidden />
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">Pay the driver directly</span>
+                <span className="block text-[13px] text-cz-muted">
+                  Cash or EcoCash to the driver when your load arrives. You will confirm delivery with your PIN.
+                </span>
+              </span>
+            </div>
+          </div>
+        )}
+
+        {launch.escrowEnabled && (
         <div className="space-y-2">
           <div className="text-sm font-semibold text-cz-muted">How will you pay?</div>
           <SpotlightCallout
@@ -653,6 +673,7 @@ function BookDelivery() {
             })}
           </div>
         </div>
+        )}
       </div>
 
       <footer className="sticky bottom-0 z-20 space-y-2 border-t border-cz-border bg-cz-surface px-5 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))]">

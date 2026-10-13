@@ -3,6 +3,7 @@
 
 begin;
 select plan(27);
+select tests.enable_launch_features();
 
 select set_config('t.drv',   tests.create_driver('wd', 100)::text, true);
 select set_config('t.other', tests.create_user('other')::text, true);
