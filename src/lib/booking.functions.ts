@@ -294,7 +294,9 @@ export async function buildOpenRequestOffer(
   const min = Number(lo.min ?? 0);
   const max = Number(hi.max ?? 0);
   if (!(min > 0) || !(max >= min)) {
-    throw new Error(customQuoteMessage({ enforced: true, requiresCustomQuote: true }, data.quantity));
+    throw new Error(
+      customQuoteMessage({ enforced: true, requiresCustomQuote: true }, data.quantity),
+    );
   }
   const label = mid.label ?? data.material.replace("_", " ");
   const tripCount = Number(mid.tripCount ?? 1);
