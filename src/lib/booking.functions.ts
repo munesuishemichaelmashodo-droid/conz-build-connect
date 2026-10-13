@@ -277,7 +277,7 @@ function buildOfferResult(
  * supplier yet. The real distance depends on where the driver collects.
  * Owner-adjustable constants; not used for any supplier-backed quote.
  */
-export const OPEN_REQUEST_HAUL_KM = { low: 25, typical: 60, high: 120 } as const;
+export const OPEN_REQUEST_HAUL_KM = { low: 10, typical: 40, high: 120 } as const;
 
 /**
  * Open request: no ConZ supplier covers this order. Drivers already know where
