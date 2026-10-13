@@ -288,7 +288,7 @@ function WalletPage() {
         <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-primary/20 blur-3xl" />
         <div className="flex items-start justify-between relative">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.2em] text-white/60">{canWithdraw ? "Available to withdraw" : "ConZ credit available"}</div>
+            <div className="text-xs uppercase tracking-[0.2em] text-white/75">{canWithdraw ? "Available to withdraw" : "ConZ credit available"}</div>
             <div className="font-display font-bold text-primary text-5xl mt-1 tracking-tight" aria-label={`Available balance ${money(available)}`}>{money(available)}</div>
             <div className={cn("inline-flex items-center gap-1.5 mt-3 text-xs font-semibold", status.tone)}>
               <span className={cn("w-2 h-2 rounded-full", status.dot)} />
@@ -300,15 +300,15 @@ function WalletPage() {
 
         <dl className="mt-4 grid grid-cols-3 gap-2 relative text-center">
           <div className="rounded-xl bg-white/5 py-2">
-            <dt className="text-[10px] uppercase tracking-wider text-white/60">Total</dt>
+            <dt className="text-xs uppercase tracking-wider text-white/75">Total</dt>
             <dd className="font-display font-bold text-sm">{money(balance)}</dd>
           </div>
           <div className="rounded-xl bg-white/5 py-2">
-            <dt className="text-[10px] uppercase tracking-wider text-white/60">Held</dt>
+            <dt className="text-xs uppercase tracking-wider text-white/75">Held</dt>
             <dd className="font-display font-bold text-sm">{money(held)}</dd>
           </div>
           <div className="rounded-xl bg-white/5 py-2">
-            <dt className="text-[10px] uppercase tracking-wider text-white/60">Pending withdrawal</dt>
+            <dt className="text-xs uppercase tracking-wider text-white/75">Pending withdrawal</dt>
             <dd className="font-display font-bold text-sm">{money(pendingWithdrawal)}</dd>
           </div>
         </dl>
@@ -332,33 +332,35 @@ function WalletPage() {
         </div>
 
         {!canWithdraw && (
-          <p className="text-[11px] text-white/60 mt-4 relative">
+          <p className="text-xs text-white/75 mt-4 relative">
             Your ConZ credit pays our 7% fee on jobs you complete. Part of it is held while a job is active. Withdrawals are paused for now;
             to get unused credit back, contact support. You can hold up to {money(launch.maxWalletBalance)} in credit.
           </p>
         )}
         {canWithdraw && (
-        <p className="text-[11px] text-white/60 mt-4 relative">
+        <p className="text-xs text-white/75 mt-4 relative">
           Held funds are the 7% commission reserved for your active jobs; they can't be withdrawn.
           A pending withdrawal is reserved straight away, so it is not counted as available; it is debited when an admin approves it, and released if it is rejected or cancelled.
         </p>
         )}
       </motion.div>
 
-      <div className="mt-5 flex gap-1 rounded-xl bg-muted p-1">
+      <div className="mt-5 flex gap-1 rounded-xl bg-muted p-1" role="tablist" aria-label="Wallet sections">
         {(["summary", "requests", "history"] as const).map((t) => (
           <button
             key={t}
             type="button"
+            role="tab"
+            aria-selected={tab === t}
             onClick={() => setTab(t)}
             className={cn(
-              "flex-1 h-9 rounded-lg text-xs font-display uppercase tracking-wide transition relative",
+              "flex-1 min-h-11 rounded-lg text-xs font-display uppercase tracking-wide transition relative",
               tab === t ? "bg-background text-foreground shadow-sm" : "text-muted-foreground",
             )}
           >
             {t === "summary" ? "Summary" : t === "requests" ? "Requests" : "History"}
             {t === "requests" && pendingCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center">
                 {pendingCount}
               </span>
             )}
@@ -411,11 +413,11 @@ function WalletPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold">Top Up · Paynow</div>
-                    <div className="text-[11px] text-muted-foreground">
+                    <div className="text-xs text-muted-foreground">
                       {new Date(p.paid_at ?? p.created_at).toLocaleString()} · {PAYNOW_STATUS[p.status] ?? p.status}
                     </div>
                     {p.status === "initiated" && (
-                      <div className="text-[11px] text-muted-foreground">Your wallet is credited only once Paynow confirms payment.</div>
+                      <div className="text-xs text-muted-foreground">Your wallet is credited only once Paynow confirms payment.</div>
                     )}
                   </div>
                   <div className={cn("text-sm font-display font-bold", p.status === "paid" || p.status === "released" ? "text-success" : "text-muted-foreground")}>
@@ -495,7 +497,7 @@ function WalletPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold capitalize truncate">{String(t.type).replace(/_/g, " ")}</div>
-                      <div className="text-[11px] text-muted-foreground truncate">
+                      <div className="text-xs text-muted-foreground truncate">
                         {t.note ?? new Date(t.created_at).toLocaleString()}
                       </div>
                     </div>
@@ -578,11 +580,11 @@ function RequestRow({
               {isTopup ? "+" : "−"}{money(amount)}
             </div>
           </div>
-          <div className="text-[11px] text-muted-foreground truncate mt-0.5">
+          <div className="text-xs text-muted-foreground truncate mt-0.5">
             {reference ? `Ref: ${reference} · ` : ""}{new Date(createdAt).toLocaleString()}
           </div>
           <div className="mt-2 flex items-center justify-between gap-2">
-            <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase", statusTone[status])}>
+            <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase", statusTone[status])}>
               <Clock className="w-3 h-3" /> {info.label}
             </span>
             {status === "pending" && (
@@ -598,15 +600,15 @@ function RequestRow({
                     setCancelling(false);
                   }
                 }}
-                className="text-[11px] text-muted-foreground underline disabled:opacity-50 min-h-8 px-1"
+                className="text-xs text-muted-foreground underline disabled:opacity-50 min-h-8 px-1"
               >
                 {cancelling ? "Cancelling…" : "Cancel request"}
               </button>
             )}
           </div>
-          {info.note && <div className="text-[11px] text-muted-foreground mt-1">{info.note}</div>}
+          {info.note && <div className="text-xs text-muted-foreground mt-1">{info.note}</div>}
           {(status === "rejected" || status === "failed") && rejectReason && (
-            <div className="text-[11px] text-destructive mt-1">Reason: {rejectReason}</div>
+            <div className="text-xs text-destructive mt-1">Reason: {rejectReason}</div>
           )}
         </div>
       </div>
@@ -636,7 +638,7 @@ function SummaryRow({ label, value, tone, hint }: { label: string; value: string
     <div className="flex items-center justify-between">
       <div>
         <div className="text-sm text-foreground">{label}</div>
-        {hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}
+        {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
       </div>
       <div className={cn("font-display font-bold text-sm", tone)}>{value}</div>
     </div>
@@ -676,11 +678,13 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
 
         <div className="space-y-4">
           <div className="rounded-2xl bg-muted p-4">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Enter Amount</div>
+            <label htmlFor="topup-amount" className="text-xs uppercase tracking-widest text-muted-foreground">Enter Amount</label>
             <div className="flex items-baseline gap-1 mt-1">
               <span className="font-display font-bold text-3xl">$</span>
               <input
+                id="topup-amount"
                 type="number"
+                inputMode="decimal"
                 min={1}
                 value={amount}
                 onChange={(e) => setAmount(Number(e.target.value))}
@@ -716,7 +720,7 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
           <Button onClick={submit} disabled={submitting} className="w-full h-12 rounded-xl font-display uppercase tracking-wide">
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Pay with Paynow — {money(amount || 0)}</>}
           </Button>
-          <p className="text-[11px] text-center text-muted-foreground">
+          <p className="text-xs text-center text-muted-foreground">
             Your wallet is credited automatically once payment is confirmed.
           </p>
         </div>
@@ -852,8 +856,8 @@ function WithdrawDialog({
           >
             <div className="rounded-2xl bg-muted p-4">
               <div className="flex items-center justify-between">
-                <label htmlFor="wd-amount" className="text-[10px] uppercase tracking-widest text-muted-foreground">Amount</label>
-                <div className="text-[10px] text-muted-foreground">Available {money(available)}</div>
+                <label htmlFor="wd-amount" className="text-xs uppercase tracking-widest text-muted-foreground">Amount</label>
+                <div className="text-xs text-muted-foreground">Available {money(available)}</div>
               </div>
               <div className="flex items-baseline gap-1 mt-1">
                 <span className="font-display font-bold text-3xl">$</span>
@@ -870,14 +874,14 @@ function WithdrawDialog({
                   className="bg-transparent font-display font-bold text-3xl w-full outline-none"
                 />
               </div>
-              <button type="button" onClick={() => setAmountText(String(available))} className="mt-2 text-[11px] underline text-muted-foreground min-h-8">
+              <button type="button" onClick={() => setAmountText(String(available))} className="mt-2 text-xs underline text-muted-foreground min-h-8">
                 Use full available amount
               </button>
-              {touched && errors.amount && <p id="wd-amount-err" role="alert" className="text-[11px] text-destructive mt-1">{errors.amount}</p>}
+              {touched && errors.amount && <p id="wd-amount-err" role="alert" className="text-xs text-destructive mt-1">{errors.amount}</p>}
             </div>
 
             <div>
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Payout Method</div>
+              <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Payout Method</div>
               <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Payout method">
                 {METHODS.map((m) => (
                   <button
@@ -899,7 +903,7 @@ function WithdrawDialog({
             </div>
 
             <div>
-              <label htmlFor="wd-dest" className="text-[10px] uppercase tracking-widest text-muted-foreground">Destination (phone / account)</label>
+              <label htmlFor="wd-dest" className="text-xs uppercase tracking-widest text-muted-foreground">Destination (phone / account)</label>
               <input
                 id="wd-dest"
                 value={destination}
@@ -909,11 +913,11 @@ function WithdrawDialog({
                 aria-invalid={touched && !!errors.destination}
                 className="w-full mt-1 px-3 py-2.5 rounded-xl border bg-background text-sm"
               />
-              {touched && errors.destination && <p role="alert" className="text-[11px] text-destructive mt-1">{errors.destination}</p>}
+              {touched && errors.destination && <p role="alert" className="text-xs text-destructive mt-1">{errors.destination}</p>}
             </div>
 
             <div>
-              <label htmlFor="wd-pin" className="text-[10px] uppercase tracking-widest text-muted-foreground">Withdrawal PIN</label>
+              <label htmlFor="wd-pin" className="text-xs uppercase tracking-widest text-muted-foreground">Withdrawal PIN</label>
               <input
                 id="wd-pin"
                 type="password"
@@ -927,11 +931,11 @@ function WithdrawDialog({
                 aria-invalid={touched && !!errors.pin}
                 className="w-full mt-1 px-3 py-2.5 rounded-xl border bg-background text-sm tracking-widest"
               />
-              {touched && errors.pin && <p role="alert" className="text-[11px] text-destructive mt-1">{errors.pin}</p>}
+              {touched && errors.pin && <p role="alert" className="text-xs text-destructive mt-1">{errors.pin}</p>}
               {!hasPin && (
-                <p className="text-[11px] text-warning mt-1">You haven't set a PIN. Set one from Profile before withdrawing.</p>
+                <p className="text-xs text-warning mt-1">You haven't set a PIN. Set one from Profile before withdrawing.</p>
               )}
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Repeated wrong PINs lock withdrawals temporarily. There is no self-service PIN reset yet — contact support if you forget it.
               </p>
             </div>
