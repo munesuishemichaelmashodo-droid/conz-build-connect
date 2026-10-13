@@ -78,7 +78,7 @@ const SECTIONS: FaqSection[] = [
     items: [
       {
         q: "What are driver levels (Bronze/Silver/Gold/Platinum)?",
-        a: "Levels track your completed jobs and rating. Higher levels get a real commission discount — up to 20% off at Platinum — automatically applied on every completed job.",
+        a: "Levels recognise your completed jobs and rating. The Con Z commission is the same flat rate at every level — levels do not change what you pay.",
       },
       {
         q: "My verification is taking long — what should I do?",

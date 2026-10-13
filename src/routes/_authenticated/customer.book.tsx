@@ -1,5 +1,6 @@
+import { stockStatusCopy } from "@/lib/stockStatus";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { AddressPicker } from "@/components/AddressPicker";
 import { SpotlightCallout } from "@/components/SpotlightCallout";
@@ -21,9 +22,16 @@ import {
 import { MATERIALS, type MaterialCategory, money } from "@/lib/domain";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useLaunchSwitches } from "@/lib/launch-switches";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
-import { computeOffer, explainOffer, type OfferResult } from "@/lib/booking.functions";
+import {
+  computeOffer,
+  explainOffer,
+  getSourcingOffer,
+  type AwaitingSourcingResult,
+  type OfferResult,
+} from "@/lib/booking.functions";
 import { motion } from "framer-motion";
 import {
   CzScreen,
@@ -49,6 +57,8 @@ const bookSearchSchema = z.object({
   lat: z.coerce.number().optional(),
   lng: z.coerce.number().optional(),
   driverId: z.string().optional(),
+  // Set when the customer returns to book an admin-issued sourcing quote.
+  sourcingRequestId: z.string().uuid().optional(),
 });
 
 export const Route = createFileRoute("/_authenticated/customer/book")({
@@ -69,6 +79,7 @@ function BookDelivery() {
 
   const runOffer = useServerFn(computeOffer);
   const runExplain = useServerFn(explainOffer);
+  const runSourcingOffer = useServerFn(getSourcingOffer);
 
   const [step, setStep] = useState<number>(0);
   const [address, setAddress] = useState(search.address ?? "");
@@ -84,8 +95,22 @@ function BookDelivery() {
   const [computing, setComputing] = useState(false);
   const [offerData, setOfferData] = useState<OfferResult | null>(null);
   const [offer, setOffer] = useState<number>(0);
+  // "No verified supplier yet": the request was recorded for sourcing instead of quoted.
+  const [sourcingResult, setSourcingResult] = useState<AwaitingSourcingResult | null>(null);
+  // One idempotency key per distinct request, so a retried submit maps to the same sourcing request.
+  const attemptRef = useRef<{ sig: string; key: string } | null>(null);
+  const attemptKey = () => {
+    const sig = [material, quantity, coords?.lat, coords?.lng, address.trim()].join("|");
+    if (!attemptRef.current || attemptRef.current.sig !== sig) {
+      attemptRef.current = { sig, key: `req-${crypto.randomUUID()}` };
+    }
+    return attemptRef.current.key;
+  };
   const [posting, setPosting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"direct" | "escrow">("direct");
+  // MVP launch: Con Z Pay (escrow) stays hidden until the owner turns it on (database-enforced too).
+  const launch = useLaunchSwitches();
+  const effectivePaymentMethod = launch.escrowEnabled ? paymentMethod : "direct";
   // Redesign: the date/notes drawer grows the sheet, so the map controls move up.
   const [sheetOpenExtra, setSheetOpenExtra] = useState(false);
   // The booking sheet's real height, so the map's locate button / status pill
@@ -100,6 +125,36 @@ function BookDelivery() {
     ro.observe(sheetEl);
     return () => ro.disconnect();
   }, [sheetEl]);
+
+  // Returning from the sourcing tracker with a ready quote: rebuild the offer
+  // server-side from the stored quote (re-validated there) and go to confirm.
+  useEffect(() => {
+    const id = search.sourcingRequestId;
+    if (!id) return;
+    let cancelled = false;
+    setComputing(true);
+    runSourcingOffer({ data: { requestId: id } })
+      .then((r) => {
+        if (cancelled) return;
+        setMaterial(r.material as MaterialCategory);
+        setQuantity(r.quantity);
+        setAddress(r.delivery.address);
+        setCoords({ lat: r.delivery.lat, lng: r.delivery.lng });
+        setOfferData(r);
+        setOffer(r.offer);
+        setStep(5);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) toast.error(e instanceof Error ? e.message : "Could not load your sourcing quote");
+      })
+      .finally(() => {
+        if (!cancelled) setComputing(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per sourcing request id
+  }, [search.sourcingRequestId]);
 
   // Approximate (~1 km) Online trucks around the selected delivery pin.
   const nearbyTrucks = useNearbyTrucks(coords);
@@ -138,8 +193,15 @@ function BookDelivery() {
           deliveryLat: coords.lat,
           deliveryLng: coords.lng,
           address,
+          idempotencyKey: attemptKey(),
         },
       });
+
+      if (result.status === "awaiting_sourcing") {
+        attemptRef.current = null;
+        setSourcingResult(result);
+        return;
+      }
 
       setOfferData(result);
       setOffer(result.offer);
@@ -221,7 +283,7 @@ function BookDelivery() {
             .filter(Boolean)
             .join(" ") || null,
         preferred_driver_id: search.driverId || null,
-        payment_method: paymentMethod,
+        payment_method: effectivePaymentMethod,
       } as any)
       .select()
       .single();
@@ -257,6 +319,29 @@ function BookDelivery() {
     const next = Math.round((quantity + dir * stepSize) * 100) / 100;
     setQuantity(Math.min(30, Math.max(MIN_QUANTITY_M3, next)));
   };
+
+  if (sourcingResult) {
+    return (
+      <CzScreen>
+        <CzHeader title="Finding a supplier" onBack={() => setSourcingResult(null)} />
+        <div className="px-5 pb-8 space-y-4" role="status">
+          <CzCard>
+            <div className="space-y-3 p-4">
+              <h1 className="cz-display font-bold text-[22px] leading-tight">We're sourcing this for you</h1>
+              <p className="text-sm text-cz-text-2">{sourcingResult.message}</p>
+              <p className="text-sm text-cz-text-2">
+                {sourcingResult.quantity} m³ · {material.replace("_", " ")} · {address}
+              </p>
+            </div>
+          </CzCard>
+          <CzButton onClick={() => nav({ to: "/customer/sourcing" })}>Track my sourcing requests</CzButton>
+          <CzButton kind="secondary" onClick={() => setSourcingResult(null)}>
+            Change details
+          </CzButton>
+        </div>
+      </CzScreen>
+    );
+  }
 
   if (step !== 5 || !offerData) {
     return (
@@ -522,7 +607,10 @@ function BookDelivery() {
             <MoneyRow label={`Transport (${offerData.distanceKm} km)`} value={usd2(offerData.transportCost)} />
           )}
           {offerData.resolvedSource ? (
-            <MoneyRow label="Picked up from" value={offerData.resolvedSource.label || offerData.resolvedSource.address || "Verified supplier location"} valueClassName="text-cz-muted text-sm" />
+            <>
+              <MoneyRow label="Picked up from" value={offerData.resolvedSource.label || offerData.resolvedSource.address || "Verified supplier location"} valueClassName="text-cz-muted text-sm" />
+              <StockStatusNote status={offerData.resolvedSource.stockStatus} />
+            </>
           ) : (
             <>
               <MoneyRow label="Pickup" value="Driver arranges it" valueClassName="text-cz-muted text-sm" />
@@ -539,6 +627,22 @@ function BookDelivery() {
           </p>
         </CzCard>
 
+        {!launch.escrowEnabled && (
+          <div className="space-y-2">
+            <div className="text-sm font-semibold text-cz-muted">How will you pay?</div>
+            <div className="flex items-start gap-3 rounded-[16px] border border-cz-amber bg-cz-amber-tint px-4 py-3.5">
+              <HandCoins className="w-4 h-4 mt-0.5 text-cz-muted" aria-hidden />
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">Pay the driver directly</span>
+                <span className="block text-[13px] text-cz-muted">
+                  Cash or EcoCash to the driver when your load arrives. You will confirm delivery with your PIN.
+                </span>
+              </span>
+            </div>
+          </div>
+        )}
+
+        {launch.escrowEnabled && (
         <div className="space-y-2">
           <div className="text-sm font-semibold text-cz-muted">How will you pay?</div>
           <SpotlightCallout
@@ -590,6 +694,7 @@ function BookDelivery() {
             })}
           </div>
         </div>
+        )}
       </div>
 
       <footer className="sticky bottom-0 z-20 space-y-2 border-t border-cz-border bg-cz-surface px-5 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))]">
@@ -599,5 +704,15 @@ function BookDelivery() {
         <p className="text-center text-[11px] text-cz-faint">We'll immediately search for the closest verified tipper truck.</p>
       </footer>
     </CzScreen>
+  );
+}
+
+function StockStatusNote({ status }: { status: unknown }) {
+  const copy = stockStatusCopy(status);
+  return (
+    <div className="rounded-xl border border-cz-border p-3 text-[13px]" data-testid="stock-status">
+      <div className="font-semibold">{copy.title}</div>
+      <div className="text-cz-muted">{copy.detail}</div>
+    </div>
   );
 }

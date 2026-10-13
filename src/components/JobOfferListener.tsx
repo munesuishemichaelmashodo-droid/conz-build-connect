@@ -205,6 +205,16 @@ function OfferModal({
       ? "#f97316" // orange
       : "#ef4444"; // red
 
+  // Dismissing the offer is a decision: tell the server so the next wave goes out now
+  // instead of waiting for the timeout (best effort; the timeout still covers a failed call).
+  const decline = () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated types predate 0102
+    void (supabase as any)
+      .rpc("decline_dispatch_offer", { _offer_id: offer.id })
+      .then(() => undefined);
+    onClose();
+  };
+
   const accept = async () => {
     setAccepting(true);
     const { data, error } = await (supabase as any).rpc("accept_dispatch_offer", {
@@ -236,7 +246,7 @@ function OfferModal({
     <Dialog
       open
       onOpenChange={(o) => {
-        if (!o) onClose();
+        if (!o) decline();
       }}
     >
       <DialogContent className="max-w-sm p-0 overflow-hidden bg-gradient-to-b from-neutral-900 to-black text-white border-none">
@@ -247,9 +257,9 @@ function OfferModal({
               New job request
             </div>
             <button
-              onClick={onClose}
+              onClick={decline}
               className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"
-              aria-label="Dismiss"
+              aria-label="Decline offer"
             >
               <X className="w-4 h-4" />
             </button>

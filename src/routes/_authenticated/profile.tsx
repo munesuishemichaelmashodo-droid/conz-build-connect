@@ -351,9 +351,11 @@ function WithdrawalPinCard() {
   const { data: driver } = useQuery({
     queryKey: ["driver-pin-profile", userId],
     enabled: !!userId,
-    queryFn: async () => (await supabase.from("driver_profiles").select("withdrawal_pin_hash").eq("user_id", userId!).maybeSingle()).data,
+    // Filter server-side: the browser only learns whether a PIN exists, never the hash.
+    queryFn: async () =>
+      (await supabase.from("driver_profiles").select("user_id").eq("user_id", userId!).not("withdrawal_pin_hash", "is", null).maybeSingle()).data,
   });
-  const hasPin = !!driver?.withdrawal_pin_hash;
+  const hasPin = !!driver;
   const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
   const [currentPin, setCurrentPin] = useState("");
@@ -383,7 +385,7 @@ function WithdrawalPinCard() {
         {hasPin && <StatusBadge label="Set" className="bg-success/15 text-success border-success/30" />}
       </div>
       <p className="text-xs text-muted-foreground">
-        Required to authorise withdrawals from your wallet. 4–8 digits. Five wrong entries locks withdrawals for 15 minutes.
+        Required to authorise withdrawals from your wallet. 4–8 digits. Five wrong entries lock withdrawals for 15 minutes; ten lock them for 24 hours.
       </p>
       {hasPin && (
         <div>
@@ -402,7 +404,106 @@ function WithdrawalPinCard() {
         </div>
       </div>
       <Button onClick={save} disabled={saving} className="w-full">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : hasPin ? "Update PIN" : "Set PIN"}</Button>
+      {hasPin && <PinRecoveryPanel />}
     </section>
+  );
+}
+
+// Forgotten PIN (0097): ask, wait for ConZ to verify you outside the app, then set a new PIN within 24 h.
+function PinRecoveryPanel() {
+  const { userId } = useAuth();
+  const qc = useQueryClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pin_recovery_requests (0097) is not in the generated types yet
+  const db = supabase as any;
+  const { data: latest } = useQuery({
+    queryKey: ["pin-recovery", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data } = await db
+        .from("pin_recovery_requests")
+        .select("id,status,expires_at,completed_at")
+        .eq("user_id", userId!)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return (data ?? null) as { id: string; status: string; expires_at: string; completed_at: string | null } | null;
+    },
+  });
+  const [busy, setBusy] = useState(false);
+  const [pin, setPin] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const refresh = () => qc.invalidateQueries({ queryKey: ["pin-recovery", userId] });
+  const call = async (fn: string, args: Record<string, unknown> = {}) => {
+    setBusy(true);
+    const { data, error } = await db.rpc(fn, args);
+    setBusy(false);
+    if (error) { toast.error(error.message); return null; }
+    const failed = rpcFailure(data);
+    if (failed) { toast.error(failed.message); refresh(); return null; }
+    return data;
+  };
+  const status = latest?.status;
+  const approvedLive = status === "approved" && new Date(latest!.expires_at) > new Date();
+  const pausedUntil =
+    status === "completed" && latest?.completed_at
+      ? new Date(new Date(latest.completed_at).getTime() + 24 * 3600 * 1000)
+      : null;
+  const paused = !!pausedUntil && pausedUntil > new Date();
+
+  return (
+    <div className="rounded-xl border bg-muted/40 p-3 space-y-2">
+      <div className="text-sm font-semibold">Forgot your PIN?</div>
+      {status === "pending" && (
+        <>
+          <p className="text-xs text-muted-foreground">
+            Request sent. A ConZ admin will contact you to verify it is really you, then approve the reset. We will notify you.
+          </p>
+          <Button variant="outline" size="sm" disabled={busy} onClick={async () => { if (await call("cancel_pin_recovery")) refresh(); }}>
+            Cancel request
+          </Button>
+        </>
+      )}
+      {approvedLive && (
+        <>
+          <p className="text-xs text-muted-foreground">
+            Approved. Choose a new PIN before {new Date(latest!.expires_at).toLocaleString()}. Withdrawals pause for 24 hours afterwards as a safety measure.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <Input type="password" inputMode="numeric" placeholder="New PIN" value={pin} maxLength={8} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))} />
+            <Input type="password" inputMode="numeric" placeholder="Confirm" value={confirm} maxLength={8} onChange={(e) => setConfirm(e.target.value.replace(/\D/g, "").slice(0, 8))} />
+          </div>
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={async () => {
+              if (!/^\d{4,8}$/.test(pin)) return void toast.error("PIN must be 4-8 digits");
+              if (pin !== confirm) return void toast.error("PINs do not match");
+              if (await call("complete_pin_recovery", { _new_pin: pin })) {
+                setPin(""); setConfirm("");
+                toast.success("PIN reset. Withdrawals resume in 24 hours.");
+                refresh();
+              }
+            }}
+          >
+            Set new PIN
+          </Button>
+        </>
+      )}
+      {!(status === "pending" || approvedLive) && (
+        <>
+          <p className="text-xs text-muted-foreground">
+            {paused
+              ? `Your PIN was reset. Withdrawals resume ${pausedUntil!.toLocaleString()}.`
+              : status === "rejected"
+                ? "Your last request could not be verified. Contact support, or ask again."
+                : "If you cannot remember your PIN, ask for a reset. ConZ will verify your identity before approving."}
+          </p>
+          <Button variant="outline" size="sm" disabled={busy} onClick={async () => { const d = await call("request_pin_recovery"); if (d) { toast.success("Reset requested."); refresh(); } }}>
+            Ask for a PIN reset
+          </Button>
+        </>
+      )}
+    </div>
   );
 }
 

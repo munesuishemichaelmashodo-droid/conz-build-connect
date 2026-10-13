@@ -3,6 +3,7 @@ import { Loader2, ShieldCheck, Star } from "lucide-react";
 import type { CustomerCard } from "@/components/redesign/rpc";
 import { materialLabel } from "@/lib/domain";
 import { cn } from "@/lib/utils";
+import { distanceLabel, jobDistance, type DriverFix } from "@/lib/jobDistance";
 import {
   MaterialBadge,
   RouteStops,
@@ -49,6 +50,7 @@ export function FeedJobCard({
   matchTier,
   highlight,
   customer,
+  driverFix,
 }: {
   job: FeedJob;
   onAccept?: () => void;
@@ -57,7 +59,12 @@ export function FeedJobCard({
   highlight?: boolean;
   /** First name + rating from customer_cards() (migration 0060). */
   customer?: CustomerCard;
+  /** The driver's own last availability position (null = none on record). */
+  driverFix?: DriverFix;
 }) {
+  const distance = jobDistance(driverFix ?? null, job);
+  const distanceText = distanceLabel(distance);
+  const far = distance.status === "ok" && distance.far;
   const km = straightKm(
     { lat: job.pickup_lat, lng: job.pickup_lng },
     { lat: job.delivery_lat, lng: job.delivery_lng },
@@ -87,6 +94,16 @@ export function FeedJobCard({
           dropHint={km != null ? `Drop-off · about ${Math.round(km)} km trip` : "Drop-off"}
         />
       </Link>
+
+      {distanceText && (
+        <p
+          className={cn("text-[13px]", far ? "font-semibold text-cz-amber" : "text-cz-muted")}
+          data-testid="job-distance"
+        >
+          {far ? "Far from you · " : ""}
+          {distanceText}
+        </p>
+      )}
 
       <div className="flex items-end justify-between gap-3 border-t border-cz-border pt-3">
         <div className="flex flex-col gap-0.5">

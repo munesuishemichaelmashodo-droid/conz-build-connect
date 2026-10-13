@@ -3,6 +3,7 @@
 
 begin;
 select plan(27);
+select tests.enable_launch_features();
 
 select set_config('t.drv',   tests.create_driver('wd', 100)::text, true);
 select set_config('t.other', tests.create_user('other')::text, true);
@@ -41,7 +42,7 @@ select is((select status from public.wallet_withdrawal_requests where id = curre
   'F4: another user cannot cancel someone else''s request');
 
 -- Admins cannot approve by writing the table (would skip the debit).
-select tests.login_as(current_setting('t.admin')::uuid);
+select tests.login_as_mfa(current_setting('t.admin')::uuid);
 update public.wallet_withdrawal_requests set status = 'approved' where id = current_setting('t.wd')::uuid;
 select tests.as_owner();
 select is((select status from public.wallet_withdrawal_requests where id = current_setting('t.wd')::uuid), 'pending',
@@ -56,7 +57,7 @@ select throws_ok(format($$update public.wallet_withdrawal_requests set destinati
 -- ---------------------------------------------------------------------------
 -- Legitimate paths still work
 -- ---------------------------------------------------------------------------
-select tests.login_as(current_setting('t.admin')::uuid);
+select tests.login_as_mfa(current_setting('t.admin')::uuid);
 select lives_ok(format($$select public.admin_approve_withdrawal(%L)$$, current_setting('t.wd')), 'Admin approves through the RPC');
 select tests.as_owner();
 select is((select status from public.wallet_withdrawal_requests where id = current_setting('t.wd')::uuid), 'approved', 'Request approved');

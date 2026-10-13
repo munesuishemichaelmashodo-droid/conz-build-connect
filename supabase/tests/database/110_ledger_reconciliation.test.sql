@@ -3,6 +3,7 @@
 
 begin;
 select plan(24);
+select tests.enable_launch_features();
 
 select set_config('t.cust',  tests.create_user('cust')::text, true);
 select set_config('t.drv',   tests.create_driver('drv', 0)::text, true);
@@ -34,7 +35,7 @@ select set_config('t.j1', tests.create_job(current_setting('t.cust')::uuid, 400)
 select set_config('t.b1', tests.create_bid(current_setting('t.j1')::uuid, current_setting('t.drv')::uuid, 400)::text, true);
 select tests.login_as(current_setting('t.cust')::uuid);
 select public.accept_bid(current_setting('t.b1')::uuid);
-select public.complete_job(current_setting('t.j1')::uuid);
+select tests.complete(current_setting('t.j1')::uuid);
 
 -- 4. Escrow job $300, paid and released ($279 driver, $21 revenue)
 select tests.as_owner();
@@ -45,7 +46,7 @@ values (current_setting('t.cust')::uuid, current_setting('t.j2')::uuid, 'escrow'
 select tests.as_service();
 select public.apply_paynow_result(current_setting('t.p2')::uuid, 'ipn', 'Paid', '300.00', current_setting('t.p2'));
 select tests.login_as(current_setting('t.cust')::uuid);
-select public.complete_job(current_setting('t.j2')::uuid);
+select tests.complete(current_setting('t.j2')::uuid);
 
 -- 5. Escrow job $200 paid, cancelled -> refund_due -> refunded via Paynow
 select tests.as_owner();
@@ -60,11 +61,11 @@ select public.cancel_job(current_setting('t.j3')::uuid, 'not needed');
 select tests.login_as_mfa(current_setting('t.super')::uuid);
 select public.admin_mark_escrow_refunded(current_setting('t.p3')::uuid, 'PNR-77');
 
--- 6. Driver withdraws $100 (PIN), approved by an ordinary admin
+-- 6. Driver withdraws $100 (PIN), approved by an ordinary admin with a fresh second factor
 select tests.login_as(current_setting('t.drv')::uuid);
 select public.set_withdrawal_pin('5791', null);
 select set_config('t.wd', public.request_withdrawal(100, 'ecocash', '0771234567', '5791')->'request'->>'id', true);
-select tests.login_as(current_setting('t.admin')::uuid);
+select tests.login_as_mfa(current_setting('t.admin')::uuid);
 select public.admin_approve_withdrawal(current_setting('t.wd')::uuid);
 
 -- 7. Admin correction: debit the customer $10

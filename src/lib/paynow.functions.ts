@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequestUrl } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { SITE_URL } from "@/lib/site";
+import { topupAmountError } from "@/lib/paymentErrors";
 
 export type InitiateTopupResult =
   | { ok: true; paymentId: string; redirectUrl: string }
@@ -11,7 +12,9 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { amount: number }) => {
     const amount = Number(data?.amount);
-    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000) {
+    // Same rule the wallet screen applies (min $1, max $100,000) — enforced here
+    // too because the client check can be bypassed.
+    if (topupAmountError(amount)) {
       throw new Error("Enter a valid amount between $1 and $100,000");
     }
     return { amount: Math.round(amount * 100) / 100 };
@@ -103,6 +106,13 @@ export const initiateEscrowPayment = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service-role RPCs/tables added by 0073+ are not in the generated Supabase types yet
     const db = supabaseAdmin as any;
+
+    // MVP launch: Con Z Pay (escrow) is paused until the owner switches it on (migration 0107).
+    // Fail closed: if the switch cannot be read, the payment is not started.
+    const { data: switches } = await db.rpc("launch_switches");
+    if (!(switches as { escrowEnabled?: boolean } | null)?.escrowEnabled) {
+      return { ok: false, error: "escrow_unavailable" };
+    }
 
     const { data: job } = await db
       .from("jobs")

@@ -1,4 +1,7 @@
 import { getRoute } from "@/lib/routing.functions";
+import type { StockStatus } from "@/lib/stockStatus";
+
+export type { StockStatus };
 
 export type ResolvedMaterialSource = {
   supplyLocationId: string;
@@ -12,7 +15,34 @@ export type ResolvedMaterialSource = {
   distanceKm: number;
   distanceSource: "osrm" | "haversine";
   locationPrecision: "exact";
+  /**
+   * Advisory only (0101): what the supplier's RECORDED stock says about this order.
+   * "unknown" = no stock recorded (never shown as available); "confirmed" = recorded stock
+   * covers the order; "below_requested" = recorded stock is lower. None of these is a
+   * fulfilment confirmation — that is recorded separately once the supply is confirmed.
+   */
+  stockStatus?: StockStatus;
 };
+
+/** Fail-safe to "unknown": an RPC problem must never turn into an availability claim. */
+export async function withStockStatus(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supply_stock_status isn't in the generated types yet (added by 0101)
+  sb: any,
+  source: ResolvedMaterialSource,
+  quantityM3: number,
+): Promise<ResolvedMaterialSource> {
+  try {
+    const { data, error } = await sb.rpc("supply_stock_status", {
+      _location_id: source.supplyLocationId,
+      _quantity: quantityM3,
+    });
+    const status: StockStatus =
+      !error && (data === "confirmed" || data === "below_requested") ? data : "unknown";
+    return { ...source, stockStatus: status };
+  } catch {
+    return { ...source, stockStatus: "unknown" };
+  }
+}
 
 type Candidate = {
   supply_location_id: string;
@@ -45,7 +75,7 @@ type RouteLookup = (args: {
  *
  * source_resolution_failed: this material HAS configured supply
  *   locations, but resolution could not produce a trustworthy answer (no
- *   exact-coordinate, verified, in-stock site; the eligibility RPC failed;
+ *   exact-coordinate, verified site (stock is advisory, never a gate); the eligibility RPC failed;
  *   or every eligible candidate's route failed). The caller MUST surface a
  *   controlled error and MUST NOT fall back to Harare or another default.
  *
@@ -125,8 +155,8 @@ export async function resolveMaterialSource(
   if (candidates.length === 0) {
     // Rows exist for this material, but none are currently eligible
     // (unverified, paused/closed, regional/approximate coordinates, no
-    // tracked stock, no coordinates, or insufficient quantity
-    // quantity for this order). This must NOT fall back to the legacy
+    // coordinates, or outside every service radius). Recorded stock is
+    // advisory and never makes a site ineligible. This must NOT fall back to the legacy
     // pickup: no legacy material-pickup or city fallback is safe.
     return { status: "source_resolution_failed", reason: "no_eligible_source" };
   }

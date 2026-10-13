@@ -8,6 +8,7 @@
 
 begin;
 select plan(43);
+select tests.enable_launch_features();
 
 select set_config('t.user',  tests.create_user('payer')::text, true);
 select set_config('t.admin', tests.create_user('ops', array['admin'])::text, true);

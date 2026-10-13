@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { MATERIALS, money, type MaterialCategory } from "@/lib/domain";
 import { AddressPicker } from "@/components/AddressPicker";
-import { computePublicOffer } from "@/lib/booking.functions";
+import { computePublicOffer, type AwaitingSourcingResult } from "@/lib/booking.functions";
 import { Button } from "@/components/ui/button";
 import { Minus, Plus, Loader2, Sparkles, ShieldCheck, Camera, MapPinned } from "lucide-react";
 import type { OfferResult } from "@/lib/booking.functions";
@@ -41,12 +41,14 @@ function PublicQuotePage() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [offer, setOffer] = useState<OfferResult | null>(null);
+  const [awaiting, setAwaiting] = useState<AwaitingSourcingResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const checkPrice = async () => {
     if (!coords) return;
     setLoading(true);
     setOffer(null);
+    setAwaiting(null);
     setErrorMessage(null);
     try {
       const result = await runOffer({
@@ -58,7 +60,8 @@ function PublicQuotePage() {
           address,
         },
       });
-      setOffer(result);
+      if (result.status === "awaiting_sourcing") setAwaiting(result);
+      else setOffer(result);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Could not calculate a price. Please try again.");
     } finally {
@@ -117,6 +120,20 @@ function PublicQuotePage() {
         <Button onClick={checkPrice} disabled={!coords || loading} className="w-full">
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Check price <Sparkles className="w-4 h-4 ml-1" /></>}
         </Button>
+
+        {awaiting && (
+          <div role="status" className="rounded-xl bg-muted/50 border p-4 space-y-3">
+            <div className="font-display font-bold text-base">We need to source this for you</div>
+            <p className="text-sm text-muted-foreground">{awaiting.message}</p>
+            <Link
+              to="/auth"
+              search={{ mode: "register", role: "customer" }}
+              className="block w-full text-center rounded-xl bg-primary text-primary-foreground font-display font-bold uppercase tracking-wide py-3"
+            >
+              Sign in to request sourcing
+            </Link>
+          </div>
+        )}
 
         {offer && (
           <div className="rounded-xl bg-primary/5 border border-primary/30 p-4 space-y-3">

@@ -3,6 +3,7 @@
 
 begin;
 select plan(13);
+select tests.enable_launch_features();
 
 -- 1. RLS on every public table
 select is(

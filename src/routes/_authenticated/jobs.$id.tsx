@@ -1,3 +1,4 @@
+import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,7 +14,7 @@ import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { SITE_URL } from "@/lib/site";
 import { isNativePlatform } from "@/lib/native-push";
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { toast } from "sonner";
 import { DriverShareLocation, CustomerTrackMap, DriverRouteView } from "@/components/JobTracker";
 import { RadarSearch } from "@/components/RadarSearch";
@@ -22,6 +23,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogD
 import { uploadJobEvidence, signedEvidenceUrl } from "@/lib/upload-evidence";
 import { useServerFn } from "@tanstack/react-start";
 import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
+import { friendlyPaymentError } from "@/lib/paymentErrors";
 import { ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SpotlightCallout } from "@/components/SpotlightCallout";
@@ -56,6 +58,7 @@ import { DriverNavigationButtons } from "@/components/DriverNavigationButtons";
 import type { RouteResult } from "@/components/RouteMap";
 import type { TrackStatus } from "@/components/JobTracker";
 import { rpcFailure } from "@/lib/rpc-result";
+import { completeJobArgs, deliveryConfirmErrorMessage, interpretCompleteResult, isMissingFunctionError } from "@/lib/deliveryConfirm";
 import { ChevronDown, ChevronRight, Clock, Info, Navigation2, TrendingUp } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
@@ -280,7 +283,6 @@ function JobDetail() {
     enabled:
       !!job &&
       job?.customer_id === userId &&
-      job?.payment_method === "escrow" &&
       ["accepted", "in_progress"].includes(job?.status ?? ""),
     queryFn: async () => {
       const { data } = await (supabase.rpc as unknown as (
@@ -353,6 +355,8 @@ function JobDetail() {
   const runEscrowPayment = useServerFn(initiateEscrowPayment);
   const runReconcile = useServerFn(reconcilePendingPaynowPayments);
   const [payingEscrow, setPayingEscrow] = useState(false);
+  // Blocks a second "confirm delivery" tap while the first is still in flight.
+  const completingRef = useRef(false);
 
   const isEscrow = job?.payment_method === "escrow";
   const { data: escrowPayment } = useQuery({
@@ -423,12 +427,12 @@ function JobDetail() {
         if (res.error === "job_not_payable") {
           return toast.error("This job can't be paid for right now — it needs an assigned driver and must not be completed or cancelled.");
         }
-        return toast.error(res.error || "Could not start payment");
+        return toast.error(friendlyPaymentError(res.error, "Could not start payment. Please try again."));
       }
       window.location.href = res.redirectUrl;
     } catch (err) {
       setPayingEscrow(false);
-      toast.error(err instanceof Error ? err.message : "Could not start payment");
+      toast.error(friendlyPaymentError(err, "Could not start payment. Please try again."));
     }
   };
 
@@ -472,11 +476,45 @@ function JobDetail() {
     qc.invalidateQueries({ queryKey: ["bids", id] });
   };
 
+  // Delivery proof is enforced by the database for BOTH direct-pay and escrow
+  // (0096): the driver's delivery photo must exist AND the delivery code must
+  // match. The customer's own code is sent here; the server decides.
   const completeJob = async () => {
-    const { error } = await supabase.rpc("complete_job", { _job_id: id });
-    if (error) { toast.error(error.message); return; }
-    toast.success("Delivery confirmed.");
-    qc.invalidateQueries({ queryKey: ["job", id] });
+    if (completingRef.current) return;
+    completingRef.current = true;
+    try {
+      // Send the customer's own code when we have it. On a database that predates the
+      // code parameter (rollout window) retry once without it; on a current database the
+      // server still enforces evidence + code either way.
+      type Rpc = (f: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>;
+      const call = supabase.rpc as unknown as Rpc;
+      let res = await call("complete_job", completeJobArgs(id, deliveryPin));
+      if (res.error && deliveryPin && isMissingFunctionError(res.error)) {
+        res = await call("complete_job", completeJobArgs(id, deliveryPin, false));
+      }
+      if (res.error) { toast.error(deliveryConfirmErrorMessage(friendlyPaymentError(res.error))); return; }
+      const outcome = interpretCompleteResult(res.data);
+      if (outcome.kind === "failed") {
+        toast.error(outcome.message);
+        if (outcome.refreshCode) qc.invalidateQueries({ queryKey: ["delivery-pin", id] });
+        return;
+      }
+      toast.success(outcome.already ? "This delivery was already confirmed." : "Delivery confirmed.");
+      qc.invalidateQueries({ queryKey: ["job", id] });
+    } catch (err) {
+      toast.error(friendlyPaymentError(err));
+    } finally {
+      completingRef.current = false;
+    }
+  };
+
+  const regeneratePin = async () => {
+    const { error } = await (supabase.rpc as unknown as (
+      f: string, a: Record<string, unknown>,
+    ) => Promise<{ error: { message: string } | null }>)("regenerate_delivery_pin", { _job_id: id });
+    if (error) { toast.error(friendlyPaymentError(error)); return; }
+    toast.success("New delivery code generated. The old one no longer works.");
+    qc.invalidateQueries({ queryKey: ["delivery-pin", id] });
   };
 
   const showEscrowBanner = isEscrow && ["accepted", "in_progress"].includes(job.status);
@@ -484,9 +522,9 @@ function JobDetail() {
   const showCounterResponse = showBidForm && myBid?.counter_status === "countered";
   const showPickupUpload = isAssignedDriver && job.status === "accepted" && !job.pickup_photo_url;
   const showDeliveryUpload = isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && !!job.pickup_photo_url && !job.delivery_photo_url;
-  const showDeliveryPinDisplay = isOwner && isEscrow && ["accepted", "in_progress"].includes(job.status);
+  const showDeliveryPinDisplay = isOwner && ["accepted", "in_progress"].includes(job.status);
   const showCompleteButton = isOwner && !isEscrow && (job.status === "accepted" || job.status === "in_progress");
-  const showDeliveryPinEntry = isAssignedDriver && isEscrow && (job.status === "accepted" || job.status === "in_progress") && !!job.delivery_photo_url;
+  const showDeliveryPinEntry = isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && !!job.delivery_photo_url;
   const showCancel = isOwner && (job.status === "open" || job.status === "accepted" || job.status === "in_progress");
   const showActionSection = showRadar || showEscrowBanner || showBidForm || showPickupUpload || showDeliveryUpload || showDeliveryPinDisplay || showCompleteButton || showDeliveryPinEntry || showCancel;
 
@@ -541,6 +579,7 @@ function JobDetail() {
     showCompleteButton,
     showDeliveryPinDisplay,
     deliveryPin: deliveryPin ?? null,
+    regeneratePin,
     invalidateJob: () => qc.invalidateQueries({ queryKey: ["job", id] }),
     invalidateBids: () => qc.invalidateQueries({ queryKey: ["bids", id] }),
     invalidateRating: () => qc.invalidateQueries({ queryKey: ["my-rating", id, userId] }),
@@ -617,6 +656,10 @@ function JobDetail() {
                 : `Your ${money(Number(escrowRefund.amount))} payment is being refunded through Paynow. We'll notify you when it's done.`}
             </p>
           </div>
+        )}
+
+        {!isOwner && !isAssignedDriver && (
+          <SupplyConfirmationCard job={job} viewer="admin" />
         )}
 
         {showActionSection && (
@@ -720,8 +763,11 @@ function JobDetail() {
                   </div>
                   <div className="font-display font-bold text-4xl tracking-[0.2em]">{deliveryPin ?? "······"}</div>
                   <p className="text-xs text-muted-foreground">
-                    Give this code to your driver when they arrive with your delivery. They'll enter it to confirm and release payment — don't share it before then.
+                    Give this code to your driver when they arrive with your delivery. They'll enter it to confirm{isEscrow ? " and release payment" : ""} — don't share it before then.
                   </p>
+                  <button type="button" onClick={regeneratePin} className="text-xs underline text-muted-foreground">
+                    Code lost or shared by mistake? New code
+                  </button>
                 </div>
               )}
 
@@ -1192,9 +1238,9 @@ function BidForm({
   const budget = Number(job?.budget ?? 0);
   const priceNum = Math.max(0, Number(price) || 0);
   const setPriceNum = (n: number) => setPrice(String(Math.max(5, Math.round(n * 100) / 100)));
-  const discountPct = driverProfile ? levelInfo(driverProfile.level).discountPct : 0;
   const firstJobFree = driverProfile ? driverProfile.first_job_free_used === false : false;
-  const effectivePct = commissionRate != null ? commissionRate * (1 - discountPct / 100) : null;
+  // Flat commission for every driver level (owner decision 11/10/2026).
+  const effectivePct = commissionRate != null ? commissionRate : null;
   const fee = effectivePct != null ? (firstJobFree ? 0 : Math.round(priceNum * effectivePct) / 100) : null;
   const pctLabel = effectivePct != null ? `${Number(effectivePct.toFixed(2))}%` : "";
   const chips = budget > 0 ? [budget, budget + 10, budget + 20, budget + 30] : [];
@@ -1636,9 +1682,7 @@ function DeliveryPinEntry({ jobId, onConfirmed }: { jobId: string; onConfirmed: 
     });
     setSubmitting(false);
     if (error) {
-      if (/incorrect code/i.test(error.message)) return toast.error("That code doesn't match — double check with the customer.");
-      if (/no confirmed escrow payment/i.test(error.message)) return toast.error("The customer hasn't paid through Con Z Pay yet.");
-      return toast.error(error.message);
+      return toast.error(deliveryConfirmErrorMessage(error.message));
     }
     // A wrong code / lockout is returned (not raised) so the attempt counts.
     const failed = rpcFailure(data);
@@ -1646,7 +1690,7 @@ function DeliveryPinEntry({ jobId, onConfirmed }: { jobId: string; onConfirmed: 
       setPin("");
       return toast.error(failed.error === "wrong_pin" ? "That code doesn't match — double check with the customer." : failed.message);
     }
-    toast.success("Delivery confirmed — payment released to your wallet!");
+    toast.success("Delivery confirmed. The job is settled.");
     setPin("");
     onConfirmed();
   };
@@ -1985,6 +2029,7 @@ type JobScreenCtx = {
   showCompleteButton: boolean;
   showDeliveryPinDisplay: boolean;
   deliveryPin: string | null;
+  regeneratePin: () => void;
   invalidateJob: () => void;
   invalidateBids: () => void;
   invalidateRating: () => void;
@@ -2418,7 +2463,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
     "Head to pickup",
     `Load ${Number(job.quantity_m3)} m³ ${mat.toLowerCase()}`,
     `Deliver to ${areaOf(job.delivery_address) || "the customer"}`,
-    ctx.isEscrow ? "Get the delivery PIN" : "Get paid & finish",
+    "Get the delivery PIN",
   ][step];
   const sub = [
     job.pickup_address || "Supplier pickup point",
@@ -2426,7 +2471,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
     `${route ? `${route.distanceKm.toFixed(1)} km · about ${Math.round(route.etaMin)} min. ` : `${job.delivery_address}. `}The customer can follow you live.`,
     ctx.isEscrow
       ? `Ask ${cust} for the 6-digit PIN. Entering it releases your ${usd(price)} from Con Z Pay.`
-      : `Collect ${usd(price)} from ${cust} directly, then ask them to tap "Load received" in their app to complete the job.`,
+      : `Collect ${usd(price)} from ${cust} directly, then ask for their 6-digit PIN to complete the job. The PIN is required for every delivery.`,
   ][step];
 
   return (
@@ -2541,19 +2586,16 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
               </div>
             ))}
 
-          {step === 3 &&
-            (ctx.isEscrow ? (
-              <div id="tour-delivery-pin-entry">
-                <DeliveryPinEntry jobId={id} onConfirmed={ctx.invalidateJob} />
-              </div>
-            ) : (
-              <HintBox tone="info" icon={<Info className="w-4 h-4" />}>
-                Waiting for the customer to confirm delivery. This screen updates by itself once they do.
-              </HintBox>
-            ))}
+          {step === 3 && (
+            <div id="tour-delivery-pin-entry">
+              <DeliveryPinEntry jobId={id} onConfirmed={ctx.invalidateJob} />
+            </div>
+          )}
         </div>
 
         <ContactCard ctx={ctx} role="customer" subtitle={`${mat} · ${Number(job.quantity_m3)} m³`} />
+
+        <SupplyConfirmationCard job={job} viewer="driver" />
 
         <div id="tour-tracking">
           <DriverShareLocation jobId={id} driverId={ctx.userId!} compact />
@@ -2665,7 +2707,7 @@ function DriverPaid({ ctx }: { ctx: JobScreenCtx }) {
               <div className="h-2 rounded-full bg-cz-amber" style={{ width: `${progress}%` }} />
             </div>
             <p className="text-[13px] text-cz-muted">
-              {next ? `${next.label} drivers get ${next.discountPct}% off Con Z fees.` : `You get ${lvl.discountPct}% off Con Z fees.`}
+              {next ? `Reach ${next.label} by completing more jobs with good ratings.` : "You're at the top level."} The Con Z fee is the same at every level.
             </p>
           </CzCard>
         )}
@@ -3011,7 +3053,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
     atDropoff
       ? "They're tipping the load now and will send a delivery photo."
       : eta != null ? `Arriving in about ${Math.max(1, Math.round(eta))} min.` : track?.live ? "Your driver is sharing their live location." : "Your load is on the way.",
-    ctx.isEscrow ? "Check the load, then give your PIN." : "Check the load, then confirm you've received it.",
+    "Check the load, then give your PIN to the driver.",
   ][step];
 
   return (
@@ -3038,6 +3080,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
           title="Watch your driver in real time"
           body="Once your driver starts sharing their location, you'll see them move on this map right up to your delivery point."
         />
+        <SupplyConfirmationCard job={job} viewer="customer" />
         <div id="tour-next-steps" className="space-y-4">
           <StepProgress current={step} />
           <div className="space-y-1.5">
@@ -3076,6 +3119,9 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
                 </div>
                 <div className="cz-display font-bold text-[40px] leading-none tracking-[0.12em] tabular-nums">{ctx.deliveryPin ?? "······"}</div>
               </div>
+              <button type="button" onClick={ctx.regeneratePin} className="mt-2 text-[13px] underline opacity-80">
+                Code lost or shared by mistake? New code
+              </button>
             </div>
           )}
 

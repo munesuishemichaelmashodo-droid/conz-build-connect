@@ -61,8 +61,8 @@ select throws_ok($$select public.create_price_quote_for(auth.uid(), 'river_sand'
 select tests.as_service();
 select is((select count(*)::int from public.resolve_material_source_candidates('river_sand', 12, -17.70, 31.05)), 1,
   'Only an exact, verified source with tracked stock is eligible');
-select is((select count(*)::int from public.resolve_material_source_candidates('river_sand', 101, -17.70, 31.05)), 0,
-  'A source with less stock than the order is excluded');
+select is((select count(*)::int from public.resolve_material_source_candidates('river_sand', 101, -17.70, 31.05)), 1,
+  'A source with less recorded stock than the order is STILL offered (0101: stock is advisory)');
 select throws_ok($$select public.create_price_quote_for(null, 'river_sand', 12, 'NaN', 'osrm', null)$$, null, null, 'NaN distance rejected');
 select throws_ok($$select public.create_price_quote_for(null, 'river_sand', 12, 20, 'client_provided', null)$$, null, null,
   'A client-provided distance can never become a quote');
@@ -72,8 +72,8 @@ select ok(public.create_price_quote_for(null, 'river_sand', 12, 20, 'osrm', curr
   'Quote can be created with its verified supplier location');
 select throws_ok($$select public.create_price_quote_for(null, 'river_sand', 12, 20, 'osrm', null)$$, null, null,
   'A quote without a supplier location is rejected');
-select throws_ok(format($$select public.create_price_quote_for(null, 'river_sand', 101, 20, 'osrm', %L)$$, current_setting('t.supply')),
-  null, null, 'A quote exceeding the source stock is rejected');
+select lives_ok(format($$select public.create_price_quote_for(null, 'river_sand', 101, 20, 'osrm', %L)$$, current_setting('t.supply')),
+  'A quote exceeding the recorded source stock is NOT rejected (0101: stock is advisory)');
 
 -- ---------------------------------------------------------------------------
 -- Booking a priced material requires a valid quote; pickup is server-set
@@ -95,8 +95,8 @@ select set_config('t.qstock', pg_temp.quote(current_setting('t.cust'))::text, tr
 select tests.as_owner();
 update public.material_supply_locations set available_quantity_m3 = 0 where id = current_setting('t.supply')::uuid;
 select tests.login_as(current_setting('t.cust')::uuid);
-select throws_like(pg_temp.book(current_setting('t.qstock')::uuid), '%supplier%',
-  'A quote is rejected if its source stock is no longer sufficient');
+select lives_ok(pg_temp.book(current_setting('t.qstock')::uuid),
+  'A booking is NOT rejected when the recorded stock has dropped to 0 (0101: stock is advisory)');
 select tests.as_owner();
 update public.material_supply_locations set available_quantity_m3 = 100 where id = current_setting('t.supply')::uuid;
 
