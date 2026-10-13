@@ -8,10 +8,7 @@ import {
   withStockStatus,
   type ResolvedMaterialSource,
 } from "@/lib/materialSource.functions";
-import {
-  classifyResolution,
-  type AwaitingSourcingResult,
-} from "@/lib/sourcingFallback";
+import { classifyResolution, type AwaitingSourcingResult } from "@/lib/sourcingFallback";
 
 export type { AwaitingSourcingResult } from "@/lib/sourcingFallback";
 
