@@ -24,7 +24,7 @@ function PrivacyPage() {
         <header className="mt-6 mb-8">
           <div className="text-xs text-muted-foreground uppercase tracking-widest">Con Z Build Connect</div>
           <h1 className="font-display font-bold text-3xl uppercase tracking-tight">Privacy Policy</h1>
-          <p className="text-xs text-muted-foreground mt-2">Last updated: 23 July 2026</p>
+          <p className="text-xs text-muted-foreground mt-2">Last updated: 14 October 2026</p>
         </header>
 
         <div className="space-y-6">
@@ -44,9 +44,11 @@ function PrivacyPage() {
                 role (customer, driver, admin) stored in your user profile.
               </li>
               <li>
-                <b>Driver verification documents</b> — a selfie, a photo of your driver's licence, a
-                photo of your tipper truck, and your declared nationality. These are stored in the
-                private <code>driver-docs</code> storage bucket.
+                <b>Driver verification documents</b> — a selfie, your national ID number and a photo
+                of your national ID, a photo of your driver's licence, your operator licence,
+                certificate of fitness, insurance and ZINARA documents where required, your truck's
+                registration number and photos of your tipper truck, and your declared nationality.
+                These are stored in a private storage area that is not publicly accessible.
               </li>
               <li>
                 <b>Location and GPS data</b> — while you have an active job, your device shares live
@@ -66,7 +68,14 @@ function PrivacyPage() {
               </li>
               <li>
                 <b>Device and log data</b> — basic technical logs (e.g. authentication events, error
-                reports) used to keep the service secure and reliable.
+                reports), the IP address and device details recorded with wallet transactions and
+                security events, push-notification tokens, and a device identifier used to detect
+                referral abuse. We use these to keep the service secure and reliable and to prevent
+                fraud.
+              </li>
+              <li>
+                <b>Sign-in data</b> — if you sign in with Google, we receive your name and email
+                address from Google.
               </li>
             </ul>
           </Section>
@@ -94,9 +103,16 @@ function PrivacyPage() {
                 logs strictly to run the platform.
               </li>
               <li>
-                <b>Service providers</b> — we use trusted infrastructure providers to host the
-                database, storage, and mapping. They act on our instructions and are bound by
-                confidentiality.
+                <b>Service providers</b> — we use trusted providers to host the database, storage
+                and website, to process payments (Paynow), to provide sign-in (Google), to display
+                maps and calculate routes, and to deliver push notifications. They act on our
+                instructions and are bound by confidentiality.
+              </li>
+              <li>
+                <b>Storage outside Zimbabwe</b> — our database and file storage are hosted in
+                Switzerland and our website is hosted on servers outside Zimbabwe, so your data is
+                processed outside Zimbabwe. We choose providers that protect data and we limit what
+                is shared with them to what the service needs.
               </li>
               <li>
                 <b>Legal</b> — we may disclose data where required by law or lawful authority.
