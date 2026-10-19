@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, MessageCircle, Share2, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle, Wallet, Receipt, Phone, KeyRound } from "lucide-react";
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { SITE_URL } from "@/lib/site";
+import { estimateDeliveryMinutes, formatDuration } from "@/lib/delivery-time";
 import { isNativePlatform } from "@/lib/native-push";
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -257,7 +258,7 @@ function JobDetail() {
       const driverIds = [...new Set(bids.map((b) => b.driver_id))];
       const truckIds = [...new Set(bids.map((b: any) => b.truck_id).filter(Boolean))];
       const [{ data: profs }, { data: drvs }, { data: trucksData }] = await Promise.all([
-        supabase.from("profiles").select("id,full_name,avatar_url").in("id", driverIds),
+        supabase.from("profiles").select("id,full_name,avatar_url,last_active_at").in("id", driverIds),
         supabase
           .from("driver_public_profiles")
           .select("user_id,rating_avg,rating_count,level,jobs_completed,verification_status")
@@ -2441,6 +2442,17 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
   );
 }
 
+/** "Estimated delivery about 1 hr 20 min" from the job's priced distance. */
+function EstimatedDelivery({ job, className = "" }: { job: any; className?: string }) {
+  const mins = estimateDeliveryMinutes(Number(job?.pricing_breakdown?.distance_km) || null);
+  if (mins == null) return null;
+  return (
+    <div className={`flex items-center gap-2 text-sm text-cz-muted ${className}`}>
+      <Clock className="w-4 h-4" /> Estimated delivery about {formatDuration(mins)}
+    </div>
+  );
+}
+
 function JobSummaryCard({ job, id = "tour-job-header" }: { job: any; id?: string }) {
   return (
     <CzCard id={id} className="space-y-3">
@@ -2451,6 +2463,7 @@ function JobSummaryCard({ job, id = "tour-job-header" }: { job: any; id?: string
         <span className="text-[13px] text-cz-muted">Customer offered {usd(Number(job.budget))}</span>
       </div>
       <RouteStops pickupLabel={job.pickup_address || "Supplier pickup point"} dropLabel={job.delivery_address} />
+      <EstimatedDelivery job={job} />
       {(job.preferred_date || job.notes) && (
         <div className="border-t border-cz-border pt-2.5 text-sm text-cz-muted space-y-1">
           {job.preferred_date && (
@@ -2867,6 +2880,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
                   key={b.id}
                   bid={b}
                   kmToPickup={locations[b.id]?.km_to_pickup ?? null}
+                  deliveryKm={Number((job as any).pricing_breakdown?.distance_km) || null}
                   best={b.id === bestId && live.length > 1}
                   primary={b.id === bestId}
                   chooseId={b.id === bestId ? "tour-accept-bid" : undefined}
@@ -2901,6 +2915,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
                 <Calendar className="w-4 h-4" /> {job.preferred_date}
               </div>
             )}
+            <EstimatedDelivery job={job} />
             {job.notes && <p className="border-t border-cz-border pt-2 text-sm text-cz-muted">{job.notes}</p>}
           </CzCard>
         </div>

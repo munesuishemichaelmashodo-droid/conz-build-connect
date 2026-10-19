@@ -3,6 +3,7 @@ import { Clock, MapPin, ShieldCheck, Star, Truck } from "lucide-react";
 import { mmss, useSecondsLeft } from "@/components/redesign/rpc";
 import { levelInfo } from "@/lib/domain";
 import { cn } from "@/lib/utils";
+import { estimateDeliveryMinutes, formatDuration, presenceOf } from "@/lib/delivery-time";
 import { InitialsAvatar, czButtonClass, usd } from "@/components/redesign";
 
 export type OfferBid = {
@@ -20,7 +21,7 @@ export type OfferBid = {
   eta_minutes?: number | null;
   /** Offer validity (migration 0062). */
   expires_at?: string | null;
-  profile?: { full_name?: string | null; avatar_url?: string | null } | null;
+  profile?: { full_name?: string | null; avatar_url?: string | null; last_active_at?: string | null } | null;
   driver?: {
     rating_avg?: number | null;
     rating_count?: number | null;
@@ -43,6 +44,7 @@ export function OfferCard({
   chooseId,
   children,
   kmToPickup,
+  deliveryKm,
 }: {
   bid: OfferBid;
   best?: boolean;
@@ -52,12 +54,16 @@ export function OfferCard({
   children?: ReactNode;
   /** Approximate distance of an Online driver from pickup (migration 0062). */
   kmToPickup?: number | null;
+  /** Pickup → delivery road distance, for the estimated delivery time. */
+  deliveryKm?: number | null;
 }) {
   const secondsLeft = useSecondsLeft(bid.expires_at);
   const expired = secondsLeft === 0;
   const name = bid.profile?.full_name ?? "Driver";
   const first = name.split(" ")[0];
   const verified = bid.driver?.verification_status === "verified";
+  const presence = presenceOf(bid.profile?.last_active_at);
+  const deliveryMin = estimateDeliveryMinutes(deliveryKm, bid.eta_minutes);
   return (
     <div
       className={cn(
@@ -69,7 +75,18 @@ export function OfferCard({
       <div className="flex items-start gap-3">
         <InitialsAvatar name={name} src={bid.profile?.avatar_url} size={46} />
         <div className="min-w-0 flex-1">
-          <div className="font-semibold truncate">{name}</div>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-semibold truncate">{name}</span>
+            {presence.label && (
+              <span className="inline-flex shrink-0 items-center gap-1 text-[12px] text-cz-muted">
+                <span
+                  aria-hidden
+                  className={cn("h-2 w-2 rounded-full", presence.online ? "bg-cz-green" : "bg-cz-faint/60")}
+                />
+                {presence.online ? "Online" : "Offline"}
+              </span>
+            )}
+          </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-cz-muted">
             {verified ? (
               <span className="inline-flex items-center gap-1 font-semibold text-cz-green-text">
@@ -100,6 +117,11 @@ export function OfferCard({
               {Number(bid.eta_minutes) >= 60
                 ? `${Math.round(Number(bid.eta_minutes) / 60)} hr`
                 : `${bid.eta_minutes} min`}
+            </div>
+          )}
+          {deliveryMin != null && (
+            <div className="mt-1 flex items-center gap-1 text-[13px] text-cz-muted">
+              <Clock className="w-3.5 h-3.5" /> Estimated delivery about {formatDuration(deliveryMin)}
             </div>
           )}
           {bid.truck_reg && (
