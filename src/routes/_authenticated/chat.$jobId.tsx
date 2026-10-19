@@ -75,6 +75,41 @@ function ChatPage() {
     },
   });
 
+  // Rating + track record for the person on the other end, shown in the chat
+  // header so nobody has to leave the thread to see who they're talking to.
+  // Separate from the profile query so a missing/blocked column can never
+  // take the name and presence down with it.
+  const peerIsDriver = !!job && !!otherId && job.driver_id === otherId;
+  const { data: peerStats } = useQuery({
+    queryKey: ["chat-peer-stats", otherId, peerIsDriver],
+    enabled: !!otherId && !!job,
+    staleTime: 60_000,
+    queryFn: async () => {
+      if (peerIsDriver) {
+        const { data } = await supabase
+          .from("driver_public_profiles")
+          .select("rating_avg,rating_count,jobs_completed,level,verification_status")
+          .eq("user_id", otherId!)
+          .maybeSingle();
+        if (!data) return null;
+        return {
+          avg: data.rating_avg,
+          count: data.rating_count ?? 0,
+          jobs: data.jobs_completed ?? 0,
+          level: data.level as string | null,
+          verified: data.verification_status === "verified",
+        };
+      }
+      const { data } = await supabase
+        .from("profiles")
+        .select("customer_rating_avg,customer_rating_count")
+        .eq("id", otherId!)
+        .maybeSingle();
+      if (!data) return null;
+      return { avg: data.customer_rating_avg, count: data.customer_rating_count ?? 0, jobs: null, level: null, verified: false };
+    },
+  });
+
   // Re-render every 30s purely to keep "Last seen 2 minutes ago" fresh even
   // if nothing else on the page changes.
   const [, forceTick] = useState(0);
@@ -378,15 +413,47 @@ function ChatPage() {
         <Link to="/jobs/$id" params={{ id: jobId }} className="inline-flex items-center gap-1 text-sm text-muted-foreground">
           <ArrowLeft className="w-4 h-4" /> Back to job
         </Link>
-        {presence.label && (
-          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className={cn("w-2 h-2 rounded-full", presence.online ? "bg-green-500" : "bg-muted-foreground/40")} />
-            {presence.label}
-          </span>
-        )}
       </div>
 
-      <div className="flex flex-col h-[calc(100vh-220px)] rounded-2xl bg-card border overflow-hidden">
+      {otherProfile && (
+        <div className="flex items-center gap-3 rounded-2xl bg-card border p-3 mb-3">
+          <div className="relative shrink-0">
+            {otherProfile.avatar_url ? (
+              <img src={otherProfile.avatar_url} alt="" className="w-11 h-11 rounded-full object-cover" />
+            ) : (
+              <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center font-semibold">
+                {(otherProfile.full_name ?? "?").trim().charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span
+              className={cn(
+                "absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-card",
+                presence.online ? "bg-green-500" : "bg-muted-foreground/40",
+              )}
+              aria-hidden
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="font-medium truncate">{otherProfile.full_name ?? "—"}</div>
+            <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2">
+              <span>{peerIsDriver ? "Driver" : "Customer"}</span>
+              {peerStats && peerStats.count > 0 && peerStats.avg != null ? (
+                <span>★ {Number(peerStats.avg).toFixed(1)} ({peerStats.count})</span>
+              ) : (
+                <span>No ratings yet</span>
+              )}
+              {peerStats?.jobs != null && <span>{peerStats.jobs} trips</span>}
+              {peerStats?.level && <span className="capitalize">{peerStats.level}</span>}
+              {peerStats?.verified && <span className="text-green-600">Verified</span>}
+            </div>
+          </div>
+          <div className="text-xs text-muted-foreground text-right shrink-0">
+            {presence.online ? "Online" : presence.label ?? "Offline"}
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col h-[calc(100vh-300px)] min-h-[320px] rounded-2xl bg-card border overflow-hidden">
         <div ref={scrollerRef} className="flex-1 overflow-y-auto p-4 space-y-2">
           {messages.length === 0 && <p className="text-center text-xs text-muted-foreground py-8">No messages yet. Say hi 👋</p>}
           {grouped.map((item, i) =>
