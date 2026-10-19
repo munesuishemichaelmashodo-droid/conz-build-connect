@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge, Section } from "@/components/ui-bits";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, MessageCircle, Share2, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle, Wallet, Receipt, Phone } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, MessageCircle, Share2, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle, Wallet, Receipt, Phone, KeyRound } from "lucide-react";
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { SITE_URL } from "@/lib/site";
 import { isNativePlatform } from "@/lib/native-push";
@@ -2125,6 +2125,43 @@ function ContactCard({ ctx, subtitle, role }: { ctx: JobScreenCtx; subtitle: Rea
   );
 }
 
+/**
+ * Full-width "slide" shown in place of the map on stages where a map is not
+ * the point (loading, PIN). The two sides are styled differently on purpose:
+ * the driver's slides are amber "task" slides, the customer's are green
+ * "status" slides. Re-mounted per stage (key) so each stage animates in as
+ * its own slide.
+ */
+function StageHero({
+  role,
+  stage,
+  icon: Icon,
+  label,
+}: {
+  role: "driver" | "customer";
+  stage: number;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+}) {
+  const tone =
+    role === "driver"
+      ? "bg-cz-amber-tint text-cz-amber-text border-cz-amber/30"
+      : "bg-cz-green-tint text-cz-green-text border-cz-green-border";
+  return (
+    <div
+      key={stage}
+      className={`animate-in fade-in zoom-in-95 duration-300 flex h-[230px] flex-col items-center justify-center gap-3 border-b ${tone}`}
+    >
+      <span className="rounded-full bg-cz-bg/60 p-5">
+        <Icon className="h-14 w-14" />
+      </span>
+      <span className="text-xs font-semibold uppercase tracking-widest opacity-90">
+        Step {stage + 1} of 4 · {label}
+      </span>
+    </div>
+  );
+}
+
 function ShareTrackingButton({ ctx, className }: { ctx: JobScreenCtx; className?: string }) {
   const { trackUrl, shareTrackLink } = useJobContact(ctx.job, ctx.isOwner);
   if (!trackUrl) return null;
@@ -2477,7 +2514,16 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
   return (
     <CzScreen>
       <div className="relative">
-        <DriverRouteView jobId={id} bare height={300} onRoute={setRoute} />
+        {step === 1 || step === 3 ? (
+          <StageHero
+            role="driver"
+            stage={step}
+            icon={step === 1 ? PackageOpen : KeyRound}
+            label={step === 1 ? "Loading" : ctx.isEscrow ? "PIN releases your payment" : "Collect cash, then PIN"}
+          />
+        ) : (
+          <DriverRouteView jobId={id} bare height={300} onRoute={setRoute} />
+        )}
         <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <MapBackButton to="/jobs" />
@@ -2513,7 +2559,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
 
         <div id="tour-next-steps" className="space-y-4">
           <StepProgress current={step} />
-          <div className="space-y-1.5">
+          <div key={step} className="space-y-1.5 animate-in fade-in slide-in-from-right-4 duration-300">
             <h1 className="cz-display font-bold text-[28px] leading-tight">{title}</h1>
             <p className="text-[15px] text-cz-muted leading-snug">{sub}</p>
           </div>
@@ -3059,7 +3105,16 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
   return (
     <CzScreen>
       <div id="tour-tracking" className="relative">
-        <CustomerTrackMap jobId={id} variant="hero" height={270} onStatus={setTrack} />
+        {step === 1 || step === 3 ? (
+          <StageHero
+            role="customer"
+            stage={step}
+            icon={step === 1 ? PackageOpen : KeyRound}
+            label={step === 1 ? "Loading your order" : "Delivered — confirm with your PIN"}
+          />
+        ) : (
+          <CustomerTrackMap jobId={id} variant="hero" height={270} onStatus={setTrack} />
+        )}
         <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <MapBackButton to="/jobs" />
@@ -3083,7 +3138,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
         <SupplyConfirmationCard job={job} viewer="customer" />
         <div id="tour-next-steps" className="space-y-4">
           <StepProgress current={step} />
-          <div className="space-y-1.5">
+          <div key={step} className="space-y-1.5 animate-in fade-in slide-in-from-right-4 duration-300">
             <h1 className="cz-display font-bold text-[28px] leading-tight">{title}</h1>
             <p className="text-[15px] text-cz-muted leading-snug">{sub}</p>
           </div>
