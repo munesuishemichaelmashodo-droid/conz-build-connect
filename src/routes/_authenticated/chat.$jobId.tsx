@@ -340,8 +340,19 @@ function ChatPage() {
       setRecordSeconds(0);
       sendStatus("recording");
       recordTimerRef.current = setInterval(() => setRecordSeconds((s) => s + 1), 1000);
-    } catch {
-      toast.error("Could not access microphone — check your browser permissions.");
+    } catch (err) {
+      // Say which problem it is: a blocked permission, no microphone, or a
+      // browser that cannot record at all each have a different fix.
+      const name = err instanceof DOMException ? err.name : "";
+      if (name === "NotAllowedError" || name === "SecurityError") {
+        toast.error("Microphone is blocked. Tap the lock icon in your browser's address bar, allow Microphone for this site, then try again.");
+      } else if (name === "NotFoundError") {
+        toast.error("No microphone found on this device.");
+      } else if (typeof MediaRecorder === "undefined") {
+        toast.error("This browser can't record voice notes. Try Chrome or Safari.");
+      } else {
+        toast.error("Could not start the microphone. Please try again.");
+      }
     }
   };
 
