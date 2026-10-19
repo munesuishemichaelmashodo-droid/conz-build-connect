@@ -3092,6 +3092,87 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
   );
 }
 
+/**
+ * Customer-side trip progress: when the load should arrive, how far along the
+ * driver is, and a short list of what has already happened with times, so the
+ * wait feels like progress rather than silence.
+ *
+ * Estimate sources, best first:
+ *  - on the way: the live route from the driver's position to the delivery
+ *    point (remaining km / minutes), refreshed as the driver moves;
+ *  - before that: the priced pickup→delivery distance plus the driver's own
+ *    "reach pickup in" figure (a rough estimate, labelled as such).
+ */
+function TripProgress({ job, step, track, driverEtaMin }: { job: any; step: number; track: TrackStatus | null; driverEtaMin?: number | null }) {
+  const clock = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const when = (iso?: string | null) => (iso ? clock(new Date(iso)) : null);
+
+  const remainingKm = step === 2 ? track?.route?.distanceKm ?? null : null;
+  const liveEtaMin = step === 2 ? track?.route?.etaMin ?? null : null;
+
+  // Progress = how much of the distance the driver had left when we first saw
+  // them on the road has been covered since. Only ever moves forward.
+  const startKm = useRef<number | null>(null);
+  if (remainingKm != null) startKm.current = Math.max(startKm.current ?? 0, remainingKm);
+  const pct =
+    step >= 3
+      ? 100
+      : remainingKm != null && startKm.current
+        ? Math.min(100, Math.max(0, Math.round((1 - remainingKm / startKm.current) * 100)))
+        : 0;
+
+  let headline: string | null = null;
+  let detail: string | null = null;
+  if (step === 2 && liveEtaMin != null) {
+    const mins = Math.max(1, Math.round(liveEtaMin));
+    headline = `Arriving about ${clock(new Date(Date.now() + mins * 60_000))}`;
+    detail = `${formatDuration(mins)} to go${remainingKm != null ? ` · ${remainingKm.toFixed(1)} km left` : ""}`;
+  } else if (step < 2) {
+    const est = estimateDeliveryMinutes(Number(job?.pricing_breakdown?.distance_km) || null, driverEtaMin);
+    if (est != null) {
+      headline = `Expected delivery around ${clock(new Date(Date.now() + est * 60_000))}`;
+      detail = "An estimate — it updates with live tracking once the truck is on the road.";
+    }
+  }
+
+  const stops: { label: string; at: string | null; done: boolean }[] = [
+    { label: "Driver at the supplier", at: when(job.driver_arrived_pickup_at), done: !!job.driver_arrived_pickup_at },
+    { label: "Loaded and on the way", at: when(job.pickup_photo_taken_at), done: !!job.pickup_photo_url },
+    { label: "Driver at your site", at: when(job.driver_arrived_dropoff_at), done: !!job.driver_arrived_dropoff_at },
+    { label: "Delivered", at: when(job.delivery_photo_taken_at), done: !!job.delivery_photo_url },
+  ];
+
+  if (!headline && stops.every((x) => !x.done)) return null;
+
+  return (
+    <CzCard className="space-y-3">
+      {headline && (
+        <div className="space-y-0.5">
+          <div className="cz-display font-bold text-[22px] leading-tight">{headline}</div>
+          {detail && <div className="text-[13px] text-cz-muted">{detail}</div>}
+        </div>
+      )}
+      {step >= 2 && (
+        <div className="space-y-1" aria-label={`Trip ${pct}% complete`}>
+          <div className="h-2 overflow-hidden rounded-full bg-cz-upcoming">
+            <div className="h-full rounded-full bg-cz-green transition-all duration-700" style={{ width: `${pct}%` }} />
+          </div>
+          <div className="text-[12px] text-cz-faint">{step >= 3 ? "Arrived" : `${pct}% of the trip done`}</div>
+        </div>
+      )}
+      <ol className="space-y-1.5">
+        {stops.map((x) => (
+          <li key={x.label} className="flex items-center gap-2 text-[13px]">
+            <CheckCircle2 className={`w-4 h-4 shrink-0 ${x.done ? "text-cz-green-text" : "text-cz-upcoming"}`} />
+            <span className={x.done ? "text-cz-text" : "text-cz-faint"}>{x.label}</span>
+            {x.at && <span className="ml-auto text-cz-faint tabular-nums">{x.at}</span>}
+          </li>
+        ))}
+      </ol>
+    </CzCard>
+  );
+}
+
 /** C5 · Track delivery. */
 function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }) {
   const { job, id } = ctx;
@@ -3157,6 +3238,8 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
             <h1 className="cz-display font-bold text-[28px] leading-tight">{title}</h1>
             <p className="text-[15px] text-cz-muted leading-snug">{sub}</p>
           </div>
+
+          <TripProgress job={job} step={step} track={track} driverEtaMin={d.bid?.eta_minutes} />
 
           {onPay && (
             <HintBox tone="warn" icon={<ShieldCheck className="w-4 h-4" />}>
