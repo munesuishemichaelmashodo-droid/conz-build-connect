@@ -6,11 +6,12 @@ import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Send, Check, CheckCheck, AlertTriangle, RotateCcw, Camera, Mic, Square, Loader2 } from "lucide-react";
+import { ArrowLeft, Phone, Send, Check, CheckCheck, AlertTriangle, RotateCcw, Camera, Mic, Square, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { compressImage } from "@/lib/compress-image";
 import { ChatImage, ChatAudio } from "@/components/ChatMedia";
 import { cn } from "@/lib/utils";
+import { canCallOnJob, telLink } from "@/lib/call";
 
 export const Route = createFileRoute("/_authenticated/chat/$jobId")({
   component: ChatPage,
@@ -74,6 +75,21 @@ function ChatPage() {
       return data;
     },
   });
+
+  // Call button: only between the customer and the accepted driver while the
+  // delivery is under way (see lib/call.ts). The number is not even fetched
+  // otherwise.
+  const callAllowed = !!job && !!otherId && canCallOnJob(job);
+  const { data: peerPhone } = useQuery({
+    queryKey: ["chat-peer-phone", job?.id, otherId],
+    enabled: callAllowed,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase.from("profiles").select("phone").eq("id", otherId!).maybeSingle();
+      return data?.phone ?? null;
+    },
+  });
+  const callHref = callAllowed ? telLink(peerPhone) : null;
 
   // Rating + track record for the person on the other end, shown in the chat
   // header so nobody has to leave the thread to see who they're talking to.
@@ -472,6 +488,15 @@ function ChatPage() {
           <div className="text-xs text-muted-foreground text-right shrink-0">
             {presence.online ? "Online" : presence.label ?? "Offline"}
           </div>
+          {callHref && (
+            <a
+              href={callHref}
+              aria-label={`Call ${otherProfile.full_name ?? "them"}`}
+              className="w-10 h-10 shrink-0 rounded-full border flex items-center justify-center hover:bg-muted"
+            >
+              <Phone className="w-4 h-4" />
+            </a>
+          )}
         </div>
       )}
 

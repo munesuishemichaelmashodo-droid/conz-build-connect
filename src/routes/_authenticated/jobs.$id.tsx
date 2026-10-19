@@ -1,3 +1,4 @@
+import { canCallOnJob, telLink } from "@/lib/call";
 import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
@@ -66,19 +67,6 @@ export const Route = createFileRoute("/_authenticated/jobs/$id")({
   component: JobDetail,
 });
 
-// Plain tap-to-dial link — opens the phone's own dialer. Deliberately not a
-// masked/in-app call: it's simple, free, and needs no calling provider, at
-// the cost of showing each party the other's real phone number.
-const telLink = (phone: string | null | undefined) => {
-  if (!phone) return null;
-  let p = phone.replace(/[^\d+]/g, "");
-  if (p.startsWith("+")) p = p.slice(1);
-  if (p.startsWith("00")) p = p.slice(2);
-  if (p.startsWith("0")) p = "263" + p.slice(1);
-  if (p.length < 9) return null;
-  return `tel:+${p}`;
-};
-
 // Live-tracking share panel — lets either party hand off a login-free
 // tracking link to someone outside Con Z (e.g. a foreman waiting on site).
 // Direct WhatsApp contact/messaging was removed by product decision: it
@@ -94,8 +82,10 @@ function useJobContact(job: any, isOwner: boolean) {
   const material = materialLabel(job.material as any, job.custom_material);
   const ref = String(job.id).slice(0, 8);
 
+  // The phone number is only read while a call is allowed (see lib/call.ts).
+  const callAllowed = canCallOnJob(job);
   const { data: other } = useQuery({
-    queryKey: ["wa-contact", job.id, otherId],
+    queryKey: ["wa-contact", job.id, otherId, callAllowed],
     enabled: !!otherId,
     retry: false,
     queryFn: async () => {
@@ -106,7 +96,8 @@ function useJobContact(job: any, isOwner: boolean) {
         .maybeSingle();
       // If the phone column or RLS blocks this read, degrade gracefully.
       if (error) return null;
-      return data;
+      // Never hand the number to the UI unless a call is allowed right now.
+      return callAllowed ? data : data ? { ...data, phone: null } : data;
     },
   });
 
@@ -118,7 +109,7 @@ function useJobContact(job: any, isOwner: boolean) {
     (job.final_price ? ` Agreed price: ${money(Number(job.final_price))}.` : "") +
     (isOwner && other?.full_name ? ` Driver: ${other.full_name}.` : "");
 
-  const call = telLink(other?.phone);
+  const call = callAllowed ? telLink(other?.phone) : null;
 
   // Public live-tracking link: shareable without a Con Z account.
   const trackUrl = job.tracking_token ? `${SITE_URL}/track/${job.tracking_token}` : null;
@@ -157,11 +148,11 @@ function useJobContact(job: any, isOwner: boolean) {
     }
   };
 
-  return { other, name, call, trackUrl, shareTrackLink };
+  return { other, name, call, callAllowed, trackUrl, shareTrackLink };
 }
 
 function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
-  const { name, call, trackUrl, shareTrackLink } = useJobContact(job, isOwner);
+  const { name, call, callAllowed, trackUrl, shareTrackLink } = useJobContact(job, isOwner);
 
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
@@ -172,7 +163,7 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
         Con Z chat can be used as evidence if there's a dispute — calls can't.
       </p>
 
-      {call ? (
+      {!callAllowed ? null : call ? (
         <Button asChild variant="outline" className="w-full">
           <a href={call}>
             <Phone className="w-4 h-4 mr-2" />
@@ -2088,7 +2079,7 @@ function MapBackButton({ to, onClick }: { to?: string; onClick?: () => void }) {
 /** Other party card with Chat (existing chat route, unread badge) + Call
  *  (existing tel: link). */
 function ContactCard({ ctx, subtitle, role }: { ctx: JobScreenCtx; subtitle: ReactNode; role: "driver" | "customer" }) {
-  const { other, name, call } = useJobContact(ctx.job, ctx.isOwner);
+  const { other, name, call, callAllowed } = useJobContact(ctx.job, ctx.isOwner);
   const who = role === "driver" ? "driver" : "customer";
   return (
     <div className="flex items-center gap-3 rounded-[14px] border border-cz-border bg-cz-surface px-3.5 py-3">
@@ -2111,7 +2102,7 @@ function ContactCard({ ctx, subtitle, role }: { ctx: JobScreenCtx; subtitle: Rea
           </span>
         )}
       </Link>
-      {call ? (
+      {!callAllowed ? null : call ? (
         <a
           href={call}
           aria-label={`Call ${who}`}
