@@ -102,7 +102,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!userId) return;
     const beat = () => {
       if (document.visibilityState !== "visible") return;
-      void supabase.from("profiles").update({ last_active_at: new Date().toISOString() }).eq("id", userId);
+      // Select the row back so a silently-filtered update (0 rows) is visible
+      // too, not just an error. Presence is best-effort, so only log.
+      void supabase
+        .from("profiles")
+        .update({ last_active_at: new Date().toISOString() })
+        .eq("id", userId)
+        .select("id")
+        .then(({ data, error }) => {
+          if (error) console.warn("[presence] heartbeat failed:", error.message);
+          else if (!data?.length) console.warn("[presence] heartbeat updated no rows");
+        });
     };
     beat();
     const interval = window.setInterval(beat, 45_000);

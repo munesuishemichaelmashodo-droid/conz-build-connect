@@ -124,13 +124,21 @@ function ChatPage() {
   // what we've heard from them.
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const [peerStatus, setPeerStatus] = useState<"idle" | "typing" | "recording">("idle");
+  // Live presence: true while the other person has this same chat open. This
+  // is the Realtime presence set on the channel, so it is instant and does not
+  // depend on the profile heartbeat having been saved.
+  const [peerPresent, setPeerPresent] = useState(false);
   const peerIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!jobId) return;
     const ch = supabase
-      .channel(`typing:${jobId}`)
+      .channel(`typing:${jobId}`, { config: { presence: { key: userId ?? "anon" } } })
+      .on("presence", { event: "sync" }, () => {
+        const keys = Object.keys(ch.presenceState());
+        setPeerPresent(keys.some((k) => k !== userId));
+      })
       .on("broadcast", { event: "status" }, (payload) => {
         const p = payload.payload as { userId: string; state: "idle" | "typing" | "recording" };
         if (p.userId === userId) return;
@@ -144,7 +152,9 @@ function ChatPage() {
           peerIdleTimerRef.current = setTimeout(() => setPeerStatus("idle"), 6000);
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") void ch.track({ userId, at: Date.now() });
+      });
     typingChannelRef.current = ch;
     return () => {
       if (peerIdleTimerRef.current) clearTimeout(peerIdleTimerRef.current);
@@ -174,6 +184,7 @@ function ChatPage() {
   const presence = useMemo(() => {
     if (peerStatus === "typing") return { online: true, label: "Typing…" };
     if (peerStatus === "recording") return { online: true, label: "Recording a voice note…" };
+    if (peerPresent) return { online: true, label: "Online" };
     const lastActive = otherProfile?.last_active_at;
     if (!lastActive) return { online: false, label: null as string | null };
     const diffMs = Date.now() - new Date(lastActive).getTime();
@@ -184,7 +195,7 @@ function ChatPage() {
     if (hrs < 24) return { online: false, label: `Last seen ${hrs}h ago` };
     const days = Math.floor(hrs / 24);
     return { online: false, label: `Last seen ${days}d ago` };
-  }, [otherProfile?.last_active_at, peerStatus]);
+  }, [otherProfile?.last_active_at, peerStatus, peerPresent]);
 
   useEffect(() => {
     let mounted = true;
