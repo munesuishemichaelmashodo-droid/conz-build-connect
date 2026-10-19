@@ -265,7 +265,7 @@ export function MaterialBadge({
     <span
       className={cn(
         "inline-flex items-center rounded-lg px-2.5 py-1 text-sm font-semibold",
-        highlight ? "bg-cz-amber-tint-2 text-cz-amber-text" : "bg-cz-border text-[#d6d4cf]",
+        highlight ? "bg-cz-amber-tint-2 text-cz-amber-text" : "bg-cz-border text-cz-text",
       )}
     >
       {children}

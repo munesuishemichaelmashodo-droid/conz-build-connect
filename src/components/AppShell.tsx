@@ -4,11 +4,12 @@ import { NotificationsBell } from "@/components/NotificationsBell";
 import { SidePanel } from "@/components/SidePanel";
 import { useRouterState } from "@tanstack/react-router";
 import { useViewMode } from "@/lib/view-mode";
+import { Moon, Sun } from "lucide-react";
 import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 
 export function AppShell({ title, children, action }: { title?: string; children: ReactNode; action?: ReactNode }) {
   const { profile } = useAuth();
-  const { activeRole } = useViewMode();
+  const { activeRole, theme, toggleTheme } = useViewMode();
   const path = useRouterState({ select: (st) => st.location.pathname });
   // Driver mode: Wallet and Profile are two of the bottom-nav tabs, so keep
   // the nav visible there too (the other two tabs are redesigned screens).
@@ -33,6 +34,14 @@ export function AppShell({ title, children, action }: { title?: string; children
           </div>
           <div className="flex items-center gap-1">
             {action}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+            >
+              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
             <NotificationsBell />
             <SidePanel />
           </div>

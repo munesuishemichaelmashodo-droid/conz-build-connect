@@ -65,31 +65,31 @@
      dark theme's --primary) on black, with the same warm near-black
      surfaces the rest of the app uses. Token names keep "amber" for
      history; the value is the brand orange. */
-  --color-cz-bg: #010101;
-  --color-cz-bg-deep: #000000;
-  --color-cz-surface: #110e0c;
-  --color-cz-surface-2: #1c1815;
-  --color-cz-border: #231e1a;
-  --color-cz-border-strong: #342d28;
-  --color-cz-text: #fcfaf8;
-  --color-cz-muted: #9e9691;
-  --color-cz-faint: #857d78;
-  --color-cz-amber: #ff7716;
-  --color-cz-amber-ink: #0b0907;
-  --color-cz-amber-tint: #2a1407;
-  --color-cz-amber-tint-2: #3d1d08;
-  --color-cz-amber-text: #ffa366;
-  --color-cz-green: #3dbe74;
-  --color-cz-green-tint: #12301f;
-  --color-cz-green-border: #2c6b47;
-  --color-cz-green-text: #7fe0a6;
-  --color-cz-danger-border: #5a2a20;
-  --color-cz-danger-text: #ffb08a;
-  --color-cz-info-tint: #1f2a38;
-  --color-cz-info-text: #9cc7f5;
-  --color-cz-warn-tint: #3a1e12;
-  --color-cz-warn-text: #ffb08a;
-  --color-cz-upcoming: #2a2420;
+  --color-cz-bg: var(--cz-bg);
+  --color-cz-bg-deep: var(--cz-bg-deep);
+  --color-cz-surface: var(--cz-surface);
+  --color-cz-surface-2: var(--cz-surface-2);
+  --color-cz-border: var(--cz-border);
+  --color-cz-border-strong: var(--cz-border-strong);
+  --color-cz-text: var(--cz-text);
+  --color-cz-muted: var(--cz-muted);
+  --color-cz-faint: var(--cz-faint);
+  --color-cz-amber: var(--cz-amber);
+  --color-cz-amber-ink: var(--cz-amber-ink);
+  --color-cz-amber-tint: var(--cz-amber-tint);
+  --color-cz-amber-tint-2: var(--cz-amber-tint-2);
+  --color-cz-amber-text: var(--cz-amber-text);
+  --color-cz-green: var(--cz-green);
+  --color-cz-green-tint: var(--cz-green-tint);
+  --color-cz-green-border: var(--cz-green-border);
+  --color-cz-green-text: var(--cz-green-text);
+  --color-cz-danger-border: var(--cz-danger-border);
+  --color-cz-danger-text: var(--cz-danger-text);
+  --color-cz-info-tint: var(--cz-info-tint);
+  --color-cz-info-text: var(--cz-info-text);
+  --color-cz-warn-tint: var(--cz-warn-tint);
+  --color-cz-warn-text: var(--cz-warn-text);
+  --color-cz-upcoming: var(--cz-upcoming);
   --font-cz: "Inter", system-ui, sans-serif;
   --font-cz-display: "Barlow Condensed", system-ui, sans-serif;
 }
@@ -140,6 +140,33 @@
   --gradient-dark: linear-gradient(160deg, oklch(0.22 0.015 60), oklch(0.12 0.01 60));
   --shadow-lift: 0 10px 30px -12px oklch(0.69 0.19 49 / 0.35);
   --shadow-soft: 0 2px 12px -4px oklch(0.22 0.015 60 / 0.12);
+
+  /* cz palette — light values; the dark set is in .dark below */
+  --cz-bg: #faf8f5;
+  --cz-bg-deep: #ffffff;
+  --cz-surface: #ffffff;
+  --cz-surface-2: #f3efea;
+  --cz-border: #e7e1da;
+  --cz-border-strong: #d4ccc3;
+  --cz-text: #1c1815;
+  --cz-muted: #6b635d;
+  --cz-faint: #8a827c;
+  --cz-amber: #ff7716;
+  --cz-amber-ink: #0b0907;
+  --cz-amber-tint: #fff1e6;
+  --cz-amber-tint-2: #ffe2cc;
+  --cz-amber-text: #b84a00;
+  --cz-green: #2f9e5e;
+  --cz-green-tint: #e3f5ea;
+  --cz-green-border: #9fd6b5;
+  --cz-green-text: #1d7a45;
+  --cz-danger-border: #f0b8aa;
+  --cz-danger-text: #b2381f;
+  --cz-info-tint: #e6f0fb;
+  --cz-info-text: #1f5fa8;
+  --cz-warn-tint: #fff0e2;
+  --cz-warn-text: #b2481a;
+  --cz-upcoming: #ece6df;
 }
 
 .dark {
@@ -181,6 +208,33 @@
   --gradient-dark: linear-gradient(160deg, oklch(0.16 0.008 55), oklch(0.07 0.005 55));
   --shadow-lift: 0 12px 32px -14px oklch(0.72 0.19 48 / 0.55);
   --shadow-soft: 0 2px 14px -4px oklch(0 0 0 / 0.6);
+
+  /* cz palette — dark values */
+  --cz-bg: #010101;
+  --cz-bg-deep: #000000;
+  --cz-surface: #110e0c;
+  --cz-surface-2: #1c1815;
+  --cz-border: #231e1a;
+  --cz-border-strong: #342d28;
+  --cz-text: #fcfaf8;
+  --cz-muted: #9e9691;
+  --cz-faint: #857d78;
+  --cz-amber: #ff7716;
+  --cz-amber-ink: #0b0907;
+  --cz-amber-tint: #2a1407;
+  --cz-amber-tint-2: #3d1d08;
+  --cz-amber-text: #ffa366;
+  --cz-green: #3dbe74;
+  --cz-green-tint: #12301f;
+  --cz-green-border: #2c6b47;
+  --cz-green-text: #7fe0a6;
+  --cz-danger-border: #5a2a20;
+  --cz-danger-text: #ffb08a;
+  --cz-info-tint: #1f2a38;
+  --cz-info-text: #9cc7f5;
+  --cz-warn-tint: #3a1e12;
+  --cz-warn-text: #ffb08a;
+  --cz-upcoming: #2a2420;
 }
 
 @layer base {
@@ -218,38 +272,42 @@
 
 /*
  * Driver / customer mode redesign. Every redesigned screen is wrapped in
- * .cz-screen, which is always dark (the design is dark-only) and re-points
+ * .cz-screen, which follows the Light/Dark choice (tokens live in :root and .dark) and re-points
  * the shared shadcn tokens at the redesign palette, so existing components
  * rendered inside a redesigned screen (inputs, selects, dialogs' triggers,
  * proof-upload tiles…) pick up the same look without being rewritten.
  * Pages outside the redesign are untouched.
  */
 .cz-screen {
-  --background: #010101;
-  --foreground: #fcfaf8;
-  --card: #110e0c;
-  --card-foreground: #fcfaf8;
-  --popover: #110e0c;
-  --popover-foreground: #fcfaf8;
-  --primary: #ff7716;
-  --primary-foreground: #0b0907;
-  --secondary: #1c1815;
-  --secondary-foreground: #fcfaf8;
-  --muted: #1c1815;
-  --muted-foreground: #9e9691;
-  --accent: #2a1407;
-  --accent-foreground: #ffa366;
-  --success: #3dbe74;
+  --background: var(--cz-bg);
+  --foreground: var(--cz-text);
+  --card: var(--cz-surface);
+  --card-foreground: var(--cz-text);
+  --popover: var(--cz-surface);
+  --popover-foreground: var(--cz-text);
+  --primary: var(--cz-amber);
+  --primary-foreground: var(--cz-amber-ink);
+  --secondary: var(--cz-surface-2);
+  --secondary-foreground: var(--cz-text);
+  --muted: var(--cz-surface-2);
+  --muted-foreground: var(--cz-muted);
+  --accent: var(--cz-amber-tint);
+  --accent-foreground: var(--cz-amber-text);
+  --success: var(--cz-green);
   --success-foreground: #0b2416;
-  --warning: #ff7716;
-  --warning-foreground: #0b0907;
-  --destructive: #e5533d;
-  --border: #231e1a;
-  --input: #231e1a;
-  --ring: #ff7716;
-  background-color: #010101;
-  color: #fcfaf8;
+  --warning: var(--cz-amber);
+  --warning-foreground: var(--cz-amber-ink);
+  --destructive: #d94a35;
+  --border: var(--cz-border);
+  --input: var(--cz-border);
+  --ring: var(--cz-amber);
+  background-color: var(--cz-bg);
+  color: var(--cz-text);
   font-family: var(--font-cz);
+  color-scheme: light;
+}
+.dark .cz-screen {
+  --destructive: #e5533d;
   color-scheme: dark;
 }
 .cz-screen .font-display,

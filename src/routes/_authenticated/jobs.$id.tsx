@@ -1267,7 +1267,7 @@ function BidForm({
               {(job.pickup_address || "Supplier pickup point") + " → " + job.delivery_address}
               {km != null ? ` · about ${Math.round(km)} km` : ""}
             </div>
-            <div className="text-sm text-[#d6d4cf]">
+            <div className="text-sm text-cz-text">
               Customer offered <strong className="text-cz-text">{usd(budget)}</strong>
               {job.preferred_date ? <span className="text-cz-muted"> · wanted {job.preferred_date}</span> : null}
             </div>
@@ -2355,7 +2355,7 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
                 </div>
               </div>
               {summary.others > 0 && summary.min != null && summary.max != null && (
-                <span className="cz-display font-bold text-[22px] text-[#d6d4cf] tabular-nums">
+                <span className="cz-display font-bold text-[22px] text-cz-text tabular-nums">
                   {Number(summary.min) === Number(summary.max) ? usd(Number(summary.min)) : `${usd(Number(summary.min))}–${usd(Number(summary.max))}`}
                 </span>
               )}
@@ -2504,7 +2504,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
             </span>
             <span className="flex-1 min-w-0">
               <span className="block font-bold">You got the job!</span>
-              <span className="block text-[13px] text-[#a7ddbe]">
+              <span className="block text-[13px] text-cz-green-text">
                 {cust === "the customer" ? "The customer" : cust} picked your {usd(price)} offer · Tap to start
               </span>
             </span>
