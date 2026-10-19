@@ -18,10 +18,12 @@ type EvidenceRow = {
 };
 
 // job_evidence / evidence_distance_m aren't in the generated types yet.
-const looseRpc = supabase.rpc as unknown as (
-  f: string,
-  a: Record<string, unknown>,
-) => Promise<{ data: unknown; error: { message: string } | null }>;
+// Call through the client (not a detached `supabase.rpc` reference): rpc()
+// reads `this.rest`, so a detached call throws "reading 'rest'".
+const looseRpc = (f: string, a: Record<string, unknown>) =>
+  (supabase as unknown as {
+    rpc: (f: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+  }).rpc(f, a);
 
 function EvidencePhoto({ path, alt }: { path: string; alt: string }) {
   const [url, setUrl] = useState<string | null>(null);

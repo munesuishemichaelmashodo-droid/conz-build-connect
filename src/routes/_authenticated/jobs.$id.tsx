@@ -488,7 +488,9 @@ function JobDetail() {
       // code parameter (rollout window) retry once without it; on a current database the
       // server still enforces evidence + code either way.
       type Rpc = (f: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>;
-      const call = supabase.rpc as unknown as Rpc;
+      // Call through the client: a detached `supabase.rpc` reference loses `this`
+      // and throws "Cannot read properties of undefined (reading 'rest')".
+      const call: Rpc = (f, a) => (supabase as unknown as { rpc: Rpc }).rpc(f, a);
       let res = await call("complete_job", completeJobArgs(id, deliveryPin));
       if (res.error && deliveryPin && isMissingFunctionError(res.error)) {
         res = await call("complete_job", completeJobArgs(id, deliveryPin, false));
