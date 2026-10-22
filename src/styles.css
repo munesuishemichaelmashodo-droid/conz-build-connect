@@ -311,6 +311,12 @@
   color-scheme: dark;
 }
 .cz-screen .font-display,
+/* Horizontal chip rows: fade the right edge so a cut-off chip reads as "swipe for more". */
+.cz-scroll-fade {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+}
+
 .cz-display {
   font-family: var(--font-cz-display);
   letter-spacing: -0.01em;

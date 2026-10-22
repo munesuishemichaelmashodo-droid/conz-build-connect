@@ -202,3 +202,46 @@ export function hasSubmitted(
   if (status === "verified" || status === "rejected") return true;
   return missingRequired(docs, hasTruck).length === 0 && !!nationality?.trim();
 }
+
+/**
+ * Driver home banner for an account that is not yet approved. The text follows
+ * the real application state so a driver always knows the next step. Returns null
+ * for an approved driver.
+ */
+export function verificationBanner(
+  status: "pending" | "verified" | "rejected" | null | undefined,
+  submitted: boolean,
+): { title: string; body: string; action: string } | null {
+  if (status === "verified") return null;
+  if (status === "rejected") {
+    return {
+      title: "Your application needs changes",
+      body: "See what to fix, upload it again and resubmit.",
+      action: "See what to fix",
+    };
+  }
+  if (submitted) {
+    return {
+      title: "Your application is under review",
+      body: "You can bid as soon as Con Z approves your documents.",
+      action: "Check status",
+    };
+  }
+  return {
+    title: "Finish your driver sign-up",
+    body: "Verify your phone, add your truck and upload your documents to start bidding.",
+    action: "Continue sign-up",
+  };
+}
+
+/** "No ratings yet" instead of a 0.0 star when nobody has rated the driver. */
+export function ratingLabel(avg: number | null | undefined, count: number | null | undefined): string {
+  const n = Number(count ?? 0);
+  if (!(n > 0)) return "No ratings yet";
+  return `${Number(avg ?? 0).toFixed(1)} (${n})`;
+}
+
+export function jobsDoneLabel(n: number | null | undefined): string {
+  const v = Math.max(0, Number(n ?? 0));
+  return `${v} ${v === 1 ? "job" : "jobs"} done`;
+}

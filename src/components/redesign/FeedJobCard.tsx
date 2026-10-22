@@ -7,7 +7,6 @@ import { distanceLabel, jobDistance, type DriverFix } from "@/lib/jobDistance";
 import {
   MaterialBadge,
   RouteStops,
-  areaOf,
   czButtonClass,
   straightKm,
   timeAgo,
@@ -107,7 +106,7 @@ export function FeedJobCard({
 
       <div className="flex items-end justify-between gap-3 border-t border-cz-border pt-3">
         <div className="flex flex-col gap-0.5">
-          <span className="text-[13px] text-cz-muted">Customer offers</span>
+          <span className="text-[13px] text-cz-muted">Customer's price</span>
           <span className="cz-display font-bold text-[34px] leading-none tabular-nums">
             {usd(price)}
           </span>
@@ -135,11 +134,7 @@ export function FeedJobCard({
               )}
             </span>
           )}
-          {!escrow && (
-            <span className="text-[13px] text-cz-muted">
-              {areaOf(job.delivery_address)} · Direct pay
-            </span>
-          )}
+          {!escrow && <span className="text-[13px] text-cz-muted">Customer pays you directly</span>}
         </div>
       </div>
 

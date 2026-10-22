@@ -1187,6 +1187,15 @@ function BidForm({
 
   const shortfall = Number(funds?.shortfall ?? 0);
   const showFundsWarning = !!funds && funds.ok === false && !funds.free && shortfall > 0;
+  // Why "Send offer" is disabled, shown next to the button so the driver never has
+  // to scroll back up to find out. Same two conditions the button used before.
+  // While the truck list is still loading the button stays disabled without a reason.
+  const sendBlockedReason =
+    trucks && trucks.length === 0
+      ? "Add a truck to your profile to send an offer."
+    : showFundsWarning
+      ? `Top up ${money(shortfall)} to send this offer.`
+      : null;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1278,32 +1287,6 @@ function BidForm({
           </CzCard>
         )}
 
-        {trucks && trucks.length === 0 && (
-          <HintBox tone="warn" icon={<Truck className="w-4 h-4" />}>
-            Register a truck on your profile before bidding — customers see which truck will do the job.{" "}
-            <Link to="/profile" className="font-semibold underline">Add a truck</Link>
-          </HintBox>
-        )}
-        {showFundsWarning && (
-          <div className="rounded-[14px] bg-cz-warn-tint p-3.5 text-cz-warn-text space-y-2">
-            <div className="flex items-start gap-2">
-              <Wallet className="w-4 h-4 mt-0.5 shrink-0" />
-              <div className="text-sm">
-                <div className="font-bold">Top up to take this job</div>
-                <p className="mt-1 opacity-90">
-                  You need {money(shortfall)} more in your wallet to take jobs like this — commission is reserved when a
-                  bid is accepted.
-                </p>
-                <p className="mt-1 text-xs opacity-80">
-                  Commission required {money(Number(funds?.required ?? 0))} · Available{" "}
-                  {money(Number(funds?.available ?? 0))}
-                </p>
-              </div>
-            </div>
-            <Link to="/wallet" className={czButtonClass("ghost", "sm")}>Top up wallet</Link>
-          </div>
-        )}
-
         <div className="pt-3">
           <PriceStepper
             value={priceNum}
@@ -1361,6 +1344,40 @@ function BidForm({
               {usd(budget - priceNum)} below the customer's offer of {usd(budget)}.
             </HintBox>
           )
+        )}
+
+        {fee != null && (
+          <p className="text-[13px] leading-relaxed text-cz-muted" data-testid="fee-explainer">
+            {firstJobFree
+              ? "Your first job on Con Z is free of the Con Z fee."
+              : `Con Z keeps ${pctLabel} of your price. It is reserved from your wallet when the customer accepts and charged when the job is done.`}
+          </p>
+        )}
+
+        {trucks && trucks.length === 0 && (
+          <HintBox tone="warn" icon={<Truck className="w-4 h-4" />}>
+            Register a truck on your profile before bidding — customers see which truck will do the job.{" "}
+            <Link to="/profile" className="font-semibold underline">Add a truck</Link>
+          </HintBox>
+        )}
+        {showFundsWarning && (
+          <div className="rounded-[14px] bg-cz-warn-tint p-3.5 text-cz-warn-text space-y-2">
+            <div className="flex items-start gap-2">
+              <Wallet className="w-4 h-4 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <div className="font-bold">Top up to take this job</div>
+                <p className="mt-1 opacity-90">
+                  You need {money(shortfall)} more in your wallet to take jobs like this — commission is reserved when a
+                  bid is accepted.
+                </p>
+                <p className="mt-1 text-xs opacity-80">
+                  Commission required {money(Number(funds?.required ?? 0))} · Available{" "}
+                  {money(Number(funds?.available ?? 0))}
+                </p>
+              </div>
+            </div>
+            <Link to="/wallet" className={czButtonClass("ghost", "sm")}>Top up wallet</Link>
+          </div>
         )}
 
         <div className="space-y-2">
@@ -1461,18 +1478,31 @@ function BidForm({
         )}
       </div>
 
-      <footer className="sticky bottom-0 z-20 space-y-3 border-t border-cz-border bg-cz-surface px-5 pt-4 pb-[calc(20px+env(safe-area-inset-bottom))]">
+      <footer className="sticky bottom-0 z-20 space-y-2.5 border-t border-cz-border bg-cz-surface px-5 pt-3 pb-[calc(16px+env(safe-area-inset-bottom))]">
         {fee != null && priceNum > 0 && (
-          <>
-            <MoneyRow
-              label={firstJobFree ? "Con Z fee (first job free)" : `Con Z fee (${pctLabel})`}
-              value={`−${usd2(fee)}`}
-              valueClassName="text-cz-muted"
-            />
-            <MoneyRow strong label="You earn" value={usd2(priceNum - fee)} valueClassName="text-cz-green-text" />
-          </>
+          <div className="flex items-end justify-between gap-3">
+            <div className="text-[13px] text-cz-muted">
+              {firstJobFree ? "Con Z fee (first job free)" : `Con Z fee (${pctLabel})`}
+              <div className="tabular-nums">−{usd2(fee)}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-[13px] text-cz-muted">You earn</div>
+              <div className="cz-display text-[22px] font-bold leading-none tabular-nums text-cz-green-text">
+                {usd2(priceNum - fee)}
+              </div>
+            </div>
+          </div>
         )}
-        <button type="submit" disabled={loading || showFundsWarning || !trucks?.length} className={czButtonClass("primary")}>
+        {sendBlockedReason && (
+          <p role="status" className="text-[13px] font-semibold text-cz-warn-text" data-testid="send-blocked-reason">
+            {sendBlockedReason}
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={loading || !trucks?.length || !!sendBlockedReason}
+          className={czButtonClass("primary")}
+        >
           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : existing ? `Update offer · ${usd(priceNum)}` : `Send offer · ${usd(priceNum)}`}
         </button>
       </footer>

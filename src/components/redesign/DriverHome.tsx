@@ -18,6 +18,13 @@ import type { DriverFix } from "@/lib/jobDistance";
 import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 import { useQuickAccept } from "@/components/redesign/useQuickAccept";
 import { driverTodayEarnings, useCustomerCards } from "@/components/redesign/rpc";
+import {
+  hasSubmitted,
+  jobsDoneLabel,
+  ratingLabel,
+  verificationBanner,
+  type DocMap,
+} from "@/lib/driver-onboarding";
 
 /** Client-side material filter for the feed. Keys are display groups; the
  *  values are the job.material enum values each one covers. */
@@ -55,7 +62,17 @@ export function DriverHome({
   firstName: string | null;
   jobs: FeedJob[] | undefined;
   wallet: { balance: number; limited?: boolean | null } | null | undefined;
-  driver: { level: string; rating_avg: number; jobs_completed: number } | null | undefined;
+  driver:
+    | (DocMap & {
+        level: string;
+        rating_avg: number;
+        rating_count?: number | null;
+        jobs_completed: number;
+        verification_status?: "pending" | "verified" | "rejected" | null;
+        nationality?: string | null;
+      })
+    | null
+    | undefined;
   showVerificationWarning: boolean;
 }) {
   const [filter, setFilter] = useState("all");
@@ -112,6 +129,13 @@ export function DriverHome({
   const cards = useCustomerCards((jobs ?? []).map((j) => j.id));
   const shown = useMemo(() => filterJobs(jobs ?? [], filter), [jobs, filter]);
   const level = driver ? levelInfo(driver.level) : null;
+  const banner = showVerificationWarning
+    ? verificationBanner(
+        driver?.verification_status,
+        !!driver &&
+          hasSubmitted(driver.verification_status, driver, (trucks?.length ?? 0) > 0, driver.nationality),
+      )
+    : null;
 
   return (
     <>
@@ -148,9 +172,13 @@ export function DriverHome({
               <span className="cz-display font-bold text-2xl tabular-nums">
                 {today ? usd2(Number(today.earned)) : "—"}
               </span>
-              <span className="text-xs text-cz-faint">
-                {today ? `${today.jobs} job${today.jobs === 1 ? "" : "s"} today · ` : ""}Wallet{" "}
-                {wallet ? usd2(Number(wallet.balance)) : "—"}
+              {today && (
+                <span className="text-xs text-cz-faint">
+                  {today.jobs} job{today.jobs === 1 ? "" : "s"} today
+                </span>
+              )}
+              <span className="text-xs text-cz-faint whitespace-nowrap">
+                Wallet {wallet ? usd2(Number(wallet.balance)) : "—"}
               </span>
               {wallet?.limited && (
                 <span className="text-xs font-semibold text-cz-danger-text">
@@ -160,13 +188,20 @@ export function DriverHome({
             </Link>
             {driver && level && (
               <div className="flex flex-col items-end gap-0.5 text-right">
-                <span className="text-[13px] text-cz-muted flex items-center gap-1">
-                  <Star className="w-3.5 h-3.5 fill-cz-amber text-cz-amber" />
-                  {Number(driver.rating_avg).toFixed(1)} · {driver.jobs_completed} jobs done
+                <span className="text-[13px] text-cz-muted flex items-center gap-1 whitespace-nowrap">
+                  {Number(driver.rating_count ?? 0) > 0 && (
+                    <Star className="w-3.5 h-3.5 fill-cz-amber text-cz-amber" />
+                  )}
+                  {ratingLabel(driver.rating_avg, driver.rating_count)}
                 </span>
-                <span className="text-[13px] font-semibold text-cz-amber">{level.label} level</span>
+                <span className="text-[13px] font-semibold text-cz-amber whitespace-nowrap">
+                  {level.label} level
+                </span>
+                <span className="text-[11px] text-cz-faint whitespace-nowrap">
+                  {jobsDoneLabel(driver.jobs_completed)}
+                </span>
                 {level.nextAt != null && (
-                  <span className="text-[11px] text-cz-faint">
+                  <span className="text-[11px] text-cz-faint whitespace-nowrap">
                     {Math.max(0, level.nextAt - driver.jobs_completed)} to next level
                   </span>
                 )}
@@ -176,18 +211,16 @@ export function DriverHome({
 
           <PushNotificationPrompt />
 
-          {showVerificationWarning && (
+          {banner && (
             <Link
               id="tour-driver-verification"
-              to="/profile"
+              to="/become-driver"
               className="flex items-center gap-3 rounded-[14px] bg-cz-warn-tint p-3.5 text-cz-warn-text"
             >
               <ShieldAlert className="w-5 h-5 shrink-0" />
               <div className="text-sm min-w-0 flex-1">
-                <div className="font-semibold">Complete your verification</div>
-                <div className="text-xs opacity-90">
-                  Upload your ID, truck, and selfie to start bidding.
-                </div>
+                <div className="font-semibold">{banner.title}</div>
+                <div className="text-xs opacity-90">{banner.body}</div>
               </div>
               <ChevronRight className="w-4 h-4 shrink-0" />
             </Link>

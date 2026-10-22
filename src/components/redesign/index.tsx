@@ -430,7 +430,8 @@ export function MaterialChips<T extends string>({
       role="radiogroup"
       className={cn(
         "flex gap-2",
-        scroll ? "overflow-x-auto cz-no-scrollbar -mx-5 px-5" : "flex-wrap",
+        // The right-edge fade shows that more chips are a swipe away.
+        scroll ? "overflow-x-auto cz-no-scrollbar cz-scroll-fade -mx-5 px-5" : "flex-wrap",
       )}
     >
       {options.map((o) => {
@@ -545,11 +546,11 @@ export function RouteStops({
       <div className="flex-1 min-w-0 flex flex-col gap-3.5">
         <div className="min-w-0">
           <div className="text-xs text-cz-muted">{pickupHint ?? "Pickup"}</div>
-          <div className="text-base font-semibold truncate">{pickupLabel}</div>
+          <div className="text-base font-semibold leading-snug line-clamp-2 break-words">{pickupLabel}</div>
         </div>
         <div className="min-w-0">
           <div className="text-xs text-cz-muted">{dropHint ?? "Drop-off"}</div>
-          <div className="text-base font-semibold truncate">{dropLabel}</div>
+          <div className="text-base font-semibold leading-snug line-clamp-2 break-words">{dropLabel}</div>
         </div>
       </div>
     </div>
