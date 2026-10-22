@@ -2647,7 +2647,28 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
             </div>
           )}
 
-          {step === 2 &&
+          {step === 2 && job.status === "accepted" && (
+            // The pickup photo saved but start_trip never ran (e.g. the connection
+            // dropped). The delivery photo is only accepted once the trip has started,
+            // so offer the retry here instead of stranding the driver.
+            <div className="space-y-2.5" data-testid="start-trip-retry">
+              <HintBox tone="warn" icon={<Truck className="w-4 h-4" />}>
+                Your pickup photo is saved, but the trip has not started yet.
+              </HintBox>
+              <CzButton
+                disabled={marking}
+                onClick={async () => {
+                  const { error } = await supabase.rpc("start_trip", { _job_id: id });
+                  if (error) { toast.error(error.message); return; }
+                  ctx.invalidateJob();
+                }}
+              >
+                Start trip
+              </CzButton>
+            </div>
+          )}
+
+          {step === 2 && job.status !== "accepted" &&
             (!arrivedDrop ? (
               <div className="space-y-2.5">
                 <CzButton onClick={() => setArrivedDrop(true)} disabled={marking}>

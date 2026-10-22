@@ -267,6 +267,13 @@ const rpc = {
   nearby_available_trucks: () => [],
   job_bidder_locations: () => [],
   get_my_delivery_pin_expiry: () => null,
+  // Mirrors the live rule: only the assigned driver, only after the pickup photo.
+  start_trip: ({ _job_id }, me) => {
+    const job = db.jobs.find((j) => j.id === _job_id);
+    if (!job || !me || job.driver_id !== me.id || !job.pickup_photo_url) return null;
+    if (job.status === "accepted") job.status = "in_progress";
+    return job;
+  },
   compute_material_offer: ({ _quantity = 12, _distance_km = 15 }) => {
     const offer = Math.round(14 * Number(_quantity) + 2.1 * Number(_distance_km));
     return { offer, min: Math.round(offer * 0.85), max: Math.round(offer * 1.25), enforced: true, sample: true };

@@ -29,7 +29,13 @@ end $$;
 
 -- ---- A. the attack, run as the driver only ------------------------------------------------
 select set_config('t.ja', pg_temp.paid_escrow_job()::text, true);
+-- (0110) Delivery proof now needs the real sequence: uploaded files, pickup photo, trip started.
+insert into storage.objects (bucket_id, name) values
+  ('job-proof-photos', current_setting('t.ja') || '/pickup-a.jpg'),
+  ('job-proof-photos', current_setting('t.ja') || '/delivery-a.jpg');
 select tests.login_as(current_setting('t.drv')::uuid);
+select public.record_job_evidence(current_setting('t.ja')::uuid, 'pickup', current_setting('t.ja') || '/pickup-a.jpg');
+select public.start_trip(current_setting('t.ja')::uuid);
 select lives_ok(format($$select public.record_job_evidence(%L, 'delivery', %L, 1000, 'image/jpeg', -17.8, 31.0, 10, 'captured')$$,
   current_setting('t.ja'), current_setting('t.ja') || '/delivery-a.jpg'), 'A: the driver legitimately records delivery evidence');
 select ok((select delivery_photo_taken_at from public.jobs where id = current_setting('t.ja')::uuid) > now() - interval '5 minutes',
@@ -44,7 +50,7 @@ select throws_ok(format($$update public.jobs set delivery_photo_taken_at = now()
 select tests.as_service();
 select is(public.auto_release_escrow_payments(), 0, 'A: the sweep releases nothing for a fresh delivery photo');
 select tests.as_owner();
-select is((select status::text from public.jobs where id = current_setting('t.ja')::uuid), 'accepted',
+select is((select status::text from public.jobs where id = current_setting('t.ja')::uuid), 'in_progress',
   'A: the job is still waiting for the customer (no instant payout)');
 select is(tests.balance(current_setting('t.drv')::uuid), 100::numeric, 'A: the driver wallet is untouched');
 
