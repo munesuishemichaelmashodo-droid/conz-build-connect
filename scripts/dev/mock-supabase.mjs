@@ -34,6 +34,7 @@ const ID = {
   driver: "00000000-0000-4000-8000-0000000000d1",
   applicant: "00000000-0000-4000-8000-0000000000a1",
   driver2: "00000000-0000-4000-8000-0000000000d2",
+  admin: "00000000-0000-4000-8000-0000000000e1",
 };
 
 const users = new Map(
@@ -42,6 +43,7 @@ const users = new Map(
     { id: ID.driver, email: "driver@sample.test", name: "Tafadzwa Sample", role: "driver", phone: "263771000001" },
     { id: ID.applicant, email: "applicant@sample.test", name: "Kuda Sample", role: "driver", phone: null },
     { id: ID.driver2, email: "driver2@sample.test", name: "Farai Sample", role: "driver", phone: "263771000002" },
+    { id: ID.admin, email: "admin@sample.test", name: "Admin Sample", role: "customer", phone: null },
   ].map((u) => [
     u.id,
     {
@@ -78,6 +80,8 @@ const db = {
     { user_id: ID.driver, role: "driver" },
     { user_id: ID.applicant, role: "driver" },
     { user_id: ID.driver2, role: "driver" },
+    { user_id: ID.admin, role: "admin" },
+    { user_id: ID.admin, role: "super_admin" },
   ],
   driver_profiles: [
     {
@@ -193,8 +197,29 @@ const db = {
       created_at: hoursAgo(80),
       tracking_token: randomUUID(),
     },
+    {
+      id: "00000000-0000-4000-8000-00000000a004",
+      customer_id: ID.customer,
+      driver_id: ID.driver2,
+      material: "river_sand",
+      custom_material: null,
+      quantity_m3: 10,
+      budget: 180,
+      final_price: 180,
+      status: "in_progress",
+      payment_method: "direct",
+      delivery_address: "Borrowdale, Harare, Zimbabwe",
+      created_at: hoursAgo(24 * 70),
+      updated_at: hoursAgo(24 * 63),
+      tracking_token: randomUUID(),
+    },
   ],
   bids: [],
+  // A delivery nobody has touched for weeks, a stuck Paynow payment, a waiting
+  // top-up and a passing reconciliation, so the admin "Needs attention" panel has
+  // something to show.
+  wallet_topup_requests: [{ id: randomUUID(), user_id: ID.driver, amount: 10, status: "pending", created_at: hoursAgo(50) }],
+  reconciliation_runs: [{ id: randomUUID(), ran_at: hoursAgo(12), ok: true, failed: [] }],
   notifications: Array.from({ length: 3 }, (_, i) => ({
     id: randomUUID(),
     user_id: i === 0 ? ID.customer : ID.driver,
@@ -205,7 +230,7 @@ const db = {
     created_at: minutesAgo(10 * (i + 1)),
   })),
   wallet_transactions: [],
-  payments: [],
+  payments: [{ id: randomUUID(), user_id: ID.driver, type: "topup", amount: 5, status: "initiated", method: "paynow", created_at: hoursAgo(3) }],
   storage_objects: [],
 };
 
