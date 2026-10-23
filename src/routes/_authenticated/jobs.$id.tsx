@@ -185,7 +185,7 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
 
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
-      <div className="font-display font-bold uppercase text-sm tracking-wide flex items-center gap-2">
+      <div className="font-semibold text-sm flex items-center gap-2">
         <MessageCircle className="w-4 h-4 text-success" /> Contact {name}
       </div>
       <p className="text-xs text-muted-foreground -mt-2">
@@ -633,11 +633,11 @@ function JobDetail() {
 
             <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
               <div>
-                <div className="text-[11px] uppercase text-muted-foreground tracking-widest">Quantity</div>
+                <div className="text-xs text-muted-foreground">Quantity</div>
                 <div className="font-semibold">{Number(job.quantity_m3)} m³</div>
               </div>
               <div>
-                <div className="text-[11px] uppercase text-muted-foreground tracking-widest">
+                <div className="text-xs text-muted-foreground">
                   {isOwner ? "Your offer" : "Offer"}
                 </div>
                 <div className="font-display font-bold text-cz-amber-text text-lg">{money(Number(job.budget))}</div>
@@ -669,7 +669,7 @@ function JobDetail() {
 
         {isOwner && escrowRefund && (
           <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4 space-y-1">
-            <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
+            <div className="flex items-center gap-2 font-semibold text-sm">
               <ShieldCheck className="w-4 h-4 text-cz-amber-text" />
               Con Z Pay refund
             </div>
@@ -695,7 +695,7 @@ function JobDetail() {
                   "rounded-2xl border p-4 space-y-2",
                   escrowPaid ? "border-success/40 bg-success/10" : "border-primary/40 bg-primary/5",
                 )}>
-                  <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
+                  <div className="flex items-center gap-2 font-semibold text-sm">
                     <ShieldCheck className={cn("w-4 h-4", escrowPaid ? "text-success" : "text-cz-amber-text")} />
                     Con Z Pay
                   </div>
@@ -735,7 +735,7 @@ function JobDetail() {
 
               {showCounterResponse && (
                 <div className="rounded-2xl bg-primary/5 border border-primary/30 p-4 space-y-3">
-                  <div className="font-display font-bold uppercase text-sm tracking-wide text-cz-amber-text">
+                  <div className="font-semibold text-sm text-cz-amber-text">
                     Customer proposed a new price
                   </div>
                   <div className="flex items-baseline gap-2">
@@ -781,7 +781,7 @@ function JobDetail() {
 
               {showDeliveryPinDisplay && (
                 <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4 space-y-2 text-center">
-                  <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
+                  <div className="text-xs text-muted-foreground font-semibold">
                     Delivery confirmation code
                   </div>
                   <div className="font-display font-bold text-4xl tracking-[0.2em]">{deliveryPin ?? "······"}</div>
@@ -824,7 +824,7 @@ function JobDetail() {
             <div className="space-y-4">
               {showProofPhotos && (
                 <div className="rounded-2xl bg-card border p-4 space-y-3">
-                  <div className="font-display font-bold uppercase text-sm tracking-wide">Proof of delivery</div>
+                  <div className="font-semibold text-sm">Proof of delivery</div>
                   <div className="grid grid-cols-2 gap-3">
                     {job.pickup_photo_url && (
                       <figure className="space-y-1">
@@ -1065,7 +1065,7 @@ function JobDetail() {
                     lng: job.delivery_lng ?? undefined,
                     driverId: job.driver_id!,
                   }}
-                  className="block w-full text-center rounded-xl bg-primary text-primary-foreground font-display font-bold uppercase tracking-wide py-3"
+                  className="block w-full text-center rounded-xl bg-primary text-primary-foreground font-display font-bold py-3"
                 >
                   Book this driver again
                 </Link>
@@ -1582,7 +1582,7 @@ function RatingSummary({ title, stars, comment }: { title: string; stars: number
   const rounded = Math.round(stars);
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-2">
-      <div className="font-display font-bold uppercase text-sm tracking-wide">{title}</div>
+      <div className="font-semibold text-sm">{title}</div>
       <div className="flex items-center gap-2">
         <div className="flex gap-1">
           {[1, 2, 3, 4, 5].map((n) => (
@@ -1638,7 +1638,7 @@ function RateForm({ jobId, driverId, onSaved }: { jobId: string; driverId: strin
 
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
-      <div className="font-display font-bold uppercase text-sm tracking-wide">Rate this driver</div>
+      <div className="font-semibold text-sm">Rate this driver</div>
       <Stars value={q} onChange={setQ} label="Quality" />
       <Stars value={c} onChange={setC} label="Communication" />
       <Stars value={r} onChange={setR} label="Reliability" />
@@ -1703,7 +1703,7 @@ function RateCustomerForm({ jobId, customerId, onSaved }: { jobId: string; custo
 
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
-      <div className="font-display font-bold uppercase text-sm tracking-wide">Rate this customer (optional)</div>
+      <div className="font-semibold text-sm">Rate this customer (optional)</div>
       <p className="text-xs text-muted-foreground">Help other drivers by sharing your experience.</p>
       <Stars value={punctuality} onChange={setP} label="Punctuality" />
       <Stars value={communication} onChange={setC} label="Communication" />
@@ -2076,7 +2076,7 @@ function JobTimeline({ job }: { job: any }) {
                   <div className={`h-0.5 flex-1 ${s.done ? "bg-success" : "bg-border"}`} />
                 )}
               </div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wide text-center ${color}`}>
+              <div className={`text-xs font-semibold text-center ${color}`}>
                 {s.label}
               </div>
             </div>
@@ -2256,7 +2256,7 @@ function StageHero({
       <span className="rounded-full bg-cz-bg/60 p-5">
         <Icon className="h-14 w-14" />
       </span>
-      <span className="text-xs font-semibold uppercase tracking-widest opacity-90">
+      <span className="text-xs font-semibold opacity-90">
         Step {stage + 1} of 4 · {label}
       </span>
     </div>
@@ -3186,7 +3186,7 @@ function RaisePriceCard({ job, onRaised }: { job: any; onRaised: () => void }) {
             aria-pressed={target === v}
             className={cn(
               "min-h-12 rounded-xl text-[15px] font-semibold tabular-nums",
-              target === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-cz-border-strong bg-cz-surface",
+              target === v ? "border border-cz-text bg-cz-surface-2 text-cz-text shadow-[inset_0_0_0_1px_var(--cz-text)]" : "border border-cz-border-strong bg-cz-surface text-cz-text hover:bg-cz-surface-2",
             )}
           >
             +{usd(v - current)}

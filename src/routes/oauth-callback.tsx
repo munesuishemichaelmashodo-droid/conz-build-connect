@@ -80,7 +80,7 @@ function AuthCallbackPage() {
     <div className="min-h-screen bg-background flex items-center justify-center px-5">
       <div className="text-center space-y-3 max-w-xs">
         {state !== "failed" && <Loader2 className="w-8 h-8 animate-spin text-cz-amber-text mx-auto" />}
-        <h1 className="font-display font-bold text-xl uppercase">Con Z Login</h1>
+        <h1 className="font-display font-bold text-xl">Con Z Login</h1>
         {state === "failed" ? (
           <>
             <p className="text-sm text-muted-foreground">

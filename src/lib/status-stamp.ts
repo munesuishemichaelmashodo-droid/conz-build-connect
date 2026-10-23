@@ -50,6 +50,14 @@ export function sentence(raw: string): string {
   return s ? s[0].toUpperCase() + s.slice(1).toLowerCase() : "Unknown";
 }
 
+/**
+ * Raw values from the database ("pending_review") read as words; labels already
+ * written for people ("Driver chosen", "ECOCASH") are left alone.
+ */
+export function readableLabel(label: string): string {
+  return /^[a-z0-9_]+$/.test(label) ? sentence(label) : label;
+}
+
 /** Tailwind classes per tone (tint + text), shared by stamps, notices and pills. */
 export const TONE_CLASS: Record<StampTone, string> = {
   neutral: "bg-cz-surface-2 text-cz-muted",

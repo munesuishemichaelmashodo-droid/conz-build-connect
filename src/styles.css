@@ -132,6 +132,12 @@
   --cz-upcoming: #e7e1da;
   --cz-charcoal: #1c1815;
 
+}
+
+:root,
+.dark {
+  /* Aliases resolve wherever the palette is set, so a .dark panel inside a light
+     page gets dark-theme shadcn colours too. */
   /* shadcn aliases — never set colours here directly */
   --background: var(--cz-bg);
   --foreground: var(--cz-text);

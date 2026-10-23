@@ -135,7 +135,7 @@ function HelpPage() {
 
         {(is("customer") || is("driver")) && (
           <section className="space-y-2">
-            <h2 className="font-display font-bold uppercase tracking-wide text-sm">How to use Con Z</h2>
+            <h2 className="font-semibold text-sm">How to use Con Z</h2>
             <div className="space-y-2">
               {is("customer") && <TourEntryCard config={customerTour} label="Customer walkthrough" />}
               {is("driver") && <TourEntryCard config={driverTour} label="Driver walkthrough" />}
@@ -145,11 +145,11 @@ function HelpPage() {
 
         {SECTIONS.map((section) => (
           <section key={section.title} className="space-y-2">
-            <h2 className="font-display font-bold uppercase tracking-wide text-sm">{section.title}</h2>
+            <h2 className="font-semibold text-sm">{section.title}</h2>
             <div className="divide-y rounded-2xl border bg-card">
               {section.items.map((f) => (
                 <details key={f.q} className="p-4 group">
-                  <summary className="font-semibold cursor-pointer flex justify-between items-center gap-3">
+                  <summary className="font-semibold cursor-pointer flex min-h-11 justify-between items-center gap-3">
                     <span>{f.q}</span>
                     <span className="text-muted-foreground group-open:rotate-45 transition shrink-0">+</span>
                   </summary>

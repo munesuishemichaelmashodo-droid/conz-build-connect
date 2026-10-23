@@ -1,10 +1,11 @@
 import { cn } from "@/lib/utils";
 import { RouteLine } from "@/components/RouteLine";
+import { readableLabel } from "@/lib/status-stamp";
 
 export function StatusBadge({ label, className }: { label: string; className?: string }) {
   return (
-    <span className={cn("select-none inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wide", className)}>
-      {label}
+    <span className={cn("select-none inline-flex items-center px-2 py-0.5 rounded-md border text-xs font-semibold", className)}>
+      {readableLabel(label)}
     </span>
   );
 }
@@ -13,7 +14,7 @@ export function Section({ id, title, action, children }: { id?: string; title: s
   return (
     <section id={id} className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="font-display font-bold text-lg uppercase tracking-wide">{title}</h2>
+        <h2 className="font-display font-bold text-lg">{title}</h2>
         {action}
       </div>
       {children}

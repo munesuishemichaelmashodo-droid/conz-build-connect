@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { sentence } from "@/lib/status-stamp";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
@@ -75,7 +76,7 @@ function ReportPage() {
         <section className="rounded-2xl bg-card border p-5 shadow-soft space-y-4">
           <div className="flex items-center gap-2">
             <MessageSquareWarning className="w-5 h-5 text-cz-amber-text" />
-            <h2 className="font-display font-bold uppercase tracking-wide">Report an issue</h2>
+            <h2 className="font-display font-bold">Report an issue</h2>
           </div>
           <p className="text-xs text-muted-foreground">
             Tell us what happened. Admins review every report and will follow up if we need more info.
@@ -117,12 +118,12 @@ function ReportPage() {
 
         {(mine ?? []).length > 0 && (
           <section className="space-y-2">
-            <h3 className="font-display font-bold uppercase tracking-wide text-sm">Your recent reports</h3>
+            <h3 className="font-semibold text-sm">Your recent reports</h3>
             <div className="space-y-2">
               {mine!.map((r) => (
                 <div key={r.id} className="rounded-xl border bg-card p-3 text-sm">
                   <div className="flex justify-between items-center">
-                    <span className="text-[11px] uppercase font-semibold text-muted-foreground">{r.status}</span>
+                    <span className="text-xs font-semibold text-muted-foreground">{sentence(r.status)}</span>
                     <span className="text-[11px] text-muted-foreground">{new Date(r.created_at).toLocaleString()}</span>
                   </div>
                   <p className="mt-1 whitespace-pre-wrap">{r.description}</p>

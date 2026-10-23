@@ -147,12 +147,12 @@ export function NotificationsBell() {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
-          className="relative p-2 rounded-md hover:bg-muted text-muted-foreground"
+          className="relative flex h-11 w-11 items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"
           aria-label="Notifications"
         >
-          <Bell className="w-4 h-4" />
+          <Bell aria-hidden className="w-5 h-5" />
           {unread > 0 && (
-            <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold flex items-center justify-center">
+            <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold flex items-center justify-center">
               {unread > 9 ? "9+" : unread}
             </span>
           )}

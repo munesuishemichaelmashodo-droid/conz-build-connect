@@ -253,7 +253,7 @@ function OfferModal({
         <DialogTitle className="sr-only">New job request</DialogTitle>
         <div className="p-6 space-y-5">
           <div className="flex items-center justify-between">
-            <div className="text-[10px] uppercase tracking-widest text-cz-amber-text font-semibold">
+            <div className="text-xs text-cz-amber-text font-semibold">
               New job request
             </div>
             <button
@@ -270,7 +270,7 @@ function OfferModal({
               <Row icon={Package} label={materialLabel(job.material as any, job.custom_material)} value={`${Number(job.quantity_m3)} m³`} />
               <Row icon={MapPin} label="Delivery to" value={job.delivery_address} />
               <div className="flex items-center justify-between pt-2 border-t border-white/10">
-                <span className="text-xs text-white/60 uppercase tracking-widest">Trip value</span>
+                <span className="text-xs text-white/60">Trip value</span>
                 <span className="font-display font-bold text-cz-amber-text text-lg">{money(Number(job.budget))}</span>
               </div>
             </div>
@@ -297,7 +297,7 @@ function OfferModal({
               <div className="font-display font-bold text-5xl" style={{ color }}>
                 {secondsLeft}
               </div>
-              <div className="text-[10px] uppercase tracking-widest text-white/60">seconds</div>
+              <div className="text-xs text-white/60">seconds</div>
             </div>
           </div>
 
@@ -316,7 +316,7 @@ function OfferModal({
           <Button
             onClick={accept}
             disabled={accepting || secondsLeft <= 0}
-            className="w-full h-14 rounded-2xl font-display uppercase tracking-wide text-base"
+            className="w-full h-14 rounded-2xl text-base"
           >
             {accepting ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -348,7 +348,7 @@ function Row({
     <div className="flex items-center gap-3">
       <Icon className="w-4 h-4 text-white/60 shrink-0" />
       <div className="flex-1 min-w-0">
-        <div className="text-[10px] uppercase tracking-widest text-white/50">{label}</div>
+        <div className="text-xs text-white/50">{label}</div>
         <div className="text-sm truncate">{value}</div>
       </div>
     </div>

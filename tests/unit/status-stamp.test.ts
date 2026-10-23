@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { jobStamp, PUBLIC_STEPS, publicStepsDone, sentence } from "@/lib/status-stamp";
+import {
+  jobStamp,
+  PUBLIC_STEPS,
+  publicStepsDone,
+  readableLabel,
+  sentence,
+} from "@/lib/status-stamp";
 
 describe("jobStamp", () => {
   it("gives every job status one label, tone and icon", () => {
@@ -62,5 +68,14 @@ describe("publicStepsDone", () => {
     expect(publicStepsDone("completed")).toBe(4);
     expect(publicStepsDone("cancelled")).toBe(0);
     expect(publicStepsDone("something_new")).toBe(0);
+  });
+});
+
+describe("readableLabel", () => {
+  it("turns raw database values into words and leaves written labels alone", () => {
+    expect(readableLabel("pending_review")).toBe("Pending review");
+    expect(readableLabel("super_admin")).toBe("Super admin");
+    expect(readableLabel("Driver chosen")).toBe("Driver chosen");
+    expect(readableLabel("Uploaded")).toBe("Uploaded");
   });
 });

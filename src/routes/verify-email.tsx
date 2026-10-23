@@ -44,8 +44,8 @@ function VerifyEmailPage() {
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
             <MailCheck className="w-8 h-8 text-cz-amber-text" />
           </div>
-          <p className="mt-6 text-sm text-muted-foreground uppercase tracking-widest">Verify your email</p>
-          <h1 className="mt-2 font-display font-bold text-3xl uppercase tracking-tight leading-tight">
+          <p className="mt-6 text-sm text-muted-foreground">Verify your email</p>
+          <h1 className="mt-2 font-display font-bold text-3xl tracking-tight leading-tight">
             You are almost there!
           </h1>
           <p className="mt-4 text-sm text-muted-foreground">

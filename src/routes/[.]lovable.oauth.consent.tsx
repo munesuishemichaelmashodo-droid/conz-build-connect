@@ -90,7 +90,7 @@ function Consent() {
         <div className="flex items-center gap-3">
           <img src="/conz-logo.png" alt="Con Z" className="w-10 h-10 rounded-lg" />
           <div>
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Con Z</div>
+            <div className="text-xs text-muted-foreground">Con Z</div>
             <h1 className="font-display font-bold text-lg leading-tight">
               Connect {clientName} to your account
             </h1>
@@ -104,7 +104,7 @@ function Consent() {
 
         {redirectUri && (
           <div className="text-xs">
-            <div className="uppercase tracking-widest text-muted-foreground">Redirects to</div>
+            <div className="text-muted-foreground">Redirects to</div>
             <div className="break-all">{redirectUri}</div>
           </div>
         )}

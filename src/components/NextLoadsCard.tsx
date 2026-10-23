@@ -111,7 +111,7 @@ export function NextLoadsCard({ driverId, currentJobId }: { driverId: string; cu
     <div className="rounded-2xl border bg-card p-4 shadow-card space-y-3">
       <div className="flex items-center gap-2">
         <Truck className="w-4 h-4 text-cz-amber-text" />
-        <div className="font-display font-bold text-sm uppercase tracking-wide">Suggested next loads</div>
+        <div className="font-semibold text-sm">Suggested next loads</div>
       </div>
       <p className="text-xs text-muted-foreground -mt-1">
         Other open jobs near where this delivery finishes — bid on any of them the same way as usual.

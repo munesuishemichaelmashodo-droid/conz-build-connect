@@ -190,7 +190,7 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
         </div>
         <Button
           onClick={() => (isLast ? finish() : setStep((s) => s + 1))}
-          className="w-full h-12 font-display font-bold uppercase tracking-wide"
+          className="w-full h-12 font-semibold"
         >
           {isLast ? "Get started" : "Next"}
         </Button>

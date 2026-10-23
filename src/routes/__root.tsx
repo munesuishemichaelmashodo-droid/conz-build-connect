@@ -55,7 +55,7 @@ function ErrorComponent({ error: rawError, reset }: { error: unknown; reset: () 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-display font-bold uppercase tracking-wide">Something broke on the build site</h1>
+        <h1 className="text-xl font-display font-bold">Something broke on the build site</h1>
         <p className="mt-2 text-sm text-muted-foreground">Try again — or head back to the yard.</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button onClick={() => { router.invalidate(); reset(); }} className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
@@ -69,7 +69,7 @@ function ErrorComponent({ error: rawError, reset }: { error: unknown; reset: () 
             a JS error message/stack, not secrets) and is the single
             fastest way to actually fix the next one of these. */}
         <div className="mt-8 text-left rounded-lg border bg-muted/40 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+          <p className="text-xs font-semibold text-muted-foreground mb-1">
             Technical details (screenshot this)
           </p>
           <p className="text-[11px] font-mono break-words text-muted-foreground mb-1">

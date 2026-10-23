@@ -194,7 +194,7 @@ export function GuidedTourOverlay({
           style={{ top: cardPos.top, left: cardPos.left, width: cardPos.width }}
         >
           <div className="flex items-center justify-between gap-2 mb-2">
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-cz-amber-text">
+            <span className="text-xs font-semibold text-cz-amber-text">
               {stepIndex + 1} of {totalSteps}
             </span>
             <button
@@ -233,7 +233,7 @@ export function GuidedTourOverlay({
             <Button
               onClick={onNext}
               disabled={waiting || nextBlocked}
-              className="flex-1 h-11 font-display uppercase tracking-wide"
+              className="flex-1 h-11"
             >
               {waiting || nextBlocked ? "Waiting for you…" : stepIndex + 1 === totalSteps ? "Finish" : "Next"}
             </Button>

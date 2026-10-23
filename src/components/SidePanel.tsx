@@ -38,7 +38,7 @@ export function SidePanel() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button className="p-2 rounded-md hover:bg-muted text-muted-foreground" aria-label="Open menu">
+        <button type="button" className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-muted text-muted-foreground" aria-label="Open menu">
           <Menu className="w-5 h-5" />
         </button>
       </SheetTrigger>
@@ -121,7 +121,7 @@ export function SidePanel() {
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="p-4 border-b">
-      <div className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2 font-semibold">{label}</div>
+      <div className="text-xs text-muted-foreground mb-2 font-semibold">{label}</div>
       {children}
     </div>
   );

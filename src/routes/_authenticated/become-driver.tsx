@@ -193,7 +193,7 @@ function BecomeDriverPage() {
     <AppShell title="Become a driver">
       <div className="max-w-md mx-auto space-y-5">
         <div>
-          <div className="flex items-center justify-between text-[11px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold mb-1">
             <span>
               Step {stage + 1} of {STAGES.length}
             </span>
@@ -510,7 +510,7 @@ function DocumentsStage({
       )}
 
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        <h3 className="text-xs font-semibold text-muted-foreground">
           You
         </h3>
         {row("selfie_url", "user")}
@@ -519,7 +519,7 @@ function DocumentsStage({
       </section>
 
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        <h3 className="text-xs font-semibold text-muted-foreground">
           Truck
         </h3>
         {row("tipper_photo_url", "environment")}
@@ -552,7 +552,7 @@ function DocumentsStage({
       </section>
 
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        <h3 className="text-xs font-semibold text-muted-foreground">
           Transport papers (recommended)
         </h3>
         {OPTIONAL_DOCS.map((f) => row(f))}

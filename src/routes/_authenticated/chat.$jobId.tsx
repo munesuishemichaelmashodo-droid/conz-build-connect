@@ -432,7 +432,7 @@ function ChatPage() {
   return (
     <AppShell title={otherProfile?.full_name ? `Chat · ${otherProfile.full_name}` : "Chat"}>
       <div className="flex items-center justify-between mb-3">
-        <Link to="/jobs/$id" params={{ id: jobId }} className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+        <Link to="/jobs/$id" params={{ id: jobId }} className="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-foreground hover:bg-muted">
           <ArrowLeft className="w-4 h-4" /> Back to job
         </Link>
       </div>
@@ -466,7 +466,7 @@ function ChatPage() {
               )}
               {peerStats?.jobs != null && <span>{peerStats.jobs} trips</span>}
               {peerStats?.level && <span className="capitalize">{peerStats.level}</span>}
-              {peerStats?.verified && <span className="text-green-600">Verified</span>}
+              {peerStats?.verified && <span className="text-cz-green-text">Verified</span>}
             </div>
           </div>
           <div className="text-xs text-muted-foreground text-right shrink-0">
@@ -481,7 +481,7 @@ function ChatPage() {
           {grouped.map((item, i) =>
             item.kind === "day" ? (
               <div key={`day-${i}`} className="flex items-center justify-center py-1">
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
+                <span className="text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
                   {item.label}
                 </span>
               </div>
@@ -500,7 +500,7 @@ function ChatPage() {
                                 m.failed ? "opacity-60 border-2 border-destructive" : m.pending ? "opacity-60" : ""
                               }`
                             : `rounded-2xl px-3 py-2 text-sm ${
-                                mine ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted rounded-bl-sm"
+                                mine ? "bg-cz-amber-tint text-foreground rounded-br-sm" : "bg-muted rounded-bl-sm"
                               } ${m.failed ? "opacity-60 border-2 border-destructive" : m.pending ? "opacity-60" : ""}`
                         }
                       >
@@ -508,11 +508,11 @@ function ChatPage() {
                         {m.audio_url && <ChatAudio path={m.audio_url} duration={m.audio_duration_seconds} />}
                         {m.body && <div className="whitespace-pre-wrap break-words">{m.body}</div>}
                         <div
-                          className={`flex items-center gap-1 text-[10px] mt-1 ${
+                          className={`flex items-center gap-1 text-xs mt-1 ${
                             isImageOnly
                               ? `px-2 pb-1.5 ${mine ? "justify-end text-white drop-shadow" : "text-muted-foreground"}`
                               : mine
-                              ? "text-primary-foreground/70"
+                              ? "text-muted-foreground"
                               : "text-muted-foreground"
                           }`}
                         >

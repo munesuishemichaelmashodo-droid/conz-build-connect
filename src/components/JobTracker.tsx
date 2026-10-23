@@ -171,7 +171,7 @@ export function DriverShareLocation({ jobId, driverId, compact = false }: { jobI
         title="Don't forget to turn this on"
         body="The customer can't see your progress at all until you tap 'Start sharing location' — do this every time you begin a delivery, or they'll have no idea where their order is."
       />
-      <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
+      <div className="flex items-center gap-2 font-semibold text-sm">
         <Navigation2 className="w-4 h-4 text-cz-amber-text" /> Live GPS
       </div>
       <p className="text-xs text-muted-foreground">Share your live location with the customer while you deliver.</p>
@@ -290,7 +290,7 @@ export function CustomerTrackMap({
         body="Once your driver starts sharing their location, you'll see them move on this map right up to your delivery point."
       />
       <div className="rounded-2xl bg-card border overflow-hidden">
-        <div className="flex items-center gap-2 px-4 pt-4 pb-2 font-display font-bold uppercase text-sm tracking-wide">
+        <div className="flex items-center gap-2 px-4 pt-4 pb-2 font-semibold text-sm">
           <MapPin className="w-4 h-4 text-cz-amber-text" /> Live driver location
         </div>
         {!loc ? (

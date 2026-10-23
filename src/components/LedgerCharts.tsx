@@ -29,13 +29,13 @@ export function LedgerCharts({ data }: { data: SeriesPoint[] }) {
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border bg-card p-4">
-        <h3 className="font-display font-bold uppercase tracking-wide text-sm mb-1">Money movement over time</h3>
+        <h3 className="font-semibold text-sm mb-1">Money movement over time</h3>
         <div className="flex gap-2 flex-wrap mb-2">
           {SERIES.map((s) => (
             <button
               key={s.key}
               onClick={() => toggle(s.key)}
-              className="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide"
+              className="rounded-full border px-2.5 py-1 text-xs font-semibold"
               style={{
                 borderColor: s.color,
                 color: hidden.includes(s.key) ? undefined : s.color,
@@ -79,7 +79,7 @@ export function LedgerCharts({ data }: { data: SeriesPoint[] }) {
       </div>
 
       <div className="rounded-2xl border bg-card p-4">
-        <h3 className="font-display font-bold uppercase tracking-wide text-sm mb-2">
+        <h3 className="font-semibold text-sm mb-2">
           Net platform revenue (commission − refunds)
         </h3>
         <div className="h-44">
