@@ -26,7 +26,7 @@ function Stat({
   const content = (
     <>
       <div className="flex items-center justify-between">
-        <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</span>
+        <span className="text-xs text-muted-foreground font-semibold">{label}</span>
         <Icon className="w-4 h-4 text-cz-amber-text" />
       </div>
       <div className="flex items-end justify-between mt-1">
@@ -97,7 +97,7 @@ function AdminDashboard() {
         <Stat icon={AlertOctagon} label="Open disputes" value={String(data?.disputes ?? 0)} to="/admin/disputes" />
       </div>
       <div className="rounded-2xl dark bg-gradient-dark text-white p-5 shadow-lift">
-        <div className="flex items-center gap-2 text-white/70 text-[11px] uppercase tracking-widest">
+        <div className="flex items-center gap-2 text-white/70 text-xs">
           <DollarSign className="w-3.5 h-3.5" /> {isSuper ? "Platform revenue" : "Today's revenue"}
         </div>
         <div className="font-display font-bold text-4xl text-cz-amber-text mt-1">{money(data?.commission ?? 0)}</div>

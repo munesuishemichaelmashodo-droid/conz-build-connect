@@ -131,7 +131,7 @@ function SupplyCoveragePage() {
   return (
     <div className="space-y-6">
       <div className="rounded-2xl dark bg-gradient-dark text-white p-5 shadow-lift">
-        <div className="text-xs uppercase tracking-widest text-white/60">ConZ Supply Coverage</div>
+        <div className="text-xs text-white/60">ConZ Supply Coverage</div>
         <div className="font-display font-bold text-xl mt-1 flex items-center gap-2">
           <MapPin className="w-5 h-5" /> National Supply Network
         </div>
@@ -237,12 +237,12 @@ function SupplyCoveragePage() {
 
           {selectedInfo.status === "grey" && selectedInfo.research && (
             <div className="text-sm text-muted-foreground space-y-1 pt-1 border-t mt-2">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground/70 pt-2">Research candidate — not production verified</div>
+              <div className="text-xs text-muted-foreground/70 pt-2">Research candidate — not production verified</div>
               <div>
                 Supplier: <span className="text-foreground font-medium">{selectedInfo.research.supplier_name}</span>
               </div>
               {selectedInfo.research.physical_source_description && <div>{selectedInfo.research.physical_source_description}</div>}
-              <div className="uppercase text-[10px] tracking-wide">Confidence: {selectedInfo.research.confidence}</div>
+              <div className="text-xs">Confidence: {selectedInfo.research.confidence}</div>
               {selectedInfo.research.notes && <div className="text-xs pt-1">{selectedInfo.research.notes}</div>}
             </div>
           )}

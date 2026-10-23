@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { sentence } from "@/lib/status-stamp";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,7 +69,7 @@ function AdminReports() {
           filter/list below since it needs no user report to be actionable */}
       {!!flags?.length && (
         <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-semibold text-warning uppercase tracking-wide">
+          <div className="flex items-center gap-2 text-xs font-semibold text-warning">
             <ShieldAlert className="w-4 h-4" /> Possible off-platform contact ({flags.length})
           </div>
           {flags.map((f) => (
@@ -94,11 +95,11 @@ function AdminReports() {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`flex-1 rounded-lg border py-2 text-xs font-semibold uppercase ${
-              filter === f ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground"
-            }`}
+            className={`min-h-11 flex-1 rounded-lg border py-2 text-xs font-semibold ${
+ filter === f ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "bg-card text-muted-foreground"
+ }`}
           >
-            {f}
+            {sentence(f)}
           </button>
         ))}
       </div>

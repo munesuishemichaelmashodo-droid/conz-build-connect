@@ -132,7 +132,7 @@ function AdminSettings() {
       <div className="rounded-2xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Fuel className="w-5 h-5 text-cz-amber-text" />
-          <h3 className="font-display font-bold text-lg uppercase tracking-wide">Diesel price</h3>
+          <h3 className="font-display font-bold text-lg">Diesel price</h3>
         </div>
         <p className="text-sm text-muted-foreground">
           Price per liter, used to calculate long-distance transport cost.
@@ -147,6 +147,7 @@ function AdminSettings() {
             value={dieselValue}
             onChange={(e) => setDieselValue(e.target.value)}
             disabled={!isSuper}
+            aria-label="Diesel price per litre (USD)"
             className="flex-1 px-3 py-2.5 rounded-xl border bg-background text-lg font-display font-bold disabled:opacity-50"
           />
           <span className="text-sm text-muted-foreground">/ liter</span>
@@ -154,7 +155,7 @@ function AdminSettings() {
         <button
           onClick={saveDiesel}
           disabled={!isSuper}
-          className="w-full rounded-xl bg-primary text-primary-foreground font-semibold py-3 disabled:opacity-50"
+          className="w-full min-h-12 rounded-xl border-[1.5px] border-input bg-card text-foreground font-semibold hover:bg-muted disabled:opacity-50"
         >
           <Save className="w-4 h-4 inline mr-1" /> Save diesel price
         </button>
@@ -166,7 +167,7 @@ function AdminSettings() {
       <div className="rounded-2xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Percent className="w-5 h-5 text-cz-amber-text" />
-          <h3 className="font-display font-bold text-lg uppercase tracking-wide">Price multiplier</h3>
+          <h3 className="font-display font-bold text-lg">Price multiplier</h3>
         </div>
         <p className="text-sm text-muted-foreground">
           Moves every enforced material's cost at once, separate from diesel price. 1.00 = no change, 1.08 = +8%.
@@ -181,13 +182,14 @@ function AdminSettings() {
             value={multiplierValue}
             onChange={(e) => setMultiplierValue(e.target.value)}
             disabled={!isSuper}
+            aria-label="Price multiplier"
             className="flex-1 px-3 py-2.5 rounded-xl border bg-background text-lg font-display font-bold disabled:opacity-50"
           />
         </div>
         <button
           onClick={saveMultiplier}
           disabled={!isSuper}
-          className="w-full rounded-xl bg-primary text-primary-foreground font-semibold py-3 disabled:opacity-50"
+          className="w-full min-h-12 rounded-xl border-[1.5px] border-input bg-card text-foreground font-semibold hover:bg-muted disabled:opacity-50"
         >
           <Save className="w-4 h-4 inline mr-1" /> Apply multiplier
         </button>
@@ -199,7 +201,7 @@ function AdminSettings() {
       <div className="rounded-2xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Package className="w-5 h-5 text-cz-amber-text" />
-          <h3 className="font-display font-bold text-lg uppercase tracking-wide">Material prices</h3>
+          <h3 className="font-display font-bold text-lg">Material prices</h3>
         </div>
         <p className="text-sm text-muted-foreground">
           Set the min/max price range per material (per {materials?.[0]?.unit ?? "10-15 m³ load"}). Turning enforcement
@@ -226,7 +228,7 @@ function AdminSettings() {
         <div className="rounded-2xl border border-warning/40 bg-warning/10 p-5 space-y-3">
           <div className="flex items-center gap-2">
             <ShieldAlert className="w-5 h-5 text-warning" />
-            <h3 className="font-display font-bold uppercase tracking-wide">No super admin yet</h3>
+            <h3 className="font-display font-bold">No super admin yet</h3>
           </div>
           <p className="text-sm">
             There is no super admin on this platform. Claim the role now to manage commission and roles.
@@ -400,13 +402,13 @@ function MaterialPriceRow({
           <button
             onClick={save}
             disabled={!isSuper || saving}
-            className="w-full rounded-lg bg-primary text-primary-foreground font-semibold py-2 text-sm disabled:opacity-50"
+            className="min-h-11 w-full rounded-lg bg-primary text-primary-foreground font-semibold py-2 text-sm disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save"}
           </button>
 
           <div className="pt-3 mt-1 border-t space-y-2">
-            <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
+            <div className="text-xs text-muted-foreground font-semibold">
               Price by load size for {material.label}
             </div>
             <p className="text-[11px] text-muted-foreground">
@@ -433,7 +435,7 @@ function MaterialPriceRow({
           </div>
 
           <div className="pt-3 mt-1 border-t space-y-2">
-            <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
+            <div className="text-xs text-muted-foreground font-semibold">
               Actual pickup location for {material.label}
             </div>
             <p className="text-[11px] text-muted-foreground">
@@ -458,7 +460,7 @@ function MaterialPriceRow({
             <button
               onClick={savePickup}
               disabled={!isSuper || savingPickup || !pickupCoords}
-              className="w-full rounded-lg border font-semibold py-2 text-sm disabled:opacity-50"
+              className="min-h-11 w-full rounded-lg border font-semibold py-2 text-sm disabled:opacity-50"
             >
               {savingPickup ? "Saving…" : "Save pickup location"}
             </button>
@@ -578,7 +580,7 @@ function BucketPriceRow({
           <button
             onClick={save}
             disabled={!isSuper || saving}
-            className="w-full rounded-lg bg-primary text-primary-foreground font-semibold py-2 text-sm disabled:opacity-50"
+            className="min-h-11 w-full rounded-lg bg-primary text-primary-foreground font-semibold py-2 text-sm disabled:opacity-50"
           >
             {saving ? "Saving…" : `Save ${bucketM3}m³ price`}
           </button>

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { sentence } from "@/lib/status-stamp";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ShieldCheck, ShieldX, ShieldQuestion, ExternalLink } from "lucide-react";
@@ -69,11 +70,11 @@ function AdminVerifications() {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`flex-1 rounded-lg border py-2 text-xs font-semibold uppercase ${
-              filter === f ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground"
-            }`}
+            className={`min-h-11 flex-1 rounded-lg border py-2 text-xs font-semibold ${
+ filter === f ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "bg-card text-muted-foreground"
+ }`}
           >
-            {f}
+            {sentence(f)}
           </button>
         ))}
       </div>
@@ -112,29 +113,29 @@ function AdminVerifications() {
 
               {/* ID, licence & vehicle photos */}
               <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => view(d.national_id_url)} disabled={!d.national_id_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                <button onClick={() => view(d.national_id_url)} disabled={!d.national_id_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                   <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> National ID
                 </button>
-                <button onClick={() => view(d.selfie_url)} disabled={!d.selfie_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                <button onClick={() => view(d.selfie_url)} disabled={!d.selfie_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                   <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Selfie
                 </button>
-                <button onClick={() => view((d as any).license_url)} disabled={!(d as any).license_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                <button onClick={() => view((d as any).license_url)} disabled={!(d as any).license_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                   <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Licence
                 </button>
-                <button onClick={() => view((d as any).tipper_photo_url)} disabled={!(d as any).tipper_photo_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                <button onClick={() => view((d as any).tipper_photo_url)} disabled={!(d as any).tipper_photo_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                   <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Tipper (front)
                 </button>
-                <button onClick={() => view((d as any).tipper_photo_side_url)} disabled={!(d as any).tipper_photo_side_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                <button onClick={() => view((d as any).tipper_photo_side_url)} disabled={!(d as any).tipper_photo_side_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                   <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Tipper (side)
                 </button>
-                <button onClick={() => view((d as any).tipper_photo_back_url)} disabled={!(d as any).tipper_photo_back_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                <button onClick={() => view((d as any).tipper_photo_back_url)} disabled={!(d as any).tipper_photo_back_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                   <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Tipper (back)
                 </button>
               </div>
 
               {/* Transport compliance documents */}
               <div className="space-y-1.5">
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                   Transport compliance —{" "}
                   {[
                     (d as any).operator_license_url,
@@ -144,16 +145,16 @@ function AdminVerifications() {
                   ].filter(Boolean).length}/4 on file
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => view((d as any).operator_license_url)} disabled={!(d as any).operator_license_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                  <button onClick={() => view((d as any).operator_license_url)} disabled={!(d as any).operator_license_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                     <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Operator licence
                   </button>
-                  <button onClick={() => view((d as any).certificate_of_fitness_url)} disabled={!(d as any).certificate_of_fitness_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                  <button onClick={() => view((d as any).certificate_of_fitness_url)} disabled={!(d as any).certificate_of_fitness_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                     <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Fitness cert
                   </button>
-                  <button onClick={() => view((d as any).git_insurance_url)} disabled={!(d as any).git_insurance_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                  <button onClick={() => view((d as any).git_insurance_url)} disabled={!(d as any).git_insurance_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                     <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> GIT insurance
                   </button>
-                  <button onClick={() => view((d as any).zinara_url)} disabled={!(d as any).zinara_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                  <button onClick={() => view((d as any).zinara_url)} disabled={!(d as any).zinara_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                     <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> ZINARA
                   </button>
                 </div>
@@ -164,7 +165,7 @@ function AdminVerifications() {
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <button
                     onClick={() => setStatus(d.user_id, "verified")}
-                    className="rounded-lg bg-success text-success-foreground font-semibold py-2 text-sm"
+                    className="min-h-11 rounded-lg bg-success text-success-foreground font-semibold py-2 text-sm"
                   >
                     <ShieldCheck className="w-4 h-4 inline mr-1" /> Approve
                   </button>
@@ -173,7 +174,7 @@ function AdminVerifications() {
                       const reason = window.prompt("Reason for rejection (optional)") ?? undefined;
                       setStatus(d.user_id, "rejected", reason);
                     }}
-                    className="rounded-lg bg-destructive text-destructive-foreground font-semibold py-2 text-sm"
+                    className="min-h-11 rounded-lg bg-destructive text-destructive-foreground font-semibold py-2 text-sm"
                   >
                     <ShieldX className="w-4 h-4 inline mr-1" /> Reject
                   </button>

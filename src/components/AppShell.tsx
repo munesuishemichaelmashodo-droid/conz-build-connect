@@ -7,7 +7,19 @@ import { useViewMode } from "@/lib/view-mode";
 import { Moon, Sun } from "lucide-react";
 import { CustomerBottomNav, DriverBottomNav, NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 
-export function AppShell({ title, children, action }: { title?: string; children: ReactNode; action?: ReactNode }) {
+export function AppShell({
+  title,
+  children,
+  action,
+  wide = false,
+}: {
+  title?: string;
+  children: ReactNode;
+  action?: ReactNode;
+  /** Admin: full desktop width instead of the phone column. */
+  wide?: boolean;
+}) {
+  const width = wide ? "max-w-[1280px]" : "max-w-screen-sm";
   const { profile } = useAuth();
   const { activeRole, theme, toggleTheme } = useViewMode();
   const path = useRouterState({ select: (st) => st.location.pathname });
@@ -21,7 +33,7 @@ export function AppShell({ title, children, action }: { title?: string; children
   return (
     <div className="cz-screen min-h-screen flex flex-col bg-background">
       <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur">
-        <div className="mx-auto max-w-screen-sm flex items-center justify-between gap-2 px-4 h-14">
+        <div className={`mx-auto ${width} flex items-center justify-between gap-2 px-4 h-14`}>
           <div className="flex min-w-0 items-center gap-2.5">
             <img
               src="/conz-icon-192.png"
@@ -51,7 +63,7 @@ export function AppShell({ title, children, action }: { title?: string; children
         </div>
       </header>
 
-      <main className={`flex-1 mx-auto w-full max-w-screen-sm px-4 py-4 ${showDriverNav || showCustomerNav ? NAV_SPACE : "pb-6"}`}>{children}</main>
+      <main className={`flex-1 mx-auto w-full ${width} px-4 py-4 ${showDriverNav || showCustomerNav ? NAV_SPACE : "pb-6"}`}>{children}</main>
       {showDriverNav && <DriverBottomNav />}
       {showCustomerNav && <CustomerBottomNav />}
     </div>

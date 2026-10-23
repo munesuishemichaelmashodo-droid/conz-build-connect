@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { sentence } from "@/lib/status-stamp";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Gavel, XCircle, Search as SearchIcon, RefreshCcw, ShieldOff, AlertTriangle, Check, Ban, Phone, Mail } from "lucide-react";
@@ -117,11 +118,11 @@ function AdminDisputes() {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`rounded-lg border py-2 text-[11px] font-semibold uppercase ${
-              filter === f ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground"
-            }`}
+            className={`min-h-11 rounded-lg border py-2 text-xs font-semibold ${
+ filter === f ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "bg-card text-muted-foreground"
+ }`}
           >
-            {f}
+            {sentence(f)}
           </button>
         ))}
       </div>
@@ -155,7 +156,7 @@ function AdminDisputes() {
                   />
                   {(d.status === "open" || d.status === "investigating") && d.review_due_at && (
                     d.escalated_at ? (
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-destructive flex items-center gap-1">
+                      <span className="text-xs font-bold text-destructive flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3" /> Overdue
                       </span>
                     ) : (
@@ -165,7 +166,7 @@ function AdminDisputes() {
                     )
                   )}
                   {d.category && (
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {CATEGORY_LABEL[d.category] ?? d.category}
                     </span>
                   )}
@@ -193,26 +194,26 @@ function AdminDisputes() {
                     {filter === "open" && (
                       <button
                         onClick={() => setInvestigating(d.id)}
-                        className="rounded-lg border py-2 text-xs font-semibold hover:bg-warning/10"
+                        className="min-h-11 rounded-lg border py-2 text-xs font-semibold hover:bg-warning/10"
                       >
                         <SearchIcon className="w-3.5 h-3.5 inline mr-1" /> Investigate
                       </button>
                     )}
                     <button
                       onClick={() => reject(d.id)}
-                      className={`rounded-lg border py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 ${filter === "investigating" ? "col-span-2" : ""}`}
+                      className={`min-h-11 rounded-lg border py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 ${filter === "investigating" ? "col-span-2" : ""}`}
                     >
                       <Ban className="w-3.5 h-3.5 inline mr-1" /> Reject (no merit)
                     </button>
                   </div>
 
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground pt-1">Resolve with outcome</div>
+                  <div className="text-xs text-muted-foreground pt-1">Resolve with outcome</div>
                   <div className="grid grid-cols-2 gap-2">
                     {OUTCOMES.map((o) => (
                       <button
                         key={o.value}
                         onClick={() => applyOutcome(d.id, o.value, o.label)}
-                        className={`rounded-lg py-2 text-xs font-semibold flex items-center justify-center gap-1 ${o.className}`}
+                        className={`min-h-11 rounded-lg py-2 text-xs font-semibold flex items-center justify-center gap-1 ${o.className}`}
                       >
                         <o.icon className="w-3.5 h-3.5" /> {o.label}
                       </button>

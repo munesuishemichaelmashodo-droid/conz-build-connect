@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { sentence } from "@/lib/status-stamp";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -163,11 +164,11 @@ function AdminReferrals() {
               key={f}
               onClick={() => setFilter(f)}
               className={cn(
-                "rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide",
-                filter === f ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground"
+                "min-h-11 rounded-full border px-3 py-1.5 text-xs font-semibold",
+                filter === f ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "bg-card text-muted-foreground"
               )}
             >
-              {f}
+              {sentence(f)}
             </button>
           ))}
         </div>

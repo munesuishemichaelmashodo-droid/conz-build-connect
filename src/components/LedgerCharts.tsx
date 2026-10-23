@@ -3,10 +3,10 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import type { SeriesPoint } from "@/lib/ledger";
 
 const SERIES: { key: keyof Omit<SeriesPoint, "day">; label: string; color: string }[] = [
-  { key: "topup", label: "Top-ups", color: "hsl(var(--success))" },
-  { key: "withdrawal", label: "Withdrawals", color: "hsl(var(--warning))" },
-  { key: "commission", label: "Commission", color: "hsl(var(--primary))" },
-  { key: "refund", label: "Refunds", color: "hsl(var(--destructive))" },
+  { key: "topup", label: "Top-ups", color: "#1a8f50" },
+  { key: "withdrawal", label: "Withdrawals", color: "#b7791f" },
+  { key: "commission", label: "Commission", color: "#ff7716" },
+  { key: "refund", label: "Refunds", color: "#c2412b" },
 ];
 
 export function LedgerCharts({ data }: { data: SeriesPoint[] }) {
@@ -49,13 +49,13 @@ export function LedgerCharts({ data }: { data: SeriesPoint[] }) {
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 5, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--cz-border-strong)" />
               <XAxis dataKey="day" tick={{ fontSize: 9 }} tickFormatter={(d: string) => d.slice(5)} />
               <YAxis tick={{ fontSize: 9 }} />
               <Tooltip
                 contentStyle={{
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
+                  background: "var(--cz-surface)",
+                  border: "1px solid var(--cz-border)",
                   borderRadius: 12,
                   fontSize: 11,
                 }}
@@ -85,19 +85,19 @@ export function LedgerCharts({ data }: { data: SeriesPoint[] }) {
         <div className="h-44">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={revenue} margin={{ top: 5, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--cz-border-strong)" />
               <XAxis dataKey="day" tick={{ fontSize: 9 }} tickFormatter={(d: string) => d.slice(5)} />
               <YAxis tick={{ fontSize: 9 }} />
               <Tooltip
                 contentStyle={{
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
+                  background: "var(--cz-surface)",
+                  border: "1px solid var(--cz-border)",
                   borderRadius: 12,
                   fontSize: 11,
                 }}
                 formatter={(v: number) => [`$${Number(v).toFixed(2)}`, "Net revenue"]}
               />
-              <Line type="monotone" dataKey="net" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="net" stroke="#ff7716" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>

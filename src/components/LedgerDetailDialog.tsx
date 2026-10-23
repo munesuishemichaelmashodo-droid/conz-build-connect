@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { sentence } from "@/lib/status-stamp";
 import { Link } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +12,7 @@ type Person = { name: string; email: string | null; role: string };
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="py-2 border-b last:border-0 flex items-start justify-between gap-3">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">{label}</div>
+      <div className="text-xs text-muted-foreground shrink-0">{label}</div>
       <div className="text-xs text-right break-all">{value}</div>
     </div>
   );
@@ -63,7 +64,7 @@ export function LedgerDetailDialog({
       <div className="w-full sm:max-w-lg max-h-[88vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border bg-card p-4 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="font-display font-bold uppercase tracking-wide text-sm">Transaction detail</h3>
+            <h3 className="font-semibold text-sm">Transaction detail</h3>
             <p className="text-[11px] text-muted-foreground font-mono">{row.id}</p>
           </div>
           <button onClick={onClose} aria-label="Close" className="rounded-lg border p-1.5">
@@ -77,11 +78,11 @@ export function LedgerDetailDialog({
             {money(Math.abs(amount))}
           </div>
           <div className="flex gap-2 mt-1">
-            <span className={cn("px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase", TYPE_TONE[row.type])}>
-              {row.type}
+            <span className={cn("px-2 py-0.5 rounded-full border text-xs font-semibold", TYPE_TONE[row.type])}>
+              {sentence(row.type)}
             </span>
-            <span className={cn("px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase", STATUS_TONE[row.status])}>
-              {row.status}
+            <span className={cn("px-2 py-0.5 rounded-full border text-xs font-semibold", STATUS_TONE[row.status])}>
+              {sentence(row.status)}
             </span>
           </div>
         </div>
@@ -112,7 +113,7 @@ export function LedgerDetailDialog({
         </div>
 
         <div>
-          <h4 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Account history (last 15)</h4>
+          <h4 className="text-xs text-muted-foreground mb-1">Account history (last 15)</h4>
           <div className="rounded-xl border bg-background divide-y">
             {(history ?? []).length === 0 ? (
               <div className="p-3 text-xs text-muted-foreground">No other transactions.</div>
@@ -138,7 +139,7 @@ export function LedgerDetailDialog({
         </div>
 
         <div>
-          <h4 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Audit trail</h4>
+          <h4 className="text-xs text-muted-foreground mb-1">Audit trail</h4>
           <div className="rounded-xl border bg-background divide-y">
             {(audit ?? []).length === 0 ? (
               <div className="p-3 text-xs text-muted-foreground">No audit entries for this account.</div>
