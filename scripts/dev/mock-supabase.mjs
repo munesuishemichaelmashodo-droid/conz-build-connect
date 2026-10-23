@@ -325,6 +325,8 @@ const rpc = {
   nearby_available_trucks: () => [],
   job_bidder_locations: () => [],
   get_my_delivery_pin_expiry: () => null,
+  // A fixed sample code so the customer's PIN card shows six real digits.
+  get_my_delivery_pin: () => "482917",
   // Mirrors the live rule: only the assigned driver, only after the pickup photo.
   start_trip: ({ _job_id }, me) => {
     const job = db.jobs.find((j) => j.id === _job_id);

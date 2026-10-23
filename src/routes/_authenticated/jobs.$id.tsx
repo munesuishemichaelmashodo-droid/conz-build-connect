@@ -3519,19 +3519,38 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
             </div>
           )}
 
+          {/* Information, not an action: a tinted card, so solid orange stays for the
+              one button to tap. Same PIN, same conditions, same "New code" action. */}
           {ctx.showDeliveryPinDisplay && (
-            <div className="rounded-2xl bg-cz-amber p-4 text-cz-amber-ink">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="font-bold">Your delivery PIN</div>
-                  <div className="text-[13px] opacity-80">Only share after the load is tipped</div>
-                </div>
-                <div className="cz-display font-bold text-[40px] leading-none tracking-[0.12em] tabular-nums">{ctx.deliveryPin ?? "······"}</div>
+            <section
+              aria-labelledby="delivery-pin-title"
+              className="space-y-3 rounded-2xl bg-cz-amber-tint p-4"
+            >
+              <div>
+                <h2
+                  id="delivery-pin-title"
+                  className="flex items-center gap-1.5 text-[15px] font-semibold text-cz-text"
+                >
+                  <KeyRound aria-hidden className="h-4 w-4 shrink-0 text-cz-amber-text" />
+                  Your delivery PIN
+                </h2>
+                <p className="mt-0.5 text-[13px] text-cz-muted">
+                  Only share after the load is tipped
+                </p>
               </div>
-              <button type="button" onClick={ctx.regeneratePin} className="mt-2 text-[13px] underline opacity-80">
-                Code lost or shared by mistake? New code
-              </button>
-            </div>
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <div className="cz-display rounded-xl border border-cz-border bg-cz-surface px-3.5 py-2 text-[36px] font-bold leading-none tracking-[0.14em] tabular-nums text-cz-text">
+                  {ctx.deliveryPin ?? "······"}
+                </div>
+                <button
+                  type="button"
+                  onClick={ctx.regeneratePin}
+                  className="min-h-11 text-left text-[13px] font-semibold text-cz-amber-text underline underline-offset-2"
+                >
+                  Code lost or shared by mistake? New code
+                </button>
+              </div>
+            </section>
           )}
 
           {ctx.showCompleteButton && (
