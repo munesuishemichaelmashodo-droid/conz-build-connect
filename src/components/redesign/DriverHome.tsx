@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, ShieldAlert, Star, Truck } from "lucide-react";
+import { ChevronRight, ShieldAlert, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { levelInfo } from "@/lib/domain";
 import { bestCapacityMatchTier } from "@/lib/capacityMatch";
@@ -13,6 +13,7 @@ import { LocalLocator } from "@/components/LocalLocator";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { SidePanel } from "@/components/SidePanel";
 import { LogoLockup } from "@/components/ds";
+import { TipperIllustration } from "@/components/ds/media";
 import { CzScreen, MaterialChips, usd2 } from "@/components/redesign";
 import { FeedJobCard, type FeedJob } from "@/components/redesign/FeedJobCard";
 import type { DriverFix } from "@/lib/jobDistance";
@@ -242,8 +243,8 @@ export function DriverHome({
         <div className="px-5 flex flex-col gap-3">
           {shown.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-cz-border-strong p-8 text-center">
-              <Truck className="w-9 h-9 mx-auto text-cz-faint" />
-              <p className="mt-2 font-semibold">No open loads right now</p>
+              <TipperIllustration className="mx-auto w-40 opacity-90" />
+              <p className="mt-3 font-semibold">No open loads right now</p>
               <p className="text-sm text-cz-muted">
                 {filter === "all"
                   ? "Stay online — we'll notify you when a new job is posted."

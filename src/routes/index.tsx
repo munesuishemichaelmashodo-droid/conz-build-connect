@@ -4,6 +4,7 @@ import { Mail, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { czButtonClass } from "@/components/redesign";
 import { LogoLockup } from "@/components/ds";
+import { TipperIllustration } from "@/components/ds/media";
 import { QuickPrice } from "@/components/QuickPrice";
 
 export const Route = createFileRoute("/")({
@@ -86,6 +87,7 @@ function Welcome() {
               Tell us what you need and where. Tipper drivers checked by Con Z send you their
               prices, you pick one, and follow the load to your gate.
             </p>
+            <TipperIllustration className="mt-6 max-w-[340px] sm:max-w-[420px] lg:mt-10 lg:max-w-[560px]" />
           </section>
 
           <div className="mt-6 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-0">

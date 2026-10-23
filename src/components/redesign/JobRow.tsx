@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 import { materialLabel } from "@/lib/domain";
 import { usd } from "@/components/redesign";
 import { JobStamp } from "@/components/ds";
+import { MaterialThumb } from "@/components/ds/media";
 
 /** Compact job row (status pill + price) for job lists. */
 export function JobRow({
@@ -23,8 +24,9 @@ export function JobRow({
     <Link
       to="/jobs/$id"
       params={{ id: j.id }}
-      className="flex items-center gap-3 rounded-2xl border border-cz-border bg-cz-surface px-4 py-3.5 hover:border-cz-border-strong"
+      className="flex items-center gap-3 rounded-2xl border border-cz-border bg-cz-surface px-3.5 py-3.5 hover:border-cz-border-strong"
     >
+      <MaterialThumb material={j.material} size={44} className="rounded-lg" />
       <div className="min-w-0 flex-1">
         <div className="font-semibold truncate">
           {materialLabel(j.material as never, j.custom_material)} · {Number(j.quantity_m3)} m³

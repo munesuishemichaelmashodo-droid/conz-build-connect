@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronRight, Plus, ShieldCheck, Truck } from "lucide-react";
+import { ChevronRight, Plus, ShieldCheck } from "lucide-react";
 import { LocalLocator } from "@/components/LocalLocator";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
@@ -13,6 +13,7 @@ import { CzScreen, StatusPill, czButtonClass } from "@/components/redesign";
 import { JobRow } from "@/components/redesign/JobRow";
 import { CustomerBottomNav, NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 import { LogoLockup } from "@/components/ds";
+import { TipperIllustration } from "@/components/ds/media";
 import { customerTrustPill, useLaunchSwitches } from "@/lib/launch-switches";
 
 export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
@@ -132,8 +133,8 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
           </div>
           {(jobs ?? []).length === 0 ? (
             <div className="rounded-2xl border border-dashed border-cz-border-strong p-8 text-center">
-              <Truck className="w-9 h-9 mx-auto text-cz-faint" />
-              <p className="mt-2 font-semibold">Nothing here yet</p>
+              <TipperIllustration className="mx-auto w-40 opacity-90" />
+              <p className="mt-3 font-semibold">Nothing here yet</p>
               <p className="text-sm text-cz-muted">Post your first job to get bids.</p>
             </div>
           ) : (

@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Loader2, MapPin } from "lucide-react";
 import { czButtonClass } from "@/components/redesign";
 import { ChoiceChips, DocketPanel, DocketRow, MoneyFigure, Notice } from "@/components/ds";
+import { MaterialThumb } from "@/components/ds/media";
 import { LoadPicker } from "@/components/ds/load-picker";
 import { MATERIALS, money, type MaterialCategory } from "@/lib/domain";
 import { isValidQuantity } from "@/lib/load-size";
@@ -28,6 +29,7 @@ const AddressPicker = lazy(loadAddressPicker);
 const MATERIAL_OPTIONS = MATERIALS.filter((m) => m.value !== "custom").map((m) => ({
   value: m.value,
   label: m.label,
+  media: <MaterialThumb material={m.value} size={32} />,
 }));
 
 /**
@@ -81,6 +83,7 @@ export function QuickPrice({ titleAs = "h2" }: { titleAs?: "h1" | "h2" }) {
         <fieldset>
           <legend className="mb-2 text-sm font-semibold">Material</legend>
           <ChoiceChips
+            grid
             label="Material"
             options={MATERIAL_OPTIONS}
             value={material}

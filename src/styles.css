@@ -368,3 +368,13 @@ html [data-sonner-toaster][data-sonner-theme] {
   --error-border: var(--cz-border-strong);
   --error-text: var(--cz-danger-text);
 }
+
+/* Drawn tipper (ds/media.tsx): chassis, wheels and road follow the theme. */
+.cz-tipper {
+  --tipper-ink: #2a2420;
+  --tipper-ground: var(--cz-border-strong);
+}
+.dark .cz-tipper,
+.cz-tipper:where(.dark *) {
+  --tipper-ink: #4a423c;
+}

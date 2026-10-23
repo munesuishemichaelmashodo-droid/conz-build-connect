@@ -272,13 +272,17 @@ export function ChoiceChips<T extends string>({
   onChange,
   label,
   scroll = false,
+  grid = false,
   className,
 }: {
-  options: { value: T; label: ReactNode; hint?: ReactNode }[];
+  /** `media`: a small picture shown before the label (e.g. a material swatch). */
+  options: { value: T; label: ReactNode; hint?: ReactNode; media?: ReactNode }[];
   value: T | null;
   onChange: (v: T) => void;
   label: string;
   scroll?: boolean;
+  /** Equal-width tiles, two per row on phones and four from 640 px. */
+  grid?: boolean;
   className?: string;
 }) {
   return (
@@ -288,8 +292,8 @@ export function ChoiceChips<T extends string>({
       onValueChange={(v) => v && onChange(v as T)}
       aria-label={label}
       className={cn(
-        "flex gap-2",
-        scroll ? "cz-no-scrollbar -mx-4 overflow-x-auto px-4" : "flex-wrap",
+        grid ? "grid grid-cols-2 gap-2 sm:grid-cols-4" : "flex gap-2",
+        !grid && (scroll ? "cz-no-scrollbar -mx-4 overflow-x-auto px-4" : "flex-wrap"),
         className,
       )}
     >
@@ -301,14 +305,29 @@ export function ChoiceChips<T extends string>({
             "group inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-cz-border-strong bg-cz-surface px-3.5 text-sm font-semibold text-cz-text transition-colors",
             "hover:bg-cz-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cz-text focus-visible:ring-offset-2 focus-visible:ring-offset-cz-bg",
             "data-[state=on]:border-cz-text data-[state=on]:bg-cz-surface-2 data-[state=on]:shadow-[inset_0_0_0_1px_var(--cz-text)]",
+            o.media && "pl-1.5",
+            grid && "w-full min-h-12 justify-start whitespace-normal text-left",
           )}
         >
-          <Check
-            aria-hidden
-            className="hidden h-4 w-4 shrink-0 group-data-[state=on]:block"
-            strokeWidth={2.5}
-          />
-          <span>{o.label}</span>
+          {o.media ? (
+            // Selected: a check badge on the picture, so the row keeps its width.
+            <span className="relative shrink-0">
+              {o.media}
+              <span
+                aria-hidden
+                className="absolute -bottom-1 -right-1 hidden h-4 w-4 items-center justify-center rounded-full bg-cz-text text-cz-surface ring-2 ring-cz-surface-2 group-data-[state=on]:flex"
+              >
+                <Check className="h-3 w-3" strokeWidth={3} />
+              </span>
+            </span>
+          ) : (
+            <Check
+              aria-hidden
+              className="hidden h-4 w-4 shrink-0 group-data-[state=on]:block"
+              strokeWidth={2.5}
+            />
+          )}
+          <span className="min-w-0">{o.label}</span>
           {o.hint && <span className="text-xs font-normal text-cz-muted">{o.hint}</span>}
         </ToggleGroupPrimitive.Item>
       ))}

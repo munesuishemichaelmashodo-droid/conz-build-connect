@@ -2574,7 +2574,7 @@ function JobSummaryCard({ job, id = "tour-job-header" }: { job: any; id?: string
   return (
     <CzCard id={id} className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <MaterialBadge>
+        <MaterialBadge material={job.material}>
           {materialLabel(job.material as any, job.custom_material)} · {Number(job.quantity_m3)} m³
         </MaterialBadge>
         <span className="text-[13px] text-cz-muted">Customer offered {usd(Number(job.budget))}</span>
@@ -3106,7 +3106,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
           <div className="text-sm font-semibold text-cz-muted">Your request</div>
           <CzCard id="tour-job-header" className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <MaterialBadge>
+              <MaterialBadge material={job.material}>
                 {materialLabel(job.material as any, job.custom_material)} · {Number(job.quantity_m3)} m³
               </MaterialBadge>
               <span className="text-[13px] text-cz-muted">{ctx.isEscrow ? "Con Z Pay" : "Pay driver directly"}</span>

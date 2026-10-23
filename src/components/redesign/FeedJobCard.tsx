@@ -79,7 +79,7 @@ export function FeedJobCard({
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <MaterialBadge>
+        <MaterialBadge material={job.material}>
           {materialLabel(job.material as never, job.custom_material)} · {Number(job.quantity_m3)} m³
         </MaterialBadge>
         <span className="flex shrink-0 items-center gap-2">

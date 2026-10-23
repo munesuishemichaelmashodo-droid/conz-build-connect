@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { TipperIllustration } from "@/components/ds/media";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Briefcase, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { bestCapacityMatchTier, type CapacityMatchTier } from "@/lib/capacityMatch";
 import { CzScreen, CzHeader } from "@/components/redesign";
 import { JobRow } from "@/components/redesign/JobRow";
@@ -129,8 +130,8 @@ function JobsPage() {
             <div className="text-center text-cz-muted py-10">Loading…</div>
           ) : all.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-cz-border-strong p-8 text-center">
-              <Briefcase className="w-9 h-9 mx-auto text-cz-faint" />
-              <p className="mt-2 font-semibold">No jobs yet</p>
+              <TipperIllustration className="mx-auto w-40 opacity-90" />
+              <p className="mt-3 font-semibold">No jobs yet</p>
               <p className="text-sm text-cz-muted">{isCustomer ? "Post your first delivery request." : "Check back soon for open requests."}</p>
             </div>
           ) : (

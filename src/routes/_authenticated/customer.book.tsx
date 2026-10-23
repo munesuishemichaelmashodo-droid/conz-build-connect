@@ -45,6 +45,7 @@ import {
 } from "@/components/redesign";
 import { ChoiceChips, DocketPanel, DocketRow, Notice } from "@/components/ds";
 import { LoadPicker } from "@/components/ds/load-picker";
+import { MaterialThumb } from "@/components/ds/media";
 import { isValidQuantity, MIN_QUANTITY_M3 } from "@/lib/load-size";
 import { useNearbyTrucks } from "@/components/redesign/rpc";
 import { cn } from "@/lib/utils";
@@ -380,7 +381,11 @@ function BookDelivery() {
                 <ChoiceChips
                   label="Material"
                   scroll
-                  options={BOOKABLE_MATERIALS.map((m) => ({ value: m.value, label: m.label }))}
+                  options={BOOKABLE_MATERIALS.map((m) => ({
+                    value: m.value,
+                    label: m.label,
+                    media: <MaterialThumb material={m.value} size={28} />,
+                  }))}
                   value={material}
                   onChange={(v) => setMaterial(v as MaterialCategory)}
                 />

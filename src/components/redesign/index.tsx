@@ -10,6 +10,7 @@
 import type { ComponentProps, ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Check, Minus, Plus } from "lucide-react";
+import { MaterialThumb } from "@/components/ds/media";
 import { cn } from "@/lib/utils";
 import { haversineKm } from "@/lib/jobDistance";
 import { STEP_STATE_WORD, stepState } from "@/lib/delivery-docket";
@@ -261,18 +262,23 @@ export function StatusPill({
 export function MaterialBadge({
   children,
   highlight = true,
+  material,
 }: {
   children: ReactNode;
   highlight?: boolean;
+  /** Material key: shows its example swatch before the text. */
+  material?: string | null;
 }) {
   return (
     <span
       className={cn(
         // A material is a label, not a status: neutral in every state.
-        "inline-flex items-center rounded-md px-2.5 py-1 text-sm font-semibold",
+        "inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm font-semibold",
+        material && "pl-1",
         highlight ? "bg-cz-surface-2 text-cz-text" : "bg-cz-surface-2 text-cz-muted",
       )}
     >
+      {material && <MaterialThumb material={material} size={20} className="rounded-[5px]" />}
       {children}
     </span>
   );
