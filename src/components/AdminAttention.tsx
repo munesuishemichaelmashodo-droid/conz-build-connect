@@ -6,7 +6,8 @@ import { buildAttention, type AttentionItem } from "@/lib/admin-attention";
 import { cn } from "@/lib/utils";
 
 /**
- * "Needs attention" on the admin dashboard: stuck jobs, stuck Paynow payments,
+ * "Needs attention" on the admin dashboard: open jobs no driver was offered,
+ * stuck jobs, stuck Paynow payments,
  * waiting top-ups and the daily reconciliation result. Read-only — it only
  * points the admin at the screen where they can act. Super-admin-only data
  * (top-up requests, reconciliation runs) is only queried for super admins,
@@ -42,14 +43,51 @@ export function AdminAttention({ isSuper }: { isSuper: boolean }) {
           : Promise.resolve({ data: undefined, error: null }),
         supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
       ]);
-      const failed = [jobs.error, payments.error, topups.error, recon.error].find(Boolean);
+      // Open jobs, and whether any driver was sent an offer or has made one.
+      const open = await supabase
+        .from("jobs")
+        .select("id,created_at,material,quantity_m3,delivery_address")
+        .eq("status", "open")
+        .order("created_at", { ascending: true })
+        .limit(100);
+      const openIds = (open.data ?? []).map((j) => j.id);
+      const [offers, bids] = openIds.length
+        ? await Promise.all([
+            supabase.from("job_dispatch_offers").select("job_id").in("job_id", openIds),
+            supabase.from("bids").select("job_id").in("job_id", openIds),
+          ])
+        : [
+            { data: [] as { job_id: string }[], error: null },
+            { data: [] as { job_id: string }[], error: null },
+          ];
+      const failed = [
+        jobs.error,
+        payments.error,
+        topups.error,
+        recon.error,
+        open.error,
+        offers.error,
+        bids.error,
+      ].find(Boolean);
       if (failed) throw new Error(failed.message);
+      const countBy = (rows: { job_id: string }[] | null) => {
+        const m = new Map<string, number>();
+        for (const r of rows ?? []) m.set(r.job_id, (m.get(r.job_id) ?? 0) + 1);
+        return m;
+      };
+      const offerCount = countBy(offers.data);
+      const bidCount = countBy(bids.data);
       return buildAttention({
         now: Date.now(),
         isSuper,
         aal: (aal.data?.currentLevel as "aal1" | "aal2" | undefined) ?? null,
         activeJobs: jobs.data ?? [],
         initiatedPayments: payments.data ?? [],
+        openJobs: (open.data ?? []).map((j) => ({
+          ...j,
+          dispatchOffers: offerCount.get(j.id) ?? 0,
+          bids: bidCount.get(j.id) ?? 0,
+        })),
         pendingTopups: topups.count ?? null,
         latestRecon: isSuper
           ? ((recon.data?.[0] as { ran_at: string; ok: boolean } | undefined) ?? null)
@@ -123,7 +161,8 @@ export function AdminAttention({ isSuper }: { isSuper: boolean }) {
                           >
                             <span className="truncate">{j.label}</span>
                             <span className="shrink-0 text-muted-foreground">
-                              {j.ageDays} days <ChevronRight className="inline w-3.5 h-3.5" />
+                              {j.ageLabel ?? `${j.ageDays} days`}{" "}
+                              <ChevronRight className="inline w-3.5 h-3.5" />
                             </span>
                           </Link>
                         </li>

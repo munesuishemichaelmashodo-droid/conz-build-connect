@@ -5,6 +5,9 @@
 export const STALE_JOB_HOURS = 48; // accepted / in progress with no update for 2 days
 export const STUCK_PAYMENT_HOURS = 1; // Paynow payment still "initiated" after an hour
 export const RECON_MAX_AGE_HOURS = 36; // the reconciliation cron runs daily at 00:00
+// Open job with no dispatch offer and no bid after this long. Dispatch makes its
+// first wave as soon as a job is posted and widens every 3 minutes (0089).
+export const UNMATCHED_JOB_MINUTES = 10;
 
 export type AttentionTone = "critical" | "warn";
 
@@ -16,7 +19,7 @@ export interface AttentionItem {
   /** Internal link to where the admin can act, when one exists. */
   to?: string;
   /** Up to five jobs behind the item, oldest first. */
-  jobs?: { id: string; label: string; ageDays: number }[];
+  jobs?: { id: string; label: string; ageDays: number; ageLabel?: string }[];
 }
 
 export interface AttentionInput {
@@ -33,6 +36,16 @@ export interface AttentionInput {
     quantity_m3?: number | null;
   }[];
   initiatedPayments: { created_at: string }[];
+  /** Open jobs with how many dispatch offers and bids each has (undefined = not loaded). */
+  openJobs?: {
+    id: string;
+    created_at: string;
+    material?: string | null;
+    quantity_m3?: number | null;
+    delivery_address?: string | null;
+    dispatchOffers: number;
+    bids: number;
+  }[];
   /** null when the viewer may not see top-up requests (not a super admin). */
   pendingTopups: number | null;
   /** undefined when the viewer may not see reconciliation runs. */
@@ -42,6 +55,28 @@ export interface AttentionInput {
 const HOUR = 3_600_000;
 const sentenceCase = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const hoursSince = (iso: string, now: number) => (now - new Date(iso).getTime()) / HOUR;
+const jobLabel = (j: { material?: string | null; quantity_m3?: number | null }) =>
+  `${sentenceCase((j.material ?? "Job").replace(/_/g, " "))}${j.quantity_m3 ? ` · ${Number(j.quantity_m3)} m³` : ""}`;
+// "Harward Road, Belvedere, Harare, Zimbabwe" -> "Belvedere, Harare": the last two
+// parts once the country is dropped, so the street never shows.
+const placeOf = (address: string | null | undefined) => {
+  const parts = (address ?? "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length > 1 && /^zimbabwe$/i.test(parts[parts.length - 1])) parts.pop();
+  return parts.slice(-2).join(", ");
+};
+
+/** "25 min", "6 h", "2 days". */
+export function formatAge(ms: number): string {
+  const min = Math.floor(ms / 60_000);
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(ms / HOUR);
+  if (h < 24) return `${h} h`;
+  const d = Math.floor(h / 24);
+  return `${d} ${d === 1 ? "day" : "days"}`;
+}
 
 export function buildAttention(input: AttentionInput): AttentionItem[] {
   const { now } = input;
@@ -61,9 +96,33 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
       detail: `Customers still see these as active and the drivers' commission stays reserved. Oldest: ${oldest} days.`,
       jobs: stale.slice(0, 5).map(({ j, h }) => ({
         id: j.id,
-        label: `${sentenceCase((j.material ?? "Job").replace(/_/g, " "))}${j.quantity_m3 ? ` · ${Number(j.quantity_m3)} m³` : ""}`,
+        label: jobLabel(j),
         ageDays: Math.floor(h / 24),
       })),
+    });
+  }
+
+  const unmatched = (input.openJobs ?? [])
+    .filter((j) => j.dispatchOffers === 0 && j.bids === 0)
+    .map((j) => ({ j, ms: now - new Date(j.created_at).getTime() }))
+    .filter((x) => x.ms >= UNMATCHED_JOB_MINUTES * 60_000)
+    .sort((a, b) => b.ms - a.ms);
+  if (unmatched.length > 0) {
+    items.push({
+      key: "unmatched-jobs",
+      tone: "critical",
+      title: `${unmatched.length} open ${unmatched.length === 1 ? "job has" : "jobs have"} reached no driver`,
+      detail:
+        "No driver was sent an automatic offer and none has made an offer. Usually no verified driver is online near the pickup. Contact nearby drivers or the customer.",
+      jobs: unmatched.slice(0, 5).map(({ j, ms }) => {
+        const area = placeOf(j.delivery_address);
+        return {
+          id: j.id,
+          label: `${jobLabel(j)}${area ? ` · ${area}` : ""}`,
+          ageDays: Math.floor(ms / (24 * HOUR)),
+          ageLabel: formatAge(ms),
+        };
+      }),
     });
   }
 
