@@ -3430,7 +3430,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
       : notLeft
         ? "They're about to set off. You'll see them on the map once the trip starts."
         : eta != null
-          ? `Arriving in about ${Math.max(1, Math.round(eta))} min.`
+          ? "Follow the truck on the map."
           : location === "stale"
             ? `No location update from ${d.first} since ${lastUpdate ?? "a while ago"}.`
             : location === "live"
@@ -3467,12 +3467,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
       </div>
 
       <BottomSheet className="flex-1 space-y-4">
-        <SpotlightCallout
-          id="live-tracking"
-          title="Watch your driver in real time"
-          body="Once your driver starts sharing their location, you'll see them move on this map right up to your delivery point."
-        />
-        <SupplyConfirmationCard job={job} viewer="customer" />
+        {/* Status first: what is happening and when, then everything else. */}
         <div id="tour-next-steps" className="space-y-4">
           <StepProgress current={step} />
           <div key={step} className="space-y-1.5 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -3527,6 +3522,14 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
           )}
         </div>
 
+        {location !== "live" && (
+          <SpotlightCallout
+            id="live-tracking"
+            title="Watch your driver in real time"
+            body="Once your driver starts sharing their location, you'll see them move on this map right up to your delivery point."
+          />
+        )}
+        <SupplyConfirmationCard job={job} viewer="customer" />
         <ContactCard ctx={ctx} role="driver" subtitle={d.bid?.truck_reg ? `Truck ${d.bid.truck_reg} · ${mat}` : mat} />
         <ProofPhotos job={job} viewer="customer" />
 

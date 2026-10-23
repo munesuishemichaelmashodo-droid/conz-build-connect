@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { CheckCircle2, CircleDashed, Loader2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, CircleDashed, Loader2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { stockStatusCopy, supplyConfirmedCopy } from "@/lib/stockStatus";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type Props = {
   job: {
@@ -83,6 +84,32 @@ export function SupplyConfirmationCard({ job, viewer }: Props) {
 
   const copy = stockStatusCopy(stockStatus);
   const canConfirm = viewer === "driver" || viewer === "admin";
+
+  // Customers can't act on this, so the explanation is one tap away instead of
+  // pushing their delivery status down the screen.
+  if (viewer === "customer") {
+    return (
+      <Collapsible
+        className="rounded-[14px] border border-cz-border bg-cz-surface text-[13px]"
+        data-testid="supply-unconfirmed"
+      >
+        <CollapsibleTrigger className="group flex min-h-12 w-full items-center gap-3 rounded-[14px] px-3.5 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cz-amber">
+          <CircleDashed aria-hidden className="h-5 w-5 shrink-0 text-cz-amber" />
+          <span className="min-w-0 flex-1 text-sm font-semibold">
+            Supply <span className="text-cz-amber-text">· Not confirmed</span>
+          </span>
+          <span className="shrink-0 text-[13px] text-cz-muted">Details</span>
+          <ChevronDown
+            aria-hidden
+            className="h-4 w-4 shrink-0 text-cz-muted transition-transform group-data-[state=open]:rotate-180"
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="px-3.5 pb-3 pl-[46px] text-cz-muted">
+          {copy.detail}
+        </CollapsibleContent>
+      </Collapsible>
+    );
+  }
 
   const confirm = async () => {
     setBusy(true);
