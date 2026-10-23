@@ -1,38 +1,40 @@
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { MapPin, MapPinOff, Loader2 } from "lucide-react";
+import { availabilityValues, saveAvailability, type SaveResult } from "@/lib/driver-reach";
 
 /**
- * Stage 1 of geographic driver matching: lets a driver explicitly opt in
- * to "available for jobs", capturing their approximate current position
- * into driver_availability. Does NOT affect job discovery, ranking, or
- * bidding yet — that's a later stage. This is purely the foundation:
- * reliable availability + location state, nothing consumes it yet.
+ * The driver's Online / Offline switch. Saves the driver's own row in
+ * driver_availability with their approximate position. Automatic dispatch
+ * (migration 0089) only offers jobs to drivers who are online with a position
+ * under 15 minutes old, so a save that fails is always reported, never hidden.
  *
- * "Available for jobs" is a deliberate, explicit driver action — distinct
- * from the existing profiles.last_active_at "app open" presence heartbeat,
- * which keeps running regardless of this toggle.
+ * Separate from the profiles.last_active_at "app open" presence heartbeat,
+ * which keeps running regardless of this switch.
  */
 export function DriverAvailabilityToggle({ variant = "button" }: { variant?: "button" | "pill" } = {}) {
   const { userId } = useAuth();
+  const queryClient = useQueryClient();
   const [isAvailable, setIsAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const intervalRef = useRef<number | null>(null);
+  // One warning per run of failed heartbeats, not one every 45 seconds.
+  const beatFailedRef = useRef(false);
 
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
     supabase
-      .from("driver_availability" as any)
+      .from("driver_availability")
       .select("is_available")
       .eq("driver_id", userId)
       .maybeSingle()
-      .then((res: any) => {
-        const data = res?.data as { is_available?: boolean } | null;
+      .then(({ data }) => {
         if (!cancelled) {
           setIsAvailable(!!data?.is_available);
           setLoaded(true);
@@ -43,65 +45,61 @@ export function DriverAvailabilityToggle({ variant = "button" }: { variant?: "bu
     };
   }, [userId]);
 
-  const pushLocation = (available: boolean) => {
-    if (!userId) return;
-    if (!("geolocation" in navigator)) {
-      // No geolocation support — still record the availability toggle
-      // itself, just without coordinates (constraint requires both null
-      // or both set, so this stays a valid, if location-less, row).
-      void supabase.from("driver_availability" as any).upsert({
-        driver_id: userId,
-        is_available: available,
-        updated_at: new Date().toISOString(),
-      });
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        void supabase.from("driver_availability" as any).upsert({
-          driver_id: userId,
-          is_available: available,
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          updated_at: new Date().toISOString(),
-        });
-      },
-      () => {
-        // Permission denied or unavailable — still record availability
-        // without coordinates rather than blocking the toggle entirely.
-        void supabase.from("driver_availability" as any).upsert({
-          driver_id: userId,
-          is_available: available,
-          updated_at: new Date().toISOString(),
-        });
-        if (available) toast.error("Location unavailable — you're marked available, but without a position yet.");
-      },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 },
+  // Saves the driver's own row, with a position when the phone gives one, and
+  // reports whether the save worked. Nothing is shown as saved until it is.
+  const pushLocation = async (
+    available: boolean,
+    { heartbeat = false } = {},
+  ): Promise<SaveResult & { noPosition?: boolean; skipped?: boolean }> => {
+    if (!userId) return { ok: false, message: "Sign in again to change your status." };
+    const position = available ? await currentPosition() : null;
+    // A heartbeat with no fix saves nothing: the last real position stays and
+    // simply ages out after 15 minutes, instead of being wiped by a brief GPS gap.
+    if (heartbeat && !position) return { ok: true, skipped: true };
+    const res = await saveAvailability(
+      supabase,
+      availabilityValues(userId, available, position, new Date().toISOString()),
     );
+    // The driver home reads the same row for "Getting offers near you".
+    void queryClient.invalidateQueries({ queryKey: ["driver-fix", userId] });
+    if (res.ok && available && !position) {
+      return { ...res, noPosition: true };
+    }
+    return res;
   };
 
   const toggle = async () => {
     if (!userId || busy) return;
     setBusy(true);
     const next = !isAvailable;
-    setIsAvailable(next);
-    pushLocation(next);
+    const res = await pushLocation(next);
     setBusy(false);
-    toast.success(next ? "You're available for jobs" : "You're offline");
+    if (!res.ok) {
+      toast.error(res.message);
+      return;
+    }
+    beatFailedRef.current = false;
+    setIsAvailable(next);
+    if ("noPosition" in res && res.noPosition) {
+      toast.error("You're online, but Con Z can't see your location yet. Allow location to get nearby offers.");
+    } else {
+      toast.success(next ? "You're online" : "You're offline");
+    }
   };
 
-  // Heartbeat while available and the tab is foregrounded — same ~45s
-  // cadence as the existing presence heartbeat (src/lib/auth.tsx), so
-  // this table's freshness aligns with the precedent already documented
-  // in migration 0052, rather than inventing a different interval.
+  // Heartbeat while available and the app is in front — same ~45s cadence as
+  // the presence heartbeat (src/lib/auth.tsx). Dispatch only offers jobs to
+  // drivers whose position is under 15 minutes old (migration 0089).
   useEffect(() => {
     if (!isAvailable || !userId) {
       if (intervalRef.current) window.clearInterval(intervalRef.current);
       return;
     }
-    const beat = () => {
+    const beat = async () => {
       if (document.visibilityState !== "visible") return;
-      pushLocation(true);
+      const res = await pushLocation(true, { heartbeat: true });
+      if (!res.ok && !beatFailedRef.current) toast.error(res.message);
+      beatFailedRef.current = !res.ok;
     };
     intervalRef.current = window.setInterval(beat, 45_000);
     return () => {
@@ -149,4 +147,16 @@ export function DriverAvailabilityToggle({ variant = "button" }: { variant?: "bu
       {isAvailable ? "Available for jobs" : "Offline"}
     </Button>
   );
+}
+
+/** The phone's approximate position, or null when it is refused or unavailable. */
+function currentPosition(): Promise<{ lat: number; lng: number } | null> {
+  if (typeof navigator === "undefined" || !("geolocation" in navigator)) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 },
+    );
+  });
 }

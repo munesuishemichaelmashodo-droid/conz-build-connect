@@ -9,6 +9,8 @@ import { JobOfferListener } from "@/components/JobOfferListener";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
 import { DriverAvailabilityToggle } from "@/components/DriverAvailabilityToggle";
+import { DriverReachLine } from "@/components/DriverReachLine";
+import type { AvailabilityRow } from "@/lib/driver-reach";
 import { LocalLocator } from "@/components/LocalLocator";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { SidePanel } from "@/components/SidePanel";
@@ -96,24 +98,29 @@ export function DriverHome({
 
   // The driver's own last position (set by the availability toggle). Display
   // only: it drives the "how far is this pickup" line, never visibility.
-  const { data: driverFix } = useQuery({
+  // Also tells the driver whether automatic offers can reach them (DriverReachLine).
+  const { data: availability } = useQuery({
     queryKey: ["driver-fix", userId],
     enabled: !!userId,
     refetchInterval: 60_000,
-    queryFn: async (): Promise<DriverFix> => {
+    queryFn: async (): Promise<AvailabilityRow | null> => {
       const { data } = await supabase
         .from("driver_availability")
-        .select("lat,lng,updated_at")
+        .select("is_available,lat,lng,updated_at")
         .eq("driver_id", userId!)
         .maybeSingle();
       if (!data) return null;
       return {
+        is_available: !!data.is_available,
         lat: data.lat != null ? Number(data.lat) : null,
         lng: data.lng != null ? Number(data.lng) : null,
-        updatedAt: data.updated_at ?? null,
+        updated_at: data.updated_at ?? null,
       };
     },
   });
+  const driverFix: DriverFix = availability
+    ? { lat: availability.lat, lng: availability.lng, updatedAt: availability.updated_at }
+    : null;
 
   // Migration 0060: today's earnings (Zimbabwe time) and customer cards.
   const { data: today } = useQuery({
@@ -163,6 +170,7 @@ export function DriverHome({
         </header>
 
         <div className="px-5 space-y-3">
+          <DriverReachLine row={availability ?? null} />
           <div
             id="tour-dashboard-hero"
             className="rounded-[14px] border border-cz-border bg-cz-surface px-4 py-3 flex items-center justify-between gap-3"
@@ -265,7 +273,7 @@ export function DriverHome({
                 onAccept={() => accept(j)}
                 accepting={busyJobId === j.id}
                 customer={cards[j.id]}
-                driverFix={driverFix ?? null}
+                driverFix={driverFix}
               />
             ))
           )}
