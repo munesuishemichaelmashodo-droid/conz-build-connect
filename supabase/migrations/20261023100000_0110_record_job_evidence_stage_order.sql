@@ -1,7 +1,12 @@
 -- 0110: delivery evidence follows the delivery stages and only the driver can file it.
 --
--- PREPARED, NOT APPLIED. Staging first; production needs owner approval and a
--- verified backup (see the Phase 0 report).
+-- PREPARED, NOT APPLIED. Owner approved applying it (23/10/2026), but it must wait
+-- for the app: the live app (main) still offers the delivery-photo upload when a
+-- pickup photo exists but start_trip failed (status still 'accepted'), and this
+-- migration refuses delivery evidence before the trip starts. One live job was in
+-- that state on 23/10. DEPLOY ORDER: ship branch ccr-4fab7e0d-2b8j1o (driver
+-- "Start trip" retry) first, check no job is 'accepted' with a pickup photo, then
+-- apply. Use CREATE OR REPLACE only (the Supabase tool hangs on DROP).
 --
 -- Defect (read from the live definition, identical to the 13/08 baseline, 23/10/2026):
 -- record_job_evidence is executable by every signed-in user and

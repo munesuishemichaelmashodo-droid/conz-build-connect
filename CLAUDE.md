@@ -230,7 +230,9 @@ Still remaining: the post-a-job flow (`jobs.new.tsx`, `customer.book.tsx`),
 
 - **The 08/10 note above is out of date.** Read-only check 23/10: every function from `0077`–`0108` is live and
   its body hash matches git, but `schema_migrations` only records `0072`–`0076` and `0098`. Do NOT run
-  `supabase db push` until the record is repaired (owner approval needed). `0109` and `0110` are NOT live.
+  `supabase db push` until the record is repaired (owner approval needed). `0109` is LIVE (applied and recorded
+  23/10 as `20261022100000`, undo in `supabase/rollbacks/`). `0110` is NOT live: apply only after this branch
+  (driver "Start trip" retry) is deployed — see its header.
 - **`0111_admin_google_stepup_owner_lock` is LIVE** (recorded as `20261023200000`). Owner decision: no
   authenticator app. `require_aal2()` also accepts a Google sign-in from the last 12 h on an account with a Google
   identity; super admin only for rows in `super_admin_owners` (the two current owners; add one only via SQL);

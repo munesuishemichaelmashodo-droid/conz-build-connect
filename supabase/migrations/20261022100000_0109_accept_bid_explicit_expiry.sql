@@ -1,7 +1,8 @@
 -- 0109: accept_bid refuses an expired offer by itself (defence in depth).
 --
--- PREPARED, NOT APPLIED. Apply to staging only; production needs owner approval
--- and a verified backup (see the Phase 0 report).
+-- APPLIED to production 23/10/2026 with the owner's approval (recorded as version
+-- 20261022100000; live body hash equals the tested local build). Undo:
+-- supabase/rollbacks/20261022100000_0109_rollback.sql.
 --
 -- Why: expiry is already enforced today, but only indirectly. The BEFORE UPDATE
 -- trigger tg_bids_offer_expiry (0062, live and enabled — read-only check
