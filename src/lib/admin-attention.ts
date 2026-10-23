@@ -141,15 +141,14 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
   }
 
   if (input.isSuper && input.pendingTopups != null && input.pendingTopups > 0) {
-    const needsMfa = input.aal !== "aal2";
+    // 0111: approving asks for a recent Google sign-in at the moment it is needed,
+    // so this item no longer sends anyone to authenticator-app setup.
     items.push({
       key: "pending-topups",
       tone: "warn",
       title: `${input.pendingTopups} wallet top-up ${input.pendingTopups === 1 ? "request is" : "requests are"} waiting`,
-      detail: needsMfa
-        ? "Approving money needs an authenticator check on this session. Set it up first."
-        : "Review and approve or reject them.",
-      to: needsMfa ? "/mfa" : "/admin/revenue",
+      detail: "Review and approve or reject them.",
+      to: "/admin/revenue",
     });
   }
 

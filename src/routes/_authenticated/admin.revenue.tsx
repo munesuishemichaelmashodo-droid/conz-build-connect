@@ -7,7 +7,7 @@ import { DollarSign, Download, Percent, Save, TrendingUp, Calendar, Users as Use
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { isMfaRequiredError, mfaVerifyHref, readableRpcError } from "@/lib/mfa";
+import { isMfaRequiredError, readableRpcError, STEP_UP_ACTION_LABEL, startStepUp } from "@/lib/mfa";
 
 export const Route = createFileRoute("/_authenticated/admin/revenue")({
   beforeLoad: async () => {
@@ -118,7 +118,7 @@ function RevenueDashboard() {
     if (error) {
       if (isMfaRequiredError(error)) {
         return toast.error(readableRpcError(error), {
-          action: { label: "Verify", onClick: () => window.location.assign(mfaVerifyHref()) },
+          action: { label: STEP_UP_ACTION_LABEL, onClick: () => void startStepUp() },
         });
       }
       return toast.error(readableRpcError(error));
@@ -405,7 +405,7 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
       if (error) {
         if (isMfaRequiredError(error)) {
           return void toast.error(readableRpcError(error), {
-            action: { label: "Verify", onClick: () => window.location.assign(mfaVerifyHref()) },
+            action: { label: STEP_UP_ACTION_LABEL, onClick: () => void startStepUp() },
           });
         }
         return void toast.error(readableRpcError(error));
@@ -437,7 +437,7 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
   const toastRpcError = (error: { message?: string }) => {
     if (isMfaRequiredError(error)) {
       toast.error(readableRpcError(error), {
-        action: { label: "Verify", onClick: () => window.location.assign(mfaVerifyHref()) },
+        action: { label: STEP_UP_ACTION_LABEL, onClick: () => void startStepUp() },
       });
       return;
     }

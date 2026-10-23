@@ -61,14 +61,12 @@ describe("buildAttention", () => {
     expect(items[0].title).toContain("1 Paynow payment is");
   });
 
-  it("sends a super admin without an authenticator check to set one up before approving top-ups", () => {
-    expect(buildAttention({ ...base, pendingTopups: 3 })[0]).toMatchObject({
-      key: "pending-topups",
-      to: "/mfa",
-    });
-    expect(buildAttention({ ...base, pendingTopups: 3, aal: "aal2" })[0]).toMatchObject({
-      to: "/admin/revenue",
-    });
+  it("sends a super admin straight to the top-ups, never to authenticator-app setup (0111)", () => {
+    for (const aal of ["aal1", "aal2", null] as const) {
+      const item = buildAttention({ ...base, pendingTopups: 3, aal })[0];
+      expect(item).toMatchObject({ key: "pending-topups", to: "/admin/revenue" });
+      expect(item.detail).not.toMatch(/authenticator/i);
+    }
   });
 
   it("never shows super-admin-only items to a plain admin", () => {

@@ -7,7 +7,7 @@ import { StatusBadge, EmptyState } from "@/components/ui-bits";
 import { money } from "@/lib/domain";
 import { Gift, Search as SearchIcon, AlertTriangle, Check, X, Snowflake, Unlock, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
-import { isMfaRequiredError, mfaVerifyHref, readableRpcError } from "@/lib/mfa";
+import { isMfaRequiredError, readableRpcError, STEP_UP_ACTION_LABEL, startStepUp } from "@/lib/mfa";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin/referrals")({
@@ -123,7 +123,7 @@ function AdminReferrals() {
       // Releasing a reward credits a wallet: super admin + MFA (0085).
       if (isMfaRequiredError(error)) {
         return toast.error(readableRpcError(error), {
-          action: { label: "Verify", onClick: () => window.location.assign(mfaVerifyHref()) },
+          action: { label: STEP_UP_ACTION_LABEL, onClick: () => void startStepUp() },
         });
       }
       return toast.error(readableRpcError(error));
