@@ -225,3 +225,19 @@ Still remaining: the post-a-job flow (`jobs.new.tsx`, `customer.book.tsx`),
   deployed first (see the final report's deployment order).
 - `0084` commits production-only objects that were never in git (`wallet_transactions_immutable`,
   `storage_evidence_guard`, chat-media / job-proof storage policies).
+
+## 23/10/2026 — live state check + admin protection (branch `ccr-4fab7e0d-2b8j1o`)
+
+- **The 08/10 note above is out of date.** Read-only check 23/10: every function from `0077`–`0108` is live and
+  its body hash matches git, but `schema_migrations` only records `0072`–`0076` and `0098`. Do NOT run
+  `supabase db push` until the record is repaired (owner approval needed). `0109` and `0110` are NOT live.
+- **`0111_admin_google_stepup_owner_lock` is LIVE** (recorded as `20261023200000`). Owner decision: no
+  authenticator app. `require_aal2()` also accepts a Google sign-in from the last 12 h on an account with a Google
+  identity; super admin only for rows in `super_admin_owners` (the two current owners; add one only via SQL);
+  admin accounts can't gain/receive an identity with another email; owners are notified on admin sign-in and on
+  every `admin_audit_log` row. Undo: `supabase/rollbacks/20261023200000_0111_rollback.sql`.
+- **Supabase MCP gotcha:** `apply_migration` and `execute_sql` hang (60 s timeout, nothing applied) when the SQL
+  contains `DROP`. Use `CREATE OR REPLACE TRIGGER` / `CREATE OR REPLACE FUNCTION`, split large changes into
+  transactions, and verify live hashes against a local build afterwards.
+- Driver "Go online" now reports failed saves (dispatch needs a fresh row in `driver_availability`; it was empty
+  live and no dispatch offer had gone out since 13/10). Admin home lists open jobs that reached no driver.

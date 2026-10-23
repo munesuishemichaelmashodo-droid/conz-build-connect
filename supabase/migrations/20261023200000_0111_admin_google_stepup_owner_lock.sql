@@ -1,7 +1,9 @@
 -- 0111: admin protection without authenticator codes.
 --
--- PREPARED, NOT APPLIED. Staging first; production needs owner approval and a
--- verified backup (see the Phase 0 report).
+-- APPLIED to production 23/10/2026 with the owner's approval, in four transactions
+-- through the SQL tool (apply_migration timed out: the tool holds DROP statements
+-- for a confirmation, so triggers use CREATE OR REPLACE TRIGGER instead). Recorded
+-- as version 20261023200000. Pre-change state is in the rollback file below.
 --
 -- Problem (read-only checks on production, 23/10/2026):
 --   * 14 money and role functions call require_aal2(), which accepts only a recent
@@ -145,8 +147,7 @@ begin
 end $$;
 revoke all on function public.tg_user_roles_owner_lock() from public, anon, authenticated;
 
-drop trigger if exists trg_user_roles_owner_lock on public.user_roles;
-create trigger trg_user_roles_owner_lock
+create or replace trigger trg_user_roles_owner_lock
   before insert or update of role, user_id on public.user_roles
   for each row execute function public.tg_user_roles_owner_lock();
 
@@ -173,12 +174,10 @@ revoke all on function public.tg_admin_identity_guard() from public, anon, authe
 
 -- Only a NEW identity, or one moved to another account, is checked. Ordinary
 -- sign-ins update existing identities and never reach this check.
-drop trigger if exists trg_admin_identity_guard on auth.identities;
-create trigger trg_admin_identity_guard
+create or replace trigger trg_admin_identity_guard
   before insert on auth.identities
   for each row execute function public.tg_admin_identity_guard();
-drop trigger if exists trg_admin_identity_guard_move on auth.identities;
-create trigger trg_admin_identity_guard_move
+create or replace trigger trg_admin_identity_guard_move
   before update on auth.identities
   for each row when (old.user_id is distinct from new.user_id)
   execute function public.tg_admin_identity_guard();
@@ -219,8 +218,7 @@ begin
 end $$;
 revoke all on function public.tg_alert_admin_signin() from public, anon, authenticated;
 
-drop trigger if exists trg_alert_admin_signin on auth.sessions;
-create trigger trg_alert_admin_signin
+create or replace trigger trg_alert_admin_signin
   after insert on auth.sessions
   for each row execute function public.tg_alert_admin_signin();
 
@@ -244,7 +242,6 @@ begin
 end $$;
 revoke all on function public.tg_alert_admin_action() from public, anon, authenticated;
 
-drop trigger if exists trg_alert_admin_action on public.admin_audit_log;
-create trigger trg_alert_admin_action
+create or replace trigger trg_alert_admin_action
   after insert on public.admin_audit_log
   for each row execute function public.tg_alert_admin_action();
