@@ -82,6 +82,47 @@ export function locationState(
   return now - at > LOCATION_STALE_MS ? "stale" : "live";
 }
 
+/** What a tracking view may show for the driver's location right now. */
+export interface LocationDisplay {
+  /** Say "Live" and show the route, distance, arrival time and progress. */
+  live: boolean;
+  /** Shown when the last position is too old to trust; null otherwise. */
+  staleNote: string | null;
+}
+
+/** One rule for both tracking views, so they can't disagree. */
+export function locationDisplay(
+  location: LocationState,
+  lastUpdate: string | null,
+): LocationDisplay {
+  if (location === "live") return { live: true, staleNote: null };
+  if (location === "stale") {
+    return {
+      live: false,
+      staleNote: lastUpdate
+        ? `Last location update ${lastUpdate}. The truck may have moved since.`
+        : "No recent location update. The truck may have moved since.",
+    };
+  }
+  return { live: false, staleNote: null };
+}
+
+/** A route's arrival time, only while the location it was worked out from is live. */
+export function etaIfLive(
+  location: LocationState,
+  etaMin: number | null | undefined,
+): number | null {
+  return location === "live" && etaMin != null ? etaMin : null;
+}
+
+/** The public tracking payload's `live` field, as the signal locationState() reads. */
+export function publicTrackSignal(live: { updated_at: string | null } | null | undefined): {
+  live: boolean;
+  updatedAt: string | null;
+} {
+  return { live: !!live, updatedAt: live?.updated_at ?? null };
+}
+
 export interface TripBar {
   /** Null when progress can't be measured; the bar is then not drawn. */
   pct: number | null;

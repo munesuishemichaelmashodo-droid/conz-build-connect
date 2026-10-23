@@ -298,6 +298,27 @@ const rpc = {
     return { ok: available >= required, required, available, shortfall: Math.max(0, Math.round((required - available) * 100) / 100) };
   },
   job_offer_summary: () => ({ others: 0, min: null, max: null }),
+  // Same shape as the real get_public_tracking (0079): the driver's location only
+  // while the job is accepted or in progress, and null for an unknown token.
+  get_public_tracking: ({ _token }) => {
+    const j = db.jobs.find((x) => x.tracking_token === _token);
+    if (!j) return null;
+    const loc = ["accepted", "in_progress"].includes(j.status)
+      ? (db.driver_locations ?? []).find((l) => l.job_id === j.id)
+      : null;
+    return {
+      status: j.status,
+      material: j.material,
+      custom_material: j.custom_material ?? null,
+      quantity_m3: j.quantity_m3,
+      delivery_address: j.delivery_address ?? null,
+      delivery_lat: j.delivery_lat ?? null,
+      delivery_lng: j.delivery_lng ?? null,
+      preferred_date: j.preferred_date ?? null,
+      driver_name: db.profiles.find((x) => x.id === j.driver_id)?.full_name ?? null,
+      live: loc ? { lat: loc.lat, lng: loc.lng, updated_at: loc.updated_at } : null,
+    };
+  },
   count_available_verified_drivers: () => 2,
   expire_stale_dispatch_offers: () => 0,
   expire_stale_open_jobs: () => 0,

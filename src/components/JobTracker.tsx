@@ -269,7 +269,7 @@ export function CustomerTrackMap({
         )}
         {!loc && (
           <div className="absolute inset-x-4 bottom-10 z-20 rounded-xl bg-cz-bg/95 px-3.5 py-2.5 text-[13px] text-cz-muted shadow-lg">
-            Your driver hasn't started sharing their location yet — the truck appears here once they do.
+            Your driver isn't sharing their location right now. The truck appears here when they do.
           </div>
         )}
         {loc?.anomaly_alerted_at && (
@@ -294,7 +294,9 @@ export function CustomerTrackMap({
           <MapPin className="w-4 h-4 text-primary" /> Live driver location
         </div>
         {!loc ? (
-          <p className="px-4 pb-4 text-xs text-muted-foreground">Driver hasn't started sharing location yet.</p>
+          <p className="px-4 pb-4 text-xs text-muted-foreground">
+            Driver isn't sharing their location right now.
+          </p>
         ) : (
           <>
             {loc.anomaly_alerted_at && (

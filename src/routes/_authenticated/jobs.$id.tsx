@@ -22,7 +22,16 @@ import { RadarSearch } from "@/components/RadarSearch";
 import { NextLoadsCard } from "@/components/NextLoadsCard";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { uploadJobEvidence, signedEvidenceUrl } from "@/lib/upload-evidence";
-import { evidenceSlots, locationState, tripBar, type EvidenceViewer, type LocationState } from "@/lib/delivery-docket";
+import {
+  etaIfLive,
+  evidenceSlots,
+  locationDisplay,
+  locationState,
+  tripBar,
+  type EvidenceViewer,
+  type LocationState,
+} from "@/lib/delivery-docket";
+import { useNow } from "@/hooks/use-now";
 import { useServerFn } from "@tanstack/react-start";
 import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
 import { friendlyPaymentError } from "@/lib/paymentErrors";
@@ -3319,7 +3328,7 @@ function TripProgress({
   // driver stops sharing, and a stale position gives a stale arrival time.
   const routeOk = step === 2 && location === "live";
   const remainingKm = routeOk ? track?.route?.distanceKm ?? null : null;
-  const liveEtaMin = routeOk ? track?.route?.etaMin ?? null : null;
+  const liveEtaMin = step === 2 ? etaIfLive(location, track?.route?.etaMin) : null;
 
   // Progress = share of the trip's road distance covered, measured from the live
   // route. No live route means no percentage (see tripBar), never a made-up 0%.
@@ -3401,21 +3410,19 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
   const { job, id } = ctx;
   const d = useAcceptedDriver(ctx);
   const [track, setTrack] = useState<TrackStatus | null>(null);
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = window.setInterval(() => setNow(Date.now()), 30_000);
-    return () => window.clearInterval(t);
-  }, []);
+  // Re-checked every 30 s so a phone that goes quiet turns stale without a reload.
+  const now = useNow(30_000);
   const location = locationState(track, now);
   const lastUpdate = track?.updatedAt
     ? new Date(track.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : null;
+  const shown = locationDisplay(location, lastUpdate);
   const mat = materialLabel(job.material as any, job.custom_material);
   // Same four steps as the driver's screen, from the same job fields.
   const step = !job.pickup_photo_url ? (job.driver_arrived_pickup_at ? 1 : 0) : !job.delivery_photo_url ? 2 : 3;
   const atDropoff = step === 2 && !!job.driver_arrived_dropoff_at;
   const notLeft = step === 2 && !atDropoff && job.status === "accepted";
-  const eta = location === "live" ? track?.route?.etaMin : undefined;
+  const eta = etaIfLive(location, track?.route?.etaMin);
   const title = [
     `${d.first} is heading to pickup`,
     `Your ${mat.toLowerCase()} is being loaded`,
@@ -3452,10 +3459,23 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
         ) : (
           <CustomerTrackMap jobId={id} variant="hero" height={270} onStatus={setTrack} />
         )}
+        {shown.staleNote && step !== 1 && step !== 3 && (
+          <div
+            role="status"
+            className={cn(
+              "pointer-events-none absolute inset-x-4 z-20 flex items-start gap-2 rounded-xl bg-cz-bg/95 px-3.5 py-2.5 text-[13px] text-cz-muted shadow-lg",
+              // Same place as the map's own notes; above "hasn't moved" if that shows too.
+              track?.stalled ? "bottom-[136px]" : "bottom-10",
+            )}
+          >
+            <Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{shown.staleNote}</span>
+          </div>
+        )}
         <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <MapBackButton to="/jobs" />
-            {location === "live" && (
+            {shown.live && (
               <StatusPill tone="green" dot blink className="pointer-events-auto">Live</StatusPill>
             )}
           </div>

@@ -8,13 +8,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { materialLabel, statusInfo, type MaterialCategory } from "@/lib/domain";
 import { StatusBadge } from "@/components/ui-bits";
 import { RouteMap } from "@/components/RouteMap";
-import { Calendar, CheckCircle2, Loader2, MapPin, Navigation2, Package, Receipt } from "lucide-react";
+import {
+  Calendar,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  MapPin,
+  Navigation2,
+  Package,
+  Receipt,
+} from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { getPublicPod, type PodResult } from "@/lib/pod.functions";
 import { money } from "@/lib/domain";
 import { useState } from "react";
 import jsPDF from "jspdf";
 import { CARTO_VOYAGER_TILES } from "@/lib/map-tiles";
+import { locationDisplay, locationState, publicTrackSignal } from "@/lib/delivery-docket";
+import { useNow } from "@/hooks/use-now";
 
 async function toDataUrl(url: string): Promise<string | null> {
   try {
@@ -205,7 +216,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         <div className="flex items-center gap-2">
           <img src="/conz-logo.png" alt="Con Z" className="h-8 w-auto" />
           <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
-            Live delivery tracking
+            Delivery tracking
           </span>
         </div>
         {children}
@@ -221,6 +232,10 @@ function PublicTrackPage() {
   const { token } = Route.useParams();
   const runGetPod = useServerFn(getPublicPod);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  // Same 10-minute rule as the customer's own screen, re-checked every 30 s: the
+  // 15 s poll returns identical data when the driver's phone has gone quiet, so
+  // it alone would never flip the page to stale.
+  const now = useNow(30_000);
 
   const { data, isLoading } = useQuery({
     queryKey: ["public-track", token],
@@ -270,6 +285,11 @@ function PublicTrackPage() {
       ? { lat: Number(data.delivery_lat), lng: Number(data.delivery_lng) }
       : null;
   const live = data.live;
+  const location = locationState(publicTrackSignal(live), now);
+  const lastUpdate = live?.updated_at
+    ? new Date(live.updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : null;
+  const shown = locationDisplay(location, lastUpdate);
 
   return (
     <Shell>
@@ -384,7 +404,12 @@ function PublicTrackPage() {
           {/* Live map */}
           <div className="rounded-2xl bg-card border overflow-hidden">
             <div className="flex items-center gap-2 px-4 pt-4 pb-2 font-display font-bold uppercase text-sm tracking-wide">
-              <Navigation2 className="w-4 h-4 text-primary" /> Live driver location
+              <Navigation2 className="w-4 h-4 text-primary" />{" "}
+              {shown.live
+                ? "Live driver location"
+                : live
+                  ? "Last known location"
+                  : "Driver location"}
             </div>
             {live ? (
               <>
@@ -403,27 +428,39 @@ function PublicTrackPage() {
                     maxZoom={20}
                   />
                     <Marker position={[live.lat, live.lng]} icon={truckIcon}>
-                      <Popup>Updated {new Date(live.updated_at).toLocaleTimeString()}</Popup>
+                      <Popup>
+                        {shown.live ? "Updated" : "Last update"} {lastUpdate ?? "unknown"}
+                      </Popup>
                     </Marker>
                     {destination && (
                       <Marker position={[destination.lat, destination.lng]} icon={destIcon} />
                     )}
                   </MapContainer>
                 </div>
-                <div className="px-4 py-2 text-[11px] text-muted-foreground flex justify-between">
-                  <span>Live — refreshes every 15 seconds</span>
-                  <span>Updated {new Date(live.updated_at).toLocaleTimeString()}</span>
-                </div>
+                {shown.live ? (
+                  <div className="px-4 py-2 text-[11px] text-muted-foreground flex justify-between gap-3">
+                    <span>Live — refreshes every 15 seconds</span>
+                    <span>Updated {new Date(live.updated_at).toLocaleTimeString()}</span>
+                  </div>
+                ) : (
+                  <p
+                    role="status"
+                    className="flex items-start gap-2 px-4 py-2.5 text-xs text-muted-foreground"
+                  >
+                    <Clock aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>{shown.staleNote}</span>
+                  </p>
+                )}
               </>
             ) : (
               <p className="px-4 pb-4 text-xs text-muted-foreground">
-                {driverFirst ?? "The driver"} hasn't started sharing live location yet — this page
-                refreshes automatically and the truck will appear here once they're moving.
+                {driverFirst ?? "The driver"} isn't sharing their live location right now. This page
+                refreshes automatically and the truck appears here when they do.
               </p>
             )}
           </div>
 
-          {live && destination && (
+          {live && shown.live && destination && (
             <RouteMap
               driverLocation={{ lat: live.lat, lng: live.lng }}
               initialDestination={destination}
