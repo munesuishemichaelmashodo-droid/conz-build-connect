@@ -142,7 +142,7 @@ function MfaPage() {
       <div className="max-w-sm mx-auto space-y-5">
         <div className="flex flex-col items-center text-center gap-2">
           <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-            <ShieldCheck className="w-6 h-6 text-primary" />
+            <ShieldCheck className="w-6 h-6 text-cz-amber-text" />
           </div>
           <h2 className="font-display font-bold text-lg">
             {stage === "enroll" ? "Set up two-factor login" : "Enter your authenticator code"}

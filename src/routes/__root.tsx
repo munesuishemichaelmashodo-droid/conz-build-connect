@@ -28,7 +28,7 @@ function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-7xl font-display font-bold text-primary">404</h1>
+        <h1 className="text-7xl font-display font-bold text-cz-amber-text">404</h1>
         <h2 className="mt-4 text-xl font-semibold">Page not found</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           That page isn't on the map. Let's get you back to base.
@@ -128,12 +128,12 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     // suppressHydrationWarning: the inline theme script below may remove "dark"
     // before React hydrates (light theme). That is intended, not a mismatch.
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('conz.theme')||'dark';var r=document.documentElement;if(t==='dark'){r.classList.add('dark')}else{r.classList.remove('dark')}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('conz.theme')||'light';var r=document.documentElement;if(t==='dark'){r.classList.add('dark')}else{r.classList.remove('dark')}}catch(e){}})();`,
           }}
         />
       </head>

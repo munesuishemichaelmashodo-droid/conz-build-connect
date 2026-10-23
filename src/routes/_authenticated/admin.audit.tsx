@@ -36,7 +36,7 @@ const ACTION_STYLE: Record<string, string> = {
   role_revoked: "bg-rose-500/15 text-rose-500 border-rose-500/30",
   commission_changed: "bg-amber-500/15 text-amber-500 border-amber-500/30",
   user_status_changed: "bg-sky-500/15 text-sky-500 border-sky-500/30",
-  driver_verification_changed: "bg-primary/15 text-primary border-primary/30",
+  driver_verification_changed: "bg-primary/15 text-cz-amber-text border-primary/30",
   dispute_status_changed: "bg-violet-500/15 text-violet-500 border-violet-500/30",
   wallet_credited_by_admin: "bg-amber-500/15 text-amber-500 border-amber-500/30",
   topup_approved: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30",
@@ -106,7 +106,7 @@ function AuditLogPage() {
     <div className="space-y-4">
       {/* Header */}
       <Card className="p-4 flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-primary/15 text-primary">
+        <div className="p-2 rounded-lg bg-primary/15 text-cz-amber-text">
           <ScrollText className="w-5 h-5" />
         </div>
         <div>

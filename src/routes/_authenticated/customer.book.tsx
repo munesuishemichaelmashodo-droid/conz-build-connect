@@ -363,7 +363,7 @@ function BookDelivery() {
                   type="button"
                   onClick={() => nav({ to: "/customer" })}
                   aria-label="Back"
-                  className="w-[50px] h-[50px] shrink-0 rounded-[14px] bg-cz-bg text-cz-text flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
+                  className="w-[50px] h-[50px] shrink-0 rounded-xl bg-cz-bg text-cz-text flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
@@ -375,7 +375,7 @@ function BookDelivery() {
             />
           </div>
 
-          <section ref={setSheetEl} className="absolute inset-x-0 bottom-0 z-30 max-h-[62dvh] overflow-y-auto rounded-t-[24px] bg-cz-bg px-5 pt-2.5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.45)]">
+          <section ref={setSheetEl} className="absolute inset-x-0 bottom-0 z-30 max-h-[62dvh] overflow-y-auto rounded-t-3xl bg-cz-bg px-5 pt-2.5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.45)]">
             <div aria-hidden className="mx-auto mb-3.5 h-[5px] w-10 rounded-full bg-cz-border-strong" />
             <div className="space-y-4">
               {search.driverId && (
@@ -393,7 +393,7 @@ function BookDelivery() {
                 />
               </div>
 
-              <div data-tour="book-quantity" className="flex items-center justify-between gap-2 rounded-[14px] border border-cz-border bg-cz-surface py-2 pl-4 pr-2">
+              <div data-tour="book-quantity" className="flex items-center justify-between gap-2 rounded-xl border border-cz-border bg-cz-surface py-2 pl-4 pr-2">
                 <label htmlFor="qty" className="flex flex-col min-w-0">
                   <span className="text-[13px] text-cz-muted">Quantity</span>
                   <span className="text-xs text-cz-faint">
@@ -448,7 +448,7 @@ function BookDelivery() {
               <details
                 id="tour-book-review"
                 data-tour="book-review"
-                className="group rounded-[14px] border border-cz-border bg-cz-surface"
+                className="group rounded-xl border border-cz-border bg-cz-surface"
                 onToggle={(e) => setSheetOpenExtra((e.target as HTMLDetailsElement).open)}
               >
                 <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 text-[15px] font-semibold">
@@ -551,7 +551,7 @@ function BookDelivery() {
                   aria-checked={on}
                   onClick={() => setOffer(t.value)}
                   className={cn(
-                    "flex items-center justify-between gap-3 rounded-[16px] border px-4 py-3.5 text-left transition",
+                    "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 text-left transition",
                     on ? "border-cz-amber bg-cz-amber-tint" : "border-cz-border bg-cz-surface",
                   )}
                 >
@@ -566,7 +566,7 @@ function BookDelivery() {
                     </span>
                     <span className="block text-[13px] text-cz-muted">{t.hint}</span>
                   </span>
-                  <span className={cn("cz-display font-bold text-[30px] tabular-nums", on ? "text-cz-amber" : "text-cz-text")}>
+                  <span className={cn("cz-display font-bold text-[30px] tabular-nums", on ? "text-cz-amber-text" : "text-cz-text")}>
                     {usd(t.value)}
                   </span>
                 </button>
@@ -574,7 +574,7 @@ function BookDelivery() {
             })}
           </div>
 
-          <div className="rounded-[16px] border border-cz-border bg-cz-surface px-4 py-3">
+          <div className="rounded-2xl border border-cz-border bg-cz-surface px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm text-cz-muted">Or set your own</span>
               <div className="flex items-center gap-2">
@@ -586,7 +586,7 @@ function BookDelivery() {
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 260, damping: 18 }}
-                  className="min-w-[84px] text-center cz-display font-bold text-[30px] text-cz-amber tabular-nums"
+                  className="min-w-[84px] text-center cz-display font-bold text-[30px] text-cz-amber-text tabular-nums"
                 >
                   {usd(offer)}
                 </motion.span>
@@ -630,7 +630,7 @@ function BookDelivery() {
         {!launch.escrowEnabled && (
           <div className="space-y-2">
             <div className="text-sm font-semibold text-cz-muted">How will you pay?</div>
-            <div className="flex items-start gap-3 rounded-[16px] border border-cz-amber bg-cz-amber-tint px-4 py-3.5">
+            <div className="flex items-start gap-3 rounded-2xl border border-cz-amber bg-cz-amber-tint px-4 py-3.5">
               <HandCoins className="w-4 h-4 mt-0.5 text-cz-muted" aria-hidden />
               <span className="min-w-0 flex-1">
                 <span className="block font-semibold">Pay the driver directly</span>
@@ -672,7 +672,7 @@ function BookDelivery() {
                   aria-checked={on}
                   onClick={() => setPaymentMethod(o.v)}
                   className={cn(
-                    "w-full flex items-start gap-3 rounded-[16px] border px-4 py-3.5 text-left transition",
+                    "w-full flex items-start gap-3 rounded-2xl border px-4 py-3.5 text-left transition",
                     on ? "border-cz-amber bg-cz-amber-tint" : "border-cz-border bg-cz-surface",
                   )}
                 >

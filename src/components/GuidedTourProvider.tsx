@@ -1,14 +1,19 @@
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
+import { createContext, lazy, Suspense, useCallback, useContext, useMemo, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import { useGuidedTour } from "@/hooks/useGuidedTour";
-import { GuidedTourOverlay } from "@/components/GuidedTourOverlay";
 import { WelcomeTourPrompt } from "@/components/WelcomeTourPrompt";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { customerTour } from "@/lib/tour/customer-tour";
 import { driverTour } from "@/lib/tour/driver-tour";
 import type { TourConfig, TourEventType, TourKey, TourStep } from "@/lib/tour/types";
+
+// The overlay brings in the animation library, so it loads only once a tour is
+// running instead of on every page (it renders nothing while no tour is active).
+const GuidedTourOverlay = lazy(() =>
+  import("@/components/GuidedTourOverlay").then((m) => ({ default: m.GuidedTourOverlay })),
+);
 
 export type TourProgressRow = {
   tour_key: TourKey;
@@ -185,18 +190,22 @@ export function GuidedTourProvider({ children }: { children: ReactNode }) {
           onDismiss={() => dismissPrompt(promptTourKey)}
         />
       )}
-      <GuidedTourOverlay
-        step={tour.step}
-        stepIndex={tour.stepIndex}
-        totalSteps={tour.totalSteps}
-        status={tour.status}
-        targetRect={tour.targetRect}
-        waiting={tour.waiting}
-        nextBlocked={tour.nextBlocked}
-        onNext={tour.next}
-        onBack={tour.back}
-        onSkip={tour.skipTour}
-      />
+      {tour.active && (
+        <Suspense fallback={null}>
+          <GuidedTourOverlay
+            step={tour.step}
+            stepIndex={tour.stepIndex}
+            totalSteps={tour.totalSteps}
+            status={tour.status}
+            targetRect={tour.targetRect}
+            waiting={tour.waiting}
+            nextBlocked={tour.nextBlocked}
+            onNext={tour.next}
+            onBack={tour.back}
+            onSkip={tour.skipTour}
+          />
+        </Suspense>
+      )}
     </Ctx.Provider>
   );
 }

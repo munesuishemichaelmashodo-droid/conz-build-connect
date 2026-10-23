@@ -253,7 +253,7 @@ function OfferModal({
         <DialogTitle className="sr-only">New job request</DialogTitle>
         <div className="p-6 space-y-5">
           <div className="flex items-center justify-between">
-            <div className="text-[10px] uppercase tracking-widest text-primary font-semibold">
+            <div className="text-[10px] uppercase tracking-widest text-cz-amber-text font-semibold">
               New job request
             </div>
             <button
@@ -271,7 +271,7 @@ function OfferModal({
               <Row icon={MapPin} label="Delivery to" value={job.delivery_address} />
               <div className="flex items-center justify-between pt-2 border-t border-white/10">
                 <span className="text-xs text-white/60 uppercase tracking-widest">Trip value</span>
-                <span className="font-display font-bold text-primary text-lg">{money(Number(job.budget))}</span>
+                <span className="font-display font-bold text-cz-amber-text text-lg">{money(Number(job.budget))}</span>
               </div>
             </div>
           )}

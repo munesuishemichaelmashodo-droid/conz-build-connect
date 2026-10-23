@@ -172,7 +172,7 @@ export function NotificationsBell() {
           <button
             onClick={markAll}
             disabled={!unread}
-            className="text-xs text-primary disabled:text-muted-foreground inline-flex items-center gap-1"
+            className="text-xs text-cz-amber-text disabled:text-muted-foreground inline-flex items-center gap-1"
           >
             <Check className="w-3 h-3" /> Mark all read
           </button>

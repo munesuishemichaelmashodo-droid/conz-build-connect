@@ -109,7 +109,7 @@ export function BottomSheet({
     <section
       id={id}
       className={cn(
-        "relative z-10 -mt-6 rounded-t-[24px] bg-cz-bg px-5 pb-6 shadow-[0_-8px_30px_rgba(0,0,0,0.45)]",
+        "relative z-10 -mt-6 rounded-t-3xl bg-cz-bg px-5 pb-6 shadow-[0_-8px_24px_rgb(28_24_21/0.14)] dark:shadow-[0_-8px_30px_rgb(0_0_0/0.45)]",
         handle ? "pt-2.5" : "pt-5",
         className,
       )}
@@ -138,8 +138,8 @@ export function CzCard({
     <div
       id={id}
       className={cn(
-        "rounded-[18px] border bg-cz-surface p-4",
-        selected ? "border-cz-amber bg-cz-amber-tint" : "border-cz-border",
+        "rounded-2xl border bg-cz-surface p-4",
+        selected ? "border-cz-text shadow-[inset_0_0_0_1px_var(--cz-text)]" : "border-cz-border",
         className,
       )}
     >
@@ -155,8 +155,11 @@ export function CzCard({
 type BtnKind = "primary" | "secondary" | "danger" | "ghost" | "success";
 
 const BTN: Record<BtnKind, string> = {
-  primary: "bg-cz-amber text-cz-amber-ink hover:brightness-105 active:brightness-95 font-bold",
-  secondary: "border-[1.5px] border-cz-amber text-cz-amber hover:bg-cz-amber-tint font-bold",
+  // The one main action per view. Disabled = neutral, never a faded orange.
+  primary:
+    "bg-cz-amber text-cz-amber-ink hover:brightness-105 active:brightness-95 font-bold disabled:bg-cz-surface-2 disabled:text-cz-muted disabled:opacity-100",
+  // Neutral outline: orange stays reserved for the main action.
+  secondary: "border-[1.5px] border-cz-control text-cz-text hover:bg-cz-surface-2 font-semibold",
   danger: "border border-cz-danger-border text-cz-danger-text hover:bg-cz-warn-tint font-semibold",
   ghost: "border border-cz-border-strong text-cz-text hover:bg-cz-surface font-semibold",
   success: "bg-cz-green text-[#0b2416] hover:brightness-105 font-bold",
@@ -168,7 +171,7 @@ export function czButtonClass(
   extra?: string,
 ) {
   return cn(
-    "inline-flex w-full items-center justify-center gap-2 rounded-[14px] px-4 text-center transition disabled:opacity-50 disabled:pointer-events-none select-none",
+    "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 text-center transition disabled:opacity-50 disabled:pointer-events-none select-none",
     size === "lg"
       ? "min-h-14 text-[17px]"
       : size === "md"
@@ -407,7 +410,7 @@ export function PriceStepper({
       </button>
       <div className="flex flex-col items-center min-w-0">
         <span
-          className="cz-display font-bold text-[64px] leading-none text-cz-amber tabular-nums"
+          className="cz-display font-bold text-[64px] leading-none text-cz-text tabular-nums"
           aria-live="polite"
         >
           {display ?? usd(value)}
@@ -460,13 +463,15 @@ export function MaterialChips<T extends string>({
             aria-checked={on}
             onClick={() => onChange(o.value)}
             className={cn(
-              "shrink-0 whitespace-nowrap rounded-full px-4 font-semibold transition",
-              size === "md" ? "min-h-11 text-sm" : "min-h-9 text-sm px-3.5",
+              "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-3.5 font-semibold transition",
+              size === "md" ? "min-h-11 text-sm" : "min-h-11 text-sm px-3",
+              // Selected = raised neutral with a check, never orange (DESIGN.md).
               on
-                ? "bg-cz-amber text-cz-amber-ink font-bold"
-                : "border border-cz-border-strong bg-cz-surface text-cz-text",
+                ? "border-cz-text bg-cz-surface-2 text-cz-text shadow-[inset_0_0_0_1px_var(--cz-text)]"
+                : "border-cz-border-strong bg-cz-surface text-cz-text",
             )}
           >
+            {on && <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2.5} />}
             {o.label}
           </button>
         );

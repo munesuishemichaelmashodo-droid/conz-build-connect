@@ -131,7 +131,7 @@ function AdminSettings() {
     <div className="space-y-4">
       <div className="rounded-2xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
-          <Fuel className="w-5 h-5 text-primary" />
+          <Fuel className="w-5 h-5 text-cz-amber-text" />
           <h3 className="font-display font-bold text-lg uppercase tracking-wide">Diesel price</h3>
         </div>
         <p className="text-sm text-muted-foreground">
@@ -165,7 +165,7 @@ function AdminSettings() {
 
       <div className="rounded-2xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
-          <Percent className="w-5 h-5 text-primary" />
+          <Percent className="w-5 h-5 text-cz-amber-text" />
           <h3 className="font-display font-bold text-lg uppercase tracking-wide">Price multiplier</h3>
         </div>
         <p className="text-sm text-muted-foreground">
@@ -198,7 +198,7 @@ function AdminSettings() {
 
       <div className="rounded-2xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
-          <Package className="w-5 h-5 text-primary" />
+          <Package className="w-5 h-5 text-cz-amber-text" />
           <h3 className="font-display font-bold text-lg uppercase tracking-wide">Material prices</h3>
         </div>
         <p className="text-sm text-muted-foreground">

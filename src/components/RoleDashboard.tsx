@@ -80,7 +80,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
       <header className="flex items-center justify-between gap-2 px-5 pt-4 pb-3">
         <div className="min-w-0">
           <div className="cz-display font-bold text-[26px] leading-tight">
-            Con Z <span className="text-cz-amber">Connect</span>
+            Con Z <span className="text-cz-amber-text">Connect</span>
           </div>
           <div className="text-[13px] text-cz-muted truncate">Hi {first}</div>
         </div>
@@ -91,7 +91,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
       </header>
 
       <div className="px-5 space-y-4">
-        <div id="tour-dashboard-hero" data-tour="dashboard-hero" className="relative overflow-hidden rounded-[20px] border border-cz-border bg-cz-surface p-5">
+        <div id="tour-dashboard-hero" data-tour="dashboard-hero" className="relative overflow-hidden rounded-2xl border border-cz-border bg-cz-surface p-5">
           <RouteLine opacity={0.12} animate />
           <div className="relative space-y-3">
             <StatusPill tone="green" icon={<ShieldCheck className="w-3.5 h-3.5" />} className="px-2.5 py-1 text-xs">
@@ -108,7 +108,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
         </div>
 
         {restricted && (
-          <div className="rounded-[14px] bg-cz-warn-tint p-3.5 text-sm text-cz-warn-text">
+          <div className="rounded-xl bg-cz-warn-tint p-3.5 text-sm text-cz-warn-text">
             <div className="font-semibold">Posting temporarily restricted</div>
             <div className="text-xs mt-1 opacity-90">
               Your account is temporarily restricted from posting new jobs until{" "}
@@ -127,12 +127,12 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
         <section className="space-y-2.5">
           <div className="flex items-center justify-between">
             <h2 className="cz-display font-bold text-[22px]">Recent jobs</h2>
-            <Link id="tour-jobs-link" to="/jobs" className="min-h-11 inline-flex items-center gap-1 text-sm font-semibold text-cz-amber">
+            <Link id="tour-jobs-link" to="/jobs" className="min-h-11 inline-flex items-center gap-1 text-sm font-semibold text-cz-amber-text">
               My jobs <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
           {(jobs ?? []).length === 0 ? (
-            <div className="rounded-[18px] border border-dashed border-cz-border-strong p-8 text-center">
+            <div className="rounded-2xl border border-dashed border-cz-border-strong p-8 text-center">
               <Truck className="w-9 h-9 mx-auto text-cz-faint" />
               <p className="mt-2 font-semibold">Nothing here yet</p>
               <p className="text-sm text-cz-muted">Post your first job to get bids.</p>

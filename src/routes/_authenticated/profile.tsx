@@ -212,7 +212,7 @@ function SetPasswordCard() {
   return (
     <section className="rounded-2xl bg-card border p-4 shadow-soft space-y-3">
       <div className="flex items-center gap-2">
-        <KeyRound className="w-4 h-4 text-primary" />
+        <KeyRound className="w-4 h-4 text-cz-amber-text" />
         <h2 className="font-display font-bold uppercase tracking-wide">Set / change login password</h2>
       </div>
       <p className="text-xs text-muted-foreground">
@@ -261,12 +261,12 @@ function DocUpload({ field, label, hint, cameraFacing = "environment", userId, c
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
       <div className="grid grid-cols-2 gap-2">
         <label className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 hover:bg-muted transition p-3 cursor-pointer">
-          <Camera className="w-5 h-5 text-primary shrink-0" />
+          <Camera className="w-5 h-5 text-cz-amber-text shrink-0" />
           <span className="text-xs font-semibold">{uploading ? "Uploading…" : "Take photo"}</span>
           <input type="file" accept="image/*" capture={cameraFacing} disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="hidden" />
         </label>
         <label className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 hover:bg-muted transition p-3 cursor-pointer">
-          <ImageIcon className="w-5 h-5 text-primary shrink-0" />
+          <ImageIcon className="w-5 h-5 text-cz-amber-text shrink-0" />
           <span className="text-xs font-semibold">{uploading ? "Uploading…" : "Choose from gallery"}</span>
           <input type="file" accept="image/*" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="hidden" />
         </label>
@@ -379,7 +379,7 @@ function WithdrawalPinCard() {
     <section className="rounded-2xl bg-card border p-4 shadow-soft space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <KeyRound className="w-4 h-4 text-primary" />
+          <KeyRound className="w-4 h-4 text-cz-amber-text" />
           <h2 className="font-display font-bold uppercase tracking-wide">Withdrawal PIN</h2>
         </div>
         {hasPin && <StatusBadge label="Set" className="bg-success/15 text-success border-success/30" />}

@@ -73,7 +73,7 @@ export function FeedJobCard({
   return (
     <article
       className={cn(
-        "rounded-[18px] border bg-cz-surface p-4 flex flex-col gap-3.5",
+        "rounded-2xl border bg-cz-surface p-4 flex flex-col gap-3.5",
         highlight ? "border-cz-amber" : "border-cz-border",
       )}
     >
@@ -96,7 +96,7 @@ export function FeedJobCard({
 
       {distanceText && (
         <p
-          className={cn("text-[13px]", far ? "font-semibold text-cz-amber" : "text-cz-muted")}
+          className={cn("text-[13px]", far ? "font-semibold text-cz-amber-text" : "text-cz-muted")}
           data-testid="job-distance"
         >
           {far ? "Far from you · " : ""}
@@ -128,7 +128,7 @@ export function FeedJobCard({
               {Number(customer.rating_count) > 0 && (
                 <>
                   {" · "}
-                  <Star className="w-3 h-3 fill-cz-amber text-cz-amber" />
+                  <Star className="w-3 h-3 fill-cz-amber text-cz-amber-text" />
                   {Number(customer.rating_avg).toFixed(1)}
                 </>
               )}

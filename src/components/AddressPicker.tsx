@@ -294,9 +294,9 @@ export function AddressPicker({
             <div className="relative flex-1 min-w-0">
               <label
                 htmlFor="addr-picker"
-                className="flex h-[50px] items-center gap-2.5 rounded-[14px] bg-cz-bg px-3.5 shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
+                className="flex h-[50px] items-center gap-2.5 rounded-xl bg-cz-bg px-3.5 shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
               >
-                <MapPin className="w-[18px] h-[18px] text-cz-amber shrink-0" />
+                <MapPin className="w-[18px] h-[18px] text-cz-amber-text shrink-0" />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="text-[11px] leading-tight text-cz-muted">{label}</span>
                   <input
@@ -329,7 +329,7 @@ export function AddressPicker({
                 {searching && <Loader2 className="w-4 h-4 animate-spin text-cz-muted shrink-0" />}
               </label>
               {open && query.trim().length >= 3 && (results.length > 0 || searching || results.length === 0) && (
-                <div className="absolute z-40 left-0 right-0 top-[56px] rounded-[14px] border border-cz-border bg-cz-surface shadow-lg max-h-64 overflow-auto">
+                <div className="absolute z-40 left-0 right-0 top-[56px] rounded-xl border border-cz-border bg-cz-surface shadow-lg max-h-64 overflow-auto">
                   {searching && <div className="px-3.5 py-3 text-sm text-cz-muted">Searching…</div>}
                   {!searching && results.length === 0 && (
                     <div className="px-3.5 py-3 text-sm text-cz-muted">No results found — try a different spelling.</div>
@@ -379,7 +379,7 @@ export function AddressPicker({
           </div>
 
           {manualMode && (
-            <div className="flex gap-2 rounded-[14px] bg-cz-bg p-2 shadow-lg">
+            <div className="flex gap-2 rounded-xl bg-cz-bg p-2 shadow-lg">
               <input
                 type="number"
                 step="any"
@@ -428,7 +428,7 @@ export function AddressPicker({
             onClick={useMyLocation}
             disabled={locating}
             aria-label="Use my current location"
-            className="w-[50px] h-[50px] shrink-0 rounded-full bg-cz-bg text-cz-amber flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
+            className="w-[50px] h-[50px] shrink-0 rounded-full bg-cz-bg text-cz-amber-text flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
           >
             {locating ? <Loader2 className="w-5 h-5 animate-spin" /> : <LocateFixed className="w-[22px] h-[22px]" />}
           </button>

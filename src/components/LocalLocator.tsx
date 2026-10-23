@@ -64,7 +64,7 @@ export function LocalLocator() {
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-            <MapPin className="w-5 h-5 text-primary" />
+            <MapPin className="w-5 h-5 text-cz-amber-text" />
           </div>
           <div className="min-w-0">
             <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">You are here</div>
@@ -86,7 +86,7 @@ export function LocalLocator() {
             {coords && (
               <div className="text-[11px] text-muted-foreground mt-1">
                 {coords.acc ? `± ${Math.round(coords.acc)} m accuracy • ` : ""}
-                <a href={mapHref} target="_blank" rel="noreferrer" className="text-primary underline">
+                <a href={mapHref} target="_blank" rel="noreferrer" className="text-cz-amber-text underline">
                   Open in Maps
                 </a>
               </div>

@@ -177,7 +177,7 @@ function AdminUsers() {
                         label={role}
                         className={
                           role === "super_admin" || role === "admin"
-                            ? "bg-primary/15 text-primary border-primary/30"
+                            ? "bg-primary/15 text-cz-amber-text border-primary/30"
                             : role === "driver"
                               ? "bg-warning/15 text-warning border-warning/30"
                               : "bg-muted text-muted-foreground border-border"
@@ -348,7 +348,7 @@ Send this credit to another super admin for approval?`)) return;
             <h3 className="font-display font-bold text-lg">{row.full_name}</h3>
             <p className="text-xs text-muted-foreground">{row.email ?? "No email on file"}</p>
             {row.phone ? (
-              <a href={`tel:${row.phone}`} className="text-xs text-primary font-semibold flex items-center gap-1 mt-0.5">
+              <a href={`tel:${row.phone}`} className="text-xs text-cz-amber-text font-semibold flex items-center gap-1 mt-0.5">
                 <Phone className="w-3 h-3" /> {row.phone}
               </a>
             ) : (

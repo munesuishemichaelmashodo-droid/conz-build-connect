@@ -32,7 +32,7 @@ export function JobRow({
     <Link
       to="/jobs/$id"
       params={{ id: j.id }}
-      className="flex items-center gap-3 rounded-[16px] border border-cz-border bg-cz-surface px-4 py-3.5 hover:border-cz-border-strong"
+      className="flex items-center gap-3 rounded-2xl border border-cz-border bg-cz-surface px-4 py-3.5 hover:border-cz-border-strong"
     >
       <div className="min-w-0 flex-1">
         <div className="font-semibold truncate">

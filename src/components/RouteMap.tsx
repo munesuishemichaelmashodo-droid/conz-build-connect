@@ -172,7 +172,7 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
   return (
     <div className="rounded-2xl bg-card border overflow-hidden">
       <div className="flex items-center gap-2 px-4 pt-4 pb-2 font-display font-bold uppercase text-sm tracking-wide">
-        <RouteIcon className="w-4 h-4 text-primary" /> Route & ETA
+        <RouteIcon className="w-4 h-4 text-cz-amber-text" /> Route & ETA
       </div>
       <p className="px-4 pb-2 text-xs text-muted-foreground">
         {locked ? "Delivery destination is set for this job." : "Tap the map to drop a destination and see the driving route."}

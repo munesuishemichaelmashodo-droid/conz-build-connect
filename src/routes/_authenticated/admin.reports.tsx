@@ -125,12 +125,12 @@ function ReportCard({ r, onUpdate }: { r: any; onUpdate: (id: string, patch: { s
           <div className="font-semibold">{r.profile?.full_name ?? "Unknown user"}</div>
           <div className="flex flex-wrap gap-x-3 gap-y-1 mt-0.5">
             {r.profile?.phone && (
-              <a href={`tel:${r.profile.phone}`} className="text-xs text-primary font-semibold flex items-center gap-1">
+              <a href={`tel:${r.profile.phone}`} className="text-xs text-cz-amber-text font-semibold flex items-center gap-1">
                 <Phone className="w-3 h-3" /> {r.profile.phone}
               </a>
             )}
             {r.profile?.email && (
-              <a href={`mailto:${r.profile.email}`} className="text-xs text-primary font-semibold flex items-center gap-1 truncate">
+              <a href={`mailto:${r.profile.email}`} className="text-xs text-cz-amber-text font-semibold flex items-center gap-1 truncate">
                 <Mail className="w-3 h-3 shrink-0" /> {r.profile.email}
               </a>
             )}

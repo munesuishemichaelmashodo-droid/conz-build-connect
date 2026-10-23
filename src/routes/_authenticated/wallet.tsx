@@ -283,13 +283,13 @@ function WalletPage() {
         id="tour-wallet-balance"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-3xl bg-gradient-dark text-white p-6 shadow-lift"
+        className="relative overflow-hidden rounded-3xl dark bg-gradient-dark text-white p-6 shadow-lift"
       >
         <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-primary/20 blur-3xl" />
         <div className="flex items-start justify-between relative">
           <div>
             <div className="text-xs uppercase tracking-[0.2em] text-white/75">{canWithdraw ? "Available to withdraw" : "ConZ credit available"}</div>
-            <div className="font-display font-bold text-primary text-5xl mt-1 tracking-tight" aria-label={`Available balance ${money(available)}`}>{money(available)}</div>
+            <div className="font-display font-bold text-cz-amber-text text-5xl mt-1 tracking-tight" aria-label={`Available balance ${money(available)}`}>{money(available)}</div>
             <div className={cn("inline-flex items-center gap-1.5 mt-3 text-xs font-semibold", status.tone)}>
               <span className={cn("w-2 h-2 rounded-full", status.dot)} />
               {status.label}
@@ -561,7 +561,7 @@ function RequestRow({
     : WITHDRAWAL_STATUS[status] ?? { label: status };
   const statusTone: Record<string, string> = {
     pending: "bg-warning/15 text-warning border-warning/30",
-    approved: isTopup || paid ? "bg-success/15 text-success border-success/30" : "bg-primary/15 text-primary border-primary/30",
+    approved: isTopup || paid ? "bg-success/15 text-success border-success/30" : "bg-primary/15 text-cz-amber-text border-primary/30",
     rejected: "bg-destructive/15 text-destructive border-destructive/30",
     cancelled: "bg-muted text-muted-foreground border-border",
     failed: "bg-destructive/15 text-destructive border-destructive/30",
@@ -570,13 +570,13 @@ function RequestRow({
     <div className="rounded-2xl bg-card border p-3">
       <div className="flex items-start gap-3">
         <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0",
-          isTopup ? "bg-success/15 text-success" : "bg-primary/15 text-primary")}>
+          isTopup ? "bg-success/15 text-success" : "bg-primary/15 text-cz-amber-text")}>
           {isTopup ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm font-semibold">{isTopup ? "Top Up" : "Withdrawal"} · {method.toUpperCase()}</div>
-            <div className={cn("text-sm font-display font-bold", isTopup ? "text-success" : "text-primary")}>
+            <div className={cn("text-sm font-display font-bold", isTopup ? "text-success" : "text-cz-amber-text")}>
               {isTopup ? "+" : "−"}{money(amount)}
             </div>
           </div>
@@ -627,7 +627,7 @@ function Gauge({ pct: raw, ring }: { pct: number; ring: string }) {
           strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct)} />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
-        <Fuel className="w-6 h-6 text-primary" />
+        <Fuel className="w-6 h-6 text-cz-amber-text" />
       </div>
     </div>
   );
@@ -709,7 +709,7 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
           </div>
 
           <div className="rounded-2xl border p-3 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-primary/10 text-cz-amber-text flex items-center justify-center shrink-0">
               <Zap className="w-4 h-4" />
             </div>
             <div className="text-[12px] text-muted-foreground leading-snug">
@@ -895,7 +895,7 @@ function WithdrawDialog({
                       method === m.id ? "border-primary bg-primary/5" : "hover:border-primary/40",
                     )}
                   >
-                    <m.icon className="w-4 h-4 text-primary" />
+                    <m.icon className="w-4 h-4 text-cz-amber-text" />
                     {m.label}
                   </button>
                 ))}

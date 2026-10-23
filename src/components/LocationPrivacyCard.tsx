@@ -9,7 +9,7 @@ export function LocationPrivacyCard() {
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-            {enabled ? <Shield className="w-5 h-5 text-primary" /> : <ShieldOff className="w-5 h-5 text-warning" />}
+            {enabled ? <Shield className="w-5 h-5 text-cz-amber-text" /> : <ShieldOff className="w-5 h-5 text-warning" />}
           </div>
           <div className="min-w-0">
             <h2 className="font-display font-bold uppercase tracking-wide text-sm">Location privacy</h2>

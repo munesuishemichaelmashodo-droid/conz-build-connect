@@ -130,7 +130,7 @@ function SupplyCoveragePage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl bg-gradient-dark text-white p-5 shadow-lift">
+      <div className="rounded-2xl dark bg-gradient-dark text-white p-5 shadow-lift">
         <div className="text-xs uppercase tracking-widest text-white/60">ConZ Supply Coverage</div>
         <div className="font-display font-bold text-xl mt-1 flex items-center gap-2">
           <MapPin className="w-5 h-5" /> National Supply Network

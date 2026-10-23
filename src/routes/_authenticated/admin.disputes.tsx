@@ -36,12 +36,12 @@ function ContactLinks({ label, profile }: { label: string; profile?: { full_name
     <div className="flex items-center gap-2">
       <span className="text-[10px] text-muted-foreground">{label}:</span>
       {profile.phone && (
-        <a href={`tel:${profile.phone}`} className="text-[10px] text-primary font-semibold flex items-center gap-0.5">
+        <a href={`tel:${profile.phone}`} className="text-[10px] text-cz-amber-text font-semibold flex items-center gap-0.5">
           <Phone className="w-2.5 h-2.5" /> Call
         </a>
       )}
       {profile.email && (
-        <a href={`mailto:${profile.email}`} className="text-[10px] text-primary font-semibold flex items-center gap-0.5">
+        <a href={`mailto:${profile.email}`} className="text-[10px] text-cz-amber-text font-semibold flex items-center gap-0.5">
           <Mail className="w-2.5 h-2.5" /> Email
         </a>
       )}

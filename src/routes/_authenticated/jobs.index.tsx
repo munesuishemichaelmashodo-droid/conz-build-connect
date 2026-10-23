@@ -128,7 +128,7 @@ function JobsPage() {
           {isLoading ? (
             <div className="text-center text-cz-muted py-10">Loading…</div>
           ) : all.length === 0 ? (
-            <div className="rounded-[18px] border border-dashed border-cz-border-strong p-8 text-center">
+            <div className="rounded-2xl border border-dashed border-cz-border-strong p-8 text-center">
               <Briefcase className="w-9 h-9 mx-auto text-cz-faint" />
               <p className="mt-2 font-semibold">No jobs yet</p>
               <p className="text-sm text-cz-muted">{isCustomer ? "Post your first delivery request." : "Check back soon for open requests."}</p>

@@ -194,7 +194,7 @@ export function GuidedTourOverlay({
           style={{ top: cardPos.top, left: cardPos.left, width: cardPos.width }}
         >
           <div className="flex items-center justify-between gap-2 mb-2">
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-primary">
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-cz-amber-text">
               {stepIndex + 1} of {totalSteps}
             </span>
             <button

@@ -380,7 +380,7 @@ function PhoneStage({
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <Smartphone className="w-5 h-5 text-primary" />
+        <Smartphone className="w-5 h-5 text-cz-amber-text" />
         <h2 className="font-display font-bold text-xl">Verify your phone</h2>
       </div>
       <p className="text-sm text-muted-foreground">
@@ -611,7 +611,7 @@ function StatusStage({
         <p className="text-sm text-muted-foreground mt-2">{v.body}</p>
       </div>
       <div className="rounded-xl border bg-muted/30 p-3 text-left text-xs text-muted-foreground flex gap-2">
-        <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+        <ShieldCheck className="w-4 h-4 text-cz-amber-text shrink-0 mt-0.5" />
         <span>Your ID, licence and truck photos are only visible to you and Con Z admins.</span>
       </div>
       <div className="flex flex-col gap-2">

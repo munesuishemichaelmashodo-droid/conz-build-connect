@@ -78,7 +78,7 @@ function Welcome() {
               width={720}
               height={437}
               fetchPriority="high"
-              className="aspect-[720/437] w-full rounded-[20px] object-cover"
+              className="aspect-[720/437] w-full rounded-2xl object-cover"
             />
             <h1 id="hero-title" className="cz-display font-bold text-[38px] leading-[1.02] mt-5">
               Sand, stones and quarry dust, delivered to your site.
@@ -125,7 +125,7 @@ function Welcome() {
 
           <section
             aria-labelledby="driver-title"
-            className="mt-10 rounded-[20px] border border-cz-border bg-cz-surface p-5"
+            className="mt-10 rounded-2xl border border-cz-border bg-cz-surface p-5"
           >
             <h2 id="driver-title" className="cz-display font-bold text-[24px] leading-tight">
               Own a tipper truck?

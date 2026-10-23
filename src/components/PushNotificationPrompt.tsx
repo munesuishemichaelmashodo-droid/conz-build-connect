@@ -63,7 +63,7 @@ export function PushNotificationPrompt() {
     <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-2">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
-          <Bell className="w-4 h-4 text-primary" /> Turn on notifications
+          <Bell className="w-4 h-4 text-cz-amber-text" /> Turn on notifications
         </div>
         <button onClick={dismiss} className="text-muted-foreground shrink-0" aria-label="Dismiss">
           <X className="w-4 h-4" />

@@ -159,11 +159,11 @@ function RevenueDashboard() {
   return (
     <div className="space-y-4">
       {/* Hero revenue card */}
-      <div className="rounded-2xl bg-gradient-dark text-white p-5 shadow-lift">
+      <div className="rounded-2xl dark bg-gradient-dark text-white p-5 shadow-lift">
         <div className="flex items-center gap-2 text-white/70 text-[11px] uppercase tracking-widest">
           <DollarSign className="w-3.5 h-3.5" /> All-time platform revenue
         </div>
-        <div className="font-display font-bold text-4xl text-primary mt-1">{money(stats.total)}</div>
+        <div className="font-display font-bold text-4xl text-cz-amber-text mt-1">{money(stats.total)}</div>
         <div className="text-xs text-white/60 mt-1">
           {stats.jobs} commission events at {rate ?? 7}% rate
         </div>
@@ -198,7 +198,7 @@ function RevenueDashboard() {
       {/* Commission rate editor */}
       <div className="rounded-2xl border bg-card p-5 space-y-3">
         <div className="flex items-center gap-2">
-          <Percent className="w-5 h-5 text-primary" />
+          <Percent className="w-5 h-5 text-cz-amber-text" />
           <h3 className="font-display font-bold uppercase tracking-wide">Global commission rate</h3>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -258,7 +258,7 @@ function RevenueDashboard() {
       {/* Top drivers by commission */}
       <div className="rounded-2xl border bg-card p-4 space-y-2">
         <div className="flex items-center gap-2">
-          <UsersIcon className="w-4 h-4 text-primary" />
+          <UsersIcon className="w-4 h-4 text-cz-amber-text" />
           <h3 className="font-display font-bold uppercase tracking-wide text-sm">Top drivers by commission</h3>
         </div>
         {!byDriver.length ? (
@@ -590,13 +590,13 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
               <div key={r.id} className="rounded-xl border p-3">
                 <div className="flex items-start gap-3">
                   <div className={cn("w-9 h-9 rounded-full flex items-center justify-center shrink-0",
-                    positive ? "bg-success/15 text-success" : "bg-primary/15 text-primary")}>
+                    positive ? "bg-success/15 text-success" : "bg-primary/15 text-cz-amber-text")}>
                     {positive ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <div className="text-sm font-semibold truncate">{p?.name ?? r.user_id.slice(0, 8)}</div>
-                      <div className={cn("font-display font-bold text-sm", positive ? "text-success" : "text-primary")}>
+                      <div className={cn("font-display font-bold text-sm", positive ? "text-success" : "text-cz-amber-text")}>
                         {positive ? "+" : "-"}{money(Number(r.amount))}
                       </div>
                     </div>

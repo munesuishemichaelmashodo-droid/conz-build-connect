@@ -146,7 +146,7 @@ export function DriverHome({
         <header className="flex items-center justify-between gap-2 px-5 pt-4 pb-3">
           <div className="min-w-0">
             <div className="cz-display font-bold text-[26px] leading-tight">
-              Con Z <span className="text-cz-amber">Driver</span>
+              Con Z <span className="text-cz-amber-text">Driver</span>
             </div>
             <div className="text-[13px] text-cz-muted truncate">
               {firstName ? `Hi ${firstName}` : "Welcome back"}
@@ -165,7 +165,7 @@ export function DriverHome({
         <div className="px-5 space-y-3">
           <div
             id="tour-dashboard-hero"
-            className="rounded-[14px] border border-cz-border bg-cz-surface px-4 py-3 flex items-center justify-between gap-3"
+            className="rounded-xl border border-cz-border bg-cz-surface px-4 py-3 flex items-center justify-between gap-3"
           >
             <Link to="/wallet" className="flex flex-col gap-0.5 min-w-0">
               <span className="text-[13px] text-cz-muted">Today</span>
@@ -190,11 +190,11 @@ export function DriverHome({
               <div className="flex flex-col items-end gap-0.5 text-right">
                 <span className="text-[13px] text-cz-muted flex items-center gap-1 whitespace-nowrap">
                   {Number(driver.rating_count ?? 0) > 0 && (
-                    <Star className="w-3.5 h-3.5 fill-cz-amber text-cz-amber" />
+                    <Star className="w-3.5 h-3.5 fill-cz-amber text-cz-amber-text" />
                   )}
                   {ratingLabel(driver.rating_avg, driver.rating_count)}
                 </span>
-                <span className="text-[13px] font-semibold text-cz-amber whitespace-nowrap">
+                <span className="text-[13px] font-semibold text-cz-amber-text whitespace-nowrap">
                   {level.label} level
                 </span>
                 <span className="text-[11px] text-cz-faint whitespace-nowrap">
@@ -215,7 +215,7 @@ export function DriverHome({
             <Link
               id="tour-driver-verification"
               to="/become-driver"
-              className="flex items-center gap-3 rounded-[14px] bg-cz-warn-tint p-3.5 text-cz-warn-text"
+              className="flex items-center gap-3 rounded-xl bg-cz-warn-tint p-3.5 text-cz-warn-text"
             >
               <ShieldAlert className="w-5 h-5 shrink-0" />
               <div className="text-sm min-w-0 flex-1">
@@ -242,7 +242,7 @@ export function DriverHome({
 
         <div className="px-5 flex flex-col gap-3">
           {shown.length === 0 ? (
-            <div className="rounded-[18px] border border-dashed border-cz-border-strong p-8 text-center">
+            <div className="rounded-2xl border border-dashed border-cz-border-strong p-8 text-center">
               <Truck className="w-9 h-9 mx-auto text-cz-faint" />
               <p className="mt-2 font-semibold">No open loads right now</p>
               <p className="text-sm text-cz-muted">
@@ -272,7 +272,7 @@ export function DriverHome({
 
           <Link
             to="/jobs"
-            className="flex items-center justify-center gap-1 min-h-12 rounded-xl text-[15px] font-semibold text-cz-amber"
+            className="flex items-center justify-center gap-1 min-h-12 rounded-xl text-[15px] font-semibold text-cz-amber-text"
           >
             See all loads & my jobs <ChevronRight className="w-4 h-4" />
           </Link>

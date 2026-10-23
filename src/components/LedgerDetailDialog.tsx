@@ -100,7 +100,7 @@ export function LedgerDetailDialog({
             label="Related job"
             value={
               row.job_id ? (
-                <Link to="/jobs/$id" params={{ id: row.job_id }} className="underline text-primary font-mono">
+                <Link to="/jobs/$id" params={{ id: row.job_id }} className="underline text-cz-amber-text font-mono">
                   {row.job_id.slice(0, 8)}
                 </Link>
               ) : (

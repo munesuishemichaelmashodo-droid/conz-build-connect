@@ -25,7 +25,7 @@ function HomePage() {
   const hasAny = is("driver") || is("customer");
   return (
     <AppShell title="Con Z">
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-dark text-white space-y-4 py-10 px-6 text-center">
+      <div className="relative overflow-hidden rounded-2xl dark bg-gradient-dark text-white space-y-4 py-10 px-6 text-center">
         <RouteLine opacity={0.18} animate />
         <div className="relative">
           <div className="font-display font-bold text-xl">Welcome to Con Z</div>

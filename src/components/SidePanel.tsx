@@ -74,7 +74,7 @@ export function SidePanel() {
                 <Link
                   to="/become-driver"
                   onClick={close}
-                  className="mt-2 flex items-center justify-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/20"
+                  className="mt-2 flex items-center justify-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-cz-amber-text hover:bg-primary/20"
                 >
                   <Truck className="w-4 h-4" /> Become a driver
                 </Link>
@@ -133,7 +133,7 @@ function ModeButton({ active, onClick, icon: Icon, label }: { active: boolean; o
       onClick={onClick}
       className={cn(
         "flex flex-col items-center gap-1 rounded-lg border p-3 text-xs font-semibold transition",
-        active ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground"
+        active ? "border-primary bg-primary/10 text-cz-amber-text" : "hover:bg-muted text-muted-foreground"
       )}
     >
       <Icon className="w-5 h-5" />

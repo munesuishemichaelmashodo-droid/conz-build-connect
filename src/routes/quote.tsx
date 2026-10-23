@@ -139,7 +139,7 @@ function PublicQuotePage() {
           <div className="rounded-xl bg-primary/5 border border-primary/30 p-4 space-y-3">
             <div className="text-center">
               <div className="text-[11px] uppercase tracking-widest text-muted-foreground">Fair price estimate</div>
-              <div className="font-display font-bold text-3xl text-primary">{money(offer.offer)}</div>
+              <div className="font-display font-bold text-3xl text-cz-amber-text">{money(offer.offer)}</div>
               <div className="text-xs text-muted-foreground mt-1">
                 Market range {money(offer.min)}–{money(offer.max)} · ~{offer.etaMinutes} min ETA
               </div>

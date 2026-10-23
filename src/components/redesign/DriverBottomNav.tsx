@@ -39,7 +39,7 @@ export function DriverBottomNav() {
               aria-current={on ? "page" : undefined}
               className={cn(
                 "min-h-[52px] flex flex-col items-center justify-center gap-1 text-xs rounded-xl",
-                on ? "text-cz-amber font-semibold" : "text-cz-muted",
+                on ? "text-cz-amber-text font-semibold" : "text-cz-muted",
               )}
             >
               <Icon className="w-[22px] h-[22px]" strokeWidth={2} />

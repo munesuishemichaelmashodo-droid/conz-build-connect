@@ -334,7 +334,7 @@ function PublicTrackPage() {
             <div className="rounded-xl bg-card border p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
-                  <Receipt className="w-4 h-4 text-primary" /> Receipt
+                  <Receipt className="w-4 h-4 text-cz-amber-text" /> Receipt
                 </div>
                 <span className="text-[10px] font-mono text-muted-foreground">{pod.receiptNo}</span>
               </div>
@@ -404,7 +404,7 @@ function PublicTrackPage() {
           {/* Live map */}
           <div className="rounded-2xl bg-card border overflow-hidden">
             <div className="flex items-center gap-2 px-4 pt-4 pb-2 font-display font-bold uppercase text-sm tracking-wide">
-              <Navigation2 className="w-4 h-4 text-primary" />{" "}
+              <Navigation2 className="w-4 h-4 text-cz-amber-text" />{" "}
               {shown.live
                 ? "Live driver location"
                 : live

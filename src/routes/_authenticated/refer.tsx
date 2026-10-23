@@ -172,7 +172,7 @@ function ReferPage() {
         {/* Milestones */}
         <div className="rounded-xl border bg-card p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Trophy className="w-4 h-4 text-primary" />
+            <Trophy className="w-4 h-4 text-cz-amber-text" />
             <h3 className="font-display font-bold text-sm uppercase tracking-wide">Milestones</h3>
           </div>
           <div className="flex gap-2 mb-3">
@@ -181,10 +181,10 @@ function ReferPage() {
                 key={m}
                 className={cn(
                   "flex-1 flex flex-col items-center gap-1 rounded-lg border py-2 text-[11px] font-semibold",
-                  achieved.has(m) ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"
+                  achieved.has(m) ? "border-primary bg-primary/10 text-cz-amber-text" : "text-muted-foreground"
                 )}
               >
-                <Trophy className={cn("w-4 h-4", achieved.has(m) ? "text-primary" : "text-muted-foreground/40")} />
+                <Trophy className={cn("w-4 h-4", achieved.has(m) ? "text-cz-amber-text" : "text-muted-foreground/40")} />
                 {m}
               </div>
             ))}

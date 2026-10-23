@@ -353,7 +353,7 @@ function LedgerPage() {
   return (
     <div className="space-y-4">
       {/* Summary — settled totals for the selected range */}
-      <div className="rounded-2xl bg-gradient-dark text-white p-5 shadow-lift">
+      <div className="rounded-2xl dark bg-gradient-dark text-white p-5 shadow-lift">
         <div className="flex items-center gap-2 text-white/70 text-[11px] uppercase tracking-widest">
           <BookOpen className="w-3.5 h-3.5" /> Financial ledger
         </div>
@@ -383,7 +383,7 @@ function LedgerPage() {
       </div>
 
       <div className="grid grid-cols-3 gap-2">
-        <Card label="Commissions" value={money(totals.commissions)} icon={Percent} tone="text-primary" />
+        <Card label="Commissions" value={money(totals.commissions)} icon={Percent} tone="text-cz-amber-text" />
         <Card label="Refunds" value={money(totals.refunds)} icon={RotateCcw} tone="text-destructive" />
         <Card label="Adjustments" value={money(totals.adjustments)} icon={Sliders} />
       </div>
@@ -567,7 +567,7 @@ function LedgerPage() {
                       </span>
                       <span className="text-[10px] text-muted-foreground">{new Date(r.created_at).toLocaleString()}</span>
                       {r.job_id && (
-                        <span className="text-[10px] font-mono text-primary">job {r.job_id.slice(0, 8)}</span>
+                        <span className="text-[10px] font-mono text-cz-amber-text">job {r.job_id.slice(0, 8)}</span>
                       )}
                     </div>
                     {r.note && <p className="text-xs text-muted-foreground">{r.note}</p>}

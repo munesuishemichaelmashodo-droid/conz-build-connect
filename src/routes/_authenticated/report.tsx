@@ -74,7 +74,7 @@ function ReportPage() {
       <div className="max-w-xl mx-auto space-y-6">
         <section className="rounded-2xl bg-card border p-5 shadow-soft space-y-4">
           <div className="flex items-center gap-2">
-            <MessageSquareWarning className="w-5 h-5 text-primary" />
+            <MessageSquareWarning className="w-5 h-5 text-cz-amber-text" />
             <h2 className="font-display font-bold uppercase tracking-wide">Report an issue</h2>
           </div>
           <p className="text-xs text-muted-foreground">
