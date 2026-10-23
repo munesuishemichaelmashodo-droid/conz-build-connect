@@ -268,8 +268,9 @@ export function MaterialBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-lg px-2.5 py-1 text-sm font-semibold",
-        highlight ? "bg-cz-amber-tint-2 text-cz-amber-text" : "bg-cz-border text-cz-text",
+        // A material is a label, not a status: neutral in every state.
+        "inline-flex items-center rounded-md px-2.5 py-1 text-sm font-semibold",
+        highlight ? "bg-cz-surface-2 text-cz-text" : "bg-cz-surface-2 text-cz-muted",
       )}
     >
       {children}

@@ -272,7 +272,7 @@ export function DriverHome({
 
           <Link
             to="/jobs"
-            className="flex items-center justify-center gap-1 min-h-12 rounded-xl text-[15px] font-semibold text-cz-amber-text"
+            className="flex items-center justify-center gap-1 min-h-12 rounded-xl text-[15px] font-semibold text-cz-text underline underline-offset-4 hover:bg-cz-surface-2"
           >
             See all loads & my jobs <ChevronRight className="w-4 h-4" />
           </Link>

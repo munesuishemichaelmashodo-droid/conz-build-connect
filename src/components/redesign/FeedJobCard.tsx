@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Loader2, ShieldCheck, Star } from "lucide-react";
+import { StatusStamp } from "@/components/ds";
 import type { CustomerCard } from "@/components/redesign/rpc";
 import { materialLabel } from "@/lib/domain";
 import { cn } from "@/lib/utils";
@@ -73,17 +74,22 @@ export function FeedJobCard({
   return (
     <article
       className={cn(
-        "rounded-2xl border bg-cz-surface p-4 flex flex-col gap-3.5",
-        highlight ? "border-cz-amber" : "border-cz-border",
+        // Cards in a feed carry no orange: the price and route are the content.
+        "rounded-2xl border border-cz-border bg-cz-surface p-4 flex flex-col gap-3.5",
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <MaterialBadge highlight={!!highlight}>
+        <MaterialBadge>
           {materialLabel(job.material as never, job.custom_material)} · {Number(job.quantity_m3)} m³
         </MaterialBadge>
-        {job.created_at && (
-          <span className="text-[13px] text-cz-muted shrink-0">{timeAgo(job.created_at)}</span>
-        )}
+        <span className="flex shrink-0 items-center gap-2">
+          {highlight && (
+            <StatusStamp tone="info" icon="open">
+              Newest
+            </StatusStamp>
+          )}
+          {job.created_at && <span className="text-[13px] text-cz-muted">{timeAgo(job.created_at)}</span>}
+        </span>
       </div>
 
       <Link to="/jobs/$id" params={{ id: job.id }} className="block">
@@ -96,7 +102,7 @@ export function FeedJobCard({
 
       {distanceText && (
         <p
-          className={cn("text-[13px]", far ? "font-semibold text-cz-amber-text" : "text-cz-muted")}
+          className={cn("text-[13px]", far ? "font-semibold text-cz-warn-text" : "text-cz-muted")}
           data-testid="job-distance"
         >
           {far ? "Far from you · " : ""}
@@ -144,8 +150,9 @@ export function FeedJobCard({
             type="button"
             onClick={onAccept}
             disabled={accepting}
+            // Neutral: a feed shows many jobs, so no orange button per card.
             className={czButtonClass(
-              "primary",
+              "secondary",
               "md",
               "min-h-[50px] px-2 text-[15px] whitespace-nowrap",
             )}
@@ -159,7 +166,7 @@ export function FeedJobCard({
           to="/jobs/$id"
           params={{ id: job.id }}
           className={czButtonClass(
-            "secondary",
+            "ghost",
             "md",
             "min-h-[50px] px-2 text-[15px] whitespace-nowrap",
           )}

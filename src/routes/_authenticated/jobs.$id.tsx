@@ -1377,7 +1377,7 @@ function BidForm({
                 aria-pressed={priceNum === v}
                 className={cn(
                   "min-h-12 rounded-xl text-[15px] font-semibold tabular-nums",
-                  priceNum === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-cz-border-strong bg-cz-surface",
+                  priceNum === v ? "border border-cz-text bg-cz-surface-2 text-cz-text shadow-[inset_0_0_0_1px_var(--cz-text)]" : "border border-cz-border-strong bg-cz-surface text-cz-text hover:bg-cz-surface-2",
                 )}
               >
                 {usd(v)}
@@ -1464,7 +1464,7 @@ function BidForm({
                 aria-pressed={etaMinutes === o.v}
                 className={cn(
                   "min-h-12 rounded-xl text-[15px] font-semibold",
-                  etaMinutes === o.v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-cz-border-strong bg-cz-surface",
+                  etaMinutes === o.v ? "border border-cz-text bg-cz-surface-2 text-cz-text shadow-[inset_0_0_0_1px_var(--cz-text)]" : "border border-cz-border-strong bg-cz-surface text-cz-text hover:bg-cz-surface-2",
                 )}
               >
                 {o.label}
@@ -2421,9 +2421,9 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
         />
         <div id="tour-place-bid" className="px-5 space-y-4">
           <CzCard selected className="space-y-3">
-            <div className="text-sm font-semibold text-cz-amber-text">Customer proposed a new price</div>
+            <div className="text-sm font-semibold text-cz-text">Customer proposed a new price</div>
             <div className="flex items-baseline gap-3">
-              <span className="cz-display font-bold text-5xl text-cz-amber-text">{usd(Number(myBid.customer_counter_price))}</span>
+              <span className="cz-display font-bold text-5xl text-cz-text tabular-nums">{usd(Number(myBid.customer_counter_price))}</span>
               <span className="text-sm text-cz-muted line-through">{usd(Number(myBid.price))}</span>
             </div>
             <p className="text-sm text-cz-muted">
@@ -2481,7 +2481,7 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
 
         <div id="tour-place-bid" className="px-5 space-y-2.5">
           <div className="text-sm font-semibold text-cz-muted">Offers on this job</div>
-          <div className="flex items-center justify-between gap-3 rounded-xl border-[1.5px] border-cz-amber bg-cz-surface px-4 py-3.5">
+          <div className="flex items-center justify-between gap-3 rounded-xl border-[1.5px] border-cz-text bg-cz-surface px-4 py-3.5">
             <div className="min-w-0">
               <div className="font-bold">Your offer</div>
               <div className="text-[13px] text-cz-muted truncate">
@@ -2497,7 +2497,7 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
                 <div className="text-[13px] text-cz-muted">You declined the customer's counter of {usd(Number(myBid.customer_counter_price))}.</div>
               )}
             </div>
-            <span className="cz-display font-bold text-[28px] text-cz-amber-text tabular-nums">{usd(Number(myBid.price))}</span>
+            <span className="cz-display font-bold text-[28px] text-cz-text tabular-nums">{usd(Number(myBid.price))}</span>
           </div>
           {summary && (
             <div className="flex items-center justify-between gap-3 rounded-xl border border-cz-border bg-cz-surface px-4 py-3.5">
