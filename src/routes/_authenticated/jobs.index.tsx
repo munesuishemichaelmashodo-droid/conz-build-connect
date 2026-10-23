@@ -8,7 +8,7 @@ import { bestCapacityMatchTier, type CapacityMatchTier } from "@/lib/capacityMat
 import { CzScreen, CzHeader } from "@/components/redesign";
 import { JobRow } from "@/components/redesign/JobRow";
 import { FeedJobCard } from "@/components/redesign/FeedJobCard";
-import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
+import { CustomerBottomNav, DriverBottomNav, NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 import { useQuickAccept } from "@/components/redesign/useQuickAccept";
 import { useCustomerCards } from "@/components/redesign/rpc";
 import { NotificationsBell } from "@/components/NotificationsBell";
@@ -108,7 +108,7 @@ function JobsPage() {
 
   return (
     <>
-      <CzScreen className={isDriver && !isCustomer ? DRIVER_NAV_SPACE : "pb-8"}>
+      <CzScreen className={isDriver !== isCustomer ? NAV_SPACE : "pb-8"}>
         <CzHeader
           title={isDriver && !isCustomer ? "My jobs" : "Jobs"}
           backTo={isDriver && !isCustomer ? "/driver" : "/customer"}
@@ -166,6 +166,7 @@ function JobsPage() {
         </div>
       </CzScreen>
       {isDriver && !isCustomer && <DriverBottomNav />}
+      {isCustomer && !isDriver && <CustomerBottomNav />}
     </>
   );
 }

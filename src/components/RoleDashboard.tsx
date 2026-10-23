@@ -6,12 +6,13 @@ import { ChevronRight, Plus, ShieldCheck, Truck } from "lucide-react";
 import { LocalLocator } from "@/components/LocalLocator";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
-import { RouteLine } from "@/components/RouteLine";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { SidePanel } from "@/components/SidePanel";
 import { DriverHome } from "@/components/redesign/DriverHome";
 import { CzScreen, StatusPill, czButtonClass } from "@/components/redesign";
 import { JobRow } from "@/components/redesign/JobRow";
+import { CustomerBottomNav, NAV_SPACE } from "@/components/redesign/DriverBottomNav";
+import { LogoLockup } from "@/components/ds";
 import { customerTrustPill, useLaunchSwitches } from "@/lib/launch-switches";
 
 export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
@@ -75,13 +76,12 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
   // booking itself (C1) lives at /customer/book.
   const first = profile?.full_name?.split(" ")[0] ?? "Builder";
   return (
-    <CzScreen className="pb-8">
+    <>
+    <CzScreen className={NAV_SPACE}>
       {userId && <OnboardingWalkthrough userId={userId} role={role} />}
-      <header className="flex items-center justify-between gap-2 px-5 pt-4 pb-3">
+      <header className="flex items-center justify-between gap-2 px-5 pt-3 pb-3">
         <div className="min-w-0">
-          <div className="cz-display font-bold text-[26px] leading-tight">
-            Con Z <span className="text-cz-amber-text">Connect</span>
-          </div>
+          <LogoLockup to="/customer" />
           <div className="text-[13px] text-cz-muted truncate">Hi {first}</div>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
@@ -92,7 +92,6 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
 
       <div className="px-5 space-y-4">
         <div id="tour-dashboard-hero" data-tour="dashboard-hero" className="relative overflow-hidden rounded-2xl border border-cz-border bg-cz-surface p-5">
-          <RouteLine opacity={0.12} animate />
           <div className="relative space-y-3">
             <StatusPill tone="green" icon={<ShieldCheck className="w-3.5 h-3.5" />} className="px-2.5 py-1 text-xs">
               {customerTrustPill(launch.escrowEnabled)}
@@ -117,7 +116,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
           </div>
         )}
         {!restricted && (
-          <p className="text-[11px] text-cz-faint px-1">
+          <p className="text-xs text-cz-muted px-1">
             Cancelling jobs after a driver accepts may affect your account — see our cancellation policy.
           </p>
         )}
@@ -127,7 +126,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
         <section className="space-y-2.5">
           <div className="flex items-center justify-between">
             <h2 className="cz-display font-bold text-[22px]">Recent jobs</h2>
-            <Link id="tour-jobs-link" to="/jobs" className="min-h-11 inline-flex items-center gap-1 text-sm font-semibold text-cz-amber-text">
+            <Link id="tour-jobs-link" to="/jobs" className="min-h-11 inline-flex items-center gap-1 rounded-lg px-2 -mr-2 text-sm font-semibold text-cz-text underline underline-offset-4 hover:bg-cz-surface-2">
               My jobs <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
@@ -149,5 +148,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
         <LocalLocator />
       </div>
     </CzScreen>
+    <CustomerBottomNav />
+    </>
   );
 }

@@ -1,16 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 import { materialLabel } from "@/lib/domain";
-import { StatusPill, usd } from "@/components/redesign";
-
-const ROW_STATUS: Record<string, { label: string; tone: "green" | "amber" | "neutral" | "info" }> =
-  {
-    open: { label: "Open", tone: "amber" },
-    accepted: { label: "Driver chosen", tone: "info" },
-    in_progress: { label: "On the way", tone: "amber" },
-    completed: { label: "Completed", tone: "green" },
-    cancelled: { label: "Cancelled", tone: "neutral" },
-  };
+import { usd } from "@/components/redesign";
+import { JobStamp } from "@/components/ds";
 
 /** Compact job row (status pill + price) for job lists. */
 export function JobRow({
@@ -27,7 +19,6 @@ export function JobRow({
     status: string;
   };
 }) {
-  const st = ROW_STATUS[j.status] ?? { label: j.status, tone: "neutral" as const };
   return (
     <Link
       to="/jobs/$id"
@@ -40,9 +31,7 @@ export function JobRow({
         </div>
         <div className="text-[13px] text-cz-muted truncate">{j.delivery_address}</div>
         <div className="mt-1.5">
-          <StatusPill tone={st.tone} className="px-2.5 py-0.5 text-xs">
-            {st.label}
-          </StatusPill>
+          <JobStamp job={j} />
         </div>
       </div>
       <div className="text-right shrink-0">
@@ -50,7 +39,7 @@ export function JobRow({
           {usd(Number(j.final_price ?? j.budget))}
         </div>
       </div>
-      <ChevronRight className="w-4 h-4 text-cz-faint shrink-0" />
+      <ChevronRight aria-hidden className="w-4 h-4 text-cz-muted shrink-0" />
     </Link>
   );
 }

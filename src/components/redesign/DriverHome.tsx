@@ -12,6 +12,7 @@ import { DriverAvailabilityToggle } from "@/components/DriverAvailabilityToggle"
 import { LocalLocator } from "@/components/LocalLocator";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { SidePanel } from "@/components/SidePanel";
+import { LogoLockup } from "@/components/ds";
 import { CzScreen, MaterialChips, usd2 } from "@/components/redesign";
 import { FeedJobCard, type FeedJob } from "@/components/redesign/FeedJobCard";
 import type { DriverFix } from "@/lib/jobDistance";
@@ -145,9 +146,7 @@ export function DriverHome({
 
         <header className="flex items-center justify-between gap-2 px-5 pt-4 pb-3">
           <div className="min-w-0">
-            <div className="cz-display font-bold text-[26px] leading-tight">
-              Con Z <span className="text-cz-amber-text">Driver</span>
-            </div>
+            <LogoLockup role="Driver" to="/driver" />
             <div className="text-[13px] text-cz-muted truncate">
               {firstName ? `Hi ${firstName}` : "Welcome back"}
               {trucks?.length
@@ -194,14 +193,14 @@ export function DriverHome({
                   )}
                   {ratingLabel(driver.rating_avg, driver.rating_count)}
                 </span>
-                <span className="text-[13px] font-semibold text-cz-amber-text whitespace-nowrap">
+                <span className="text-[13px] font-semibold text-cz-text whitespace-nowrap">
                   {level.label} level
                 </span>
-                <span className="text-[11px] text-cz-faint whitespace-nowrap">
+                <span className="text-xs text-cz-muted whitespace-nowrap">
                   {jobsDoneLabel(driver.jobs_completed)}
                 </span>
                 {level.nextAt != null && (
-                  <span className="text-[11px] text-cz-faint whitespace-nowrap">
+                  <span className="text-xs text-cz-muted whitespace-nowrap">
                     {Math.max(0, level.nextAt - driver.jobs_completed)} to next level
                   </span>
                 )}
