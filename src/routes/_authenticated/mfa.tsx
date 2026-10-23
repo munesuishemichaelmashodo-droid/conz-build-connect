@@ -219,11 +219,7 @@ function MfaPage() {
                 />
               </div>
             </div>
-            <Button
-              type="submit"
-              disabled={busy || code.length < 6}
-              className="w-full h-11"
-            >
+            <Button type="submit" disabled={busy || code.length < 6} className="w-full h-11">
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify & continue"}
             </Button>
             {stage === "challenge" && (
