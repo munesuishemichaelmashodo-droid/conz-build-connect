@@ -22,7 +22,7 @@ import { RadarSearch } from "@/components/RadarSearch";
 import { NextLoadsCard } from "@/components/NextLoadsCard";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { uploadJobEvidence, signedEvidenceUrl } from "@/lib/upload-evidence";
-import { evidenceSlots, tripBar, type EvidenceViewer } from "@/lib/delivery-docket";
+import { evidenceSlots, locationState, tripBar, type EvidenceViewer, type LocationState } from "@/lib/delivery-docket";
 import { useServerFn } from "@tanstack/react-start";
 import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
 import { friendlyPaymentError } from "@/lib/paymentErrors";
@@ -3299,12 +3299,27 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
  *  - before that: the priced pickup→delivery distance plus the driver's own
  *    "reach pickup in" figure (a rough estimate, labelled as such).
  */
-function TripProgress({ job, step, track, driverEtaMin }: { job: any; step: number; track: TrackStatus | null; driverEtaMin?: number | null }) {
+function TripProgress({
+  job,
+  step,
+  track,
+  location,
+  driverEtaMin,
+}: {
+  job: any;
+  step: number;
+  track: TrackStatus | null;
+  location: LocationState;
+  driverEtaMin?: number | null;
+}) {
   const clock = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const when = (iso?: string | null) => (iso ? clock(new Date(iso)) : null);
 
-  const remainingKm = step === 2 ? track?.route?.distanceKm ?? null : null;
-  const liveEtaMin = step === 2 ? track?.route?.etaMin ?? null : null;
+  // Only a live location's route counts. The map keeps its last route after the
+  // driver stops sharing, and a stale position gives a stale arrival time.
+  const routeOk = step === 2 && location === "live";
+  const remainingKm = routeOk ? track?.route?.distanceKm ?? null : null;
+  const liveEtaMin = routeOk ? track?.route?.etaMin ?? null : null;
 
   // Progress = share of the trip's road distance covered, measured from the live
   // route. No live route means no percentage (see tripBar), never a made-up 0%.
@@ -3314,7 +3329,7 @@ function TripProgress({ job, step, track, driverEtaMin }: { job: any; step: numb
     step,
     status: job.status,
     atDropoff: step === 2 && !!job.driver_arrived_dropoff_at,
-    live: !!track?.live,
+    location,
     remainingKm,
     furthestKm: furthestKm.current,
     plannedKm: Number(job?.pricing_breakdown?.distance_km) || null,
@@ -3386,12 +3401,21 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
   const { job, id } = ctx;
   const d = useAcceptedDriver(ctx);
   const [track, setTrack] = useState<TrackStatus | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(t);
+  }, []);
+  const location = locationState(track, now);
+  const lastUpdate = track?.updatedAt
+    ? new Date(track.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : null;
   const mat = materialLabel(job.material as any, job.custom_material);
   // Same four steps as the driver's screen, from the same job fields.
   const step = !job.pickup_photo_url ? (job.driver_arrived_pickup_at ? 1 : 0) : !job.delivery_photo_url ? 2 : 3;
   const atDropoff = step === 2 && !!job.driver_arrived_dropoff_at;
   const notLeft = step === 2 && !atDropoff && job.status === "accepted";
-  const eta = track?.route?.etaMin;
+  const eta = location === "live" ? track?.route?.etaMin : undefined;
   const title = [
     `${d.first} is heading to pickup`,
     `Your ${mat.toLowerCase()} is being loaded`,
@@ -3405,7 +3429,13 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
       ? "They're tipping the load now and will send a delivery photo."
       : notLeft
         ? "They're about to set off. You'll see them on the map once the trip starts."
-        : eta != null ? `Arriving in about ${Math.max(1, Math.round(eta))} min.` : track?.live ? "Your driver is sharing their live location." : "Your load is on the way.",
+        : eta != null
+          ? `Arriving in about ${Math.max(1, Math.round(eta))} min.`
+          : location === "stale"
+            ? `No location update from ${d.first} since ${lastUpdate ?? "a while ago"}.`
+            : location === "live"
+              ? "Your driver is sharing their live location."
+              : "Your load is on the way.",
     "Check the load, then give your PIN to the driver.",
   ][step];
 
@@ -3425,7 +3455,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
         <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <MapBackButton to="/jobs" />
-            {track?.live && (
+            {location === "live" && (
               <StatusPill tone="green" dot blink className="pointer-events-auto">Live</StatusPill>
             )}
           </div>
@@ -3450,7 +3480,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
             <p className="text-[15px] text-cz-muted leading-snug">{sub}</p>
           </div>
 
-          <TripProgress job={job} step={step} track={track} driverEtaMin={d.bid?.eta_minutes} />
+          <TripProgress job={job} step={step} track={track} location={location} driverEtaMin={d.bid?.eta_minutes} />
 
           {onPay && (
             <HintBox tone="warn" icon={<ShieldCheck className="w-4 h-4" />}>
