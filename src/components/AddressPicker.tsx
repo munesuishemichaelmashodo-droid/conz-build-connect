@@ -362,7 +362,7 @@ export function AddressPicker({
             <button
               type="button"
               onClick={() => setManualMode((v) => !v)}
-              className="min-h-9 whitespace-nowrap rounded-full bg-cz-bg/90 px-3 text-xs font-semibold text-cz-muted shadow"
+              className="min-h-11 whitespace-nowrap rounded-full bg-cz-bg/90 px-3.5 text-sm font-semibold text-cz-text shadow"
             >
               {manualMode ? "Hide" : "Coordinates"}
             </button>
