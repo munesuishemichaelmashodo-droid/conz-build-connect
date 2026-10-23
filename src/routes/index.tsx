@@ -3,6 +3,8 @@ import { useEffect } from "react";
 import { Mail, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { czButtonClass } from "@/components/redesign";
+import { LogoLockup } from "@/components/ds";
+import { QuickPrice } from "@/components/QuickPrice";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -35,8 +37,8 @@ function useRedirectWhenSignedIn() {
 // accepting, and delivery is confirmed with the customer's delivery code.
 const STEPS = [
   {
-    title: "Post your job",
-    body: "Pick the material, how many cubic metres, and drop a pin where the load should go.",
+    title: "Check the price",
+    body: "Pick the material, the load size and where it goes. You see an estimate before you sign up.",
   },
   {
     title: "Choose a driver",
@@ -52,60 +54,51 @@ function Welcome() {
   useRedirectWhenSignedIn();
   return (
     <div className="cz-screen min-h-[100dvh] w-full bg-cz-bg text-cz-text">
-      <div className="mx-auto w-full max-w-[480px] px-5 pb-10">
-        <header className="flex items-center justify-between gap-3 pt-4 pb-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <img src="/conz-icon-192.png" alt="" width={40} height={40} className="h-10 w-10 rounded-[10px]" />
-            <div className="min-w-0 leading-none">
-              <div className="cz-display font-bold text-[22px] tracking-wide">CON Z</div>
-              <div className="text-[11px] text-cz-muted mt-0.5">Construction made easy</div>
-            </div>
-          </div>
-          <Link
-            to="/auth"
-            search={{ mode: "login" } as never}
-            className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-cz-text hover:bg-cz-surface"
-          >
-            Log in
-          </Link>
+      <div className="mx-auto w-full max-w-[1200px] px-4 pb-10 sm:px-6 lg:px-8">
+        <header className="flex items-center justify-between gap-2 py-3">
+          <LogoLockup />
+          <nav aria-label="Account" className="flex items-center gap-1">
+            <a
+              href="#drivers"
+              className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-cz-text hover:bg-cz-surface-2"
+            >
+              For drivers
+            </a>
+            <Link
+              to="/auth"
+              search={{ mode: "login" } as never}
+              className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-cz-text hover:bg-cz-surface-2"
+            >
+              Log in
+            </Link>
+          </nav>
         </header>
 
-        <main>
-          <section aria-labelledby="hero-title" className="pt-2">
-            <img
-              src="/landing-tipper.webp"
-              alt="An orange tipper truck tipping its load at a building site"
-              width={720}
-              height={437}
-              fetchPriority="high"
-              className="aspect-[720/437] w-full rounded-2xl object-cover"
-            />
-            <h1 id="hero-title" className="cz-display font-bold text-[38px] leading-[1.02] mt-5">
+        <main className="pt-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)] lg:gap-x-16 lg:pt-12">
+          <section aria-labelledby="hero-title" className="lg:col-start-1">
+            <h1
+              id="hero-title"
+              className="cz-display max-w-[11em] text-[38px] font-bold leading-[1.02] sm:text-[48px] lg:text-[56px]"
+            >
               Sand, stones and quarry dust, delivered to your site.
             </h1>
-            <p className="mt-3 text-[15px] leading-relaxed text-cz-muted">
-              Tell us what you need and where. Tipper drivers send you their prices, you pick one,
-              and follow the load to your gate.
+            <p className="mt-4 max-w-[56ch] text-base leading-relaxed text-cz-muted">
+              Tell us what you need and where. Tipper drivers checked by Con Z send you their
+              prices, you pick one, and follow the load to your gate.
             </p>
-            <div className="mt-5 flex flex-col gap-2.5">
-              <Link
-                to="/auth"
-                search={{ mode: "register", next: "/customer/book" } as never}
-                className={czButtonClass("primary")}
-              >
-                Book a delivery
-              </Link>
-              <Link to="/quote" className={czButtonClass("ghost", "md")}>
-                Check a price, no account needed
-              </Link>
-            </div>
           </section>
 
-          <section aria-labelledby="how-title" className="mt-10">
-            <h2 id="how-title" className="cz-display font-bold text-[24px]">
+          <div className="mt-6 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-0">
+            <div className="lg:sticky lg:top-6">
+              <QuickPrice />
+            </div>
+          </div>
+
+          <section aria-labelledby="how-title" className="mt-12 lg:col-start-1 lg:mt-14">
+            <h2 id="how-title" className="cz-display text-[24px] font-bold">
               How it works
             </h2>
-            <ol className="mt-3 flex flex-col gap-4">
+            <ol className="mt-4 flex flex-col gap-5">
               {STEPS.map((s, i) => (
                 <li key={s.title} className="flex gap-3.5">
                   <span
@@ -114,8 +107,8 @@ function Welcome() {
                   >
                     {i + 1}
                   </span>
-                  <div>
-                    <div className="font-semibold">{s.title}</div>
+                  <div className="max-w-[56ch]">
+                    <h3 className="font-semibold">{s.title}</h3>
                     <p className="text-sm leading-relaxed text-cz-muted">{s.body}</p>
                   </div>
                 </li>
@@ -124,31 +117,44 @@ function Welcome() {
           </section>
 
           <section
+            id="drivers"
             aria-labelledby="driver-title"
-            className="mt-10 rounded-2xl border border-cz-border bg-cz-surface p-5"
+            className="mt-12 scroll-mt-4 rounded-2xl border border-cz-border bg-cz-surface p-5 lg:col-start-1 lg:mt-14 lg:max-w-[560px]"
           >
-            <h2 id="driver-title" className="cz-display font-bold text-[24px] leading-tight">
+            <h2 id="driver-title" className="cz-display text-[24px] font-bold leading-tight">
               Own a tipper truck?
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-cz-muted">
-              Find loads near you and offer your own price. You can bid once Con Z has checked your
-              ID, licence and truck.
+              Find loads near you and offer your own price. You can send offers once Con Z has
+              checked your ID, licence and truck.
             </p>
-            <Link
-              to="/auth"
-              search={{ mode: "register", role: "driver" } as never}
-              className={czButtonClass("secondary", "md", "mt-4")}
-            >
-              Sign up as a driver
-            </Link>
+            <div className="mt-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+              <Link
+                to="/auth"
+                search={{ mode: "register", role: "driver" } as never}
+                className={czButtonClass("secondary", "md", "sm:w-auto sm:px-5")}
+              >
+                Sign up as a driver
+              </Link>
+              <Link
+                to="/auth"
+                search={{ mode: "login" } as never}
+                className="inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-sm font-semibold text-cz-text underline underline-offset-4 hover:bg-cz-surface-2"
+              >
+                I already have an account
+              </Link>
+            </div>
           </section>
         </main>
 
-        <footer className="mt-10 border-t border-cz-border pt-6 text-sm text-cz-muted">
-          <p className="text-cz-text font-semibold">Founded in Zimbabwe, built for the industry.</p>
-          <ul className="mt-3 flex flex-col gap-1">
+        <footer className="mt-14 border-t border-cz-border pt-6 text-sm text-cz-muted">
+          <p className="font-semibold text-cz-text">Founded in Zimbabwe, built for the industry.</p>
+          <ul className="mt-3 flex flex-col gap-1 sm:flex-row sm:gap-6">
             <li>
-              <a href="tel:+263777770557" className="inline-flex min-h-11 items-center gap-2 hover:text-cz-text">
+              <a
+                href="tel:+263777770557"
+                className="inline-flex min-h-11 items-center gap-2 hover:text-cz-text"
+              >
                 <Phone className="h-4 w-4" aria-hidden /> +263 77 777 0557
               </a>
             </li>
@@ -161,11 +167,17 @@ function Welcome() {
               </a>
             </li>
           </ul>
-          <div className="mt-3 flex gap-4">
-            <Link to="/terms" className="inline-flex min-h-11 items-center underline underline-offset-2">
+          <div className="mt-2 flex gap-2">
+            <Link
+              to="/terms"
+              className="inline-flex min-h-11 items-center px-1 underline underline-offset-4"
+            >
               Terms
             </Link>
-            <Link to="/privacy" className="inline-flex min-h-11 items-center underline underline-offset-2">
+            <Link
+              to="/privacy"
+              className="inline-flex min-h-11 items-center px-1 underline underline-offset-4"
+            >
               Privacy
             </Link>
           </div>

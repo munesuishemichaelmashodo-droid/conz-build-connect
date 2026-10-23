@@ -342,3 +342,23 @@
 .leaflet-control {
   z-index: 10 !important;
 }
+
+/* Toasts (sonner, richColors) use the app's status colours so they stay readable
+   in both themes (sonner's own success green is 4.25:1 on its tint). */
+html [data-sonner-toaster][data-sonner-theme] {
+  --normal-bg: var(--cz-surface);
+  --normal-border: var(--cz-border-strong);
+  --normal-text: var(--cz-text);
+  --success-bg: var(--cz-green-tint);
+  --success-border: var(--cz-green-border);
+  --success-text: var(--cz-green-text);
+  --info-bg: var(--cz-info-tint);
+  --info-border: var(--cz-border-strong);
+  --info-text: var(--cz-info-text);
+  --warning-bg: var(--cz-warn-tint);
+  --warning-border: var(--cz-border-strong);
+  --warning-text: var(--cz-warn-text);
+  --error-bg: var(--cz-danger-tint);
+  --error-border: var(--cz-border-strong);
+  --error-text: var(--cz-danger-text);
+}

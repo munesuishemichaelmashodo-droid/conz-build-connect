@@ -443,12 +443,12 @@ export function AddressPicker({
 
       <div className="flex gap-2">
         <div className="relative flex-1">
-          <MapPin className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
+          <MapPin aria-hidden className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
           <input
             id="addr-picker"
             value={query}
             placeholder="Search address, suburb or landmark…"
-            className="flex h-10 w-full rounded-md border border-input bg-background pl-8 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-12 w-full rounded-md border border-input bg-card pl-10 pr-3 py-2 text-base text-foreground placeholder:text-cz-faint focus-visible:outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
             onChange={(e) => {
               setQuery(e.target.value);
               setOpen(true);
@@ -471,10 +471,10 @@ export function AddressPicker({
             }}
           />
           {open && query.trim().length >= 3 && (results.length > 0 || searching || results.length === 0) && (
-            <div className="absolute z-20 left-0 right-0 top-11 rounded-md border bg-popover shadow-lg max-h-64 overflow-auto">
-              {searching && <div className="px-3 py-2 text-xs text-muted-foreground">Searching…</div>}
+            <div className="absolute z-20 left-0 right-0 top-[52px] rounded-xl border bg-popover shadow-lg max-h-64 overflow-auto">
+              {searching && <div className="px-3.5 py-3 text-sm text-muted-foreground">Searching…</div>}
               {!searching && results.length === 0 && (
-                <div className="px-3 py-2 text-xs text-muted-foreground">
+                <div className="px-3.5 py-3 text-sm text-muted-foreground">
                   No results found — try a different spelling.
                 </div>
               )}
@@ -484,7 +484,7 @@ export function AddressPicker({
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => pickResult(r)}
-                  className="block w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                  className="block w-full min-h-11 text-left px-3.5 py-2.5 text-sm border-b border-border last:border-b-0 hover:bg-muted"
                 >
                   {r.label}
                 </button>
@@ -499,7 +499,7 @@ export function AddressPicker({
             </div>
           )}
         </div>
-        <Button type="button" variant="outline" size="icon" onClick={useMyLocation} disabled={locating} title="Use my current location">
+        <Button type="button" variant="outline" size="icon" onClick={useMyLocation} disabled={locating} title="Use my current location" aria-label="Use my current location" className="h-12 w-12 shrink-0">
           {locating ? <Loader2 className="w-4 h-4 animate-spin" /> : <LocateFixed className="w-4 h-4" />}
         </Button>
       </div>
@@ -507,7 +507,7 @@ export function AddressPicker({
       <button
         type="button"
         onClick={() => setManualMode((v) => !v)}
-        className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+        className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
       >
         {manualMode ? "Hide coordinate entry" : "Enter coordinates manually"}
       </button>
@@ -519,15 +519,17 @@ export function AddressPicker({
             step="any"
             inputMode="decimal"
             placeholder="Lat e.g. -17.8252"
+            aria-label="Latitude"
             value={manualLat}
             onChange={(e) => setManualLat(e.target.value)}
-            className="flex h-10 w-full flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-12 w-full min-w-0 flex-1 rounded-md border border-input bg-card px-3 py-2 text-base text-foreground placeholder:text-cz-faint focus-visible:outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
           />
           <input
             type="number"
             step="any"
             inputMode="decimal"
             placeholder="Lng e.g. 31.0335"
+            aria-label="Longitude"
             value={manualLng}
             onChange={(e) => setManualLng(e.target.value)}
             onKeyDown={(e) => {
@@ -536,15 +538,15 @@ export function AddressPicker({
                 lockManualCoords();
               }
             }}
-            className="flex h-10 w-full flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-12 w-full min-w-0 flex-1 rounded-md border border-input bg-card px-3 py-2 text-base text-foreground placeholder:text-cz-faint focus-visible:outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
           />
-          <Button type="button" variant="secondary" onClick={lockManualCoords}>
+          <Button type="button" variant="outline" onClick={lockManualCoords} className="h-12 shrink-0">
             Lock
           </Button>
         </div>
       )}
 
-      <div className="w-full h-56 rounded-xl border overflow-hidden bg-muted">
+      <div className="w-full h-56 rounded-xl border border-border overflow-hidden bg-muted">
         <MapContainer
           center={[coords.lat, coords.lng]}
           zoom={zoom}
@@ -571,7 +573,7 @@ export function AddressPicker({
 
       {hasPin && (
         <div className="space-y-2">
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Pin: {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)} — drag the pin to fine-tune.
           </p>
           <Button
