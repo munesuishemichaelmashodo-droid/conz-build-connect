@@ -485,7 +485,7 @@ function BookDelivery() {
       <CzHeader
         title="Choose your price"
         onBack={goBack}
-        subtitle={`${offerData.label} · ${quantity} m³ → ${areaOf(address) || address} · ${offerData.openRequest ? "open request" : `${offerData.distanceKm} km`}`}
+        subtitle={`${offerData.label.charAt(0).toUpperCase()}${offerData.label.slice(1)} · ${quantity} m³ → ${areaOf(address) || address} · ${offerData.openRequest ? "open request" : `${offerData.distanceKm} km`}`}
       />
 
       <div className="flex-1 space-y-4 px-5 pb-6">

@@ -1975,7 +1975,7 @@ function RaiseDisputeDialog({ jobId, against, label }: { jobId: string; against:
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button type="button" className={czButtonClass("danger", "md")}>
+        <button type="button" className={czButtonClass("secondary", "md")}>
           <Flag className="w-4 h-4" /> {label ?? "Report a problem"}
         </button>
       </DialogTrigger>
@@ -3508,17 +3508,6 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
             </HintBox>
           )}
 
-          {step >= 2 && job.pickup_photo_url && (
-            <div className="flex items-center gap-3">
-              <div className="w-16 shrink-0">
-                <SignedProofPhoto path={job.pickup_photo_url} alt="Loaded truck at pickup" />
-              </div>
-              <div className="text-[13px] text-cz-muted">
-                <span className="font-semibold text-cz-green-text">Loaded</span> — photo taken at pickup
-              </div>
-            </div>
-          )}
-
           {/* Information, not an action: a tinted card, so solid orange stays for the
               one button to tap. Same PIN, same conditions, same "New code" action. */}
           {ctx.showDeliveryPinDisplay && (
@@ -3553,12 +3542,24 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
             </section>
           )}
 
-          {ctx.showCompleteButton && (
-            <CzButton id="tour-confirm-delivery" kind={job.delivery_photo_url ? "primary" : "ghost"} onClick={ctx.completeJob} disabled={!job.delivery_photo_url}>
-              <CheckCircle2 className="w-5 h-5" />
-              {job.delivery_photo_url ? "Load received — finish" : "Waiting for driver's delivery photo"}
-            </CzButton>
-          )}
+          {/* Until the driver's delivery photo is in, this is a status line, not a
+              greyed-out button: there is nothing for the customer to tap yet. */}
+          {ctx.showCompleteButton &&
+            (job.delivery_photo_url ? (
+              <CzButton id="tour-confirm-delivery" kind="primary" onClick={ctx.completeJob}>
+                <CheckCircle2 className="w-5 h-5" />
+                Confirm the load arrived
+              </CzButton>
+            ) : (
+              <p
+                id="tour-confirm-delivery"
+                role="status"
+                className="flex items-center gap-2 rounded-xl border border-dashed border-cz-border-strong px-3.5 py-3 text-sm text-cz-muted"
+              >
+                <Clock aria-hidden className="h-4 w-4 shrink-0" />
+                You can confirm once the driver adds the delivery photo.
+              </p>
+            ))}
         </div>
 
         {location !== "live" && (
