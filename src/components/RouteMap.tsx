@@ -9,14 +9,14 @@ import { RouteStats } from "@/components/RouteStats";
 import { CARTO_VOYAGER_TILES } from "@/lib/map-tiles";
 const truckIcon = L.divIcon({
   className: "",
-  html: `<div style="background:hsl(var(--primary));color:hsl(var(--primary-foreground));width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px">🚛</div>`,
+  html: `<div style="background:var(--cz-amber);color:var(--cz-amber-ink);width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px">🚛</div>`,
   iconSize: [32, 32],
   iconAnchor: [16, 16],
 });
 
 const destIcon = L.divIcon({
   className: "",
-  html: `<div style="background:hsl(var(--foreground));color:hsl(var(--background));width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><span style="transform:rotate(45deg);font-size:14px">📍</span></div>`,
+  html: `<div style="background:var(--cz-text);color:var(--cz-bg);width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><span style="transform:rotate(45deg);font-size:14px">📍</span></div>`,
   iconSize: [28, 28],
   iconAnchor: [14, 28],
 });
@@ -153,11 +153,11 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
             maxZoom={20}
           />
           {!locked && <ClickHandler />}
-          <Marker position={[driverLocation.lat, driverLocation.lng]} icon={czTruckIcon}>
+          <Marker position={[driverLocation.lat, driverLocation.lng]} icon={czTruckIcon} title="Truck location">
             <Popup>Driver</Popup>
           </Marker>
           {destination && (
-            <Marker position={[destination.lat, destination.lng]} icon={czDestIcon}>
+            <Marker position={[destination.lat, destination.lng]} icon={czDestIcon} title="Delivery point">
               <Popup>Destination</Popup>
             </Marker>
           )}
@@ -170,11 +170,11 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
   }
 
   return (
-    <div className="rounded-2xl bg-card border overflow-hidden">
-      <div className="flex items-center gap-2 px-4 pt-4 pb-2 font-display font-bold uppercase text-sm tracking-wide">
-        <RouteIcon className="w-4 h-4 text-cz-amber-text" /> Route & ETA
+    <section aria-label="Route and arrival estimate" className="rounded-2xl bg-card border border-border overflow-hidden">
+      <div className="flex items-center gap-2 px-4 pt-3.5 pb-1 text-[15px] font-semibold">
+        <RouteIcon aria-hidden className="w-4 h-4 text-muted-foreground" /> Route and arrival estimate
       </div>
-      <p className="px-4 pb-2 text-xs text-muted-foreground">
+      <p className="px-4 pb-2.5 text-sm text-muted-foreground">
         {locked ? "Delivery destination is set for this job." : "Tap the map to drop a destination and see the driving route."}
       </p>
       <div style={{ height }} className="w-full">
@@ -192,16 +192,16 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
                     maxZoom={20}
                   />
   {!locked && <ClickHandler />}
-          <Marker position={[driverLocation.lat, driverLocation.lng]} icon={truckIcon}>
+          <Marker position={[driverLocation.lat, driverLocation.lng]} icon={truckIcon} title="Truck location">
             <Popup>Driver</Popup>
           </Marker>
           {destination && (
-            <Marker position={[destination.lat, destination.lng]} icon={destIcon}>
+            <Marker position={[destination.lat, destination.lng]} icon={destIcon} title="Delivery point">
               <Popup>Destination</Popup>
             </Marker>
           )}
           {route?.coords?.length ? (
-            <Polyline positions={route.coords} pathOptions={{ color: "hsl(var(--primary))", weight: 5, opacity: 0.85 }} />
+            <Polyline positions={route.coords} pathOptions={{ color: "#FF7716", weight: 5, opacity: 0.85 }} />
           ) : null}
         </MapContainer>
       </div>
@@ -214,13 +214,13 @@ href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
 )}&travelmode=driving`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-xl bg-primary text-primary-foreground font-semibold text-sm py-2.5 hover:opacity-90 transition"
+            className="flex items-center justify-center gap-2 w-full min-h-12 rounded-xl border-[1.5px] border-cz-control text-foreground font-semibold text-[15px] hover:bg-muted transition"
           >
             <Navigation2 className="w-4 h-4" /> Navigate with Google Maps
           </a>
         </div>
       )}
-    </div>
+    </section>
   );
 }
 export default RouteMap;

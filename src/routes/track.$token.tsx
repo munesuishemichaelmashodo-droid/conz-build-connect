@@ -5,24 +5,22 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase } from "@/integrations/supabase/client";
-import { materialLabel, statusInfo, type MaterialCategory } from "@/lib/domain";
-import { StatusBadge } from "@/components/ui-bits";
+import { materialLabel, type MaterialCategory } from "@/lib/domain";
+import { DocketPanel, DocketRow, JobStamp, LogoLockup, Milestones, Notice, StatusStamp } from "@/components/ds";
+import { czButtonClass } from "@/components/redesign";
+import { PUBLIC_STEPS, publicStepsDone } from "@/lib/status-stamp";
 import { RouteMap } from "@/components/RouteMap";
 import {
-  Calendar,
-  CheckCircle2,
   Clock,
   Loader2,
   MapPin,
   Navigation2,
-  Package,
   Receipt,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { getPublicPod, type PodResult } from "@/lib/pod.functions";
 import { money } from "@/lib/domain";
 import { useState } from "react";
-import jsPDF from "jspdf";
 import { CARTO_VOYAGER_TILES } from "@/lib/map-tiles";
 import { locationDisplay, locationState, publicTrackSignal } from "@/lib/delivery-docket";
 import { useNow } from "@/hooks/use-now";
@@ -43,6 +41,8 @@ async function toDataUrl(url: string): Promise<string | null> {
 }
 
 async function downloadReceiptPdf(pod: NonNullable<PodResult>) {
+  // Loaded on demand: the PDF library is large and only needed for this button.
+  const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageW = 595;
   const marginX = 48;
@@ -187,7 +187,7 @@ type TrackPayload = {
 
 const truckIcon = L.divIcon({
   className: "",
-  html: `<div style="background:hsl(var(--primary));color:hsl(var(--primary-foreground));width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px">🚚</div>`,
+  html: `<div style="background:var(--cz-amber);color:var(--cz-amber-ink);width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px">🚚</div>`,
   iconSize: [32, 32],
   iconAnchor: [16, 16],
 });
@@ -211,17 +211,15 @@ function Follow({ lat, lng }: { lat: number; lng: number }) {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-screen-sm px-4 py-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <img src="/conz-logo.png" alt="Con Z" className="h-8 w-auto" />
-          <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
-            Delivery tracking
-          </span>
-        </div>
-        {children}
-        <p className="text-center text-[11px] text-muted-foreground pt-4">
-          Powered by Con Z — Zimbabwe's construction marketplace
+    <div className="cz-screen min-h-[100dvh] w-full bg-cz-bg text-cz-text">
+      <div className="mx-auto w-full max-w-[560px] px-4 pb-10">
+        <header className="flex items-center justify-between gap-2 py-3">
+          <LogoLockup />
+          <span className="text-sm font-semibold text-cz-muted">Delivery tracking</span>
+        </header>
+        <main className="space-y-4">{children}</main>
+        <p className="pt-8 text-center text-xs text-cz-muted">
+          Powered by Con Z, Zimbabwe&apos;s construction marketplace
         </p>
       </div>
     </div>
@@ -237,7 +235,7 @@ function PublicTrackPage() {
   // it alone would never flip the page to stale.
   const now = useNow(30_000);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["public-track", token],
     refetchInterval: 15000,
     retry: 1,
@@ -257,9 +255,19 @@ function PublicTrackPage() {
   if (isLoading) {
     return (
       <Shell>
-        <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground text-sm">
-          <Loader2 className="w-4 h-4 animate-spin" /> Loading tracking…
+        <div role="status" className="flex items-center justify-center gap-2 py-16 text-sm text-cz-muted">
+          <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Loading tracking…
         </div>
+      </Shell>
+    );
+  }
+
+  if (isError && !data) {
+    return (
+      <Shell>
+        <Notice tone="danger" title="Couldn't load this delivery">
+          Check your connection. This page tries again every 15 seconds.
+        </Notice>
       </Shell>
     );
   }
@@ -267,10 +275,10 @@ function PublicTrackPage() {
   if (!data) {
     return (
       <Shell>
-        <div className="rounded-2xl bg-card border p-6 text-center space-y-2">
-          <MapPin className="w-6 h-6 text-muted-foreground mx-auto" />
-          <div className="font-display font-bold">Tracking link not found</div>
-          <p className="text-xs text-muted-foreground">
+        <div className="space-y-2 rounded-2xl border border-cz-border bg-cz-surface p-6 text-center">
+          <MapPin aria-hidden className="mx-auto h-6 w-6 text-cz-muted" />
+          <h1 className="text-lg font-semibold">Tracking link not found</h1>
+          <p className="text-sm text-cz-muted">
             This tracking link is invalid or the job was removed. Ask the sender to share a fresh link.
           </p>
         </div>
@@ -278,7 +286,6 @@ function PublicTrackPage() {
     );
   }
 
-  const s = statusInfo(data.status);
   const driverFirst = data.driver_name?.trim().split(" ")[0] ?? null;
   const destination =
     data.delivery_lat != null && data.delivery_lng != null
@@ -293,124 +300,130 @@ function PublicTrackPage() {
 
   return (
     <Shell>
-      {/* Delivery summary */}
-      <div className="rounded-2xl bg-card border p-5 space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="font-display font-bold text-xl">
-            {materialLabel(data.material as any, data.custom_material)}
-          </h1>
-          <StatusBadge label={s.label} className={s.className} />
-        </div>
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div className="flex items-center gap-2">
-            <Package className="w-4 h-4 text-muted-foreground" />
-            <span>{Number(data.quantity_m3)} m³</span>
-          </div>
-          {data.preferred_date && (
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-muted-foreground" />
-              <span>{data.preferred_date}</span>
-            </div>
-          )}
-        </div>
-        {data.delivery_address && (
-          <div className="flex items-start gap-2 text-sm border-t pt-3">
-            <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
-            <span>{data.delivery_address}</span>
+      <DocketPanel
+        titleAs="h1"
+        title={materialLabel(data.material as any, data.custom_material)}
+        reference={`${Number(data.quantity_m3)} m³`}
+        stamp={<JobStamp job={{ status: data.status }} />}
+      >
+        {data.status !== "cancelled" && (
+          <div className="px-4 py-4">
+            <Milestones label="Delivery progress" steps={PUBLIC_STEPS} done={publicStepsDone(data.status)} />
           </div>
         )}
-        {driverFirst && (
-          <p className="text-xs text-muted-foreground">Driver: {driverFirst}</p>
-        )}
-      </div>
+        {data.delivery_address && <DocketRow label="Deliver to">{data.delivery_address}</DocketRow>}
+        {data.preferred_date && <DocketRow label="Preferred date">{data.preferred_date}</DocketRow>}
+        {driverFirst && <DocketRow label="Driver">{driverFirst}</DocketRow>}
+      </DocketPanel>
 
-      {data.status === "completed" ? (
-        <div className="rounded-2xl border border-success/40 bg-success/10 p-4 space-y-3">
-          <div className="flex items-center gap-2 text-sm">
-            <CheckCircle2 className="w-5 h-5 text-success shrink-0" />
-            <span><strong>Delivered.</strong> This delivery is complete.</span>
-          </div>
+      {data.status === "cancelled" ? (
+        <Notice tone="info" title="This delivery was cancelled">
+          Nothing more will happen on this link.
+        </Notice>
+      ) : data.status === "completed" ? (
+        <>
+          <Notice tone="success" title="Delivered">
+            This delivery is complete.
+          </Notice>
           {pod && (
-            <div className="rounded-xl bg-card border p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
-                  <Receipt className="w-4 h-4 text-cz-amber-text" /> Receipt
-                </div>
-                <span className="text-[10px] font-mono text-muted-foreground">{pod.receiptNo}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-y-2 text-xs">
-                {pod.finalPrice != null && (
-                  <>
-                    <span className="text-muted-foreground">Total paid (USD)</span>
-                    <span className="font-semibold text-right">{money(pod.finalPrice)}</span>
-                  </>
-                )}
-                <span className="text-muted-foreground">Payment method</span>
-                <span className="text-right">{pod.paymentMethod === "escrow" ? "Con Z Pay" : "Direct to driver"}</span>
-                {pod.completedAt && (
-                  <>
-                    <span className="text-muted-foreground">Completed</span>
-                    <span className="text-right">{new Date(pod.completedAt).toLocaleString()}</span>
-                  </>
-                )}
-                {pod.driverName && (
-                  <>
-                    <span className="text-muted-foreground">Driver</span>
-                    <span className="text-right">{pod.driverName}</span>
-                  </>
-                )}
-              </div>
+            <DocketPanel
+              title={
+                <span className="inline-flex items-center gap-2">
+                  <Receipt aria-hidden className="h-4 w-4 text-cz-muted" /> Receipt
+                </span>
+              }
+              reference={pod.receiptNo}
+              footer={
+                <p className="text-xs text-cz-muted">
+                  This receipt stays available at this link. Save or share it for your records.
+                </p>
+              }
+            >
+              {pod.finalPrice != null && (
+                <DocketRow label="Total paid (USD)" strong>
+                  {money(pod.finalPrice)}
+                </DocketRow>
+              )}
+              <DocketRow label="Payment method">
+                {pod.paymentMethod === "escrow" ? "Con Z Pay" : "Direct to driver"}
+              </DocketRow>
+              {pod.completedAt && (
+                <DocketRow label="Completed">{new Date(pod.completedAt).toLocaleString()}</DocketRow>
+              )}
+              {pod.driverName && <DocketRow label="Driver">{pod.driverName}</DocketRow>}
               {(pod.pickupPhotos.length > 0 || pod.deliveryPhotos.length > 0) && (
-                <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="grid grid-cols-2 gap-3 px-4 py-3">
                   {pod.pickupPhotos.length > 0 && (
                     <figure className="space-y-1">
-                      <img src={pod.pickupPhotos[0].url} alt="Load confirmed" className="w-full aspect-square object-cover rounded-lg border" />
-                      <figcaption className="text-[10px] text-muted-foreground text-center">Pickup</figcaption>
+                      <img
+                        src={pod.pickupPhotos[0].url}
+                        alt="The load at pickup"
+                        className="aspect-square w-full rounded-lg border border-cz-border object-cover"
+                      />
+                      <figcaption className="text-center text-xs text-cz-muted">Pickup</figcaption>
                     </figure>
                   )}
                   {pod.deliveryPhotos.length > 0 && (
                     <figure className="space-y-1">
-                      <img src={pod.deliveryPhotos[0].url} alt="Delivery confirmed" className="w-full aspect-square object-cover rounded-lg border" />
-                      <figcaption className="text-[10px] text-muted-foreground text-center">Delivered</figcaption>
+                      <img
+                        src={pod.deliveryPhotos[0].url}
+                        alt="The load at delivery"
+                        className="aspect-square w-full rounded-lg border border-cz-border object-cover"
+                      />
+                      <figcaption className="text-center text-xs text-cz-muted">Delivered</figcaption>
                     </figure>
                   )}
                 </div>
               )}
-              <button
-                type="button"
-                disabled={downloadingPdf}
-                onClick={async () => {
-                  setDownloadingPdf(true);
-                  try {
-                    await downloadReceiptPdf(pod);
-                  } catch {
-                    // if photo embedding fails partway, the text-only receipt still saves
-                  } finally {
-                    setDownloadingPdf(false);
-                  }
-                }}
-                className="w-full flex items-center justify-center gap-2 rounded-lg border font-semibold text-sm py-2 disabled:opacity-60"
-              >
-                {downloadingPdf ? "Preparing…" : "Download PDF receipt"}
-              </button>
-              <p className="text-[10px] text-muted-foreground pt-1 border-t">
-                This receipt is permanently available at this link — save or share it for your records.
-              </p>
-            </div>
+              <div className="px-4 py-3">
+                <button
+                  type="button"
+                  disabled={downloadingPdf}
+                  onClick={async () => {
+                    setDownloadingPdf(true);
+                    try {
+                      await downloadReceiptPdf(pod);
+                    } catch {
+                      // if photo embedding fails partway, the text-only receipt still saves
+                    } finally {
+                      setDownloadingPdf(false);
+                    }
+                  }}
+                  className={czButtonClass("secondary", "md")}
+                >
+                  {downloadingPdf ? (
+                    <>
+                      <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Preparing…
+                    </>
+                  ) : (
+                    "Download PDF receipt"
+                  )}
+                </button>
+              </div>
+            </DocketPanel>
           )}
-        </div>
+        </>
       ) : (
         <>
-          {/* Live map */}
-          <div className="rounded-2xl bg-card border overflow-hidden">
-            <div className="flex items-center gap-2 px-4 pt-4 pb-2 font-display font-bold uppercase text-sm tracking-wide">
-              <Navigation2 className="w-4 h-4 text-cz-amber-text" />{" "}
-              {shown.live
-                ? "Live driver location"
-                : live
-                  ? "Last known location"
-                  : "Driver location"}
-            </div>
+          <DocketPanel
+            title={
+              <span className="inline-flex items-center gap-2">
+                <Navigation2 aria-hidden className="h-4 w-4 text-cz-muted" />
+                {shown.live ? "Live driver location" : live ? "Last known location" : "Driver location"}
+              </span>
+            }
+            stamp={
+              shown.live ? (
+                <StatusStamp tone="success" icon="truck">
+                  Live
+                </StatusStamp>
+              ) : live ? (
+                <StatusStamp tone="warning" icon="clock">
+                  Not live
+                </StatusStamp>
+              ) : null
+            }
+          >
             {live ? (
               <>
                 <div className="h-64 w-full">
@@ -427,38 +440,35 @@ function PublicTrackPage() {
                     subdomains="abcd"
                     maxZoom={20}
                   />
-                    <Marker position={[live.lat, live.lng]} icon={truckIcon}>
+                    <Marker position={[live.lat, live.lng]} icon={truckIcon} title="Truck location">
                       <Popup>
                         {shown.live ? "Updated" : "Last update"} {lastUpdate ?? "unknown"}
                       </Popup>
                     </Marker>
                     {destination && (
-                      <Marker position={[destination.lat, destination.lng]} icon={destIcon} />
+                      <Marker position={[destination.lat, destination.lng]} icon={destIcon} title="Delivery point" />
                     )}
                   </MapContainer>
                 </div>
                 {shown.live ? (
-                  <div className="px-4 py-2 text-[11px] text-muted-foreground flex justify-between gap-3">
-                    <span>Live — refreshes every 15 seconds</span>
+                  <div className="flex justify-between gap-3 px-4 py-2.5 text-xs text-cz-muted">
+                    <span>Refreshes every 15 seconds</span>
                     <span>Updated {new Date(live.updated_at).toLocaleTimeString()}</span>
                   </div>
                 ) : (
-                  <p
-                    role="status"
-                    className="flex items-start gap-2 px-4 py-2.5 text-xs text-muted-foreground"
-                  >
-                    <Clock aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <p role="status" className="flex items-start gap-2 px-4 py-2.5 text-sm text-cz-text">
+                    <Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-cz-warn-text" />
                     <span>{shown.staleNote}</span>
                   </p>
                 )}
               </>
             ) : (
-              <p className="px-4 pb-4 text-xs text-muted-foreground">
+              <p className="px-4 py-3 text-sm text-cz-muted">
                 {driverFirst ?? "The driver"} isn't sharing their live location right now. This page
                 refreshes automatically and the truck appears here when they do.
               </p>
             )}
-          </div>
+          </DocketPanel>
 
           {live && shown.live && destination && (
             <RouteMap

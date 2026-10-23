@@ -16,7 +16,7 @@ import { CARTO_VOYAGER_TILES } from "@/lib/map-tiles";
 // Fix default marker icons (Vite breaks Leaflet's default path resolution)
 const truckIcon = L.divIcon({
   className: "",
-  html: `<div style="background:hsl(var(--primary));color:hsl(var(--primary-foreground));width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px">🚚</div>`,
+  html: `<div style="background:var(--cz-amber);color:var(--cz-amber-ink);width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px">🚚</div>`,
   iconSize: [32, 32],
   iconAnchor: [16, 16],
 });
@@ -315,7 +315,7 @@ export function CustomerTrackMap({
                     subdomains="abcd"
                     maxZoom={20}
                   />
-                <Marker position={[loc.lat, loc.lng]} icon={truckIcon}>
+                <Marker position={[loc.lat, loc.lng]} icon={truckIcon} title="Truck location">
                   <Popup>Updated {new Date(loc.updated_at).toLocaleTimeString()}</Popup>
                 </Marker>
               </MapContainer>
