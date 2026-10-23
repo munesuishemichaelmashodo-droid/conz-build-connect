@@ -36,6 +36,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
 import { friendlyPaymentError } from "@/lib/paymentErrors";
 import { ShieldCheck } from "lucide-react";
+import { bookAgainSearch } from "@/lib/book-again";
 import { cn } from "@/lib/utils";
 import { SpotlightCallout } from "@/components/SpotlightCallout";
 import { previewCapacityMatch } from "@/lib/capacityMatch";
@@ -1057,14 +1058,7 @@ function JobDetail() {
               {showBookAgain && (
                 <Link
                   to="/customer/book"
-                  search={{
-                    material: job.material,
-                    quantity: job.quantity_m3,
-                    address: job.delivery_address,
-                    lat: job.delivery_lat ?? undefined,
-                    lng: job.delivery_lng ?? undefined,
-                    driverId: job.driver_id!,
-                  }}
+                  search={bookAgainSearch(job, { sameDriver: true }) ?? {}}
                   className="block w-full text-center rounded-xl bg-primary text-primary-foreground font-display font-bold uppercase tracking-wide py-3"
                 >
                   Book this driver again
@@ -3635,14 +3629,7 @@ function CustomerDelivered({ ctx }: { ctx: JobScreenCtx }) {
           {ctx.showBookAgain && (
             <Link
               to="/customer/book"
-              search={{
-                material: job.material,
-                quantity: job.quantity_m3,
-                address: job.delivery_address,
-                lat: job.delivery_lat ?? undefined,
-                lng: job.delivery_lng ?? undefined,
-                driverId: job.driver_id!,
-              }}
+              search={bookAgainSearch(job, { sameDriver: true }) ?? {}}
               className={czButtonClass("secondary", "md")}
             >
               Book {d.first} again
