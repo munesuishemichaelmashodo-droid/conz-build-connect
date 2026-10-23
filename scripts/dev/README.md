@@ -16,7 +16,9 @@ Use it to check screens and states, never as evidence that the backend is correc
 Starting a second copy fails on the port, or leaves two servers fighting.
 
 ```sh
-ss -ltnp | grep -E ':5173|:54399' || echo "ports free"
+# 000 means nothing is listening on that port
+curl -s -o /dev/null -w "54399: %{http_code}\n" http://localhost:54399/rest/v1/jobs
+curl -s -o /dev/null -w "5173: %{http_code}\n" http://127.0.0.1:5173/
 ps -eo pid,args | grep -E 'mock-supabase|vite dev' | grep -v grep || echo "nothing running"
 ```
 
