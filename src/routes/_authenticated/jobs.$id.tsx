@@ -15,7 +15,7 @@ import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { SITE_URL } from "@/lib/site";
 import { estimateDeliveryMinutes, formatDuration } from "@/lib/delivery-time";
 import { isNativePlatform } from "@/lib/native-push";
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, useId, useRef, type ReactNode } from "react";
 import { toast } from "sonner";
 import { DriverShareLocation, CustomerTrackMap, DriverRouteView } from "@/components/JobTracker";
 import { RadarSearch } from "@/components/RadarSearch";
@@ -53,6 +53,16 @@ import {
   straightKm,
 } from "@/components/redesign";
 import { OfferCard } from "@/components/redesign/OfferCard";
+import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
+import {
+  OFFER_SORTS,
+  earlierOfferNote,
+  guideBand,
+  offerHighlights,
+  priceCoversLine,
+  sortOffers,
+  type OfferSort,
+} from "@/lib/offer-compare";
 import { driverMarkArrived, jobOfferSummary, withdrawBid, raiseJobBudget, useBidderLocations, useSecondsLeft, mmss } from "@/components/redesign/rpc";
 import { PinMap } from "@/components/redesign/PinMap";
 import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
@@ -1059,9 +1069,66 @@ function JobDetail() {
   );
 }
 
-function CounterOfferRow({ bidPrice, onSubmit }: { bidPrice: number; onSubmit: (price: number) => void }) {
+function CounterOfferRow({
+  bidPrice,
+  onSubmit,
+  compact,
+}: {
+  bidPrice: number;
+  onSubmit: (price: number) => void;
+  /** Offers-screen style: a small link that opens a full-width row. */
+  compact?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [price, setPrice] = useState(String(Math.max(1, Math.round(bidPrice * 0.9))));
+  const inputId = useId();
+  const send = () => {
+    const v = Number(price);
+    if (!v || v <= 0) return;
+    onSubmit(v);
+    setOpen(false);
+  };
+
+  if (compact) {
+    if (!open) {
+      return (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="-mr-2 ml-auto min-h-11 px-2 text-[13px] font-semibold text-cz-amber-text underline-offset-2 hover:underline"
+        >
+          Suggest a price
+        </button>
+      );
+    }
+    return (
+      <div className="basis-full space-y-2">
+        <label htmlFor={inputId} className="block text-[13px] text-cz-muted">
+          Your price. The driver can accept it or keep theirs.
+        </label>
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-cz-muted">$</span>
+            <input
+              id={inputId}
+              type="number"
+              inputMode="decimal"
+              min={1}
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className="h-12 w-full rounded-xl border border-cz-border-strong bg-cz-bg pl-7 pr-3 text-[15px] tabular-nums text-cz-text focus:outline-none focus-visible:ring-2 focus-visible:ring-cz-amber"
+            />
+          </div>
+          <CzButton size="md" kind="ghost" className="w-auto" onClick={() => setOpen(false)}>
+            Cancel
+          </CzButton>
+          <CzButton size="md" kind="ghost" className="w-auto" onClick={send}>
+            Send
+          </CzButton>
+        </div>
+      </div>
+    );
+  }
 
   if (!open) {
     return (
@@ -1083,16 +1150,7 @@ function CounterOfferRow({ bidPrice, onSubmit }: { bidPrice: number; onSubmit: (
           className="pl-6"
         />
       </div>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => {
-          const v = Number(price);
-          if (!v || v <= 0) return;
-          onSubmit(v);
-          setOpen(false);
-        }}
-      >
+      <Button size="sm" variant="outline" onClick={send}>
         Send offer
       </Button>
     </div>
@@ -2900,11 +2958,28 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
     const t = window.setInterval(() => setNow(Date.now()), 15_000);
     return () => window.clearInterval(t);
   }, []);
+  const [sort, setSort] = useState<OfferSort>("price");
   const isLive = (b: any) => b.status === "pending" && (!b.expires_at || new Date(b.expires_at).getTime() > now);
   const all = bids ?? [];
   const live = all.filter(isLive);
-  const list = [...live, ...all.filter((b: any) => !isLive(b))]; // expired / decided at the bottom
-  const bestId = live[0]?.id; // bids query is ordered by price, lowest first
+  const earlier = all.filter((b: any) => !isLive(b)); // expired / withdrawn, collapsed at the bottom
+  const sorted = sortOffers(live, sort);
+  const primaryId = sorted[0]?.id; // the one filled Choose button follows the top of the list
+  const highlights = offerHighlights(live);
+  const breakdown = ((job as any).pricing_breakdown ?? null) as {
+    low?: number;
+    high?: number;
+    distance_km?: number;
+    material_component?: number;
+    transport_component?: number;
+  } | null;
+  const rangeLow = Number(breakdown?.low);
+  const rangeHigh = Number(breakdown?.high);
+  const hasRange = rangeLow > 0 && rangeHigh >= rangeLow;
+  const covers = priceCoversLine(
+    breakdown,
+    `${Number(job.quantity_m3)} m³ ${materialLabel(job.material as any, job.custom_material)}`,
+  );
   const hasPoint = job.delivery_lat != null && job.delivery_lng != null;
   // Approximate positions of Online drivers who bid (migration 0062).
   const locations = useBidderLocations(id, all.length > 0);
@@ -2914,7 +2989,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
 
   return (
     <CzScreen>
-      <div className="relative h-[300px]">
+      <div className="relative h-[260px]">
         {hasPoint ? (
           <PinMap point={{ lat: Number(job.delivery_lat), lng: Number(job.delivery_lng) }} trucks={trucks} className="w-full h-full" />
         ) : (
@@ -2929,44 +3004,94 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
       </div>
 
       <BottomSheet className="flex-1 space-y-4">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="space-y-1">
           <h1 className="cz-display font-bold text-[26px] leading-tight">
             {live.length ? `${live.length} driver${live.length === 1 ? "" : "s"} offered` : "Waiting for offers"}
           </h1>
-          <span className="text-sm text-cz-muted shrink-0">
-            You offered <strong className="text-cz-text">{usd(Number(job.budget))}</strong>
-          </span>
+          {covers && <p className="text-sm text-cz-muted">{covers}</p>}
         </div>
+
+        <dl className={cn("grid gap-2", hasRange ? "grid-cols-2" : "grid-cols-1")}>
+          <div className="rounded-xl border border-cz-border px-3 py-2.5">
+            <dt className="text-[12px] text-cz-muted">Your price</dt>
+            <dd className="cz-display text-[22px] font-bold leading-tight tabular-nums">{usd(Number(job.budget))}</dd>
+          </div>
+          {hasRange && (
+            <div className="rounded-xl border border-cz-border px-3 py-2.5">
+              <dt className="text-[12px] text-cz-muted">Price range</dt>
+              <dd className="cz-display text-[22px] font-bold leading-tight tabular-nums">
+                {usd(rangeLow)}–{usd(rangeHigh)}
+              </dd>
+            </div>
+          )}
+        </dl>
 
         {ctx.showRadar && <RadarSearch etaMinutes={5} nearbyDrivers={ctx.nearbyDrivers} />}
 
+        {live.length > 1 && (
+          <ToggleGroupPrimitive.Root
+            type="single"
+            value={sort}
+            onValueChange={(v) => v && setSort(v as OfferSort)}
+            aria-label="Sort offers"
+            className="grid grid-cols-3 gap-1 rounded-xl bg-cz-surface-2 p-1"
+          >
+            {OFFER_SORTS.map((o) => (
+              <ToggleGroupPrimitive.Item
+                key={o.value}
+                value={o.value}
+                className="min-h-11 rounded-lg px-1 text-[13px] font-semibold text-cz-muted transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cz-amber data-[state=on]:bg-cz-surface data-[state=on]:text-cz-text data-[state=on]:shadow-sm data-[state=on]:ring-1 data-[state=on]:ring-cz-border-strong"
+              >
+                {o.label}
+              </ToggleGroupPrimitive.Item>
+            ))}
+          </ToggleGroupPrimitive.Root>
+        )}
+
         <div id="tour-bids-received" className="space-y-3">
-          {list.length === 0 ? (
-            <p className="text-sm text-cz-muted">No offers yet. Drivers near you are checking your request — this updates live.</p>
+          {live.length === 0 ? (
+            <p className="text-sm text-cz-muted">No offers yet. Drivers near you are checking your request. This updates live.</p>
           ) : (
-            list.map((b: any) => {
-              const canChoose = isLive(b);
-              return (
-                <OfferCard
-                  key={b.id}
-                  bid={b}
-                  kmToPickup={locations[b.id]?.km_to_pickup ?? null}
-                  deliveryKm={Number((job as any).pricing_breakdown?.distance_km) || null}
-                  best={b.id === bestId && live.length > 1}
-                  primary={b.id === bestId}
-                  chooseId={b.id === bestId ? "tour-accept-bid" : undefined}
-                  onChoose={canChoose ? () => ctx.acceptBid(b.id) : undefined}
-                >
-                  {canChoose && b.counter_status !== "countered" && (
-                    <div className="mt-1">
-                      <CounterOfferRow bidPrice={Number(b.price)} onSubmit={(price) => ctx.counterBid(b.id, price)} />
-                    </div>
-                  )}
-                </OfferCard>
-              );
-            })
+            sorted.map((b: any) => (
+              <OfferCard
+                key={b.id}
+                bid={b}
+                kmToPickup={locations[b.id]?.km_to_pickup ?? null}
+                deliveryKm={Number(breakdown?.distance_km) || null}
+                highlights={highlights[b.id]}
+                guide={guideBand(b.price, breakdown)}
+                primary={b.id === primaryId}
+                chooseId={b.id === primaryId ? "tour-accept-bid" : undefined}
+                onChoose={() => ctx.acceptBid(b.id)}
+                footer={
+                  b.counter_status !== "countered" ? (
+                    <CounterOfferRow compact bidPrice={Number(b.price)} onSubmit={(price) => ctx.counterBid(b.id, price)} />
+                  ) : null
+                }
+              />
+            ))
           )}
         </div>
+
+        {earlier.length > 0 && (
+          <details className="group rounded-[18px] border border-cz-border bg-cz-surface">
+            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 text-sm font-semibold text-cz-muted [&::-webkit-details-marker]:hidden">
+              {earlier.length} earlier offer{earlier.length === 1 ? "" : "s"}
+              <ChevronDown aria-hidden className="h-4 w-4 transition group-open:rotate-180" />
+            </summary>
+            <ul className="divide-y divide-cz-border border-t border-cz-border">
+              {earlier.map((b: any) => (
+                <li key={b.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{b.profile?.full_name ?? "Driver"}</div>
+                    <div className="text-[12px] text-cz-muted">{earlierOfferNote(b.status)}</div>
+                  </div>
+                  <div className="shrink-0 text-sm tabular-nums text-cz-muted">{usd(Number(b.price))}</div>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
 
         <div className="space-y-2">
           <div className="text-sm font-semibold text-cz-muted">Your request</div>

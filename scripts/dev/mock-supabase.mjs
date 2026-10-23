@@ -35,6 +35,7 @@ const ID = {
   applicant: "00000000-0000-4000-8000-0000000000a1",
   driver2: "00000000-0000-4000-8000-0000000000d2",
   admin: "00000000-0000-4000-8000-0000000000e1",
+  driver3: "00000000-0000-4000-8000-0000000000d3",
 };
 
 const users = new Map(
@@ -44,6 +45,7 @@ const users = new Map(
     { id: ID.applicant, email: "applicant@sample.test", name: "Kuda Sample", role: "driver", phone: null },
     { id: ID.driver2, email: "driver2@sample.test", name: "Farai Sample", role: "driver", phone: "263771000002" },
     { id: ID.admin, email: "admin@sample.test", name: "Admin Sample", role: "customer", phone: null },
+    { id: ID.driver3, email: "driver3@sample.test", name: "Tatenda Sample", role: "driver", phone: "263771000003" },
   ].map((u) => [
     u.id,
     {
@@ -80,6 +82,7 @@ const db = {
     { user_id: ID.driver, role: "driver" },
     { user_id: ID.applicant, role: "driver" },
     { user_id: ID.driver2, role: "driver" },
+    { user_id: ID.driver3, role: "driver" },
     { user_id: ID.admin, role: "admin" },
     { user_id: ID.admin, role: "super_admin" },
   ],
@@ -129,7 +132,14 @@ const db = {
     { user_id: ID.driver2, balance: 42.5, limited: false, updated_at: hoursAgo(2) },
   ],
   trucks: [
-    { id: randomUUID(), driver_id: ID.driver2, registration: "AEZ 1234 (sample)", capacity_m3: 15, created_at: hoursAgo(300) },
+    { id: "00000000-0000-4000-8000-0000000000f2", driver_id: ID.driver2, registration: "AEZ 1234 (sample)", capacity_m3: 15, created_at: hoursAgo(300) },
+    { id: "00000000-0000-4000-8000-0000000000f3", driver_id: ID.driver3, registration: "AFB 5678 (sample)", capacity_m3: 10, created_at: hoursAgo(200) },
+  ],
+  // Read by the offer cards (a view in the real database).
+  driver_public_profiles: [
+    { user_id: ID.driver2, rating_avg: 4.7, rating_count: 23, level: "silver", jobs_completed: 31, verification_status: "verified" },
+    { user_id: ID.driver3, rating_avg: 0, rating_count: 0, level: "bronze", jobs_completed: 2, verification_status: "verified" },
+    { user_id: ID.driver, rating_avg: 0, rating_count: 0, level: "bronze", jobs_completed: 1, verification_status: "verified" },
   ],
   driver_availability: [{ driver_id: ID.driver, status: "offline", lat: null, lng: null, updated_at: hoursAgo(3) }],
   system_settings: [
@@ -198,6 +208,27 @@ const db = {
       tracking_token: randomUUID(),
     },
     {
+      id: "00000000-0000-4000-8000-00000000a005",
+      customer_id: ID.customer,
+      driver_id: null,
+      material: "river_sand",
+      custom_material: null,
+      quantity_m3: 12,
+      budget: 207,
+      final_price: null,
+      status: "open",
+      payment_method: "direct",
+      pickup_address: "Pomona Quarry, Harare (sample)",
+      pickup_lat: -17.758,
+      pickup_lng: 31.078,
+      delivery_address: "Harward Road, Belvedere, Harare, Zimbabwe",
+      delivery_lat: -17.8322,
+      delivery_lng: 31.0181,
+      pricing_breakdown: { low: 180, high: 240, recommended: 207, material_component: 120, transport_component: 87, distance_km: 18, trip_count: 1 },
+      created_at: minutesAgo(30),
+      tracking_token: randomUUID(),
+    },
+    {
       id: "00000000-0000-4000-8000-00000000a004",
       customer_id: ID.customer,
       driver_id: ID.driver2,
@@ -214,7 +245,13 @@ const db = {
       tracking_token: randomUUID(),
     },
   ],
-  bids: [],
+  // Offers on the open priced job a005, priced within and above the Con Z guide.
+  bids: [
+    { id: randomUUID(), job_id: "00000000-0000-4000-8000-00000000a005", driver_id: ID.driver2, truck_id: "00000000-0000-4000-8000-0000000000f2", price: 215, status: "pending", counter_status: "none", eta_minutes: 45, capacity_m3_snapshot: 15, estimated_trips: 1, expires_at: new Date(Date.now() + 25 * 60_000).toISOString(), message: "Can load at Pomona this morning.", created_at: minutesAgo(5) },
+    { id: randomUUID(), job_id: "00000000-0000-4000-8000-00000000a005", driver_id: ID.driver3, truck_id: "00000000-0000-4000-8000-0000000000f3", price: 198, status: "pending", counter_status: "none", eta_minutes: 15, capacity_m3_snapshot: 10, estimated_trips: 2, expires_at: new Date(Date.now() + 18 * 60_000).toISOString(), message: null, created_at: minutesAgo(9) },
+    { id: randomUUID(), job_id: "00000000-0000-4000-8000-00000000a005", driver_id: ID.driver, truck_id: null, price: 255, status: "pending", counter_status: "none", eta_minutes: 60, capacity_m3_snapshot: 12, estimated_trips: 1, expires_at: new Date(Date.now() + 28 * 60_000).toISOString(), message: null, created_at: minutesAgo(2) },
+    { id: randomUUID(), job_id: "00000000-0000-4000-8000-00000000a005", driver_id: ID.driver2, truck_id: null, price: 190, status: "pending", counter_status: "none", eta_minutes: 30, expires_at: minutesAgo(40), created_at: minutesAgo(70) },
+  ],
   // A delivery nobody has touched for weeks, a stuck Paynow payment, a waiting
   // top-up and a passing reconciliation, so the admin "Needs attention" panel has
   // something to show.
