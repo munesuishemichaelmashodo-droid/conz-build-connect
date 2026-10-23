@@ -292,7 +292,7 @@ export function ChoiceChips<T extends string>({
       onValueChange={(v) => v && onChange(v as T)}
       aria-label={label}
       className={cn(
-        grid ? "grid grid-cols-2 gap-2 sm:grid-cols-4" : "flex gap-2",
+        grid ? "grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2" : "flex gap-2",
         !grid && (scroll ? "cz-no-scrollbar -mx-4 overflow-x-auto px-4" : "flex-wrap"),
         className,
       )}

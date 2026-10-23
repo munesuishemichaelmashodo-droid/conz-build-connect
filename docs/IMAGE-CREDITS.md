@@ -19,3 +19,12 @@ supplier's stock. Each was cropped to 112 px and re-encoded as WebP.
 The tipper truck (`TipperIllustration` in `src/components/ds/media.tsx`) is drawn in
 code; it is not a photo of a real truck. Replace any of these with the owner's own
 photos when available.
+
+## Homepage and customer-home photo
+
+`public/hero-tipper-720.webp` and `public/hero-tipper-1024.webp` are crops of
+`src/assets/hero-truck.jpg`, the photo the site already used (it is also the base of
+`public/og-image.jpg`). Its source and licence are not recorded in this repository and
+it looks computer-generated: the owner should confirm Con Z has the right to use it.
+It is shown as an example of the kind of truck Con Z works with, never as a photo of
+a specific Con Z driver or delivery.

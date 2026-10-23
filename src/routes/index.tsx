@@ -4,7 +4,6 @@ import { Mail, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { czButtonClass } from "@/components/redesign";
 import { LogoLockup } from "@/components/ds";
-import { TipperIllustration } from "@/components/ds/media";
 import { QuickPrice } from "@/components/QuickPrice";
 
 export const Route = createFileRoute("/")({
@@ -77,30 +76,39 @@ function Welcome() {
 
         <main className="pt-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)] lg:gap-x-16 lg:pt-12">
           <section aria-labelledby="hero-title" className="lg:col-start-1">
+            <img
+              src="/hero-tipper-720.webp"
+              srcSet="/hero-tipper-720.webp 720w, /hero-tipper-1024.webp 1024w"
+              sizes="(min-width: 1024px) 640px, calc(100vw - 32px)"
+              alt="An orange tipper truck tipping its load at a building site"
+              width={720}
+              height={437}
+              fetchPriority="high"
+              className="aspect-[720/437] w-full rounded-2xl bg-cz-surface-2 object-cover"
+            />
             <h1
               id="hero-title"
-              className="cz-display max-w-[11em] text-[38px] font-bold leading-[1.02] sm:text-[48px] lg:text-[56px]"
+              className="cz-display mt-6 max-w-[11em] text-[40px] font-bold leading-[1.02] tracking-[-0.01em] sm:text-[50px] lg:mt-8 lg:text-[58px]"
             >
               Sand, stones and quarry dust, delivered to your site.
             </h1>
-            <p className="mt-4 max-w-[56ch] text-base leading-relaxed text-cz-muted">
+            <p className="mt-4 max-w-[52ch] text-[17px] leading-relaxed text-cz-muted">
               Tell us what you need and where. Tipper drivers checked by Con Z send you their
               prices, you pick one, and follow the load to your gate.
             </p>
-            <TipperIllustration className="mt-6 max-w-[340px] sm:max-w-[420px] lg:mt-10 lg:max-w-[560px]" />
           </section>
 
-          <div className="mt-6 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-0">
+          <div className="mt-8 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-0">
             <div className="lg:sticky lg:top-6">
               <QuickPrice />
             </div>
           </div>
 
-          <section aria-labelledby="how-title" className="mt-12 lg:col-start-1 lg:mt-14">
+          <section aria-labelledby="how-title" className="mt-14 lg:col-start-1 lg:mt-16">
             <h2 id="how-title" className="cz-display text-[24px] font-bold">
               How it works
             </h2>
-            <ol className="mt-4 flex flex-col gap-5">
+            <ol className="mt-5 flex flex-col gap-6">
               {STEPS.map((s, i) => (
                 <li key={s.title} className="flex gap-3.5">
                   <span
@@ -121,7 +129,7 @@ function Welcome() {
           <section
             id="drivers"
             aria-labelledby="driver-title"
-            className="mt-12 scroll-mt-4 rounded-2xl border border-cz-border bg-cz-surface p-5 lg:col-start-1 lg:mt-14 lg:max-w-[560px]"
+            className="mt-14 scroll-mt-4 rounded-2xl border border-cz-border bg-cz-surface p-5 lg:col-start-1 lg:mt-14 lg:max-w-[560px]"
           >
             <h2 id="driver-title" className="cz-display text-[24px] font-bold leading-tight">
               Own a tipper truck?
