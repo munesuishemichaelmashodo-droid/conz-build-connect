@@ -61,3 +61,42 @@ export function evidenceSlots(job: JobPhotos, viewer: EvidenceViewer): EvidenceS
   // it is waiting for, so customers only see photos that exist.
   return active && viewer === "driver" ? slots : slots.filter((s) => s.uploaded);
 }
+
+export interface TripBar {
+  /** Null when progress can't be measured; the bar is then not drawn. */
+  pct: number | null;
+  label: string;
+}
+
+/**
+ * The customer's trip bar. Shows a percentage only when it can be measured from the
+ * driver's live route, against the larger of the trip's priced road distance and the
+ * most distance seen left so far. Never a made-up 0%.
+ */
+export function tripBar(t: {
+  step: number;
+  status: string;
+  atDropoff: boolean;
+  /** The driver is sharing their location right now. */
+  live: boolean;
+  remainingKm: number | null;
+  furthestKm: number | null;
+  plannedKm: number | null;
+}): TripBar | null {
+  if (t.step < 2) return null;
+  if (t.step >= 3) return { pct: 100, label: "Arrived" };
+  if (t.atDropoff) return { pct: 100, label: "At your site" };
+  // Loaded but the trip hasn't started: the screen's heading already says so.
+  if (t.status !== "in_progress") return null;
+  const base = Math.max(Number(t.plannedKm) || 0, Number(t.furthestKm) || 0);
+  if (t.remainingKm == null || !(base > 0)) {
+    return {
+      pct: null,
+      label: t.live
+        ? "Distance left isn't available right now."
+        : "Live location is off, so progress can't be shown.",
+    };
+  }
+  const pct = Math.min(100, Math.max(0, Math.round((1 - t.remainingKm / base) * 100)));
+  return { pct, label: `${pct}% of the trip done` };
+}

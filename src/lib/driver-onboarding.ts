@@ -103,7 +103,8 @@ export function normalisePhone(dialCode: string, local: string): string | null {
   return `+${dial}${digits}`;
 }
 
-export type OtpErrorCode = "expired" | "invalid" | "rate_limited" | "not_configured" | "unknown";
+export type OtpErrorCode =
+  "wrong_or_expired" | "expired" | "invalid" | "rate_limited" | "not_configured" | "unknown";
 
 /**
  * Maps a Supabase Auth error message to something a driver can act on. The
@@ -115,6 +116,14 @@ export function mapOtpError(message: string | undefined | null): {
   message: string;
 } {
   const m = (message ?? "").toLowerCase();
+  // Supabase Auth sends "Token has expired or is invalid" for a mistyped code too,
+  // so this message can't say which it was.
+  if (/expired/.test(m) && /invalid/.test(m)) {
+    return {
+      code: "wrong_or_expired",
+      message: "That code is wrong or has expired. Check the SMS, or send a new code.",
+    };
+  }
   if (/expired/.test(m)) {
     return { code: "expired", message: "That code has expired. Request a new one." };
   }
@@ -235,7 +244,10 @@ export function verificationBanner(
 }
 
 /** "No ratings yet" instead of a 0.0 star when nobody has rated the driver. */
-export function ratingLabel(avg: number | null | undefined, count: number | null | undefined): string {
+export function ratingLabel(
+  avg: number | null | undefined,
+  count: number | null | undefined,
+): string {
   const n = Number(count ?? 0);
   if (!(n > 0)) return "No ratings yet";
   return `${Number(avg ?? 0).toFixed(1)} (${n})`;

@@ -83,7 +83,8 @@ describe("OTP", () => {
     expect(isOtpFormatValid("12345a")).toBe(false);
   });
   it("maps provider errors to actionable messages", () => {
-    expect(mapOtpError("Token has expired or is invalid").code).toBe("expired");
+    expect(mapOtpError("Token has expired or is invalid").code).toBe("wrong_or_expired");
+    expect(mapOtpError("Token has expired").code).toBe("expired");
     expect(
       mapOtpError("For security purposes, you can only request this after 45 seconds").code,
     ).toBe("rate_limited");

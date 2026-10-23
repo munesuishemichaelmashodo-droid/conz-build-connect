@@ -22,7 +22,7 @@ import { RadarSearch } from "@/components/RadarSearch";
 import { NextLoadsCard } from "@/components/NextLoadsCard";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { uploadJobEvidence, signedEvidenceUrl } from "@/lib/upload-evidence";
-import { evidenceSlots, type EvidenceViewer } from "@/lib/delivery-docket";
+import { evidenceSlots, tripBar, type EvidenceViewer } from "@/lib/delivery-docket";
 import { useServerFn } from "@tanstack/react-start";
 import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
 import { friendlyPaymentError } from "@/lib/paymentErrors";
@@ -3306,16 +3306,19 @@ function TripProgress({ job, step, track, driverEtaMin }: { job: any; step: numb
   const remainingKm = step === 2 ? track?.route?.distanceKm ?? null : null;
   const liveEtaMin = step === 2 ? track?.route?.etaMin ?? null : null;
 
-  // Progress = how much of the distance the driver had left when we first saw
-  // them on the road has been covered since. Only ever moves forward.
-  const startKm = useRef<number | null>(null);
-  if (remainingKm != null) startKm.current = Math.max(startKm.current ?? 0, remainingKm);
-  const pct =
-    step >= 3
-      ? 100
-      : remainingKm != null && startKm.current
-        ? Math.min(100, Math.max(0, Math.round((1 - remainingKm / startKm.current) * 100)))
-        : 0;
+  // Progress = share of the trip's road distance covered, measured from the live
+  // route. No live route means no percentage (see tripBar), never a made-up 0%.
+  const furthestKm = useRef<number | null>(null);
+  if (remainingKm != null) furthestKm.current = Math.max(furthestKm.current ?? 0, remainingKm);
+  const bar = tripBar({
+    step,
+    status: job.status,
+    atDropoff: step === 2 && !!job.driver_arrived_dropoff_at,
+    live: !!track?.live,
+    remainingKm,
+    furthestKm: furthestKm.current,
+    plannedKm: Number(job?.pricing_breakdown?.distance_km) || null,
+  });
 
   let headline: string | null = null;
   let detail: string | null = null;
@@ -3333,7 +3336,7 @@ function TripProgress({ job, step, track, driverEtaMin }: { job: any; step: numb
 
   const stops: { label: string; at: string | null; done: boolean }[] = [
     { label: "Driver at the supplier", at: when(job.driver_arrived_pickup_at), done: !!job.driver_arrived_pickup_at },
-    { label: "Loaded and on the way", at: when(job.pickup_photo_taken_at), done: !!job.pickup_photo_url },
+    { label: "Loaded", at: when(job.pickup_photo_taken_at), done: !!job.pickup_photo_url },
     { label: "Driver at your site", at: when(job.driver_arrived_dropoff_at), done: !!job.driver_arrived_dropoff_at },
     { label: "Delivered", at: when(job.delivery_photo_taken_at), done: !!job.delivery_photo_url },
   ];
@@ -3348,12 +3351,21 @@ function TripProgress({ job, step, track, driverEtaMin }: { job: any; step: numb
           {detail && <div className="text-[13px] text-cz-muted">{detail}</div>}
         </div>
       )}
-      {step >= 2 && (
-        <div className="space-y-1" aria-label={`Trip ${pct}% complete`}>
-          <div className="h-2 overflow-hidden rounded-full bg-cz-upcoming">
-            <div className="h-full rounded-full bg-cz-green transition-all duration-700" style={{ width: `${pct}%` }} />
-          </div>
-          <div className="text-[12px] text-cz-faint">{step >= 3 ? "Arrived" : `${pct}% of the trip done`}</div>
+      {bar && (
+        <div className="space-y-1">
+          {bar.pct != null && (
+            <div
+              role="progressbar"
+              aria-label="Trip progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={bar.pct}
+              className="h-2 overflow-hidden rounded-full bg-cz-upcoming"
+            >
+              <div className="h-full rounded-full bg-cz-green transition-all duration-700" style={{ width: `${bar.pct}%` }} />
+            </div>
+          )}
+          <div className="text-[12px] text-cz-faint">{bar.label}</div>
         </div>
       )}
       <ol className="space-y-1.5">
@@ -3378,11 +3390,12 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
   // Same four steps as the driver's screen, from the same job fields.
   const step = !job.pickup_photo_url ? (job.driver_arrived_pickup_at ? 1 : 0) : !job.delivery_photo_url ? 2 : 3;
   const atDropoff = step === 2 && !!job.driver_arrived_dropoff_at;
+  const notLeft = step === 2 && !atDropoff && job.status === "accepted";
   const eta = track?.route?.etaMin;
   const title = [
     `${d.first} is heading to pickup`,
     `Your ${mat.toLowerCase()} is being loaded`,
-    atDropoff ? `${d.first} is at your site` : "On the way to you",
+    atDropoff ? `${d.first} is at your site` : notLeft ? `${d.first} has loaded up` : "On the way to you",
     `${d.first} has arrived`,
   ][step];
   const sub = [
@@ -3390,7 +3403,9 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
     `${d.first} is at ${job.pickup_address || "the supplier"}. You'll get a photo of the loaded truck before they leave.`,
     atDropoff
       ? "They're tipping the load now and will send a delivery photo."
-      : eta != null ? `Arriving in about ${Math.max(1, Math.round(eta))} min.` : track?.live ? "Your driver is sharing their live location." : "Your load is on the way.",
+      : notLeft
+        ? "They're about to set off. You'll see them on the map once the trip starts."
+        : eta != null ? `Arriving in about ${Math.max(1, Math.round(eta))} min.` : track?.live ? "Your driver is sharing their live location." : "Your load is on the way.",
     "Check the load, then give your PIN to the driver.",
   ][step];
 
