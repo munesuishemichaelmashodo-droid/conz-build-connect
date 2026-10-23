@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge, Section } from "@/components/ui-bits";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, MessageCircle, Share2, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle, Wallet, Receipt, Phone, KeyRound } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, MessageCircle, Share2, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle, Wallet, Receipt, Phone, KeyRound, CircleDashed } from "lucide-react";
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { SITE_URL } from "@/lib/site";
 import { estimateDeliveryMinutes, formatDuration } from "@/lib/delivery-time";
@@ -22,6 +22,7 @@ import { RadarSearch } from "@/components/RadarSearch";
 import { NextLoadsCard } from "@/components/NextLoadsCard";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { uploadJobEvidence, signedEvidenceUrl } from "@/lib/upload-evidence";
+import { evidenceSlots, type EvidenceViewer } from "@/lib/delivery-docket";
 import { useServerFn } from "@tanstack/react-start";
 import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
 import { friendlyPaymentError } from "@/lib/paymentErrors";
@@ -2205,30 +2206,47 @@ function ShareTrackingButton({ ctx, className }: { ctx: JobScreenCtx; className?
   );
 }
 
-function ProofPhotos({ job }: { job: any }) {
-  if (!job.pickup_photo_url && !job.delivery_photo_url) return null;
+function ProofPhotos({ job, viewer }: { job: any; viewer: EvidenceViewer }) {
+  // Both slots stay visible while the job is active so it is always clear which
+  // photo is still needed and where. Uploading stays in the stage action above.
+  const slots = evidenceSlots(job, viewer);
+  if (slots.length === 0) return null;
   return (
-    <div className="space-y-2">
-      <div className="text-sm font-semibold text-cz-muted">Proof of delivery</div>
+    <section aria-labelledby={`proof-${job.id}`} className="space-y-2">
+      <h2 id={`proof-${job.id}`} className="text-sm font-semibold text-cz-muted">
+        Proof of delivery
+      </h2>
       <div className="grid grid-cols-2 gap-3">
-        {job.pickup_photo_url && (
-          <figure className="space-y-1">
-            <SignedProofPhoto path={job.pickup_photo_url} alt="Load confirmed" />
-            <figcaption className="text-xs font-semibold text-cz-green-text flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> Load confirmed
+        {slots.map((slot) => (
+          <figure key={slot.kind} className="space-y-1.5" data-testid={`evidence-${slot.kind}`}>
+            {slot.path ? (
+              <SignedProofPhoto path={slot.path} alt={slot.label} />
+            ) : (
+              <div className="flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-cz-border-strong text-cz-faint">
+                <Camera aria-hidden className="h-6 w-6" />
+                <span className="text-xs font-semibold">{slot.label}</span>
+              </div>
+            )}
+            <figcaption className="text-xs">
+              <span className="block font-semibold text-cz-text">{slot.label}</span>
+              <span
+                className={cn(
+                  "flex items-center gap-1",
+                  slot.uploaded ? "text-cz-green-text" : "text-cz-muted",
+                )}
+              >
+                {slot.uploaded ? (
+                  <CheckCircle2 aria-hidden className="h-3 w-3 shrink-0" />
+                ) : (
+                  <CircleDashed aria-hidden className="h-3 w-3 shrink-0" />
+                )}
+                {slot.status}
+              </span>
             </figcaption>
           </figure>
-        )}
-        {job.delivery_photo_url && (
-          <figure className="space-y-1">
-            <SignedProofPhoto path={job.delivery_photo_url} alt="Delivery confirmed" />
-            <figcaption className="text-xs font-semibold text-cz-green-text flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> Delivery confirmed
-            </figcaption>
-          </figure>
-        )}
+        ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -2713,7 +2731,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
           <DriverShareLocation jobId={id} driverId={ctx.userId!} compact />
         </div>
 
-        <ProofPhotos job={job} />
+        <ProofPhotos job={job} viewer="driver" />
 
         <details className="group rounded-[14px] border border-cz-border bg-cz-surface">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-[15px] font-semibold">
@@ -2832,7 +2850,7 @@ function DriverPaid({ ctx }: { ctx: JobScreenCtx }) {
           )}
         </div>
 
-        <ProofPhotos job={job} />
+        <ProofPhotos job={job} viewer="driver" />
         {ctx.showNextLoads && <NextLoadsCard driverId={ctx.userId!} currentJobId={id} />}
 
         <div className="space-y-2.5 pt-1">
@@ -3340,7 +3358,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
         </div>
 
         <ContactCard ctx={ctx} role="driver" subtitle={d.bid?.truck_reg ? `Truck ${d.bid.truck_reg} · ${mat}` : mat} />
-        <ProofPhotos job={job} />
+        <ProofPhotos job={job} viewer="customer" />
 
         <div className="space-y-2.5">
           {ctx.showDispute && (
@@ -3398,7 +3416,7 @@ function CustomerDelivered({ ctx }: { ctx: JobScreenCtx }) {
           )}
         </div>
 
-        <ProofPhotos job={job} />
+        <ProofPhotos job={job} viewer="customer" />
 
         <div className="space-y-2.5 pt-1">
           <Link to="/customer/book" className={czButtonClass("primary")}>Book another load</Link>

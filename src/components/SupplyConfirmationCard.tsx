@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CheckCircle2, CircleDashed, Loader2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +25,9 @@ export function SupplyConfirmationCard({ job, viewer }: Props) {
   const qc = useQueryClient();
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  // The optional note only appears once the driver chooses to confirm, so an
+  // advisory check does not compete with the stage's main action.
+  const [confirming, setConfirming] = useState(false);
   const active = job.status === "accepted" || job.status === "in_progress";
 
   const { data: confirmation } = useQuery({
@@ -62,11 +66,17 @@ export function SupplyConfirmationCard({ job, viewer }: Props) {
   if (confirmation) {
     return (
       <div
-        className="rounded-xl border border-green-500/40 bg-green-500/5 p-3 text-[13px]"
+        className="flex items-start gap-3 rounded-[14px] border border-cz-border bg-cz-surface px-3.5 py-3 text-[13px]"
         data-testid="supply-confirmed"
       >
-        <div className="font-semibold">{supplyConfirmedCopy(confirmation.confirmed_by_role)}</div>
-        {confirmation.note && <div className="text-cz-muted">{confirmation.note}</div>}
+        <CheckCircle2 aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-cz-green" />
+        <div className="min-w-0">
+          <div className="text-sm font-semibold">
+            Supply <span className="text-cz-green-text">· Confirmed</span>
+          </div>
+          <div className="text-cz-muted">{supplyConfirmedCopy(confirmation.confirmed_by_role)}</div>
+          {confirmation.note && <div className="text-cz-muted">{confirmation.note}</div>}
+        </div>
       </div>
     );
   }
@@ -90,31 +100,56 @@ export function SupplyConfirmationCard({ job, viewer }: Props) {
 
   return (
     <div
-      className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-3 text-[13px] space-y-2"
+      className="rounded-[14px] border border-cz-border bg-cz-surface px-3.5 py-3 text-[13px] space-y-2.5"
       data-testid="supply-unconfirmed"
     >
-      <div>
-        <div className="font-semibold">{copy.title}</div>
-        <div className="text-cz-muted">{copy.detail}</div>
+      <div className="flex items-start gap-3">
+        <CircleDashed aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-cz-amber" />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold">
+            Supply <span className="text-cz-amber-text">· Not confirmed</span>
+          </div>
+          <div className="text-cz-muted">{copy.detail}</div>
+        </div>
+        {canConfirm && !confirming && (
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            className="min-h-11 shrink-0 rounded-xl border border-cz-border-strong px-3 text-sm font-semibold"
+          >
+            Confirm
+          </button>
+        )}
       </div>
-      {canConfirm && (
+      {canConfirm && confirming && (
         <div className="space-y-2">
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
             maxLength={500}
-            placeholder="Where are you loading? (optional note)"
-            className="w-full rounded-lg border bg-background p-2 text-sm"
+            placeholder="Where are you loading? (optional)"
+            className="w-full min-h-11 rounded-xl border border-cz-border bg-cz-bg px-3 text-sm"
             aria-label="Supply note"
+            autoFocus
           />
-          <button
-            type="button"
-            onClick={confirm}
-            disabled={busy}
-            className="w-full min-h-11 rounded-lg bg-primary text-primary-foreground font-semibold disabled:opacity-50"
-          >
-            {busy ? "Confirming…" : "Confirm supply is secured"}
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              disabled={busy}
+              className="min-h-11 rounded-xl border border-cz-border-strong text-sm font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirm}
+              disabled={busy}
+              className="min-h-11 rounded-xl border-[1.5px] border-cz-amber text-sm font-bold text-cz-amber disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Supply is secured"}
+            </button>
+          </div>
         </div>
       )}
     </div>
