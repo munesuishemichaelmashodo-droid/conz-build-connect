@@ -8,8 +8,10 @@ Zimbabwe.
 
 ## Stack
 
-- Frontend: TanStack Start (React), deployed on **Vercel** —
-  conz-build-connect.vercel.app
+- Frontend: TanStack Start (React 19, Vite, Tailwind v4), deployed on **Vercel** —
+  production domain https://www.conz.co.zw (also conz-build-connect.vercel.app)
+- Android: Capacitor shell `com.conz.app` that loads https://www.conz.co.zw
+  (`capacitor.config.ts`, `android/`; CI workflow `android-build.yml`)
 - Backend: **Supabase** (Postgres + Auth + Storage + RLS), project ref
   `ovwrsocjmkpiygipmrdk`
 - Repo: `munesuishemichaelmashodo-droid/conz-build-connect`, branch `main`
@@ -19,17 +21,31 @@ Zimbabwe.
 
 ## Commands
 
-- `npm run build` — production build (also generates `.vercel/output`)
-- `npx tsc --noEmit` — typecheck; run this AND build before every commit
-- `npm run lint` / `npm run format`
-- No test suite exists yet.
+- `npm run typecheck` (= `tsc --noEmit`) and `npm run build` (build + smoke test of
+  the compiled server) — run both before every commit.
+- `npm test` — Vitest unit tests (`tests/unit/`, 251 tests on 24/10/2026).
+- `npm run lint:security` — security-critical files must be lint-clean (CI gate).
+  `npm run lint` covers everything but the repo still has old `any`/format debt;
+  lint changed files with `npx eslint <files>` instead of `eslint .` (it scans
+  `.vercel`/`android` and hangs).
+- `npm run test:db` (= `node scripts/db-test.mjs test`) — pgTAP database tests
+  (`supabase/tests/database/`, 41 files / 1027 tests on 24/10/2026) on a fresh local
+  Supabase in Docker built from the 13/08 baseline + every later migration. First
+  `node scripts/db-test.mjs start`. Never touches the hosted project.
+- Local signed-in screens with sample data: `scripts/dev/README.md`
+  (`node scripts/dev/mock-supabase.mjs` + `npm run dev` pointed at it).
+- CI (`.github/workflows/verify-build.yml`) runs typecheck, security lint, unit
+  tests, build and the pgTAP suite on pushes to `main` and on pull requests into
+  `main` only — a working branch gets CI once a PR is opened.
 
 ## Migration workflow (important)
 
 Migrations live in `supabase/migrations/`, named
 `YYYYMMDDHHMMSS_NNNN_description.sql` where NNNN is a sequential 4-digit
-counter (currently up to 0065) kept **on top of** the raw timestamp-named
-files from early development. Always:
+counter (currently up to 0111) kept **on top of** the raw timestamp-named
+files from early development. Each migration applied live since 23/10 has an
+undo script in `supabase/rollbacks/` holding the exact pre-change production
+definitions. Always:
 
 1. Check the latest applied migration version live (not just what's in git —
    see "Known issue" below) before picking the next number.
@@ -126,6 +142,9 @@ stop this recurring, but verify rather than assume.
   RPCs (kept, not dropped — re-GRANT to restore). `require_admin_mfa()`
   stays a no-op for its 8 callers; `mfa_recovery_*` tables kept as audit
   history. Frontend `/mfa` page and admin Security tab deleted.
+  **Superseded:** later migrations (0073+) added a step-up (`require_aal2`) on money
+  and role actions and the `/mfa` page came back; since 0111 (23/10) a recent Google
+  sign-in satisfies the step-up — see the 23/10 section below.
 
 - `0062_offer_expiry_raise_price_nearby_trucks` (applied as
   20260925165036), owner said "do what similar apps do": driver offers
@@ -180,7 +199,6 @@ stop this recurring, but verify rather than assume.
 
 ## Open questions — need the owner's answer, don't act unilaterally
 
-(none currently open)
 - Owner reported changing password from Account Settings (logged in via
   Google) "didn't apply" — the code in `profile.tsx`'s `SetPasswordCard`
   looks correct (calls `supabase.auth.updateUser` with proper error
@@ -243,3 +261,26 @@ Still remaining: the post-a-job flow (`jobs.new.tsx`, `customer.book.tsx`),
   transactions, and verify live hashes against a local build afterwards.
 - Driver "Go online" now reports failed saves (dispatch needs a fresh row in `driver_availability`; it was empty
   live and no dispatch offer had gone out since 13/10). Admin home lists open jobs that reached no driver.
+
+## Release status — 24/10/2026 (branch `ccr-4fab7e0d-2b8j1o`, 22 commits ahead of `main`, 0 behind)
+
+Checked by read-only queries against production on 24/10 (body hashes with whitespace removed):
+
+| Migration | Live? | Evidence |
+| --- | --- | --- |
+| 0077–0108 | Yes, unrecorded (except 0098) | every function body matches git |
+| 0109 accept_bid expiry | Yes, recorded `20261022100000` | `accept_bid` = `475a2778…` |
+| 0110 evidence stage order | **No** | `record_job_evidence` = `12ae4e5b…` (pre-0110) |
+| 0111 admin Google step-up | Yes, recorded `20261023200000` | 6 functions + 5 triggers match the tested build |
+
+Tested on 24/10: typecheck, `npm test` (251), `npm run lint:security`, `npm run build`, full pgTAP
+(41 files / 1027), browser checks on the local sample-data stand-in (driver Start-trip retry with a failing
+first attempt, offers, tracking, admin, at 360/390 px light/dark). NOT verified: real Google sign-in against
+0111, a real Android phone, Paynow, push delivery.
+
+Safe next steps, in order: (1) owner merges `ccr-4fab7e0d-2b8j1o` into `main` (Vercel deploys);
+(2) smoke-test on production (driver pickup → Start trip → delivery photo → PIN; admin money action after a
+Google sign-in); (3) apply 0110 (file has no DROP; undo in `supabase/rollbacks/`; expected hash after applying
+`48a18862…`) and record it; (4) repair `schema_migrations` for 0077–0108 before anyone runs `supabase db push`.
+Known, not blocking: some low-contrast orange text and unlabeled map pins (fixed globally on the separate
+`design/site-docket` branch).
