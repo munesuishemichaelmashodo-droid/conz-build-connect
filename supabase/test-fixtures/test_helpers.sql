@@ -93,6 +93,11 @@ begin
           _name || '.' || left(_id::text, 8) || '@test.local', '', now(),
           '{"provider":"email"}', '{}', now(), now());
   insert into public.profiles (id, full_name) values (_id, _name) on conflict (id) do nothing;
+  -- 0111: super admin only for listed owners; a test owner is listed first,
+  -- the same way a real owner is added (database access only).
+  if 'super_admin' = any(_roles) then
+    insert into public.super_admin_owners (user_id, note) values (_id, 'test fixture') on conflict do nothing;
+  end if;
   foreach _r in array _roles loop
     insert into public.user_roles (user_id, role) values (_id, _r::public.app_role) on conflict do nothing;
   end loop;

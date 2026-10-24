@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { StatusBadge, EmptyState } from "@/components/ui-bits";
 import { money } from "@/lib/domain";
 import { useAuth } from "@/lib/auth";
-import { isMfaRequiredError, isSecondApprovalError, mfaVerifyHref, readableRpcError } from "@/lib/mfa";
+import { isMfaRequiredError, isSecondApprovalError, readableRpcError, STEP_UP_ACTION_LABEL, startStepUp } from "@/lib/mfa";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
   component: AdminUsers,
@@ -36,7 +36,7 @@ const CATEGORIES: { value: AdjustCategory; label: string }[] = [
 function moneyActionError(error: { message?: string }) {
   if (isMfaRequiredError(error)) {
     toast.error(readableRpcError(error), {
-      action: { label: "Verify", onClick: () => window.location.assign(mfaVerifyHref()) },
+      action: { label: STEP_UP_ACTION_LABEL, onClick: () => void startStepUp() },
     });
     return;
   }
@@ -401,7 +401,7 @@ Send this credit to another super admin for approval?`)) return;
           <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
             {isSuper
-              ? "Credits need your authenticator code; large credits need a second super admin. Daily limits apply."
+              ? "Credits need a Google sign-in from the last 12 hours; large credits need a second super admin. Daily limits apply."
               : "Admins can only deduct (corrections), within a daily limit. Only a super admin can credit."}
           </div>
           <div className="grid grid-cols-2 gap-2">

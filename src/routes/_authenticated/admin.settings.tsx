@@ -6,7 +6,7 @@ import { Percent, Save, ShieldAlert, Fuel, Package } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AddressPicker } from "@/components/AddressPicker";
-import { isMfaRequiredError, mfaVerifyHref, readableRpcError } from "@/lib/mfa";
+import { isMfaRequiredError, readableRpcError, STEP_UP_ACTION_LABEL, startStepUp } from "@/lib/mfa";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
   beforeLoad: async () => {
@@ -91,7 +91,7 @@ function AdminSettings() {
   const failWithStepUp = (error: { message?: string }) => {
     if (isMfaRequiredError(error)) {
       return toast.error(readableRpcError(error), {
-        action: { label: "Verify", onClick: () => window.location.assign(mfaVerifyHref()) },
+        action: { label: STEP_UP_ACTION_LABEL, onClick: () => void startStepUp() },
       });
     }
     return toast.error(readableRpcError(error));

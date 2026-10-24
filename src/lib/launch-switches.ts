@@ -48,3 +48,11 @@ export function useLaunchSwitches(): LaunchSwitches {
   });
   return data ?? DEFAULT_LAUNCH_SWITCHES;
 }
+
+/**
+ * Trust line on the customer home. Escrow (Con Z Pay) is only promised while the
+ * escrow switch is on; otherwise the line states something that is always true.
+ */
+export function customerTrustPill(escrowEnabled: boolean): string {
+  return escrowEnabled ? "Escrow protected with Con Z Pay" : "Drivers checked by Con Z";
+}

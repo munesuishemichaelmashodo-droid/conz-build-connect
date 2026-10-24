@@ -7,7 +7,7 @@ import { ShieldCheck, Undo2, HandCoins, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { money } from "@/lib/domain";
 import { useAuth } from "@/lib/auth";
-import { isMfaRequiredError, mfaVerifyHref, readableRpcError } from "@/lib/mfa";
+import { isMfaRequiredError, readableRpcError, STEP_UP_ACTION_LABEL, startStepUp } from "@/lib/mfa";
 
 // Super-admin work queues for money that needs a human (audit F2 / F5):
 //  * escrow refunds: paid Con Z Pay escrow on cancelled / expired / refunded
@@ -47,7 +47,7 @@ type CreditRequestRow = {
 function onMoneyError(error: { message?: string }) {
   if (isMfaRequiredError(error)) {
     toast.error(readableRpcError(error), {
-      action: { label: "Verify", onClick: () => window.location.assign(mfaVerifyHref()) },
+      action: { label: STEP_UP_ACTION_LABEL, onClick: () => void startStepUp() },
     });
     return;
   }
@@ -343,8 +343,8 @@ function PinRecoveryQueue({ enabled }: { enabled: boolean }) {
                 {r.status === "pending" ? (
                   <>
                     <p className="text-xs text-muted-foreground">
-                      Verify who this is before approving. Approval needs a fresh authenticator
-                      code, and withdrawals pause for 24 hours after the reset.
+                      Verify who this is before approving. Approval needs a Google sign-in from the
+                      last 12 hours, and withdrawals pause for 24 hours after the reset.
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       <Button size="sm" onClick={() => decide(r, true)}>

@@ -1,7 +1,8 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { ArrowRight, ShieldCheck, Wallet, Truck } from "lucide-react";
+import { Mail, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { czButtonClass } from "@/components/redesign";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -29,84 +30,149 @@ function useRedirectWhenSignedIn() {
   }, [navigate]);
 }
 
+// Each step only states what the product does today: drivers are checked by an
+// admin before they can bid, the customer sees every offer's total before
+// accepting, and delivery is confirmed with the customer's delivery code.
+const STEPS = [
+  {
+    title: "Post your job",
+    body: "Pick the material, how many cubic metres, and drop a pin where the load should go.",
+  },
+  {
+    title: "Choose a driver",
+    body: "Drivers checked by Con Z send their offers. You see each total before you accept one.",
+  },
+  {
+    title: "Track and confirm",
+    body: "Follow the job as it moves, then give the driver your delivery code once the load is down.",
+  },
+];
+
 function Welcome() {
   useRedirectWhenSignedIn();
   return (
-    <div className="min-h-screen bg-gradient-dark text-white flex flex-col">
-      <div className="mx-auto max-w-screen-sm px-5 pt-12 pb-8 flex-1 flex flex-col">
-        <div className="flex-1 flex flex-col items-center justify-center">
-          <div className="w-full max-w-[320px]">
-            <img
-              src="/conz-logo.png"
-              alt="CON Z — Move More. Earn More."
-              className="w-full h-auto"
-              width={320}
-              height={320}
-            />
-          </div>
-        </div>
-
-        <div className="mt-8 grid grid-cols-3 gap-2">
-          {[
-            { icon: Truck, label: "Real drivers" },
-            { icon: ShieldCheck, label: "Verified" },
-            { icon: Wallet, label: "AI-priced" },
-          ].map(({ icon: I, label }) => (
-            <div key={label} className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
-              <I className="w-5 h-5 text-primary mx-auto" />
-              <div className="text-[11px] mt-1 text-white/80">{label}</div>
+    <div className="cz-screen min-h-[100dvh] w-full bg-cz-bg text-cz-text">
+      <div className="mx-auto w-full max-w-[480px] px-5 pb-10">
+        <header className="flex items-center justify-between gap-3 pt-4 pb-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <img src="/conz-icon-192.png" alt="" width={40} height={40} className="h-10 w-10 rounded-[10px]" />
+            <div className="min-w-0 leading-none">
+              <div className="cz-display font-bold text-[22px] tracking-wide">CON Z</div>
+              <div className="text-[11px] text-cz-muted mt-0.5">Construction made easy</div>
             </div>
-          ))}
-        </div>
+          </div>
+          <Link
+            to="/auth"
+            search={{ mode: "login" } as never}
+            className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-cz-text hover:bg-cz-surface"
+          >
+            Log in
+          </Link>
+        </header>
 
-        <div className="mt-8 rounded-2xl bg-white/5 border border-white/10 p-4">
-          <div className="font-display font-bold uppercase text-xs tracking-widest text-white/70 mb-3">How it works</div>
-          <ol className="space-y-3">
-            {[
-              { n: "1", t: "Post a job", d: "Tell us what you need delivered and where." },
-              { n: "2", t: "Get driver offers", d: "Verified drivers nearby send you bids in seconds." },
-              { n: "3", t: "Track & pay", d: "Follow the truck live and pay when it arrives." },
-            ].map((s) => (
-              <li key={s.n} className="flex gap-3">
-                <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/40 text-primary font-display font-bold flex items-center justify-center shrink-0">{s.n}</div>
-                <div>
-                  <div className="font-semibold text-sm">{s.t}</div>
-                  <div className="text-[12px] text-white/60">{s.d}</div>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
+        <main>
+          <section aria-labelledby="hero-title" className="pt-2">
+            <img
+              src="/landing-tipper.webp"
+              alt="An orange tipper truck tipping its load at a building site"
+              width={720}
+              height={437}
+              fetchPriority="high"
+              className="aspect-[720/437] w-full rounded-[20px] object-cover"
+            />
+            <h1 id="hero-title" className="cz-display font-bold text-[38px] leading-[1.02] mt-5">
+              Sand, stones and quarry dust, delivered to your site.
+            </h1>
+            <p className="mt-3 text-[15px] leading-relaxed text-cz-muted">
+              Tell us what you need and where. Tipper drivers send you their prices, you pick one,
+              and follow the load to your gate.
+            </p>
+            <div className="mt-5 flex flex-col gap-2.5">
+              <Link
+                to="/auth"
+                search={{ mode: "register", next: "/customer/book" } as never}
+                className={czButtonClass("primary")}
+              >
+                Book a delivery
+              </Link>
+              <Link to="/quote" className={czButtonClass("ghost", "md")}>
+                Check a price, no account needed
+              </Link>
+            </div>
+          </section>
 
-        <div className="mt-8 space-y-3">
-          <Link to="/quote" className="flex items-center justify-center gap-2 w-full h-12 rounded-xl bg-white/10 border border-white/20 font-display font-bold uppercase tracking-wider">
-            Check a price — no sign-up
-          </Link>
-          <Link to="/auth" search={{ mode: "register" } as never} className="flex items-center justify-center gap-2 w-full h-12 rounded-xl bg-gradient-primary font-display font-bold uppercase tracking-wider shadow-lift">
-            Get started <ArrowRight className="w-4 h-4" />
-          </Link>
-          <Link to="/auth" search={{ mode: "login" } as never} className="flex items-center justify-center w-full h-12 rounded-xl bg-white/10 border border-white/15 font-display font-semibold uppercase tracking-wider">
-            I already have an account
-          </Link>
-          <div className="text-center text-[12px] text-white/70">
-            Driver?{" "}
-            <Link to="/auth" search={{ mode: "register", role: "driver" } as never} className="text-primary font-semibold underline underline-offset-2">
-              Sign up here
+          <section aria-labelledby="how-title" className="mt-10">
+            <h2 id="how-title" className="cz-display font-bold text-[24px]">
+              How it works
+            </h2>
+            <ol className="mt-3 flex flex-col gap-4">
+              {STEPS.map((s, i) => (
+                <li key={s.title} className="flex gap-3.5">
+                  <span
+                    aria-hidden
+                    className="cz-display mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cz-amber-tint text-[17px] font-bold text-cz-amber-text"
+                  >
+                    {i + 1}
+                  </span>
+                  <div>
+                    <div className="font-semibold">{s.title}</div>
+                    <p className="text-sm leading-relaxed text-cz-muted">{s.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          <section
+            aria-labelledby="driver-title"
+            className="mt-10 rounded-[20px] border border-cz-border bg-cz-surface p-5"
+          >
+            <h2 id="driver-title" className="cz-display font-bold text-[24px] leading-tight">
+              Own a tipper truck?
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-cz-muted">
+              Find loads near you and offer your own price. You can bid once Con Z has checked your
+              ID, licence and truck.
+            </p>
+            <Link
+              to="/auth"
+              search={{ mode: "register", role: "driver" } as never}
+              className={czButtonClass("secondary", "md", "mt-4")}
+            >
+              Sign up as a driver
+            </Link>
+          </section>
+        </main>
+
+        <footer className="mt-10 border-t border-cz-border pt-6 text-sm text-cz-muted">
+          <p className="text-cz-text font-semibold">Founded in Zimbabwe, built for the industry.</p>
+          <ul className="mt-3 flex flex-col gap-1">
+            <li>
+              <a href="tel:+263777770557" className="inline-flex min-h-11 items-center gap-2 hover:text-cz-text">
+                <Phone className="h-4 w-4" aria-hidden /> +263 77 777 0557
+              </a>
+            </li>
+            <li>
+              <a
+                href="mailto:constructionz.zw@gmail.com"
+                className="inline-flex min-h-11 items-center gap-2 break-all hover:text-cz-text"
+              >
+                <Mail className="h-4 w-4" aria-hidden /> constructionz.zw@gmail.com
+              </a>
+            </li>
+          </ul>
+          <div className="mt-3 flex gap-4">
+            <Link to="/terms" className="inline-flex min-h-11 items-center underline underline-offset-2">
+              Terms
+            </Link>
+            <Link to="/privacy" className="inline-flex min-h-11 items-center underline underline-offset-2">
+              Privacy
             </Link>
           </div>
-        </div>
-
-        <p className="text-center text-[11px] text-white/50 mt-6">Founded in Zimbabwe • Built for the industry</p>
-        <p className="text-center text-[11px] text-white/70 mt-2">
-          Contact: <a href="mailto: constructionz.zw@gmail.com" className="underline">constructionz.zw@gmail.com</a> ·{" "}
-          <a href="tel:+263777770557" className="underline">+263 77 777 0557</a>
-        </p>
-        <p className="text-center text-[11px] text-white/50 mt-3">
-          <Link to="/terms" className="underline">Terms</Link> · <Link to="/privacy" className="underline">Privacy</Link>
-        </p>
-        <p className="text-center text-[10px] text-white/40 mt-2">
-          © {new Date().getFullYear()} Con Z Connect (Pvt) Ltd. All rights reserved.
-        </p>
+          <p className="mt-2 text-xs text-cz-faint">
+            © {new Date().getFullYear()} Con Z Connect (Pvt) Ltd. All rights reserved.
+          </p>
+        </footer>
       </div>
     </div>
   );

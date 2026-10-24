@@ -12,9 +12,11 @@ import { SidePanel } from "@/components/SidePanel";
 import { DriverHome } from "@/components/redesign/DriverHome";
 import { CzScreen, StatusPill, czButtonClass } from "@/components/redesign";
 import { JobRow } from "@/components/redesign/JobRow";
+import { customerTrustPill, useLaunchSwitches } from "@/lib/launch-switches";
 
 export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
   const { userId, profile, is } = useAuth();
+  const launch = useLaunchSwitches();
   const isDriver = role === "driver";
   const isCustomer = role === "customer";
   void is;
@@ -93,7 +95,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
           <RouteLine opacity={0.12} animate />
           <div className="relative space-y-3">
             <StatusPill tone="green" icon={<ShieldCheck className="w-3.5 h-3.5" />} className="px-2.5 py-1 text-xs">
-              Escrow protected with Con Z Pay
+              {customerTrustPill(launch.escrowEnabled)}
             </StatusPill>
             <h1 className="cz-display font-bold text-[30px] leading-[1.05]">What do you need delivered today?</h1>
             <p className="text-sm text-cz-muted">River sand, stones, gravel and more — priced in seconds, delivered by verified tipper trucks.</p>

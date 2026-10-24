@@ -8,8 +8,10 @@ Zimbabwe.
 
 ## Stack
 
-- Frontend: TanStack Start (React), deployed on **Vercel** —
-  conz-build-connect.vercel.app
+- Frontend: TanStack Start (React 19, Vite, Tailwind v4), deployed on **Vercel** —
+  production domain https://www.conz.co.zw (also conz-build-connect.vercel.app)
+- Android: Capacitor shell `com.conz.app` that loads https://www.conz.co.zw
+  (`capacitor.config.ts`, `android/`; CI workflow `android-build.yml`)
 - Backend: **Supabase** (Postgres + Auth + Storage + RLS), project ref
   `ovwrsocjmkpiygipmrdk`
 - Repo: `munesuishemichaelmashodo-droid/conz-build-connect`, branch `main`
@@ -19,17 +21,31 @@ Zimbabwe.
 
 ## Commands
 
-- `npm run build` — production build (also generates `.vercel/output`)
-- `npx tsc --noEmit` — typecheck; run this AND build before every commit
-- `npm run lint` / `npm run format`
-- No test suite exists yet.
+- `npm run typecheck` (= `tsc --noEmit`) and `npm run build` (build + smoke test of
+  the compiled server) — run both before every commit.
+- `npm test` — Vitest unit tests (`tests/unit/`, 268 tests on 24/10/2026).
+- `npm run lint:security` — security-critical files must be lint-clean (CI gate).
+  `npm run lint` covers everything but the repo still has old `any`/format debt;
+  lint changed files with `npx eslint <files>` instead of `eslint .` (it scans
+  `.vercel`/`android` and hangs).
+- `npm run test:db` (= `node scripts/db-test.mjs test`) — pgTAP database tests
+  (`supabase/tests/database/`, 43 files / 1061 tests on 24/10/2026) on a fresh local
+  Supabase in Docker built from the 13/08 baseline + every later migration. First
+  `node scripts/db-test.mjs start`. Never touches the hosted project.
+- Local signed-in screens with sample data: `scripts/dev/README.md`
+  (`node scripts/dev/mock-supabase.mjs` + `npm run dev` pointed at it).
+- CI (`.github/workflows/verify-build.yml`) runs typecheck, security lint, unit
+  tests, build and the pgTAP suite on pushes to `main` and on pull requests into
+  `main` only — a working branch gets CI once a PR is opened.
 
 ## Migration workflow (important)
 
 Migrations live in `supabase/migrations/`, named
 `YYYYMMDDHHMMSS_NNNN_description.sql` where NNNN is a sequential 4-digit
-counter (currently up to 0065) kept **on top of** the raw timestamp-named
-files from early development. Always:
+counter (currently up to 0112) kept **on top of** the raw timestamp-named
+files from early development. Each migration applied live since 23/10 has an
+undo script in `supabase/rollbacks/` holding the exact pre-change production
+definitions. Always:
 
 1. Check the latest applied migration version live (not just what's in git —
    see "Known issue" below) before picking the next number.
@@ -126,6 +142,9 @@ stop this recurring, but verify rather than assume.
   RPCs (kept, not dropped — re-GRANT to restore). `require_admin_mfa()`
   stays a no-op for its 8 callers; `mfa_recovery_*` tables kept as audit
   history. Frontend `/mfa` page and admin Security tab deleted.
+  **Superseded:** later migrations (0073+) added a step-up (`require_aal2`) on money
+  and role actions and the `/mfa` page came back; since 0111 (23/10) a recent Google
+  sign-in satisfies the step-up — see the 23/10 section below.
 
 - `0062_offer_expiry_raise_price_nearby_trucks` (applied as
   20260925165036), owner said "do what similar apps do": driver offers
@@ -180,7 +199,6 @@ stop this recurring, but verify rather than assume.
 
 ## Open questions — need the owner's answer, don't act unilaterally
 
-(none currently open)
 - Owner reported changing password from Account Settings (logged in via
   Google) "didn't apply" — the code in `profile.tsx`'s `SetPasswordCard`
   looks correct (calls `supabase.auth.updateUser` with proper error
@@ -225,3 +243,57 @@ Still remaining: the post-a-job flow (`jobs.new.tsx`, `customer.book.tsx`),
   deployed first (see the final report's deployment order).
 - `0084` commits production-only objects that were never in git (`wallet_transactions_immutable`,
   `storage_evidence_guard`, chat-media / job-proof storage policies).
+
+## 23/10/2026 — live state check + admin protection (branch `ccr-4fab7e0d-2b8j1o`)
+
+- **The 08/10 note above is out of date.** Read-only check 23/10: every function from `0077`–`0108` is live and
+  its body hash matches git, but `schema_migrations` only records `0072`–`0076` and `0098`. Do NOT run
+  `supabase db push` until the record is repaired (owner approval needed). `0109` is LIVE (applied and recorded
+  23/10 as `20261022100000`, undo in `supabase/rollbacks/`). `0110` is NOT live: apply only after this branch
+  (driver "Start trip" retry) is deployed — see its header.
+- **`0111_admin_google_stepup_owner_lock` is LIVE** (recorded as `20261023200000`). Owner decision: no
+  authenticator app. `require_aal2()` also accepts a Google sign-in from the last 12 h on an account with a Google
+  identity; super admin only for rows in `super_admin_owners` (the two current owners; add one only via SQL);
+  admin accounts can't gain/receive an identity with another email; owners are notified on admin sign-in and on
+  every `admin_audit_log` row. Undo: `supabase/rollbacks/20261023200000_0111_rollback.sql`.
+- **Supabase MCP gotcha:** `apply_migration` and `execute_sql` hang (60 s timeout, nothing applied) when the SQL
+  contains `DROP`. Use `CREATE OR REPLACE TRIGGER` / `CREATE OR REPLACE FUNCTION`, split large changes into
+  transactions, and verify live hashes against a local build afterwards.
+- Driver "Go online" now reports failed saves (dispatch needs a fresh row in `driver_availability`; it was empty
+  live and no dispatch offer had gone out since 13/10). Admin home lists open jobs that reached no driver.
+
+## Release status — 24/10/2026 (branch `ccr-4fab7e0d-2b8j1o`, ahead of `main` and 0 behind)
+
+Checked by read-only queries against production on 24/10 (body hashes with whitespace removed):
+
+| Migration | Live? | Evidence |
+| --- | --- | --- |
+| 0077–0108 | Yes, unrecorded (except 0098) | every function body matches git |
+| 0109 accept_bid expiry | Yes, recorded `20261022100000` | `accept_bid` = `475a2778…` |
+| 0110 evidence stage order | **No** | `record_job_evidence` = `12ae4e5b…` (pre-0110) |
+| 0111 admin Google step-up | Yes, recorded `20261023200000` | 6 functions + 5 triggers match the tested build |
+| 0112 pickup check + route trail | **No** (prepared) | new tables/functions; undo in `supabase/rollbacks/` (has DROP — run it in the SQL editor) |
+
+Tested on 24/10: typecheck, `npm test` (268), `npm run lint:security`, `npm run build`, full pgTAP
+(43 files / 1061), browser checks on the local sample-data stand-in (admin dispute panel: photos with GPS,
+delivery distance, chat transcript; driver Start-trip retry with a failing
+first attempt, offers, tracking, admin, at 360/390 px light/dark). NOT verified: real Google sign-in against
+0111, a real Android phone, Paynow, push delivery.
+
+Safe next steps, in order: (1) owner merges `ccr-4fab7e0d-2b8j1o` into `main` (Vercel deploys);
+(2) smoke-test on production (driver pickup → Start trip → delivery photo → PIN; admin money action after a
+Google sign-in); (3) apply 0110 (file has no DROP; undo in `supabase/rollbacks/`; expected hash after applying
+`38cb7974…`) and record it — it also stops photos overwriting the job's pickup point and delivery address,
+which made the admin dispute panel's "metres from the delivery address" always read ~0; (4) apply 0112 (no DROP,
+safe to apply after 0110; the app copes with it missing); (5) repair `schema_migrations` for 0077–0108 before anyone runs `supabase db push`.
+Known, not blocking: some low-contrast orange text and unlabeled map pins (fixed globally on the separate
+`design/site-docket` branch).
+
+**0112 — pickup location check, "Where did you load?", route trail (owner asked 24/10, 2 km threshold).**
+Flags, never blocks: the first pickup photo's GPS is compared with the supplier (or the job's pickup point);
+over 2 km, no photo location, or a driver-arranged pickup with no named source → admins get a `pickup_check`
+notification and an item under "Needs attention". Driver-arranged jobs ask the driver "Where did you load?"
+before the pickup photo (`set_job_loaded_at`). While a job is accepted/in progress, `driver_locations` updates
+are copied to `job_route_points` at most every 2 min, kept 90 days (cron `prune-job-route-points`), admin-only;
+the admin dispute panel's "Pickup and route" section shows the check and a map. Customers see nothing new.
+pgTAP `430_pickup_check_route_trail`; unit `pickup-check`, `admin-pickup-attention`.

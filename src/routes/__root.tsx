@@ -126,7 +126,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    // suppressHydrationWarning: the inline theme script below may remove "dark"
+    // before React hydrates (light theme). That is intended, not a mismatch.
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <HeadContent />
         <script

@@ -4,6 +4,7 @@ import {
   isSecondApprovalError,
   readableRpcError,
   mfaVerifyHref,
+  STEP_UP_ACTION_LABEL,
 } from "@/lib/mfa";
 
 // The database decides whether a sensitive admin action may proceed (require_aal2).
@@ -38,7 +39,15 @@ describe("admin step-up messaging", () => {
     ).toBe("your verification has expired. Verify again with your authenticator app to continue.");
     expect(readableRpcError(undefined)).toBe("Something went wrong");
   });
-  it("sends the admin to verify and back to the same page", () => {
-    expect(mfaVerifyHref()).toMatch(/^\/mfa\?next=/);
+  it("sends the admin to sign in again with Google and back to the same page (0111)", () => {
+    const href = mfaVerifyHref();
+    expect(href).toMatch(/^\/auth\?/);
+    const q = new URLSearchParams(href.split("?")[1]);
+    expect(q.get("mode")).toBe("login");
+    expect(q.get("reauth")).toBe("1");
+    expect(q.get("next")).toBe("/admin");
+  });
+  it("labels the step-up action in plain words", () => {
+    expect(STEP_UP_ACTION_LABEL).toBe("Sign in again with Google");
   });
 });

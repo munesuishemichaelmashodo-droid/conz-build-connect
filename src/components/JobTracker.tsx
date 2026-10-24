@@ -124,7 +124,12 @@ export function DriverShareLocation({ jobId, driverId, compact = false }: { jobI
         <div className="flex items-center gap-3 rounded-[14px] border border-cz-border bg-cz-surface px-3.5 py-3">
           <Navigation2 className={sharing ? "w-5 h-5 text-cz-green shrink-0" : "w-5 h-5 text-cz-amber shrink-0"} />
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold">{sharing ? "Sharing live location" : "Live GPS is off"}</div>
+            <div className="text-sm font-semibold">
+              Live location{" "}
+              <span className={sharing ? "text-cz-green-text" : "text-cz-amber-text"}>
+                · {sharing ? "On" : "Off"}
+              </span>
+            </div>
             <div className="text-xs text-cz-muted">
               {!privacyOn ? (
                 <>Turned off in <Link to="/profile" className="underline font-semibold">privacy settings</Link></>
@@ -141,7 +146,7 @@ export function DriverShareLocation({ jobId, driverId, compact = false }: { jobI
                 type="button"
                 onClick={start}
                 disabled={busy}
-                className="min-h-11 shrink-0 rounded-xl bg-cz-amber px-3.5 text-sm font-bold text-cz-amber-ink disabled:opacity-50"
+                className="min-h-11 shrink-0 rounded-xl border-[1.5px] border-cz-amber px-3.5 text-sm font-bold text-cz-amber disabled:opacity-50"
               >
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Start sharing"}
               </button>
@@ -264,7 +269,7 @@ export function CustomerTrackMap({
         )}
         {!loc && (
           <div className="absolute inset-x-4 bottom-10 z-20 rounded-xl bg-cz-bg/95 px-3.5 py-2.5 text-[13px] text-cz-muted shadow-lg">
-            Your driver hasn't started sharing their location yet — the truck appears here once they do.
+            Your driver isn't sharing their location right now. The truck appears here when they do.
           </div>
         )}
         {loc?.anomaly_alerted_at && (
@@ -289,7 +294,9 @@ export function CustomerTrackMap({
           <MapPin className="w-4 h-4 text-primary" /> Live driver location
         </div>
         {!loc ? (
-          <p className="px-4 pb-4 text-xs text-muted-foreground">Driver hasn't started sharing location yet.</p>
+          <p className="px-4 pb-4 text-xs text-muted-foreground">
+            Driver isn't sharing their location right now.
+          </p>
         ) : (
           <>
             {loc.anomaly_alerted_at && (

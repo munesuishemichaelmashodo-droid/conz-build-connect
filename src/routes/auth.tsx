@@ -21,6 +21,9 @@ const searchSchema = z.object({
   next: z.string().optional(),
   role: z.enum(["customer", "driver"]).optional(),
   ref: z.string().optional(),
+  // Set by admin screens: a money or role action needs a fresh Google sign-in (0111).
+  // The router reads "1" as a number; anything unexpected is ignored, never an error.
+  reauth: z.coerce.string().optional().catch(undefined),
 });
 
 export const Route = createFileRoute("/auth")({
@@ -30,7 +33,7 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
-  const { mode, next, role: initialRole, ref } = Route.useSearch();
+  const { mode, next, role: initialRole, ref, reauth } = Route.useSearch();
   const nav = useNavigate();
   const [tab, setTab] = useState<"login" | "register">(mode ?? (initialRole ? "register" : "login"));
 
@@ -380,6 +383,21 @@ function AuthPage() {
 
 
           <TabsContent value="login" className="space-y-4 mt-4">
+            {reauth === "1" && (
+              <div role="status" className="rounded-xl border border-primary/40 bg-primary/5 p-4 space-y-3">
+                <div>
+                  <p className="font-semibold">Confirm it's you</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    To approve money or change admin roles, sign in again with Google. You'll come
+                    straight back to where you were.
+                  </p>
+                </div>
+                <Button type="button" onClick={google} disabled={loading} className="w-full h-11 gap-2">
+                  <GoogleLogo />
+                  Continue with Google
+                </Button>
+              </div>
+            )}
             <form onSubmit={login} className="space-y-3">
               <div>
                 <Label htmlFor="email">Email</Label>

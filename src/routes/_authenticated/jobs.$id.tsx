@@ -10,22 +10,34 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge, Section } from "@/components/ui-bits";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, MessageCircle, Share2, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle, Wallet, Receipt, Phone, KeyRound } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin, Calendar, Star, CheckCircle2, MessageSquare, MessageCircle, Share2, Trash2, Camera, Image as ImageIcon, PackageCheck, Flag, FileText, Truck, PackageOpen, Circle, Wallet, Receipt, Phone, KeyRound, CircleDashed } from "lucide-react";
 import { materialLabel, money, statusInfo, levelInfo } from "@/lib/domain";
 import { SITE_URL } from "@/lib/site";
 import { estimateDeliveryMinutes, formatDuration } from "@/lib/delivery-time";
 import { isNativePlatform } from "@/lib/native-push";
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, useId, useRef, type ReactNode } from "react";
 import { toast } from "sonner";
 import { DriverShareLocation, CustomerTrackMap, DriverRouteView } from "@/components/JobTracker";
 import { RadarSearch } from "@/components/RadarSearch";
 import { NextLoadsCard } from "@/components/NextLoadsCard";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { uploadJobEvidence, signedEvidenceUrl } from "@/lib/upload-evidence";
+import {
+  etaIfLive,
+  evidenceSlots,
+  locationDisplay,
+  locationState,
+  tripBar,
+  type EvidenceViewer,
+  type LocationState,
+} from "@/lib/delivery-docket";
+import { useNow } from "@/hooks/use-now";
 import { useServerFn } from "@tanstack/react-start";
 import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
 import { friendlyPaymentError } from "@/lib/paymentErrors";
 import { ShieldCheck } from "lucide-react";
+import { bookAgainSearch } from "@/lib/book-again";
+import { isDriverArrangedPickup, saveLoadedAt } from "@/lib/pickup-check";
 import { cn } from "@/lib/utils";
 import { SpotlightCallout } from "@/components/SpotlightCallout";
 import { previewCapacityMatch } from "@/lib/capacityMatch";
@@ -52,6 +64,16 @@ import {
   straightKm,
 } from "@/components/redesign";
 import { OfferCard } from "@/components/redesign/OfferCard";
+import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
+import {
+  OFFER_SORTS,
+  earlierOfferNote,
+  guideBand,
+  offerHighlights,
+  priceCoversLine,
+  sortOffers,
+  type OfferSort,
+} from "@/lib/offer-compare";
 import { driverMarkArrived, jobOfferSummary, withdrawBid, raiseJobBudget, useBidderLocations, useSecondsLeft, mmss } from "@/components/redesign/rpc";
 import { PinMap } from "@/components/redesign/PinMap";
 import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
@@ -524,7 +546,8 @@ function JobDetail() {
   const showBidForm = is("driver") && !isOwner && job.status === "open";
   const showCounterResponse = showBidForm && myBid?.counter_status === "countered";
   const showPickupUpload = isAssignedDriver && job.status === "accepted" && !job.pickup_photo_url;
-  const showDeliveryUpload = isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && !!job.pickup_photo_url && !job.delivery_photo_url;
+  // Same rule as record_job_evidence (0110): the delivery photo only once the trip has started.
+  const showDeliveryUpload = isAssignedDriver && job.status === "in_progress" && !!job.pickup_photo_url && !job.delivery_photo_url;
   const showDeliveryPinDisplay = isOwner && ["accepted", "in_progress"].includes(job.status);
   const showCompleteButton = isOwner && !isEscrow && (job.status === "accepted" || job.status === "in_progress");
   const showDeliveryPinEntry = isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && !!job.delivery_photo_url;
@@ -1037,14 +1060,7 @@ function JobDetail() {
               {showBookAgain && (
                 <Link
                   to="/customer/book"
-                  search={{
-                    material: job.material,
-                    quantity: job.quantity_m3,
-                    address: job.delivery_address,
-                    lat: job.delivery_lat ?? undefined,
-                    lng: job.delivery_lng ?? undefined,
-                    driverId: job.driver_id!,
-                  }}
+                  search={bookAgainSearch(job, { sameDriver: true }) ?? {}}
                   className="block w-full text-center rounded-xl bg-primary text-primary-foreground font-display font-bold uppercase tracking-wide py-3"
                 >
                   Book this driver again
@@ -1058,9 +1074,66 @@ function JobDetail() {
   );
 }
 
-function CounterOfferRow({ bidPrice, onSubmit }: { bidPrice: number; onSubmit: (price: number) => void }) {
+function CounterOfferRow({
+  bidPrice,
+  onSubmit,
+  compact,
+}: {
+  bidPrice: number;
+  onSubmit: (price: number) => void;
+  /** Offers-screen style: a small link that opens a full-width row. */
+  compact?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [price, setPrice] = useState(String(Math.max(1, Math.round(bidPrice * 0.9))));
+  const inputId = useId();
+  const send = () => {
+    const v = Number(price);
+    if (!v || v <= 0) return;
+    onSubmit(v);
+    setOpen(false);
+  };
+
+  if (compact) {
+    if (!open) {
+      return (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="-mr-2 ml-auto min-h-11 px-2 text-[13px] font-semibold text-cz-amber-text underline-offset-2 hover:underline"
+        >
+          Suggest a price
+        </button>
+      );
+    }
+    return (
+      <div className="basis-full space-y-2">
+        <label htmlFor={inputId} className="block text-[13px] text-cz-muted">
+          Your price. The driver can accept it or keep theirs.
+        </label>
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-cz-muted">$</span>
+            <input
+              id={inputId}
+              type="number"
+              inputMode="decimal"
+              min={1}
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className="h-12 w-full rounded-xl border border-cz-border-strong bg-cz-bg pl-7 pr-3 text-[15px] tabular-nums text-cz-text focus:outline-none focus-visible:ring-2 focus-visible:ring-cz-amber"
+            />
+          </div>
+          <CzButton size="md" kind="ghost" className="w-auto" onClick={() => setOpen(false)}>
+            Cancel
+          </CzButton>
+          <CzButton size="md" kind="ghost" className="w-auto" onClick={send}>
+            Send
+          </CzButton>
+        </div>
+      </div>
+    );
+  }
 
   if (!open) {
     return (
@@ -1082,16 +1155,7 @@ function CounterOfferRow({ bidPrice, onSubmit }: { bidPrice: number; onSubmit: (
           className="pl-6"
         />
       </div>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => {
-          const v = Number(price);
-          if (!v || v <= 0) return;
-          onSubmit(v);
-          setOpen(false);
-        }}
-      >
+      <Button size="sm" variant="outline" onClick={send}>
         Send offer
       </Button>
     </div>
@@ -1187,6 +1251,15 @@ function BidForm({
 
   const shortfall = Number(funds?.shortfall ?? 0);
   const showFundsWarning = !!funds && funds.ok === false && !funds.free && shortfall > 0;
+  // Why "Send offer" is disabled, shown next to the button so the driver never has
+  // to scroll back up to find out. Same two conditions the button used before.
+  // While the truck list is still loading the button stays disabled without a reason.
+  const sendBlockedReason =
+    trucks && trucks.length === 0
+      ? "Add a truck to your profile to send an offer."
+    : showFundsWarning
+      ? `Top up ${money(shortfall)} to send this offer.`
+      : null;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1278,32 +1351,6 @@ function BidForm({
           </CzCard>
         )}
 
-        {trucks && trucks.length === 0 && (
-          <HintBox tone="warn" icon={<Truck className="w-4 h-4" />}>
-            Register a truck on your profile before bidding — customers see which truck will do the job.{" "}
-            <Link to="/profile" className="font-semibold underline">Add a truck</Link>
-          </HintBox>
-        )}
-        {showFundsWarning && (
-          <div className="rounded-[14px] bg-cz-warn-tint p-3.5 text-cz-warn-text space-y-2">
-            <div className="flex items-start gap-2">
-              <Wallet className="w-4 h-4 mt-0.5 shrink-0" />
-              <div className="text-sm">
-                <div className="font-bold">Top up to take this job</div>
-                <p className="mt-1 opacity-90">
-                  You need {money(shortfall)} more in your wallet to take jobs like this — commission is reserved when a
-                  bid is accepted.
-                </p>
-                <p className="mt-1 text-xs opacity-80">
-                  Commission required {money(Number(funds?.required ?? 0))} · Available{" "}
-                  {money(Number(funds?.available ?? 0))}
-                </p>
-              </div>
-            </div>
-            <Link to="/wallet" className={czButtonClass("ghost", "sm")}>Top up wallet</Link>
-          </div>
-        )}
-
         <div className="pt-3">
           <PriceStepper
             value={priceNum}
@@ -1361,6 +1408,40 @@ function BidForm({
               {usd(budget - priceNum)} below the customer's offer of {usd(budget)}.
             </HintBox>
           )
+        )}
+
+        {fee != null && (
+          <p className="text-[13px] leading-relaxed text-cz-muted" data-testid="fee-explainer">
+            {firstJobFree
+              ? "Your first job on Con Z is free of the Con Z fee."
+              : `Con Z keeps ${pctLabel} of your price. It is reserved from your wallet when the customer accepts and charged when the job is done.`}
+          </p>
+        )}
+
+        {trucks && trucks.length === 0 && (
+          <HintBox tone="warn" icon={<Truck className="w-4 h-4" />}>
+            Register a truck on your profile before bidding — customers see which truck will do the job.{" "}
+            <Link to="/profile" className="font-semibold underline">Add a truck</Link>
+          </HintBox>
+        )}
+        {showFundsWarning && (
+          <div className="rounded-[14px] bg-cz-warn-tint p-3.5 text-cz-warn-text space-y-2">
+            <div className="flex items-start gap-2">
+              <Wallet className="w-4 h-4 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <div className="font-bold">Top up to take this job</div>
+                <p className="mt-1 opacity-90">
+                  You need {money(shortfall)} more in your wallet to take jobs like this — commission is reserved when a
+                  bid is accepted.
+                </p>
+                <p className="mt-1 text-xs opacity-80">
+                  Commission required {money(Number(funds?.required ?? 0))} · Available{" "}
+                  {money(Number(funds?.available ?? 0))}
+                </p>
+              </div>
+            </div>
+            <Link to="/wallet" className={czButtonClass("ghost", "sm")}>Top up wallet</Link>
+          </div>
         )}
 
         <div className="space-y-2">
@@ -1461,18 +1542,31 @@ function BidForm({
         )}
       </div>
 
-      <footer className="sticky bottom-0 z-20 space-y-3 border-t border-cz-border bg-cz-surface px-5 pt-4 pb-[calc(20px+env(safe-area-inset-bottom))]">
+      <footer className="sticky bottom-0 z-20 space-y-2.5 border-t border-cz-border bg-cz-surface px-5 pt-3 pb-[calc(16px+env(safe-area-inset-bottom))]">
         {fee != null && priceNum > 0 && (
-          <>
-            <MoneyRow
-              label={firstJobFree ? "Con Z fee (first job free)" : `Con Z fee (${pctLabel})`}
-              value={`−${usd2(fee)}`}
-              valueClassName="text-cz-muted"
-            />
-            <MoneyRow strong label="You earn" value={usd2(priceNum - fee)} valueClassName="text-cz-green-text" />
-          </>
+          <div className="flex items-end justify-between gap-3">
+            <div className="text-[13px] text-cz-muted">
+              {firstJobFree ? "Con Z fee (first job free)" : `Con Z fee (${pctLabel})`}
+              <div className="tabular-nums">−{usd2(fee)}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-[13px] text-cz-muted">You earn</div>
+              <div className="cz-display text-[22px] font-bold leading-none tabular-nums text-cz-green-text">
+                {usd2(priceNum - fee)}
+              </div>
+            </div>
+          </div>
         )}
-        <button type="submit" disabled={loading || showFundsWarning || !trucks?.length} className={czButtonClass("primary")}>
+        {sendBlockedReason && (
+          <p role="status" className="text-[13px] font-semibold text-cz-warn-text" data-testid="send-blocked-reason">
+            {sendBlockedReason}
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={loading || !trucks?.length || !!sendBlockedReason}
+          className={czButtonClass("primary")}
+        >
           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : existing ? `Update offer · ${usd(priceNum)}` : `Send offer · ${usd(priceNum)}`}
         </button>
       </footer>
@@ -1733,12 +1827,15 @@ function DeliveryPinEntry({ jobId, onConfirmed }: { jobId: string; onConfirmed: 
   );
 }
 
-function ProofUpload({ jobId, kind, label, hint, ctaLabel, onUploaded }: { jobId: string; kind: "pickup" | "delivery"; label: string; hint?: string; ctaLabel?: string; onUploaded: () => void | Promise<void> }) {
+function ProofUpload({ jobId, kind, label, hint, ctaLabel, onUploaded, beforeUpload, blockedReason }: { jobId: string; kind: "pickup" | "delivery"; label: string; hint?: string; ctaLabel?: string; onUploaded: () => void | Promise<void>; beforeUpload?: () => Promise<boolean>; blockedReason?: string | null }) {
   const [uploading, setUploading] = useState(false);
+  const blocked = !!blockedReason;
 
   const upload = async (file: File) => {
+    if (blocked) return;
     setUploading(true);
     try {
+      if (beforeUpload && !(await beforeUpload())) return;
       // Uploads to the private bucket, captures GPS, and records a row in
       // job_evidence. record_job_evidence itself sets jobs.pickup_photo_url /
       // delivery_photo_url server-side once the evidence row exists — no
@@ -1761,15 +1858,16 @@ function ProofUpload({ jobId, kind, label, hint, ctaLabel, onUploaded }: { jobId
   return (
     <div className="space-y-2.5">
       {hint && <p className="text-sm text-cz-muted">{hint}</p>}
-      <label className={cn(czButtonClass("primary"), "cursor-pointer focus-within:ring-2 focus-within:ring-cz-amber-text", uploading && "opacity-60 pointer-events-none")}>
+      {blockedReason && <p className="text-sm font-semibold text-cz-warn-text">{blockedReason}</p>}
+      <label aria-disabled={blocked || uploading} className={cn(czButtonClass("primary"), "cursor-pointer focus-within:ring-2 focus-within:ring-cz-amber-text", (uploading || blocked) && "opacity-60 pointer-events-none")}>
         {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
         <span>{uploading ? "Uploading photo…" : (ctaLabel ?? `Take ${label.toLowerCase()} photo`)}</span>
-        <input type="file" accept="image/*" capture="environment" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="sr-only" />
+        <input type="file" accept="image/*" capture="environment" disabled={uploading || blocked} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="sr-only" />
       </label>
-      <label className={cn(czButtonClass("ghost", "sm"), "cursor-pointer focus-within:ring-2 focus-within:ring-cz-amber-text", uploading && "opacity-60 pointer-events-none")}>
+      <label aria-disabled={blocked || uploading} className={cn(czButtonClass("ghost", "sm"), "cursor-pointer focus-within:ring-2 focus-within:ring-cz-amber-text", (uploading || blocked) && "opacity-60 pointer-events-none")}>
         <ImageIcon className="w-4 h-4" />
         <span>Choose from gallery instead</span>
-        <input type="file" accept="image/*" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="sr-only" />
+        <input type="file" accept="image/*" disabled={uploading || blocked} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="sr-only" />
       </label>
     </div>
   );
@@ -2175,30 +2273,47 @@ function ShareTrackingButton({ ctx, className }: { ctx: JobScreenCtx; className?
   );
 }
 
-function ProofPhotos({ job }: { job: any }) {
-  if (!job.pickup_photo_url && !job.delivery_photo_url) return null;
+function ProofPhotos({ job, viewer }: { job: any; viewer: EvidenceViewer }) {
+  // Both slots stay visible while the job is active so it is always clear which
+  // photo is still needed and where. Uploading stays in the stage action above.
+  const slots = evidenceSlots(job, viewer);
+  if (slots.length === 0) return null;
   return (
-    <div className="space-y-2">
-      <div className="text-sm font-semibold text-cz-muted">Proof of delivery</div>
+    <section aria-labelledby={`proof-${job.id}`} className="space-y-2">
+      <h2 id={`proof-${job.id}`} className="text-sm font-semibold text-cz-muted">
+        Proof of delivery
+      </h2>
       <div className="grid grid-cols-2 gap-3">
-        {job.pickup_photo_url && (
-          <figure className="space-y-1">
-            <SignedProofPhoto path={job.pickup_photo_url} alt="Load confirmed" />
-            <figcaption className="text-xs font-semibold text-cz-green-text flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> Load confirmed
+        {slots.map((slot) => (
+          <figure key={slot.kind} className="space-y-1.5" data-testid={`evidence-${slot.kind}`}>
+            {slot.path ? (
+              <SignedProofPhoto path={slot.path} alt={slot.label} />
+            ) : (
+              <div className="flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-cz-border-strong text-cz-muted">
+                <Camera aria-hidden className="h-6 w-6" />
+                <span className="text-xs font-semibold">{slot.label}</span>
+              </div>
+            )}
+            <figcaption className="text-xs">
+              <span className="block font-semibold text-cz-text">{slot.label}</span>
+              <span
+                className={cn(
+                  "flex items-center gap-1",
+                  slot.uploaded ? "text-cz-green-text" : "text-cz-muted",
+                )}
+              >
+                {slot.uploaded ? (
+                  <CheckCircle2 aria-hidden className="h-3 w-3 shrink-0" />
+                ) : (
+                  <CircleDashed aria-hidden className="h-3 w-3 shrink-0" />
+                )}
+                {slot.status}
+              </span>
             </figcaption>
           </figure>
-        )}
-        {job.delivery_photo_url && (
-          <figure className="space-y-1">
-            <SignedProofPhoto path={job.delivery_photo_url} alt="Delivery confirmed" />
-            <figcaption className="text-xs font-semibold text-cz-green-text flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> Delivery confirmed
-            </figcaption>
-          </figure>
-        )}
+        ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -2499,6 +2614,9 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
   const setArrivedDrop = (v: boolean) => markArrived("dropoff", v);
   const [bannerHidden, setBannerHidden] = useSessionFlag(`cz.got-job-seen.${id}`);
   const [route, setRoute] = useState<RouteResult | null>(null);
+  // 0112: a driver-arranged pickup (no supplier point) asks where the driver loaded.
+  const driverArranged = isDriverArrangedPickup(job);
+  const [loadedAt, setLoadedAt] = useState("");
 
   // Steps come from job state only: arrived at pickup → Load; pickup photo
   // → trip started (Deliver); delivery photo → PIN / customer confirmation.
@@ -2600,11 +2718,36 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
 
           {step === 1 && (
             <div className="space-y-2">
+              {driverArranged && (
+                // 0112: for a driver-arranged pickup the driver names where they loaded.
+                // Only the driver sees this; the customer is asked nothing.
+                <div className="space-y-1.5">
+                  <label htmlFor="loaded-at" className="text-sm font-semibold">Where did you load?</label>
+                  <input
+                    id="loaded-at"
+                    value={loadedAt}
+                    onChange={(e) => setLoadedAt(e.target.value)}
+                    maxLength={120}
+                    placeholder="Name of the quarry or supplier"
+                    className="h-12 w-full rounded-md border border-cz-control bg-cz-surface px-3.5 text-base"
+                  />
+                </div>
+              )}
               <ProofUpload
                 jobId={id}
                 kind="pickup"
                 label="Confirm Pickup"
                 ctaLabel="Take photo & start trip"
+                blockedReason={driverArranged && loadedAt.trim().length < 2 ? "Say where you loaded first." : null}
+                beforeUpload={
+                  driverArranged
+                    ? async () => {
+                        const res = await saveLoadedAt(supabase as unknown as Parameters<typeof saveLoadedAt>[0], id, loadedAt); // set_job_loaded_at (0112) is newer than the generated types
+                        if (!res.ok) toast.error(res.message);
+                        return res.ok;
+                      }
+                    : undefined
+                }
                 onUploaded={async () => {
                 const { error } = await supabase.rpc("start_trip", { _job_id: id });
                 if (error) { toast.error(error.message); return; }
@@ -2617,7 +2760,28 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
             </div>
           )}
 
-          {step === 2 &&
+          {step === 2 && job.status === "accepted" && (
+            // The pickup photo saved but start_trip never ran (e.g. the connection
+            // dropped). The delivery photo is only accepted once the trip has started,
+            // so offer the retry here instead of stranding the driver.
+            <div className="space-y-2.5" data-testid="start-trip-retry">
+              <HintBox tone="warn" icon={<Truck className="w-4 h-4" />}>
+                Your pickup photo is saved, but the trip has not started yet.
+              </HintBox>
+              <CzButton
+                disabled={marking}
+                onClick={async () => {
+                  const { error } = await supabase.rpc("start_trip", { _job_id: id });
+                  if (error) { toast.error(error.message); return; }
+                  ctx.invalidateJob();
+                }}
+              >
+                Start trip
+              </CzButton>
+            </div>
+          )}
+
+          {step === 2 && job.status !== "accepted" &&
             (!arrivedDrop ? (
               <div className="space-y-2.5">
                 <CzButton onClick={() => setArrivedDrop(true)} disabled={marking}>
@@ -2662,7 +2826,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
           <DriverShareLocation jobId={id} driverId={ctx.userId!} compact />
         </div>
 
-        <ProofPhotos job={job} />
+        <ProofPhotos job={job} viewer="driver" />
 
         <details className="group rounded-[14px] border border-cz-border bg-cz-surface">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-[15px] font-semibold">
@@ -2781,7 +2945,7 @@ function DriverPaid({ ctx }: { ctx: JobScreenCtx }) {
           )}
         </div>
 
-        <ProofPhotos job={job} />
+        <ProofPhotos job={job} viewer="driver" />
         {ctx.showNextLoads && <NextLoadsCard driverId={ctx.userId!} currentJobId={id} />}
 
         <div className="space-y-2.5 pt-1">
@@ -2831,11 +2995,28 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
     const t = window.setInterval(() => setNow(Date.now()), 15_000);
     return () => window.clearInterval(t);
   }, []);
+  const [sort, setSort] = useState<OfferSort>("price");
   const isLive = (b: any) => b.status === "pending" && (!b.expires_at || new Date(b.expires_at).getTime() > now);
   const all = bids ?? [];
   const live = all.filter(isLive);
-  const list = [...live, ...all.filter((b: any) => !isLive(b))]; // expired / decided at the bottom
-  const bestId = live[0]?.id; // bids query is ordered by price, lowest first
+  const earlier = all.filter((b: any) => !isLive(b)); // expired / withdrawn, collapsed at the bottom
+  const sorted = sortOffers(live, sort);
+  const primaryId = sorted[0]?.id; // the one filled Choose button follows the top of the list
+  const highlights = offerHighlights(live);
+  const breakdown = ((job as any).pricing_breakdown ?? null) as {
+    low?: number;
+    high?: number;
+    distance_km?: number;
+    material_component?: number;
+    transport_component?: number;
+  } | null;
+  const rangeLow = Number(breakdown?.low);
+  const rangeHigh = Number(breakdown?.high);
+  const hasRange = rangeLow > 0 && rangeHigh >= rangeLow;
+  const covers = priceCoversLine(
+    breakdown,
+    `${Number(job.quantity_m3)} m³ ${materialLabel(job.material as any, job.custom_material)}`,
+  );
   const hasPoint = job.delivery_lat != null && job.delivery_lng != null;
   // Approximate positions of Online drivers who bid (migration 0062).
   const locations = useBidderLocations(id, all.length > 0);
@@ -2845,7 +3026,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
 
   return (
     <CzScreen>
-      <div className="relative h-[300px]">
+      <div className="relative h-[260px]">
         {hasPoint ? (
           <PinMap point={{ lat: Number(job.delivery_lat), lng: Number(job.delivery_lng) }} trucks={trucks} className="w-full h-full" />
         ) : (
@@ -2860,44 +3041,94 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
       </div>
 
       <BottomSheet className="flex-1 space-y-4">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="space-y-1">
           <h1 className="cz-display font-bold text-[26px] leading-tight">
             {live.length ? `${live.length} driver${live.length === 1 ? "" : "s"} offered` : "Waiting for offers"}
           </h1>
-          <span className="text-sm text-cz-muted shrink-0">
-            You offered <strong className="text-cz-text">{usd(Number(job.budget))}</strong>
-          </span>
+          {covers && <p className="text-sm text-cz-muted">{covers}</p>}
         </div>
+
+        <dl className={cn("grid gap-2", hasRange ? "grid-cols-2" : "grid-cols-1")}>
+          <div className="rounded-xl border border-cz-border px-3 py-2.5">
+            <dt className="text-[12px] text-cz-muted">Your price</dt>
+            <dd className="cz-display text-[22px] font-bold leading-tight tabular-nums">{usd(Number(job.budget))}</dd>
+          </div>
+          {hasRange && (
+            <div className="rounded-xl border border-cz-border px-3 py-2.5">
+              <dt className="text-[12px] text-cz-muted">Price range</dt>
+              <dd className="cz-display text-[22px] font-bold leading-tight tabular-nums">
+                {usd(rangeLow)}–{usd(rangeHigh)}
+              </dd>
+            </div>
+          )}
+        </dl>
 
         {ctx.showRadar && <RadarSearch etaMinutes={5} nearbyDrivers={ctx.nearbyDrivers} />}
 
+        {live.length > 1 && (
+          <ToggleGroupPrimitive.Root
+            type="single"
+            value={sort}
+            onValueChange={(v) => v && setSort(v as OfferSort)}
+            aria-label="Sort offers"
+            className="grid grid-cols-3 gap-1 rounded-xl bg-cz-surface-2 p-1"
+          >
+            {OFFER_SORTS.map((o) => (
+              <ToggleGroupPrimitive.Item
+                key={o.value}
+                value={o.value}
+                className="min-h-11 rounded-lg px-1 text-[13px] font-semibold text-cz-muted transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cz-amber data-[state=on]:bg-cz-surface data-[state=on]:text-cz-text data-[state=on]:shadow-sm data-[state=on]:ring-1 data-[state=on]:ring-cz-border-strong"
+              >
+                {o.label}
+              </ToggleGroupPrimitive.Item>
+            ))}
+          </ToggleGroupPrimitive.Root>
+        )}
+
         <div id="tour-bids-received" className="space-y-3">
-          {list.length === 0 ? (
-            <p className="text-sm text-cz-muted">No offers yet. Drivers near you are checking your request — this updates live.</p>
+          {live.length === 0 ? (
+            <p className="text-sm text-cz-muted">No offers yet. Drivers near you are checking your request. This updates live.</p>
           ) : (
-            list.map((b: any) => {
-              const canChoose = isLive(b);
-              return (
-                <OfferCard
-                  key={b.id}
-                  bid={b}
-                  kmToPickup={locations[b.id]?.km_to_pickup ?? null}
-                  deliveryKm={Number((job as any).pricing_breakdown?.distance_km) || null}
-                  best={b.id === bestId && live.length > 1}
-                  primary={b.id === bestId}
-                  chooseId={b.id === bestId ? "tour-accept-bid" : undefined}
-                  onChoose={canChoose ? () => ctx.acceptBid(b.id) : undefined}
-                >
-                  {canChoose && b.counter_status !== "countered" && (
-                    <div className="mt-1">
-                      <CounterOfferRow bidPrice={Number(b.price)} onSubmit={(price) => ctx.counterBid(b.id, price)} />
-                    </div>
-                  )}
-                </OfferCard>
-              );
-            })
+            sorted.map((b: any) => (
+              <OfferCard
+                key={b.id}
+                bid={b}
+                kmToPickup={locations[b.id]?.km_to_pickup ?? null}
+                deliveryKm={Number(breakdown?.distance_km) || null}
+                highlights={highlights[b.id]}
+                guide={guideBand(b.price, breakdown)}
+                primary={b.id === primaryId}
+                chooseId={b.id === primaryId ? "tour-accept-bid" : undefined}
+                onChoose={() => ctx.acceptBid(b.id)}
+                footer={
+                  b.counter_status !== "countered" ? (
+                    <CounterOfferRow compact bidPrice={Number(b.price)} onSubmit={(price) => ctx.counterBid(b.id, price)} />
+                  ) : null
+                }
+              />
+            ))
           )}
         </div>
+
+        {earlier.length > 0 && (
+          <details className="group rounded-[18px] border border-cz-border bg-cz-surface">
+            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 text-sm font-semibold text-cz-muted [&::-webkit-details-marker]:hidden">
+              {earlier.length} earlier offer{earlier.length === 1 ? "" : "s"}
+              <ChevronDown aria-hidden className="h-4 w-4 transition group-open:rotate-180" />
+            </summary>
+            <ul className="divide-y divide-cz-border border-t border-cz-border">
+              {earlier.map((b: any) => (
+                <li key={b.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{b.profile?.full_name ?? "Driver"}</div>
+                    <div className="text-[12px] text-cz-muted">{earlierOfferNote(b.status)}</div>
+                  </div>
+                  <div className="shrink-0 text-sm tabular-nums text-cz-muted">{usd(Number(b.price))}</div>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
 
         <div className="space-y-2">
           <div className="text-sm font-semibold text-cz-muted">Your request</div>
@@ -3105,23 +3336,41 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
  *  - before that: the priced pickup→delivery distance plus the driver's own
  *    "reach pickup in" figure (a rough estimate, labelled as such).
  */
-function TripProgress({ job, step, track, driverEtaMin }: { job: any; step: number; track: TrackStatus | null; driverEtaMin?: number | null }) {
+function TripProgress({
+  job,
+  step,
+  track,
+  location,
+  driverEtaMin,
+}: {
+  job: any;
+  step: number;
+  track: TrackStatus | null;
+  location: LocationState;
+  driverEtaMin?: number | null;
+}) {
   const clock = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const when = (iso?: string | null) => (iso ? clock(new Date(iso)) : null);
 
-  const remainingKm = step === 2 ? track?.route?.distanceKm ?? null : null;
-  const liveEtaMin = step === 2 ? track?.route?.etaMin ?? null : null;
+  // Only a live location's route counts. The map keeps its last route after the
+  // driver stops sharing, and a stale position gives a stale arrival time.
+  const routeOk = step === 2 && location === "live";
+  const remainingKm = routeOk ? track?.route?.distanceKm ?? null : null;
+  const liveEtaMin = step === 2 ? etaIfLive(location, track?.route?.etaMin) : null;
 
-  // Progress = how much of the distance the driver had left when we first saw
-  // them on the road has been covered since. Only ever moves forward.
-  const startKm = useRef<number | null>(null);
-  if (remainingKm != null) startKm.current = Math.max(startKm.current ?? 0, remainingKm);
-  const pct =
-    step >= 3
-      ? 100
-      : remainingKm != null && startKm.current
-        ? Math.min(100, Math.max(0, Math.round((1 - remainingKm / startKm.current) * 100)))
-        : 0;
+  // Progress = share of the trip's road distance covered, measured from the live
+  // route. No live route means no percentage (see tripBar), never a made-up 0%.
+  const furthestKm = useRef<number | null>(null);
+  if (remainingKm != null) furthestKm.current = Math.max(furthestKm.current ?? 0, remainingKm);
+  const bar = tripBar({
+    step,
+    status: job.status,
+    atDropoff: step === 2 && !!job.driver_arrived_dropoff_at,
+    location,
+    remainingKm,
+    furthestKm: furthestKm.current,
+    plannedKm: Number(job?.pricing_breakdown?.distance_km) || null,
+  });
 
   let headline: string | null = null;
   let detail: string | null = null;
@@ -3139,7 +3388,7 @@ function TripProgress({ job, step, track, driverEtaMin }: { job: any; step: numb
 
   const stops: { label: string; at: string | null; done: boolean }[] = [
     { label: "Driver at the supplier", at: when(job.driver_arrived_pickup_at), done: !!job.driver_arrived_pickup_at },
-    { label: "Loaded and on the way", at: when(job.pickup_photo_taken_at), done: !!job.pickup_photo_url },
+    { label: "Loaded", at: when(job.pickup_photo_taken_at), done: !!job.pickup_photo_url },
     { label: "Driver at your site", at: when(job.driver_arrived_dropoff_at), done: !!job.driver_arrived_dropoff_at },
     { label: "Delivered", at: when(job.delivery_photo_taken_at), done: !!job.delivery_photo_url },
   ];
@@ -3154,12 +3403,21 @@ function TripProgress({ job, step, track, driverEtaMin }: { job: any; step: numb
           {detail && <div className="text-[13px] text-cz-muted">{detail}</div>}
         </div>
       )}
-      {step >= 2 && (
-        <div className="space-y-1" aria-label={`Trip ${pct}% complete`}>
-          <div className="h-2 overflow-hidden rounded-full bg-cz-upcoming">
-            <div className="h-full rounded-full bg-cz-green transition-all duration-700" style={{ width: `${pct}%` }} />
-          </div>
-          <div className="text-[12px] text-cz-faint">{step >= 3 ? "Arrived" : `${pct}% of the trip done`}</div>
+      {bar && (
+        <div className="space-y-1">
+          {bar.pct != null && (
+            <div
+              role="progressbar"
+              aria-label="Trip progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={bar.pct}
+              className="h-2 overflow-hidden rounded-full bg-cz-upcoming"
+            >
+              <div className="h-full rounded-full bg-cz-green transition-all duration-700" style={{ width: `${bar.pct}%` }} />
+            </div>
+          )}
+          <div className="text-[12px] text-cz-faint">{bar.label}</div>
         </div>
       )}
       <ol className="space-y-1.5">
@@ -3180,15 +3438,23 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
   const { job, id } = ctx;
   const d = useAcceptedDriver(ctx);
   const [track, setTrack] = useState<TrackStatus | null>(null);
+  // Re-checked every 30 s so a phone that goes quiet turns stale without a reload.
+  const now = useNow(30_000);
+  const location = locationState(track, now);
+  const lastUpdate = track?.updatedAt
+    ? new Date(track.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : null;
+  const shown = locationDisplay(location, lastUpdate);
   const mat = materialLabel(job.material as any, job.custom_material);
   // Same four steps as the driver's screen, from the same job fields.
   const step = !job.pickup_photo_url ? (job.driver_arrived_pickup_at ? 1 : 0) : !job.delivery_photo_url ? 2 : 3;
   const atDropoff = step === 2 && !!job.driver_arrived_dropoff_at;
-  const eta = track?.route?.etaMin;
+  const notLeft = step === 2 && !atDropoff && job.status === "accepted";
+  const eta = etaIfLive(location, track?.route?.etaMin);
   const title = [
     `${d.first} is heading to pickup`,
     `Your ${mat.toLowerCase()} is being loaded`,
-    atDropoff ? `${d.first} is at your site` : "On the way to you",
+    atDropoff ? `${d.first} is at your site` : notLeft ? `${d.first} has loaded up` : "On the way to you",
     `${d.first} has arrived`,
   ][step];
   const sub = [
@@ -3196,7 +3462,15 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
     `${d.first} is at ${job.pickup_address || "the supplier"}. You'll get a photo of the loaded truck before they leave.`,
     atDropoff
       ? "They're tipping the load now and will send a delivery photo."
-      : eta != null ? `Arriving in about ${Math.max(1, Math.round(eta))} min.` : track?.live ? "Your driver is sharing their live location." : "Your load is on the way.",
+      : notLeft
+        ? "They're about to set off. You'll see them on the map once the trip starts."
+        : eta != null
+          ? "Follow the truck on the map."
+          : location === "stale"
+            ? `No location update from ${d.first} since ${lastUpdate ?? "a while ago"}.`
+            : location === "live"
+              ? "Your driver is sharing their live location."
+              : "Your load is on the way.",
     "Check the load, then give your PIN to the driver.",
   ][step];
 
@@ -3213,10 +3487,23 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
         ) : (
           <CustomerTrackMap jobId={id} variant="hero" height={270} onStatus={setTrack} />
         )}
+        {shown.staleNote && step !== 1 && step !== 3 && (
+          <div
+            role="status"
+            className={cn(
+              "pointer-events-none absolute inset-x-4 z-20 flex items-start gap-2 rounded-xl bg-cz-bg/95 px-3.5 py-2.5 text-[13px] text-cz-muted shadow-lg",
+              // Same place as the map's own notes; above "hasn't moved" if that shows too.
+              track?.stalled ? "bottom-[136px]" : "bottom-10",
+            )}
+          >
+            <Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{shown.staleNote}</span>
+          </div>
+        )}
         <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <MapBackButton to="/jobs" />
-            {track?.live && (
+            {shown.live && (
               <StatusPill tone="green" dot blink className="pointer-events-auto">Live</StatusPill>
             )}
           </div>
@@ -3228,12 +3515,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
       </div>
 
       <BottomSheet className="flex-1 space-y-4">
-        <SpotlightCallout
-          id="live-tracking"
-          title="Watch your driver in real time"
-          body="Once your driver starts sharing their location, you'll see them move on this map right up to your delivery point."
-        />
-        <SupplyConfirmationCard job={job} viewer="customer" />
+        {/* Status first: what is happening and when, then everything else. */}
         <div id="tour-next-steps" className="space-y-4">
           <StepProgress current={step} />
           <div key={step} className="space-y-1.5 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -3241,7 +3523,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
             <p className="text-[15px] text-cz-muted leading-snug">{sub}</p>
           </div>
 
-          <TripProgress job={job} step={step} track={track} driverEtaMin={d.bid?.eta_minutes} />
+          <TripProgress job={job} step={step} track={track} location={location} driverEtaMin={d.bid?.eta_minutes} />
 
           {onPay && (
             <HintBox tone="warn" icon={<ShieldCheck className="w-4 h-4" />}>
@@ -3265,19 +3547,38 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
             </div>
           )}
 
+          {/* Information, not an action: a tinted card, so solid orange stays for the
+              one button to tap. Same PIN, same conditions, same "New code" action. */}
           {ctx.showDeliveryPinDisplay && (
-            <div className="rounded-2xl bg-cz-amber p-4 text-cz-amber-ink">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="font-bold">Your delivery PIN</div>
-                  <div className="text-[13px] opacity-80">Only share after the load is tipped</div>
-                </div>
-                <div className="cz-display font-bold text-[40px] leading-none tracking-[0.12em] tabular-nums">{ctx.deliveryPin ?? "······"}</div>
+            <section
+              aria-labelledby="delivery-pin-title"
+              className="space-y-3 rounded-2xl bg-cz-amber-tint p-4"
+            >
+              <div>
+                <h2
+                  id="delivery-pin-title"
+                  className="flex items-center gap-1.5 text-[15px] font-semibold text-cz-text"
+                >
+                  <KeyRound aria-hidden className="h-4 w-4 shrink-0 text-cz-amber-text" />
+                  Your delivery PIN
+                </h2>
+                <p className="mt-0.5 text-[13px] text-cz-muted">
+                  Only share after the load is tipped
+                </p>
               </div>
-              <button type="button" onClick={ctx.regeneratePin} className="mt-2 text-[13px] underline opacity-80">
-                Code lost or shared by mistake? New code
-              </button>
-            </div>
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <div className="cz-display rounded-xl border border-cz-border bg-cz-surface px-3.5 py-2 text-[36px] font-bold leading-none tracking-[0.14em] tabular-nums text-cz-text">
+                  {ctx.deliveryPin ?? "······"}
+                </div>
+                <button
+                  type="button"
+                  onClick={ctx.regeneratePin}
+                  className="min-h-11 text-left text-[13px] font-semibold text-cz-amber-text underline underline-offset-2"
+                >
+                  Code lost or shared by mistake? New code
+                </button>
+              </div>
+            </section>
           )}
 
           {ctx.showCompleteButton && (
@@ -3288,8 +3589,16 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
           )}
         </div>
 
+        {location !== "live" && (
+          <SpotlightCallout
+            id="live-tracking"
+            title="Watch your driver in real time"
+            body="Once your driver starts sharing their location, you'll see them move on this map right up to your delivery point."
+          />
+        )}
+        <SupplyConfirmationCard job={job} viewer="customer" />
         <ContactCard ctx={ctx} role="driver" subtitle={d.bid?.truck_reg ? `Truck ${d.bid.truck_reg} · ${mat}` : mat} />
-        <ProofPhotos job={job} />
+        <ProofPhotos job={job} viewer="customer" />
 
         <div className="space-y-2.5">
           {ctx.showDispute && (
@@ -3347,21 +3656,14 @@ function CustomerDelivered({ ctx }: { ctx: JobScreenCtx }) {
           )}
         </div>
 
-        <ProofPhotos job={job} />
+        <ProofPhotos job={job} viewer="customer" />
 
         <div className="space-y-2.5 pt-1">
           <Link to="/customer/book" className={czButtonClass("primary")}>Book another load</Link>
           {ctx.showBookAgain && (
             <Link
               to="/customer/book"
-              search={{
-                material: job.material,
-                quantity: job.quantity_m3,
-                address: job.delivery_address,
-                lat: job.delivery_lat ?? undefined,
-                lng: job.delivery_lng ?? undefined,
-                driverId: job.driver_id!,
-              }}
+              search={bookAgainSearch(job, { sameDriver: true }) ?? {}}
               className={czButtonClass("secondary", "md")}
             >
               Book {d.first} again

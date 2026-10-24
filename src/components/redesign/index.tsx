@@ -9,9 +9,10 @@
  */
 import type { ComponentProps, ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Minus, Plus } from "lucide-react";
+import { ArrowLeft, Check, Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { haversineKm } from "@/lib/jobDistance";
+import { STEP_STATE_WORD, stepState } from "@/lib/delivery-docket";
 
 /* ------------------------------------------------------------------ */
 /* Money                                                               */
@@ -320,28 +321,43 @@ export function StepProgress({
 }) {
   return (
     <ol
-      className="grid grid-cols-4 gap-1.5"
+      className="grid gap-1.5"
+      style={{ gridTemplateColumns: `repeat(${labels.length}, minmax(0, 1fr))` }}
       aria-label={`Step ${Math.min(current + 1, labels.length)} of ${labels.length}`}
     >
       {labels.map((l, i) => {
-        const done = i < current;
-        const now = i === current;
+        const state = stepState(i, current);
         return (
-          <li key={l} className="flex flex-col gap-1.5" aria-current={now ? "step" : undefined}>
+          <li key={l} className="flex flex-col gap-1.5" aria-current={state === "current" ? "step" : undefined}>
             <span
               aria-hidden
               className={cn(
                 "h-[5px] rounded-full",
-                done ? "bg-cz-green" : now ? "bg-cz-amber" : "bg-cz-upcoming",
+                state === "done" ? "bg-cz-green" : state === "current" ? "bg-cz-amber" : "bg-cz-upcoming",
               )}
             />
+            {/* Each step carries a mark and a word, so the state never depends on colour. */}
             <span
               className={cn(
-                "text-xs font-semibold",
-                done || now ? "text-cz-text" : "text-cz-faint",
+                "flex items-center gap-1 text-xs font-semibold",
+                state === "upcoming" ? "text-cz-faint" : "text-cz-text",
               )}
             >
-              {l}
+              {state === "done" ? (
+                <Check aria-hidden className="h-3.5 w-3.5 shrink-0 text-cz-green-text" strokeWidth={3} />
+              ) : (
+                <span
+                  aria-hidden
+                  className={cn(
+                    "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold leading-none",
+                    state === "current" ? "bg-cz-amber text-cz-amber-ink" : "border border-cz-border-strong",
+                  )}
+                >
+                  {i + 1}
+                </span>
+              )}
+              <span className="truncate">{l}</span>
+              <span className="sr-only">, {STEP_STATE_WORD[state]}</span>
             </span>
           </li>
         );
@@ -430,7 +446,8 @@ export function MaterialChips<T extends string>({
       role="radiogroup"
       className={cn(
         "flex gap-2",
-        scroll ? "overflow-x-auto cz-no-scrollbar -mx-5 px-5" : "flex-wrap",
+        // The right-edge fade shows that more chips are a swipe away.
+        scroll ? "overflow-x-auto cz-no-scrollbar cz-scroll-fade -mx-5 px-5" : "flex-wrap",
       )}
     >
       {options.map((o) => {
@@ -545,11 +562,11 @@ export function RouteStops({
       <div className="flex-1 min-w-0 flex flex-col gap-3.5">
         <div className="min-w-0">
           <div className="text-xs text-cz-muted">{pickupHint ?? "Pickup"}</div>
-          <div className="text-base font-semibold truncate">{pickupLabel}</div>
+          <div className="text-base font-semibold leading-snug line-clamp-2 break-words">{pickupLabel}</div>
         </div>
         <div className="min-w-0">
           <div className="text-xs text-cz-muted">{dropHint ?? "Drop-off"}</div>
-          <div className="text-base font-semibold truncate">{dropLabel}</div>
+          <div className="text-base font-semibold leading-snug line-clamp-2 break-words">{dropLabel}</div>
         </div>
       </div>
     </div>
