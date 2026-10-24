@@ -325,6 +325,22 @@ const rpc = {
   nearby_available_trucks: () => [],
   job_bidder_locations: () => [],
   get_my_delivery_pin_expiry: () => null,
+  // Admin dispute evidence: the job's photo fields, its evidence rows, no extra files.
+  admin_job_evidence: ({ _job_id }) => {
+    const job = db.jobs.find((j) => j.id === _job_id);
+    if (!job) return null;
+    return {
+      job: {
+        pickup_photo_url: job.pickup_photo_url ?? null,
+        delivery_photo_url: job.delivery_photo_url ?? null,
+        pickup_photo_taken_at: job.pickup_photo_taken_at ?? null,
+        delivery_photo_taken_at: job.delivery_photo_taken_at ?? null,
+      },
+      evidence: (db.job_evidence ?? []).filter((e) => e.job_id === _job_id),
+      storage_objects: [],
+    };
+  },
+  evidence_distance_m: () => 140,
   // A fixed sample code so the customer's PIN card shows six real digits.
   get_my_delivery_pin: () => "482917",
   // Mirrors the live rule: only the assigned driver, only after the pickup photo.

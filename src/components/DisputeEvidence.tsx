@@ -46,7 +46,7 @@ export function DisputeEvidence({ jobId }: { jobId: string }) {
   const [open, setOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["dispute-evidence", jobId],
     enabled: open,
     queryFn: async () => {
@@ -87,13 +87,16 @@ export function DisputeEvidence({ jobId }: { jobId: string }) {
         const real = job.delivery_photo_url.startsWith("http") ? extractPath(job.delivery_photo_url) : job.delivery_photo_url;
         if (real) knownPaths.add(real);
       }
-      if (job?.pickup_photo_url) {
+      // The job's own photo fields are listed only when no evidence row already holds
+      // that file; otherwise the same photo appeared twice, once without its GPS.
+      const recorded = new Set(evidence.map((e) => e.storage_path));
+      if (job?.pickup_photo_url && !recorded.has(job.pickup_photo_url)) {
         jobPhotos.push({
           job_id: jobId, kind: "pickup (delivery confirmation)", storage_path: job.pickup_photo_url,
           uploaded_at: job.pickup_photo_taken_at, device_lat: null, device_lng: null, device_accuracy_m: null, location_status: null,
         });
       }
-      if (job?.delivery_photo_url) {
+      if (job?.delivery_photo_url && !recorded.has(job.delivery_photo_url)) {
         jobPhotos.push({
           job_id: jobId, kind: "delivery (delivery confirmation)", storage_path: job.delivery_photo_url,
           uploaded_at: job.delivery_photo_taken_at, device_lat: null, device_lng: null, device_accuracy_m: null, location_status: null,
@@ -160,6 +163,12 @@ export function DisputeEvidence({ jobId }: { jobId: string }) {
         <div className="pt-2 space-y-2">
           {isLoading ? (
             <p className="text-xs text-muted-foreground">Loading evidence…</p>
+          ) : isError ? (
+            // Never read a failed lookup as "no photos": in a dispute that would mislead.
+            <p role="alert" className="text-xs font-semibold text-destructive flex items-center gap-1">
+              <ImageOff className="w-3.5 h-3.5" /> Couldn't load the photos for this job. Close and open
+              Evidence again; if it keeps failing, check the job's photos before deciding.
+            </p>
           ) : !data?.evidence.length ? (
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <ImageOff className="w-3.5 h-3.5" /> No photos were uploaded for this job.
