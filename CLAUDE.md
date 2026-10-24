@@ -270,9 +270,9 @@ Checked by read-only queries against production on 24/10 (body hashes with white
 | --- | --- | --- |
 | 0077–0108 | Yes, unrecorded (except 0098) | every function body matches git |
 | 0109 accept_bid expiry | Yes, recorded `20261022100000` | `accept_bid` = `475a2778…` |
-| 0110 evidence stage order | **No** | `record_job_evidence` = `12ae4e5b…` (pre-0110) |
+| 0110 evidence stage order | Yes, recorded `20261023100000` (24/10, after the app deploy) | `record_job_evidence` = `38cb7974…` |
 | 0111 admin Google step-up | Yes, recorded `20261023200000` | 6 functions + 5 triggers match the tested build |
-| 0112 pickup check + route trail | **No** (prepared) | new tables/functions; undo in `supabase/rollbacks/` (has DROP — run it in the SQL editor) |
+| 0112 pickup check + route trail | Yes, recorded `20261024100000` (24/10) | 4 functions match git; 2 tables (RLS, admin read), 2 triggers, cron `prune-job-route-points`; undo in `supabase/rollbacks/` (has DROP — run it in the SQL editor) |
 
 Tested on 24/10: typecheck, `npm test` (268), `npm run lint:security`, `npm run build`, full pgTAP
 (43 files / 1061), browser checks on the local sample-data stand-in (admin dispute panel: photos with GPS,
@@ -297,3 +297,10 @@ before the pickup photo (`set_job_loaded_at`). While a job is accepted/in progre
 are copied to `job_route_points` at most every 2 min, kept 90 days (cron `prune-job-route-points`), admin-only;
 the admin dispute panel's "Pickup and route" section shows the check and a map. Customers see nothing new.
 pgTAP `430_pickup_check_route_trail`; unit `pickup-check`, `admin-pickup-attention`.
+
+**24/10/2026 — released.** PR #7 (this branch) merged to `main` and deployed; owner smoke-tested production; then
+0110 and 0112 were applied (statement bodies without header comments, via `execute_sql`) and recorded. PR #8: the
+site names the operator, Navysky Innovations (Private) Limited, company no. 145174A02102026, registered office
+12705 Timire Park, Ruwa; contact email navyskyinnovations@gmail.com (directors' IDs deliberately not published).
+The old ZIMRA TIN (sole proprietorship) was removed from Terms/Privacy; add the company's TIN when issued.
+Still open: repair `schema_migrations` for 0077–0108 before any `supabase db push`.

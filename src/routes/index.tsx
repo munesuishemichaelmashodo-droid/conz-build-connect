@@ -144,33 +144,52 @@ function Welcome() {
           </section>
         </main>
 
-        <footer className="mt-10 border-t border-cz-border pt-6 text-sm text-cz-muted">
-          <p className="text-cz-text font-semibold">Founded in Zimbabwe, built for the industry.</p>
-          <ul className="mt-3 flex flex-col gap-1">
+        <footer className="mt-12 border-t border-cz-border pt-8 text-sm">
+          <div className="flex items-center gap-2.5">
+            <img src="/conz-icon-192.png" alt="" width={32} height={32} className="h-8 w-8 rounded-[8px]" />
+            <span className="cz-display font-bold text-[18px] tracking-wide">CON Z</span>
+          </div>
+          <p className="mt-2 text-cz-muted">Founded in Zimbabwe, built for the construction industry.</p>
+
+          <h2 className="mt-6 text-[13px] font-semibold text-cz-text">Talk to us</h2>
+          <ul className="mt-2 divide-y divide-cz-border overflow-hidden rounded-2xl border border-cz-border bg-cz-surface">
             <li>
-              <a href="tel:+263777770557" className="inline-flex min-h-11 items-center gap-2 hover:text-cz-text">
-                <Phone className="h-4 w-4" aria-hidden /> +263 77 777 0557
+              <a href="tel:+263777770557" className="flex min-h-14 items-center gap-3 px-4 hover:bg-cz-surface-2">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cz-amber-tint text-cz-amber">
+                  <Phone className="h-4 w-4" aria-hidden />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs text-cz-muted">Call</span>
+                  <span className="block font-semibold text-cz-text">+263 77 777 0557</span>
+                </span>
               </a>
             </li>
             <li>
-              <a
-                href="mailto:navyskyinnovations@gmail.com"
-                className="inline-flex min-h-11 items-center gap-2 break-all hover:text-cz-text"
-              >
-                <Mail className="h-4 w-4" aria-hidden /> navyskyinnovations@gmail.com
+              <a href="mailto:navyskyinnovations@gmail.com" className="flex min-h-14 items-center gap-3 px-4 hover:bg-cz-surface-2">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cz-amber-tint text-cz-amber">
+                  <Mail className="h-4 w-4" aria-hidden />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs text-cz-muted">Email</span>
+                  <span className="block break-all font-semibold text-cz-text">navyskyinnovations@gmail.com</span>
+                </span>
               </a>
             </li>
           </ul>
-          <div className="mt-3 flex gap-4">
-            <Link to="/terms" className="inline-flex min-h-11 items-center underline underline-offset-2">
+
+          <nav aria-label="Legal" className="mt-5 flex gap-5">
+            <Link to="/terms" className="inline-flex min-h-11 items-center font-semibold text-cz-text underline underline-offset-4">
               Terms
             </Link>
-            <Link to="/privacy" className="inline-flex min-h-11 items-center underline underline-offset-2">
+            <Link to="/privacy" className="inline-flex min-h-11 items-center font-semibold text-cz-text underline underline-offset-4">
               Privacy
             </Link>
-          </div>
-          <p className="mt-2 text-xs text-cz-faint">
-            © {new Date().getFullYear()} Navysky Innovations (Private) Limited, trading as Con Z. All rights reserved.
+          </nav>
+
+          <p className="mt-3 text-xs leading-relaxed text-cz-faint">
+            Con Z is a trading name of Navysky Innovations (Private) Limited, registered in Zimbabwe,
+            company number 145174A02102026.
+            <br />© {new Date().getFullYear()} Navysky Innovations (Private) Limited. All rights reserved.
           </p>
         </footer>
       </div>
