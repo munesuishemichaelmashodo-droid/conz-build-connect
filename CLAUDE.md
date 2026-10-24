@@ -29,7 +29,7 @@ Zimbabwe.
   lint changed files with `npx eslint <files>` instead of `eslint .` (it scans
   `.vercel`/`android` and hangs).
 - `npm run test:db` (= `node scripts/db-test.mjs test`) — pgTAP database tests
-  (`supabase/tests/database/`, 41 files / 1027 tests on 24/10/2026) on a fresh local
+  (`supabase/tests/database/`, 42 files / 1034 tests on 24/10/2026) on a fresh local
   Supabase in Docker built from the 13/08 baseline + every later migration. First
   `node scripts/db-test.mjs start`. Never touches the hosted project.
 - Local signed-in screens with sample data: `scripts/dev/README.md`
@@ -274,13 +274,15 @@ Checked by read-only queries against production on 24/10 (body hashes with white
 | 0111 admin Google step-up | Yes, recorded `20261023200000` | 6 functions + 5 triggers match the tested build |
 
 Tested on 24/10: typecheck, `npm test` (251), `npm run lint:security`, `npm run build`, full pgTAP
-(41 files / 1027), browser checks on the local sample-data stand-in (driver Start-trip retry with a failing
+(42 files / 1034), browser checks on the local sample-data stand-in (admin dispute panel: photos with GPS,
+delivery distance, chat transcript; driver Start-trip retry with a failing
 first attempt, offers, tracking, admin, at 360/390 px light/dark). NOT verified: real Google sign-in against
 0111, a real Android phone, Paynow, push delivery.
 
 Safe next steps, in order: (1) owner merges `ccr-4fab7e0d-2b8j1o` into `main` (Vercel deploys);
 (2) smoke-test on production (driver pickup → Start trip → delivery photo → PIN; admin money action after a
 Google sign-in); (3) apply 0110 (file has no DROP; undo in `supabase/rollbacks/`; expected hash after applying
-`48a18862…`) and record it; (4) repair `schema_migrations` for 0077–0108 before anyone runs `supabase db push`.
+`38cb7974…`) and record it — it also stops photos overwriting the job's pickup point and delivery address,
+which made the admin dispute panel's "metres from the delivery address" always read ~0; (4) repair `schema_migrations` for 0077–0108 before anyone runs `supabase db push`.
 Known, not blocking: some low-contrast orange text and unlabeled map pins (fixed globally on the separate
 `design/site-docket` branch).
