@@ -545,7 +545,8 @@ function JobDetail() {
   const showBidForm = is("driver") && !isOwner && job.status === "open";
   const showCounterResponse = showBidForm && myBid?.counter_status === "countered";
   const showPickupUpload = isAssignedDriver && job.status === "accepted" && !job.pickup_photo_url;
-  const showDeliveryUpload = isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && !!job.pickup_photo_url && !job.delivery_photo_url;
+  // Same rule as record_job_evidence (0110): the delivery photo only once the trip has started.
+  const showDeliveryUpload = isAssignedDriver && job.status === "in_progress" && !!job.pickup_photo_url && !job.delivery_photo_url;
   const showDeliveryPinDisplay = isOwner && ["accepted", "in_progress"].includes(job.status);
   const showCompleteButton = isOwner && !isEscrow && (job.status === "accepted" || job.status === "in_progress");
   const showDeliveryPinEntry = isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && !!job.delivery_photo_url;
@@ -2283,7 +2284,7 @@ function ProofPhotos({ job, viewer }: { job: any; viewer: EvidenceViewer }) {
             {slot.path ? (
               <SignedProofPhoto path={slot.path} alt={slot.label} />
             ) : (
-              <div className="flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-cz-border-strong text-cz-faint">
+              <div className="flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-cz-border-strong text-cz-muted">
                 <Camera aria-hidden className="h-6 w-6" />
                 <span className="text-xs font-semibold">{slot.label}</span>
               </div>

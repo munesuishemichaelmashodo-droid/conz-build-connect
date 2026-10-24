@@ -1,12 +1,13 @@
 -- 0110: delivery evidence follows the delivery stages and only the driver can file it.
 --
--- PREPARED, NOT APPLIED. Owner approved applying it (23/10/2026), but it must wait
--- for the app: the live app (main) still offers the delivery-photo upload when a
--- pickup photo exists but start_trip failed (status still 'accepted'), and this
--- migration refuses delivery evidence before the trip starts. One live job was in
--- that state on 23/10. DEPLOY ORDER: ship branch ccr-4fab7e0d-2b8j1o (driver
--- "Start trip" retry) first, check no job is 'accepted' with a pickup photo, then
--- apply. Use CREATE OR REPLACE only (the Supabase tool hangs on DROP).
+-- PREPARED, NOT APPLIED. Owner approved applying it, but only AFTER the app release:
+-- the live app (main) still offers the delivery-photo upload when a pickup photo
+-- exists but start_trip failed (status still 'accepted'), and this migration refuses
+-- delivery evidence before the trip starts. The release branch replaces that with a
+-- "Start trip" retry (browser-checked 24/10, first attempt failing). DEPLOY ORDER:
+-- deploy the app, then apply this file. The one job in that state on 23/10 is test
+-- data (owner: disposable), so it does not block. No DROP statements (the Supabase
+-- tool hangs on DROP).
 --
 -- Defect (read from the live definition, identical to the 13/08 baseline, 23/10/2026):
 -- record_job_evidence is executable by every signed-in user and
@@ -29,7 +30,9 @@
 -- 'dispute' / 'other' evidence keeps its existing rule (any party to the job or an
 -- admin). Storage policies, completion rules and existing rows are unchanged.
 --
--- Rollback: re-create record_job_evidence from 20260813999999_baseline_reconcile_with_live.sql.
+-- Rollback: supabase/rollbacks/20261023100000_0110_rollback.sql (the exact production
+-- definition read 24/10/2026, body hash 12ae4e5b...; verified locally). After applying,
+-- the live body hash (whitespace removed) must be 48a18862a743daa6795c02e915be2f2c.
 
 create or replace function public.record_job_evidence(
   _job_id uuid,
