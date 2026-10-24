@@ -64,7 +64,13 @@ function Welcome() {
       <div className="mx-auto w-full max-w-[480px] px-5 pb-10">
         <header className="flex items-center justify-between gap-3 pt-4 pb-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <img src="/conz-icon-192.png" alt="" width={40} height={40} className="h-10 w-10 rounded-[10px]" />
+            <img
+              src="/conz-icon-192.png"
+              alt=""
+              width={40}
+              height={40}
+              className="h-10 w-10 rounded-[10px]"
+            />
             <div className="min-w-0 leading-none">
               <div className="cz-display font-bold text-[22px] tracking-wide">CON Z</div>
               <div className="text-[11px] text-cz-muted mt-0.5">Construction made easy</div>
@@ -118,11 +124,15 @@ function Welcome() {
               {MATERIAL_GROUPS.map((g) => (
                 <div key={g.group} className="flex items-baseline gap-4 py-3">
                   <dt className="w-24 shrink-0 text-sm text-cz-muted">{g.group}</dt>
-                  <dd className="text-[15px] font-semibold leading-relaxed">{g.items.join(", ")}</dd>
+                  <dd className="text-[15px] font-semibold leading-relaxed">
+                    {g.items.join(", ")}
+                  </dd>
                 </div>
               ))}
             </dl>
-            <p className="mt-2.5 text-sm text-cz-muted">Need something else? Describe it when you book.</p>
+            <p className="mt-2.5 text-sm text-cz-muted">
+              Need something else? Describe it when you book.
+            </p>
           </section>
 
           <section aria-labelledby="how-title" className="mt-10">
@@ -193,15 +203,26 @@ function Welcome() {
 
         <footer className="mt-10 border-t border-cz-border pt-7 text-sm">
           <div className="flex items-center gap-2.5">
-            <img src="/conz-icon-192.png" alt="" width={32} height={32} className="h-8 w-8 rounded-[8px]" />
+            <img
+              src="/conz-icon-192.png"
+              alt=""
+              width={32}
+              height={32}
+              className="h-8 w-8 rounded-[8px]"
+            />
             <span className="cz-display font-bold text-[18px] tracking-wide">CON Z</span>
           </div>
-          <p className="mt-2 text-cz-muted">Founded in Zimbabwe, built for the construction industry.</p>
+          <p className="mt-2 text-cz-muted">
+            Founded in Zimbabwe, built for the construction industry.
+          </p>
 
           <h2 className="mt-6 text-[13px] font-semibold text-cz-text">Talk to us</h2>
           <ul className="mt-2 divide-y divide-cz-border overflow-hidden rounded-2xl border border-cz-border bg-cz-surface">
             <li>
-              <a href="tel:+263777770557" className="flex min-h-14 items-center gap-3 px-4 hover:bg-cz-surface-2">
+              <a
+                href="tel:+263777770557"
+                className="flex min-h-14 items-center gap-3 px-4 hover:bg-cz-surface-2"
+              >
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cz-amber-tint text-cz-amber">
                   <Phone className="h-4 w-4" aria-hidden />
                 </span>
@@ -212,23 +233,34 @@ function Welcome() {
               </a>
             </li>
             <li>
-              <a href="mailto:navyskyinnovations@gmail.com" className="flex min-h-14 items-center gap-3 px-4 hover:bg-cz-surface-2">
+              <a
+                href="mailto:navyskyinnovations@gmail.com"
+                className="flex min-h-14 items-center gap-3 px-4 hover:bg-cz-surface-2"
+              >
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cz-amber-tint text-cz-amber">
                   <Mail className="h-4 w-4" aria-hidden />
                 </span>
                 <span className="min-w-0">
                   <span className="block text-xs text-cz-muted">Email</span>
-                  <span className="block break-all font-semibold text-cz-text">navyskyinnovations@gmail.com</span>
+                  <span className="block break-all font-semibold text-cz-text">
+                    navyskyinnovations@gmail.com
+                  </span>
                 </span>
               </a>
             </li>
           </ul>
 
           <nav aria-label="Legal" className="mt-4 flex gap-5">
-            <Link to="/terms" className="inline-flex min-h-11 items-center font-semibold text-cz-text underline underline-offset-4">
+            <Link
+              to="/terms"
+              className="inline-flex min-h-11 items-center font-semibold text-cz-text underline underline-offset-4"
+            >
               Terms
             </Link>
-            <Link to="/privacy" className="inline-flex min-h-11 items-center font-semibold text-cz-text underline underline-offset-4">
+            <Link
+              to="/privacy"
+              className="inline-flex min-h-11 items-center font-semibold text-cz-text underline underline-offset-4"
+            >
               Privacy
             </Link>
           </nav>
