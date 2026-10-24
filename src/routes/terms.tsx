@@ -30,8 +30,9 @@ function TermsPage() {
         <div className="prose prose-sm dark:prose-invert max-w-none space-y-6">
           <Section title="1. About Con Z Build Connect">
             <p>
-              Con Z Build Connect is operated as a sole proprietorship in Zimbabwe,
-              trading as "Con Z" (ZIMRA TIN 1014617149). It operates a construction
+              Con Z Build Connect ("Con Z") is operated by Navysky Innovations (Private) Limited, a company
+              registered in Zimbabwe (company number 145174A02102026) with its registered
+              office at 12705 Timire Park, Ruwa. It operates a construction
               logistics marketplace that connects customers requiring bulk material
               deliveries with independent tipper truck drivers ("Drivers").
             </p>
@@ -144,7 +145,7 @@ function TermsPage() {
           <Section title="14. Contact">
             <p>
               For questions about these Terms, you can reach us at{" "}
-              <b>constructionz.zw@gmail.com</b> or <b>+263 77 777 0557</b>.
+              <b>navyskyinnovations@gmail.com</b> or <b>+263 77 777 0557</b>.
             </p>
           </Section>
 
@@ -152,7 +153,7 @@ function TermsPage() {
             See also our <Link to="/privacy" className="underline">Privacy Policy</Link>.
           </p>
           <p className="pt-2 text-[11px] text-muted-foreground">
-            © {new Date().getFullYear()} Con Z. All rights reserved.
+            © {new Date().getFullYear()} Navysky Innovations (Private) Limited, trading as Con Z. All rights reserved.
           </p>
         </div>
       </div>
