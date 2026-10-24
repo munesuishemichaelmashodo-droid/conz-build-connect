@@ -244,7 +244,56 @@ const db = {
       updated_at: hoursAgo(24 * 63),
       tracking_token: randomUUID(),
     },
+    // Driver-arranged pickup taken by the sample driver: shows "Where did you load?".
+    {
+      id: "00000000-0000-4000-8000-00000000a006",
+      customer_id: ID.customer,
+      driver_id: ID.driver,
+      material: "pit_sand",
+      custom_material: null,
+      quantity_m3: 6,
+      budget: 110,
+      final_price: 110,
+      status: "accepted",
+      payment_method: "direct",
+      pickup_address: "Driver arranges pickup",
+      pickup_lat: null,
+      pickup_lng: null,
+      delivery_address: "Glen Lorne, Harare, Zimbabwe",
+      delivery_lat: -17.7633,
+      delivery_lng: 31.1361,
+      created_at: hoursAgo(2),
+      tracking_token: randomUUID(),
+    },
   ],
+  // Pickup location checks (0112): job a002 loaded 6.1 km from the expected quarry.
+  job_pickup_checks: [
+    {
+      job_id: "00000000-0000-4000-8000-00000000a002",
+      status: "far",
+      expected_lat: -17.758,
+      expected_lng: 31.078,
+      expected_source: "job_pickup_point",
+      photo_lat: -17.7105,
+      photo_lng: 31.1105,
+      photo_accuracy_m: 12,
+      distance_m: 6120,
+      evidence_id: null,
+      checked_at: hoursAgo(5),
+      loaded_at_name: null,
+      loaded_at_set_at: null,
+    },
+  ],
+  // Route trail (0112) for job a002, one point every ~2 minutes.
+  job_route_points: Array.from({ length: 12 }, (_, i) => ({
+    id: i + 1,
+    job_id: "00000000-0000-4000-8000-00000000a002",
+    driver_id: ID.driver2,
+    lat: -17.7105 - i * 0.011,
+    lng: 31.1105 - i * 0.0077,
+    accuracy: 10,
+    recorded_at: minutesAgo(300 - i * 2),
+  })),
   // Offers on the open priced job a005, priced within and above the Con Z guide.
   bids: [
     { id: randomUUID(), job_id: "00000000-0000-4000-8000-00000000a005", driver_id: ID.driver2, truck_id: "00000000-0000-4000-8000-0000000000f2", price: 215, status: "pending", counter_status: "none", eta_minutes: 45, capacity_m3_snapshot: 15, estimated_trips: 1, expires_at: new Date(Date.now() + 25 * 60_000).toISOString(), message: "Can load at Pomona this morning.", created_at: minutesAgo(5) },
@@ -341,6 +390,18 @@ const rpc = {
     };
   },
   evidence_distance_m: () => 140,
+  // Mirrors 0112: only the assigned driver, active job, 2–120 characters.
+  set_job_loaded_at: ({ _job_id, _name }, me) => {
+    const job = db.jobs.find((j) => j.id === _job_id);
+    const name = String(_name ?? "").trim();
+    if (!job || !me || job.driver_id !== me.id || !["accepted", "in_progress"].includes(job.status)) return null;
+    if (name.length < 2 || name.length > 120) return null;
+    db.job_pickup_checks ??= [];
+    const row = db.job_pickup_checks.find((c) => c.job_id === _job_id);
+    if (row) Object.assign(row, { loaded_at_name: name, loaded_at_set_at: new Date().toISOString() });
+    else db.job_pickup_checks.push({ job_id: _job_id, status: null, loaded_at_name: name, loaded_at_set_at: new Date().toISOString() });
+    return null;
+  },
   // A fixed sample code so the customer's PIN card shows six real digits.
   get_my_delivery_pin: () => "482917",
   // Mirrors the live rule: only the assigned driver, only after the pickup photo.

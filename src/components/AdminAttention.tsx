@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * "Needs attention" on the admin dashboard: open jobs no driver was offered,
+ * pickups loaded far from the supplier (0112),
  * stuck jobs, stuck Paynow payments,
  * waiting top-ups and the daily reconciliation result. Read-only — it only
  * points the admin at the screen where they can act. Super-admin-only data
@@ -77,12 +78,39 @@ export function AdminAttention({ isSuper }: { isSuper: boolean }) {
       };
       const offerCount = countBy(offers.data);
       const bidCount = countBy(bids.data);
+
+      // Pickup location checks (0112). Optional: until that migration is live the
+      // table does not exist, and the rest of the panel must still load.
+      const since = new Date(Date.now() - 14 * 24 * 3_600_000).toISOString();
+      const checks = await db
+        .from("job_pickup_checks")
+        .select("job_id,status,distance_m,loaded_at_name,checked_at")
+        .not("status", "is", null)
+        .gte("checked_at", since)
+        .limit(200);
+      const checkRows = (checks.error ? [] : (checks.data ?? [])) as {
+        job_id: string;
+        status: "ok" | "far" | "no_location" | "no_expected_point" | null;
+        distance_m: number | null;
+        loaded_at_name: string | null;
+        checked_at: string | null;
+      }[];
+      const checkJobIds = checkRows.map((c) => c.job_id);
+      const checkJobs = checkJobIds.length
+        ? await supabase.from("jobs").select("id,material,quantity_m3").in("id", checkJobIds)
+        : { data: [] as { id: string; material: string | null; quantity_m3: number | null }[] };
+      const jobInfo = new Map((checkJobs.data ?? []).map((j) => [j.id, j]));
       return buildAttention({
         now: Date.now(),
         isSuper,
         aal: (aal.data?.currentLevel as "aal1" | "aal2" | undefined) ?? null,
         activeJobs: jobs.data ?? [],
         initiatedPayments: payments.data ?? [],
+        pickupChecks: checkRows.map((c) => ({
+          ...c,
+          material: jobInfo.get(c.job_id)?.material ?? null,
+          quantity_m3: jobInfo.get(c.job_id)?.quantity_m3 ?? null,
+        })),
         openJobs: (open.data ?? []).map((j) => ({
           ...j,
           dispatchOffers: offerCount.get(j.id) ?? 0,

@@ -8,6 +8,8 @@ export const RECON_MAX_AGE_HOURS = 36; // the reconciliation cron runs daily at 
 // Open job with no dispatch offer and no bid after this long. Dispatch makes its
 // first wave as soon as a job is posted and widens every 3 minutes (0089).
 export const UNMATCHED_JOB_MINUTES = 10;
+// Pickup checks (0112) stay on the dashboard for two weeks.
+export const PICKUP_CHECK_DAYS = 14;
 
 export type AttentionTone = "critical" | "warn";
 
@@ -36,6 +38,16 @@ export interface AttentionInput {
     quantity_m3?: number | null;
   }[];
   initiatedPayments: { created_at: string }[];
+  /** Pickup location checks (0112) with the job's material and load (undefined = not loaded). */
+  pickupChecks?: {
+    job_id: string;
+    status: "ok" | "far" | "no_location" | "no_expected_point" | null;
+    distance_m: number | null;
+    loaded_at_name: string | null;
+    checked_at: string | null;
+    material?: string | null;
+    quantity_m3?: number | null;
+  }[];
   /** Open jobs with how many dispatch offers and bids each has (undefined = not loaded). */
   openJobs?: {
     id: string;
@@ -119,6 +131,41 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
         return {
           id: j.id,
           label: `${jobLabel(j)}${area ? ` · ${area}` : ""}`,
+          ageDays: Math.floor(ms / (24 * HOUR)),
+          ageLabel: formatAge(ms),
+        };
+      }),
+    });
+  }
+
+  const flagged = (input.pickupChecks ?? [])
+    .filter(
+      (c) =>
+        c.checked_at &&
+        now - new Date(c.checked_at).getTime() <= PICKUP_CHECK_DAYS * 24 * HOUR &&
+        (c.status === "far" ||
+          c.status === "no_location" ||
+          (c.status === "no_expected_point" && !c.loaded_at_name)),
+    )
+    .sort((a, b) => new Date(b.checked_at!).getTime() - new Date(a.checked_at!).getTime());
+  if (flagged.length > 0) {
+    const reason = (c: (typeof flagged)[number]) =>
+      c.status === "far"
+        ? `${(Math.round((c.distance_m ?? 0) / 100) / 10).toFixed(1)} km from supplier`
+        : c.status === "no_location"
+          ? "photo has no location"
+          : "source not named";
+    items.push({
+      key: "pickup-checks",
+      tone: "warn",
+      title: `${flagged.length} ${flagged.length === 1 ? "pickup needs" : "pickups need"} a look`,
+      detail:
+        "Loaded more than 2 km from the expected supplier, a pickup photo without location, or a driver-arranged pickup with no named source. Check the job's photos and route.",
+      jobs: flagged.slice(0, 5).map((c) => {
+        const ms = now - new Date(c.checked_at!).getTime();
+        return {
+          id: c.job_id,
+          label: `${jobLabel(c)} · ${reason(c)}`,
           ageDays: Math.floor(ms / (24 * HOUR)),
           ageLabel: formatAge(ms),
         };

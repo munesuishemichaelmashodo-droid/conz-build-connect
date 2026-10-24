@@ -1,8 +1,17 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { signedEvidenceUrl } from "@/lib/upload-evidence";
-import { ChevronDown, ChevronUp, ImageOff, MapPin, MessageSquare } from "lucide-react";
+import { ChevronDown, ChevronUp, ImageOff, MapPin, MessageSquare, Route } from "lucide-react";
+import {
+  pickupCheckSummary,
+  routeSummary,
+  type PickupCheck,
+  type RoutePoint,
+} from "@/lib/pickup-check";
+import type { TrailMark } from "@/components/RouteTrailMap";
+
+const RouteTrailMap = lazy(() => import("@/components/RouteTrailMap"));
 import { ChatImage, ChatAudio } from "@/components/ChatMedia";
 
 type EvidenceRow = {
@@ -203,6 +212,8 @@ export function DisputeEvidence({ jobId }: { jobId: string }) {
         </div>
       )}
 
+      <PickupAndRoute jobId={jobId} />
+
       <button
         onClick={() => setChatOpen((o) => !o)}
         className="flex w-full items-center justify-between text-[11px] font-semibold uppercase text-muted-foreground mt-3 pt-2 border-t"
@@ -240,6 +251,136 @@ export function DisputeEvidence({ jobId }: { jobId: string }) {
                 </div>
               );
             })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Where the load came from (pickup check, 0112) and the route the driver drove
+ * (route trail, 0112), with a map. Admin-only data under RLS. Before 0112 is live the
+ * tables do not exist; the section then says so instead of failing.
+ */
+function PickupAndRoute({ jobId }: { jobId: string }) {
+  const [open, setOpen] = useState(false);
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["dispute-pickup-route", jobId],
+    enabled: open,
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 0112 tables are newer than the generated types
+      const db = supabase as any;
+      const [job, check, route, evidence] = await Promise.all([
+        supabase
+          .from("jobs")
+          .select("pickup_lat,pickup_lng,delivery_lat,delivery_lng,pickup_address")
+          .eq("id", jobId)
+          .maybeSingle(),
+        db
+          .from("job_pickup_checks")
+          .select("status,distance_m,loaded_at_name,expected_source,checked_at,expected_lat,expected_lng")
+          .eq("job_id", jobId)
+          .maybeSingle(),
+        db
+          .from("job_route_points")
+          .select("lat,lng,recorded_at")
+          .eq("job_id", jobId)
+          .order("recorded_at", { ascending: true })
+          .limit(2000),
+        db
+          .from("job_evidence")
+          .select("kind,device_lat,device_lng,uploaded_at")
+          .eq("job_id", jobId)
+          .in("kind", ["pickup", "delivery"])
+          .order("uploaded_at", { ascending: true }),
+      ]);
+      if (job.error) throw new Error(job.error.message);
+      const available = !check.error && !route.error;
+      const firstOf = (kind: string) =>
+        (evidence.data ?? []).find(
+          (e: { kind: string; device_lat: number | null }) => e.kind === kind && e.device_lat != null,
+        ) as { device_lat: number; device_lng: number } | undefined;
+      const marks: TrailMark[] = [];
+      const exp = check.data as (PickupCheck & { expected_lat: number | null; expected_lng: number | null }) | null;
+      const expLat = exp?.expected_lat ?? job.data?.pickup_lat ?? null;
+      const expLng = exp?.expected_lng ?? job.data?.pickup_lng ?? null;
+      if (expLat != null && expLng != null) marks.push({ lat: expLat, lng: expLng, label: "Expected supplier", color: "#7a3fb0" });
+      const p = firstOf("pickup");
+      if (p) marks.push({ lat: p.device_lat, lng: p.device_lng, label: "Pickup photo", color: "#ff7716" });
+      const d = firstOf("delivery");
+      if (d) marks.push({ lat: d.device_lat, lng: d.device_lng, label: "Delivery photo", color: "#1a6f3f" });
+      if (job.data?.delivery_lat != null && job.data?.delivery_lng != null)
+        marks.push({ lat: job.data.delivery_lat, lng: job.data.delivery_lng, label: "Delivery address", color: "#6b635d" });
+      return {
+        available,
+        check: (check.data ?? null) as PickupCheck | null,
+        trail: ((route.data ?? []) as RoutePoint[]).map((r) => ({ ...r, lat: Number(r.lat), lng: Number(r.lng) })),
+        marks,
+      };
+    },
+  });
+
+  const summary = data?.check ? pickupCheckSummary(data.check) : null;
+  const trail = data ? routeSummary(data.trail) : null;
+  const time = (iso: string) =>
+    new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between text-[11px] font-semibold uppercase text-muted-foreground mt-3 pt-2 border-t"
+      >
+        <span className="flex items-center gap-1">
+          <Route className="w-3.5 h-3.5" /> Pickup and route
+        </span>
+        {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+      </button>
+      {open && (
+        <div className="pt-2 space-y-2 text-xs">
+          {isLoading ? (
+            <p className="text-muted-foreground">Loading pickup and route…</p>
+          ) : isError ? (
+            <p role="alert" className="font-semibold text-destructive">
+              Couldn't load the pickup and route for this job. Close and open it again.
+            </p>
+          ) : !data?.available ? (
+            <p className="text-muted-foreground">
+              Pickup checks and route trails start once the latest database update is applied.
+            </p>
+          ) : (
+            <>
+              <p className={summary?.tone === "warn" ? "font-semibold text-destructive" : "text-foreground"}>
+                {summary?.text ?? "No pickup photo yet."}
+              </p>
+              <p className="text-muted-foreground">
+                {trail
+                  ? `Route: ${trail.count} points, about ${trail.km} km, ${time(trail.startedAt)} to ${time(trail.endedAt)}.`
+                  : "No route recorded (the driver did not share location during the trip)."}
+              </p>
+              {(data.trail.length > 0 || data.marks.length > 0) && (
+                <Suspense fallback={<div className="h-56 w-full rounded-lg border bg-muted animate-pulse" />}>
+                  <RouteTrailMap trail={data.trail} marks={data.marks} />
+                </Suspense>
+              )}
+              {data.marks.length > 0 && (
+                // Phones can't hover the map's tooltips, so the marks are named here too.
+                <ul className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
+                  {data.trail.length > 1 && (
+                    <li className="flex items-center gap-1.5">
+                      <span aria-hidden className="inline-block h-1 w-4 rounded-full bg-[#1f5fa8]" /> Route
+                    </li>
+                  )}
+                  {data.marks.map((m) => (
+                    <li key={m.label} className="flex items-center gap-1.5">
+                      <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full border border-foreground/60" style={{ background: m.color }} />
+                      {m.label}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
           )}
         </div>
       )}

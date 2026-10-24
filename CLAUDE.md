@@ -23,13 +23,13 @@ Zimbabwe.
 
 - `npm run typecheck` (= `tsc --noEmit`) and `npm run build` (build + smoke test of
   the compiled server) — run both before every commit.
-- `npm test` — Vitest unit tests (`tests/unit/`, 251 tests on 24/10/2026).
+- `npm test` — Vitest unit tests (`tests/unit/`, 268 tests on 24/10/2026).
 - `npm run lint:security` — security-critical files must be lint-clean (CI gate).
   `npm run lint` covers everything but the repo still has old `any`/format debt;
   lint changed files with `npx eslint <files>` instead of `eslint .` (it scans
   `.vercel`/`android` and hangs).
 - `npm run test:db` (= `node scripts/db-test.mjs test`) — pgTAP database tests
-  (`supabase/tests/database/`, 42 files / 1034 tests on 24/10/2026) on a fresh local
+  (`supabase/tests/database/`, 43 files / 1061 tests on 24/10/2026) on a fresh local
   Supabase in Docker built from the 13/08 baseline + every later migration. First
   `node scripts/db-test.mjs start`. Never touches the hosted project.
 - Local signed-in screens with sample data: `scripts/dev/README.md`
@@ -42,7 +42,7 @@ Zimbabwe.
 
 Migrations live in `supabase/migrations/`, named
 `YYYYMMDDHHMMSS_NNNN_description.sql` where NNNN is a sequential 4-digit
-counter (currently up to 0111) kept **on top of** the raw timestamp-named
+counter (currently up to 0112) kept **on top of** the raw timestamp-named
 files from early development. Each migration applied live since 23/10 has an
 undo script in `supabase/rollbacks/` holding the exact pre-change production
 definitions. Always:
@@ -272,9 +272,10 @@ Checked by read-only queries against production on 24/10 (body hashes with white
 | 0109 accept_bid expiry | Yes, recorded `20261022100000` | `accept_bid` = `475a2778…` |
 | 0110 evidence stage order | **No** | `record_job_evidence` = `12ae4e5b…` (pre-0110) |
 | 0111 admin Google step-up | Yes, recorded `20261023200000` | 6 functions + 5 triggers match the tested build |
+| 0112 pickup check + route trail | **No** (prepared) | new tables/functions; undo in `supabase/rollbacks/` (has DROP — run it in the SQL editor) |
 
-Tested on 24/10: typecheck, `npm test` (251), `npm run lint:security`, `npm run build`, full pgTAP
-(42 files / 1034), browser checks on the local sample-data stand-in (admin dispute panel: photos with GPS,
+Tested on 24/10: typecheck, `npm test` (268), `npm run lint:security`, `npm run build`, full pgTAP
+(43 files / 1061), browser checks on the local sample-data stand-in (admin dispute panel: photos with GPS,
 delivery distance, chat transcript; driver Start-trip retry with a failing
 first attempt, offers, tracking, admin, at 360/390 px light/dark). NOT verified: real Google sign-in against
 0111, a real Android phone, Paynow, push delivery.
@@ -283,6 +284,16 @@ Safe next steps, in order: (1) owner merges `ccr-4fab7e0d-2b8j1o` into `main` (V
 (2) smoke-test on production (driver pickup → Start trip → delivery photo → PIN; admin money action after a
 Google sign-in); (3) apply 0110 (file has no DROP; undo in `supabase/rollbacks/`; expected hash after applying
 `38cb7974…`) and record it — it also stops photos overwriting the job's pickup point and delivery address,
-which made the admin dispute panel's "metres from the delivery address" always read ~0; (4) repair `schema_migrations` for 0077–0108 before anyone runs `supabase db push`.
+which made the admin dispute panel's "metres from the delivery address" always read ~0; (4) apply 0112 (no DROP,
+safe to apply after 0110; the app copes with it missing); (5) repair `schema_migrations` for 0077–0108 before anyone runs `supabase db push`.
 Known, not blocking: some low-contrast orange text and unlabeled map pins (fixed globally on the separate
 `design/site-docket` branch).
+
+**0112 — pickup location check, "Where did you load?", route trail (owner asked 24/10, 2 km threshold).**
+Flags, never blocks: the first pickup photo's GPS is compared with the supplier (or the job's pickup point);
+over 2 km, no photo location, or a driver-arranged pickup with no named source → admins get a `pickup_check`
+notification and an item under "Needs attention". Driver-arranged jobs ask the driver "Where did you load?"
+before the pickup photo (`set_job_loaded_at`). While a job is accepted/in progress, `driver_locations` updates
+are copied to `job_route_points` at most every 2 min, kept 90 days (cron `prune-job-route-points`), admin-only;
+the admin dispute panel's "Pickup and route" section shows the check and a map. Customers see nothing new.
+pgTAP `430_pickup_check_route_trail`; unit `pickup-check`, `admin-pickup-attention`.

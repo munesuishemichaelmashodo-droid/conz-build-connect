@@ -37,6 +37,7 @@ import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/pay
 import { friendlyPaymentError } from "@/lib/paymentErrors";
 import { ShieldCheck } from "lucide-react";
 import { bookAgainSearch } from "@/lib/book-again";
+import { isDriverArrangedPickup, saveLoadedAt } from "@/lib/pickup-check";
 import { cn } from "@/lib/utils";
 import { SpotlightCallout } from "@/components/SpotlightCallout";
 import { previewCapacityMatch } from "@/lib/capacityMatch";
@@ -1826,12 +1827,15 @@ function DeliveryPinEntry({ jobId, onConfirmed }: { jobId: string; onConfirmed: 
   );
 }
 
-function ProofUpload({ jobId, kind, label, hint, ctaLabel, onUploaded }: { jobId: string; kind: "pickup" | "delivery"; label: string; hint?: string; ctaLabel?: string; onUploaded: () => void | Promise<void> }) {
+function ProofUpload({ jobId, kind, label, hint, ctaLabel, onUploaded, beforeUpload, blockedReason }: { jobId: string; kind: "pickup" | "delivery"; label: string; hint?: string; ctaLabel?: string; onUploaded: () => void | Promise<void>; beforeUpload?: () => Promise<boolean>; blockedReason?: string | null }) {
   const [uploading, setUploading] = useState(false);
+  const blocked = !!blockedReason;
 
   const upload = async (file: File) => {
+    if (blocked) return;
     setUploading(true);
     try {
+      if (beforeUpload && !(await beforeUpload())) return;
       // Uploads to the private bucket, captures GPS, and records a row in
       // job_evidence. record_job_evidence itself sets jobs.pickup_photo_url /
       // delivery_photo_url server-side once the evidence row exists — no
@@ -1854,15 +1858,16 @@ function ProofUpload({ jobId, kind, label, hint, ctaLabel, onUploaded }: { jobId
   return (
     <div className="space-y-2.5">
       {hint && <p className="text-sm text-cz-muted">{hint}</p>}
-      <label className={cn(czButtonClass("primary"), "cursor-pointer focus-within:ring-2 focus-within:ring-cz-amber-text", uploading && "opacity-60 pointer-events-none")}>
+      {blockedReason && <p className="text-sm font-semibold text-cz-warn-text">{blockedReason}</p>}
+      <label aria-disabled={blocked || uploading} className={cn(czButtonClass("primary"), "cursor-pointer focus-within:ring-2 focus-within:ring-cz-amber-text", (uploading || blocked) && "opacity-60 pointer-events-none")}>
         {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
         <span>{uploading ? "Uploading photo…" : (ctaLabel ?? `Take ${label.toLowerCase()} photo`)}</span>
-        <input type="file" accept="image/*" capture="environment" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="sr-only" />
+        <input type="file" accept="image/*" capture="environment" disabled={uploading || blocked} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="sr-only" />
       </label>
-      <label className={cn(czButtonClass("ghost", "sm"), "cursor-pointer focus-within:ring-2 focus-within:ring-cz-amber-text", uploading && "opacity-60 pointer-events-none")}>
+      <label aria-disabled={blocked || uploading} className={cn(czButtonClass("ghost", "sm"), "cursor-pointer focus-within:ring-2 focus-within:ring-cz-amber-text", (uploading || blocked) && "opacity-60 pointer-events-none")}>
         <ImageIcon className="w-4 h-4" />
         <span>Choose from gallery instead</span>
-        <input type="file" accept="image/*" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="sr-only" />
+        <input type="file" accept="image/*" disabled={uploading || blocked} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="sr-only" />
       </label>
     </div>
   );
@@ -2609,6 +2614,9 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
   const setArrivedDrop = (v: boolean) => markArrived("dropoff", v);
   const [bannerHidden, setBannerHidden] = useSessionFlag(`cz.got-job-seen.${id}`);
   const [route, setRoute] = useState<RouteResult | null>(null);
+  // 0112: a driver-arranged pickup (no supplier point) asks where the driver loaded.
+  const driverArranged = isDriverArrangedPickup(job);
+  const [loadedAt, setLoadedAt] = useState("");
 
   // Steps come from job state only: arrived at pickup → Load; pickup photo
   // → trip started (Deliver); delivery photo → PIN / customer confirmation.
@@ -2710,11 +2718,36 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
 
           {step === 1 && (
             <div className="space-y-2">
+              {driverArranged && (
+                // 0112: for a driver-arranged pickup the driver names where they loaded.
+                // Only the driver sees this; the customer is asked nothing.
+                <div className="space-y-1.5">
+                  <label htmlFor="loaded-at" className="text-sm font-semibold">Where did you load?</label>
+                  <input
+                    id="loaded-at"
+                    value={loadedAt}
+                    onChange={(e) => setLoadedAt(e.target.value)}
+                    maxLength={120}
+                    placeholder="Name of the quarry or supplier"
+                    className="h-12 w-full rounded-md border border-cz-control bg-cz-surface px-3.5 text-base"
+                  />
+                </div>
+              )}
               <ProofUpload
                 jobId={id}
                 kind="pickup"
                 label="Confirm Pickup"
                 ctaLabel="Take photo & start trip"
+                blockedReason={driverArranged && loadedAt.trim().length < 2 ? "Say where you loaded first." : null}
+                beforeUpload={
+                  driverArranged
+                    ? async () => {
+                        const res = await saveLoadedAt(supabase as unknown as Parameters<typeof saveLoadedAt>[0], id, loadedAt); // set_job_loaded_at (0112) is newer than the generated types
+                        if (!res.ok) toast.error(res.message);
+                        return res.ok;
+                      }
+                    : undefined
+                }
                 onUploaded={async () => {
                 const { error } = await supabase.rpc("start_trip", { _job_id: id });
                 if (error) { toast.error(error.message); return; }
