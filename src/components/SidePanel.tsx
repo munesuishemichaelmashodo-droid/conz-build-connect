@@ -103,7 +103,7 @@ export function SidePanel() {
         </div>
 
         <div className="px-4 pt-2 pb-1 text-center">
-          <p className="text-[10px] text-muted-foreground">© {new Date().getFullYear()} Con Z Connect (Pvt) Ltd. All rights reserved.</p>
+          <p className="text-[10px] text-muted-foreground">© {new Date().getFullYear()} Navysky Innovations (Private) Limited, trading as Con Z. All rights reserved.</p>
         </div>
         <div className="p-4 border-t">
           <button

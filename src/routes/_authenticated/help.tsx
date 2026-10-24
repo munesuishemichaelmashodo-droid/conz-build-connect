@@ -161,11 +161,11 @@ function HelpPage() {
         ))}
 
         <section className="grid gap-3">
-          <a href="mailto:support@conz.co.zw" className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-muted transition">
+          <a href="mailto:navyskyinnovations@gmail.com" className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-muted transition">
             <Mail className="w-5 h-5 text-primary" />
             <div>
               <div className="font-semibold">Email support</div>
-              <div className="text-xs text-muted-foreground">support@conz.co.zw — we usually reply within a day.</div>
+              <div className="text-xs text-muted-foreground">navyskyinnovations@gmail.com — we usually reply within a day.</div>
             </div>
           </a>
           <a href="tel:+263777770557" className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-muted transition">

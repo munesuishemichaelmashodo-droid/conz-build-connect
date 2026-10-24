@@ -30,8 +30,9 @@ function PrivacyPage() {
         <div className="space-y-6">
           <Section title="1. Who We Are">
             <p>
-              Con Z Build Connect ("Con Z", "we") is operated as a sole proprietorship in
-              Zimbabwe, trading as "Con Z" (ZIMRA TIN 1014617149). This policy explains
+              Con Z Build Connect ("Con Z", "we") is operated by Navysky Innovations (Private) Limited, a company
+              registered in Zimbabwe (company number 145174A02102026) with its registered
+              office at 12705 Timire Park, Ruwa. This policy explains
               what personal data we collect through the app, how we use it, and how we
               protect it.
             </p>
@@ -172,7 +173,7 @@ function PrivacyPage() {
           <Section title="10. Contact">
             <p>
               For privacy questions or requests, you can reach us at{" "}
-              <b>constructionz.zw@gmail.com</b> or <b>+263 77 777 0557</b>
+              <b>navyskyinnovations@gmail.com</b> or <b>+263 77 777 0557</b>
             </p>
           </Section>
 
@@ -180,7 +181,7 @@ function PrivacyPage() {
             See also our <Link to="/terms" className="underline">Terms and Conditions</Link>.
           </p>
           <p className="pt-2 text-[11px] text-muted-foreground">
-            © {new Date().getFullYear()} Con Z. All rights reserved.
+            © {new Date().getFullYear()} Navysky Innovations (Private) Limited, trading as Con Z. All rights reserved.
           </p>
         </div>
       </div>

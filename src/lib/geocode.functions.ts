@@ -19,7 +19,7 @@ import { z } from "zod";
 
 const LIQ_SEARCH_URL = "https://us1.locationiq.com/v1/search";
 const LIQ_REVERSE_URL = "https://us1.locationiq.com/v1/reverse";
-const NOMINATIM_UA = "ConZ/1.0 (+https://conz.co.zw; support@conz.co.zw)";
+const NOMINATIM_UA = "ConZ/1.0 (+https://conz.co.zw; navyskyinnovations@gmail.com)";
 // Zimbabwe bounding box, used as a soft result bias (bounded=0), not a hard
 // filter — countrycodes=zw already restricts results to Zimbabwe. bounded=1
 // previously threw away valid in-country matches in some cases.

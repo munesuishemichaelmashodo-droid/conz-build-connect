@@ -155,7 +155,7 @@ async function downloadReceiptPdf(pod: NonNullable<PodResult>) {
   doc.line(marginX, 760, rightX, 760);
   doc.setFontSize(8);
   doc.setTextColor(150);
-  doc.text("Con Z Connect (Pvt) Ltd  ·  conz.co.zw  ·  support@conz.co.zw", marginX, 774);
+  doc.text("Navysky Innovations (Private) Limited, trading as Con Z  ·  conz.co.zw  ·  navyskyinnovations@gmail.com", marginX, 774);
   doc.text("This is a computer-generated receipt and requires no signature.", marginX, 786);
 
   doc.save(`${pod.receiptNo}.pdf`);

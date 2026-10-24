@@ -154,10 +154,10 @@ function Welcome() {
             </li>
             <li>
               <a
-                href="mailto:constructionz.zw@gmail.com"
+                href="mailto:navyskyinnovations@gmail.com"
                 className="inline-flex min-h-11 items-center gap-2 break-all hover:text-cz-text"
               >
-                <Mail className="h-4 w-4" aria-hidden /> constructionz.zw@gmail.com
+                <Mail className="h-4 w-4" aria-hidden /> navyskyinnovations@gmail.com
               </a>
             </li>
           </ul>
@@ -170,7 +170,7 @@ function Welcome() {
             </Link>
           </div>
           <p className="mt-2 text-xs text-cz-faint">
-            © {new Date().getFullYear()} Con Z Connect (Pvt) Ltd. All rights reserved.
+            © {new Date().getFullYear()} Navysky Innovations (Private) Limited, trading as Con Z. All rights reserved.
           </p>
         </footer>
       </div>
