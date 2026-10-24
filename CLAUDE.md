@@ -262,7 +262,7 @@ Still remaining: the post-a-job flow (`jobs.new.tsx`, `customer.book.tsx`),
 - Driver "Go online" now reports failed saves (dispatch needs a fresh row in `driver_availability`; it was empty
   live and no dispatch offer had gone out since 13/10). Admin home lists open jobs that reached no driver.
 
-## Release status — 24/10/2026 (branch `ccr-4fab7e0d-2b8j1o`, 22 commits ahead of `main`, 0 behind)
+## Release status — 24/10/2026 (branch `ccr-4fab7e0d-2b8j1o`, ahead of `main` and 0 behind)
 
 Checked by read-only queries against production on 24/10 (body hashes with whitespace removed):
 
