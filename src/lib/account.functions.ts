@@ -1,16 +1,31 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { AppRole } from "@/lib/domain";
+import { resolveTermsAcceptance } from "@/lib/auth-flow";
 
 type SessionUser = {
   id: string;
   email?: string | null;
+  created_at?: string | null;
   user_metadata?: Record<string, unknown>;
 };
 
+// Optional input from the browser. `termsAccepted` is set only after a Google
+// sign-up where the Terms box was ticked before the redirect. It can only
+// ever record acceptance on the caller's own profile, and never overwrites
+// an earlier acceptance.
+function parseActivateInput(input: unknown): { termsAccepted: boolean } {
+  const termsAccepted =
+    typeof input === "object" &&
+    input !== null &&
+    (input as { termsAccepted?: unknown }).termsAccepted === true;
+  return { termsAccepted };
+}
+
 export const activateAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator(parseActivateInput)
+  .handler(async ({ context, data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: authData, error: authError } = await context.supabase.auth.getUser();
     if (authError || !authData.user) throw new Error("Sign in again to activate your account");
@@ -34,10 +49,22 @@ export const activateAccount = createServerFn({ method: "POST" })
     // the sign-up values every time the app was opened).
     const { data: existingProfile, error: profileReadError } = await supabaseAdmin
       .from("profiles")
-      .select("id, full_name, phone, email, avatar_url")
+      .select("id, full_name, phone, email, avatar_url, terms_accepted_at")
       .eq("id", context.userId)
       .maybeSingle();
     if (profileReadError) throw new Error("Could not activate your profile");
+
+    // Terms acceptance (audit A-1): with email confirmation on, sign-up returns
+    // no session, so the browser can't save it then. Email sign-ups carry
+    // `terms_accepted: true` in their sign-up metadata; Google sign-ups pass
+    // termsAccepted. Recorded once, on this user's own row only.
+    const termsAcceptedAt = resolveTermsAcceptance({
+      current: existingProfile?.terms_accepted_at ?? null,
+      signupMetadataAccepted: meta.terms_accepted === true,
+      clientAccepted: data.termsAccepted,
+      userCreatedAt: user.created_at ?? null,
+      now: new Date(),
+    });
 
     if (!existingProfile) {
       const { error: profileError } = await supabaseAdmin.from("profiles").insert({
@@ -46,15 +73,22 @@ export const activateAccount = createServerFn({ method: "POST" })
         phone,
         email,
         avatar_url: avatarUrl,
+        ...(termsAcceptedAt ? { terms_accepted_at: termsAcceptedAt } : {}),
       });
       if (profileError) throw new Error("Could not activate your profile");
     } else {
-      const missing: { full_name?: string; phone?: string; email?: string; avatar_url?: string } =
-        {};
+      const missing: {
+        full_name?: string;
+        phone?: string;
+        email?: string;
+        avatar_url?: string;
+        terms_accepted_at?: string;
+      } = {};
       if (!existingProfile.full_name?.trim()) missing.full_name = fullName;
       if (!existingProfile.phone && phone) missing.phone = phone;
       if (existingProfile.email !== email && email) missing.email = email;
       if (!existingProfile.avatar_url && avatarUrl) missing.avatar_url = avatarUrl;
+      if (termsAcceptedAt) missing.terms_accepted_at = termsAcceptedAt;
       if (Object.keys(missing).length > 0) {
         const { error: profileError } = await supabaseAdmin
           .from("profiles")

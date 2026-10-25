@@ -14,6 +14,9 @@ import { COUNTRY_CODES } from "@/lib/country-codes";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { safeInternalPath } from "@/lib/safe-redirect";
+import { describeAuthError } from "@/lib/auth-flow";
+import { rememberPendingTermsAcceptance } from "@/lib/pending-terms";
+import { ResendConfirmation } from "@/components/ResendConfirmation";
 import { toast } from "sonner";
 
 const searchSchema = z.object({
@@ -66,6 +69,8 @@ function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
+  // Set when a password sign-in fails because the email isn't confirmed yet (audit A-4).
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
   const [authDebug, setAuthDebug] = useState<null | {
     stage: string;
     message: string;
@@ -119,10 +124,13 @@ function AuthPage() {
       endpoint,
       hint,
     };
-    setAuthDebug(info);
-    // eslint-disable-next-line no-console
-    console.error("[auth]", info, err);
-    toast.error(`${stage} failed: ${info.message}`);
+    // Internal details (endpoint, status, code) are for developers only (audit A-5).
+    if (import.meta.env.DEV) {
+      setAuthDebug(info);
+      // eslint-disable-next-line no-console
+      console.error("[auth]", info, err);
+    }
+    toast.error(describeAuthError(err).message);
   };
 
   const login = async (e: React.FormEvent) => {
@@ -131,9 +139,14 @@ function AuthPage() {
     setLoading(true);
     const endpoint = `${supabaseUrl}/auth/v1/token?grant_type=password`;
     try {
+      setUnconfirmedEmail(null);
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       setLoading(false);
       if (error) {
+        if (describeAuthError(error).kind === "email_not_confirmed") {
+          setUnconfirmedEmail(email.trim());
+          return;
+        }
         return reportAuthError(
           "Password sign-in",
           error,
@@ -188,7 +201,15 @@ function AuthPage() {
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/oauth-callback`,
-          data: { full_name: fullName, phone, role, referral_code: referralCode.trim() || null },
+          // terms_accepted: the box must be ticked to get here. activateAccount
+          // records it on the profile once the user has a session (audit A-1).
+          data: {
+            full_name: fullName,
+            phone,
+            role,
+            referral_code: referralCode.trim() || null,
+            terms_accepted: true,
+          },
         },
       });
       if (error) {
@@ -205,19 +226,6 @@ function AuthPage() {
           return;
         }
       }
-      // Record terms acceptance timestamp on the profile (best-effort).
-      try {
-        const { data: sess } = await supabase.auth.getSession();
-        const uid = sess.session?.user?.id;
-        if (uid) {
-          await supabase
-            .from("profiles")
-            .update({ terms_accepted_at: new Date().toISOString() })
-            .eq("id", uid);
-        }
-      } catch {
-        /* non-blocking */
-      }
       setLoading(false);
       toast.success("Welcome to Con Z!");
       goPostAuth();
@@ -233,6 +241,7 @@ function AuthPage() {
     }
     setAuthDebug(null);
     setLoading(true);
+    if (tab === "register" && acceptedTerms) rememberPendingTermsAcceptance();
     const endpoint = `${supabaseUrl}/auth/v1/authorize?provider=google`;
     const isCancellation = (m: string) =>
       /cancel/i.test(m) || /closed/i.test(m) || /popup/i.test(m) || /dismiss/i.test(m);
@@ -342,7 +351,7 @@ function AuthPage() {
             <TabsTrigger value="register">Register</TabsTrigger>
           </TabsList>
 
-          {authDebug && (
+          {import.meta.env.DEV && authDebug && (
             <div className="mt-4 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs space-y-1">
               <div className="flex items-center justify-between gap-2">
                 <div className="font-semibold text-destructive uppercase tracking-wide">
@@ -396,6 +405,22 @@ function AuthPage() {
                   <GoogleLogo />
                   Continue with Google
                 </Button>
+              </div>
+            )}
+            {unconfirmedEmail && (
+              <div
+                role="alert"
+                className="rounded-xl border border-primary/40 bg-primary/5 p-4 space-y-3"
+              >
+                <div>
+                  <p className="font-semibold">Confirm your email first</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Open the link we emailed to{" "}
+                    <span className="font-semibold break-all">{unconfirmedEmail}</span>, then log
+                    in. Can't find it? Check Spam/Junk, or send a new link.
+                  </p>
+                </div>
+                <ResendConfirmation initialEmail={unconfirmedEmail} editable={false} />
               </div>
             )}
             <form onSubmit={login} className="space-y-3">

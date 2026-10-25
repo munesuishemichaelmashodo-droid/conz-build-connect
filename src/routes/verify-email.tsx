@@ -1,10 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
 import { z } from "zod";
-import { ArrowLeft, Loader2, MailCheck } from "lucide-react";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { ArrowLeft, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ResendConfirmation } from "@/components/ResendConfirmation";
 
 const searchSchema = z.object({
   email: z.string().optional(),
@@ -18,20 +16,6 @@ export const Route = createFileRoute("/verify-email")({
 
 function VerifyEmailPage() {
   const { email } = Route.useSearch();
-  const [resending, setResending] = useState(false);
-
-  const resend = async () => {
-    if (!email) return toast.error("Go back and enter your email again to resend.");
-    setResending(true);
-    const { error } = await supabase.auth.resend({
-      type: "signup",
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/oauth-callback` },
-    });
-    setResending(false);
-    if (error) return toast.error(error.message);
-    toast.success("Verification email resent.");
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -71,17 +55,11 @@ function VerifyEmailPage() {
           </div>
         </div>
 
-        <p className="mt-6 text-center text-sm text-muted-foreground">
-          Haven't received it?{" "}
-          <button
-            type="button"
-            onClick={resend}
-            disabled={resending}
-            className="underline text-foreground font-semibold disabled:opacity-50"
-          >
-            {resending ? <Loader2 className="inline w-3 h-3 animate-spin" /> : "Resend email"}
-          </button>
-        </p>
+        <div className="mt-6">
+          <p className="text-center text-sm text-muted-foreground mb-2">Haven't received it?</p>
+          {/* Resend with a 60 s cooldown (audit A-4). Editable when we don't know the address. */}
+          <ResendConfirmation initialEmail={email ?? ""} editable={!email} />
+        </div>
 
         <Button asChild variant="outline" className="w-full h-11 mt-6">
           <Link to="/auth" search={{ mode: "login" } as never}>

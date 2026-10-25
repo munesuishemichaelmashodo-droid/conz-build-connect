@@ -1,3 +1,4 @@
+import "../lib/auth-url-snapshot"; // first: capture auth redirect flags before the Supabase client reads the URL
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
