@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
+import { sentence } from "@/lib/status-stamp";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { signedEvidenceUrl } from "@/lib/upload-evidence";
@@ -162,7 +163,7 @@ export function DisputeEvidence({ jobId }: { jobId: string }) {
     <div className="border-t pt-2">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between text-[11px] font-semibold uppercase text-muted-foreground"
+        className="flex w-full items-center justify-between text-xs font-semibold text-muted-foreground"
       >
         Evidence
         {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -194,7 +195,7 @@ export function DisputeEvidence({ jobId }: { jobId: string }) {
                   <figure key={e.id ?? `${e.storage_path}-${i}`} className="space-y-1">
                     <EvidencePhoto path={e.storage_path} alt={`${e.kind} evidence`} />
                     <figcaption className="text-[10px] text-muted-foreground space-y-0.5">
-                      <div className="font-semibold uppercase text-foreground">{e.kind}</div>
+                      <div className="font-semibold text-foreground">{sentence(e.kind)}</div>
                       <div className="flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
                         {e.device_lat != null && e.device_lng != null
@@ -216,7 +217,7 @@ export function DisputeEvidence({ jobId }: { jobId: string }) {
 
       <button
         onClick={() => setChatOpen((o) => !o)}
-        className="flex w-full items-center justify-between text-[11px] font-semibold uppercase text-muted-foreground mt-3 pt-2 border-t"
+        className="flex w-full items-center justify-between text-xs font-semibold text-muted-foreground mt-3 pt-2 border-t"
       >
         <span className="flex items-center gap-1">
           <MessageSquare className="w-3.5 h-3.5" /> Chat transcript
@@ -238,7 +239,7 @@ export function DisputeEvidence({ jobId }: { jobId: string }) {
               return (
                 <div key={m.id} className={`flex ${isCustomer ? "justify-start" : "justify-end"}`}>
                   <div className={`max-w-[75%] rounded-xl px-2.5 py-1.5 text-xs ${isCustomer ? "bg-muted" : "bg-primary/10"}`}>
-                    <div className="text-[9px] font-semibold uppercase text-muted-foreground mb-0.5">
+                    <div className="text-xs font-semibold text-muted-foreground mb-0.5">
                       {chatData.nameOf(m.sender_id)} ({isCustomer ? "customer" : "driver"})
                     </div>
                     {m.image_url && <ChatImage path={m.image_url} />}

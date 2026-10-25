@@ -239,7 +239,7 @@ function BecomeDriverPage() {
     <AppShell title="Become a driver">
       <div className="max-w-md mx-auto space-y-5">
         <div>
-          <div className="flex items-center justify-between text-[11px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold mb-1">
             <span>
               Step {stage + 1} of {STAGES.length}
             </span>
@@ -416,7 +416,7 @@ function PhoneStage({
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <Smartphone className="w-5 h-5 text-primary" />
+        <Smartphone className="w-5 h-5 text-cz-amber-text" />
         <h2 className="font-display font-bold text-xl">Your phone number</h2>
       </div>
       <p className="text-sm text-muted-foreground">
@@ -515,7 +515,7 @@ function DocumentsStage({
       )}
 
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        <h3 className="text-xs font-semibold text-muted-foreground">
           You
         </h3>
         {row("selfie_url", "user")}
@@ -524,7 +524,7 @@ function DocumentsStage({
       </section>
 
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        <h3 className="text-xs font-semibold text-muted-foreground">
           Truck
         </h3>
         {row("tipper_photo_url", "environment")}
@@ -557,7 +557,7 @@ function DocumentsStage({
       </section>
 
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        <h3 className="text-xs font-semibold text-muted-foreground">
           Transport papers (recommended)
         </h3>
         {OPTIONAL_DOCS.map((f) => row(f))}
@@ -639,7 +639,7 @@ function StatusStage({
         ))}
       </ul>
       <div className="rounded-xl border bg-muted/30 p-3 text-left text-xs text-muted-foreground flex gap-2">
-        <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+        <ShieldCheck className="w-4 h-4 text-cz-amber-text shrink-0 mt-0.5" />
         <span>Your ID, licence and truck photos are only visible to you and Con Z admins.</span>
       </div>
       <div className="flex flex-col gap-2">

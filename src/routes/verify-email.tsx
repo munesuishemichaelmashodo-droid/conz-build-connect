@@ -26,10 +26,10 @@ function VerifyEmailPage() {
 
         <div className="mt-10 flex flex-col items-center text-center">
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-            <MailCheck className="w-8 h-8 text-primary" />
+            <MailCheck className="w-8 h-8 text-cz-amber-text" />
           </div>
-          <p className="mt-6 text-sm text-muted-foreground uppercase tracking-widest">Verify your email</p>
-          <h1 className="mt-2 font-display font-bold text-3xl uppercase tracking-tight leading-tight">
+          <p className="mt-6 text-sm text-muted-foreground">Verify your email</p>
+          <h1 className="mt-2 font-display font-bold text-3xl tracking-tight leading-tight">
             You are almost there!
           </h1>
           <p className="mt-4 text-sm text-muted-foreground">
@@ -40,14 +40,14 @@ function VerifyEmailPage() {
 
         <div className="mt-8 rounded-2xl bg-card border p-4 shadow-soft space-y-3 text-sm">
           <div className="flex gap-3">
-            <span className="font-display font-bold text-primary">1.</span>
+            <span className="font-display font-bold text-cz-amber-text">1.</span>
             <span>
               Go to your <span className="font-semibold">mailbox</span> (check Spam/Junk too) and open the
               email we just sent you.
             </span>
           </div>
           <div className="flex gap-3">
-            <span className="font-display font-bold text-primary">2.</span>
+            <span className="font-display font-bold text-cz-amber-text">2.</span>
             <span>
               Tap the <span className="font-semibold">link</span> to verify your account, then come back
               and log in.

@@ -1,4 +1,5 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
+import { sentence } from "@/lib/status-stamp";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -71,7 +72,7 @@ function Card({
 }) {
   return (
     <div className="rounded-xl border bg-card p-3">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+      <div className="text-xs text-muted-foreground flex items-center gap-1">
         <Icon className="w-3 h-3" /> {label}
       </div>
       <div className={cn("font-display font-bold text-base mt-0.5", tone)}>{value}</div>
@@ -353,25 +354,25 @@ function LedgerPage() {
   return (
     <div className="space-y-4">
       {/* Summary — settled totals for the selected range */}
-      <div className="rounded-2xl bg-gradient-dark text-white p-5 shadow-lift">
-        <div className="flex items-center gap-2 text-white/70 text-[11px] uppercase tracking-widest">
+      <div className="rounded-2xl dark bg-gradient-dark text-white p-5 shadow-lift">
+        <div className="flex items-center gap-2 text-white/70 text-xs">
           <BookOpen className="w-3.5 h-3.5" /> Financial ledger
         </div>
         <div className="grid grid-cols-3 gap-3 mt-3">
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-white/60 flex items-center gap-1">
+            <div className="text-xs text-white/60 flex items-center gap-1">
               <ArrowDownLeft className="w-3 h-3" /> Top-ups
             </div>
             <div className="font-display font-bold text-lg text-success">{money(totals.topups)}</div>
           </div>
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-white/60 flex items-center gap-1">
+            <div className="text-xs text-white/60 flex items-center gap-1">
               <ArrowUpRight className="w-3 h-3" /> Withdrawals
             </div>
             <div className="font-display font-bold text-lg text-warning">{money(totals.withdrawals)}</div>
           </div>
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-white/60 flex items-center gap-1">
+            <div className="text-xs text-white/60 flex items-center gap-1">
               <Scale className="w-3 h-3" /> Net revenue
             </div>
             <div className="font-display font-bold text-lg">{money(totals.net)}</div>
@@ -383,7 +384,7 @@ function LedgerPage() {
       </div>
 
       <div className="grid grid-cols-3 gap-2">
-        <Card label="Commissions" value={money(totals.commissions)} icon={Percent} tone="text-primary" />
+        <Card label="Commissions" value={money(totals.commissions)} icon={Percent} tone="text-cz-amber-text" />
         <Card label="Refunds" value={money(totals.refunds)} icon={RotateCcw} tone="text-destructive" />
         <Card label="Adjustments" value={money(totals.adjustments)} icon={Sliders} />
       </div>
@@ -402,8 +403,8 @@ function LedgerPage() {
             key={k}
             onClick={() => setTab(k)}
             className={cn(
-              "rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap",
-              tab === k ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground",
+              "min-h-11 rounded-full border px-3 py-1.5 text-xs font-semibold whitespace-nowrap",
+              tab === k ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "bg-card text-muted-foreground",
             )}
           >
             {label}
@@ -417,8 +418,8 @@ function LedgerPage() {
             key={r}
             onClick={() => reset(setRange)(r)}
             className={cn(
-              "flex-1 rounded-lg border px-2 py-1.5 text-xs font-semibold uppercase",
-              range === r ? "bg-primary text-primary-foreground border-primary" : "bg-background",
+              "min-h-11 flex-1 rounded-lg border px-2 py-1.5 text-xs font-semibold",
+              range === r ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "bg-background",
             )}
           >
             {r === "all" ? "All time" : `${r}d`}
@@ -431,8 +432,8 @@ function LedgerPage() {
         <>
           <div className="rounded-2xl border bg-card p-4 space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="font-display font-bold uppercase tracking-wide text-sm">Filters</h3>
-              <button onClick={clearFilters} className="text-[11px] underline text-muted-foreground">
+              <h3 className="font-semibold text-sm">Filters</h3>
+              <button type="button" onClick={clearFilters} className="-mr-2 min-h-11 px-2 text-sm underline underline-offset-4 text-muted-foreground">
                 Clear
               </button>
             </div>
@@ -443,11 +444,11 @@ function LedgerPage() {
                   key={t}
                   onClick={() => reset(setType)(t as TxType | "all")}
                   className={cn(
-                    "rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap",
-                    type === t ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground",
+                    "min-h-11 rounded-full border px-3 py-1.5 text-xs font-semibold whitespace-nowrap",
+                    type === t ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "bg-background text-muted-foreground",
                   )}
                 >
-                  {t}
+                  {t === "all" ? "All types" : sentence(t)}
                 </button>
               ))}
             </div>
@@ -458,11 +459,11 @@ function LedgerPage() {
                   key={s}
                   onClick={() => reset(setStatus)(s as LedgerStatus | "all")}
                   className={cn(
-                    "rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap",
-                    status === s ? "bg-foreground text-background border-foreground" : "bg-background text-muted-foreground",
+                    "min-h-11 rounded-full border px-3 py-1.5 text-xs font-semibold whitespace-nowrap",
+                    status === s ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "bg-background text-muted-foreground",
                   )}
                 >
-                  {s}
+                  {s === "all" ? "All statuses" : sentence(s)}
                 </button>
               ))}
             </div>
@@ -497,19 +498,19 @@ function LedgerPage() {
             <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() => doExport("csv")}
-                className="rounded-lg bg-success text-success-foreground font-semibold px-2 py-2 text-[11px] uppercase"
+                className="min-h-11 rounded-lg border bg-background font-semibold px-2 py-2 text-xs"
               >
                 <Download className="w-3.5 h-3.5 inline mr-1" /> CSV
               </button>
               <button
                 onClick={() => doExport("xls")}
-                className="rounded-lg bg-primary text-primary-foreground font-semibold px-2 py-2 text-[11px] uppercase"
+                className="min-h-11 rounded-lg border bg-background font-semibold px-2 py-2 text-xs"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 inline mr-1" /> Excel
               </button>
               <button
                 onClick={() => doExport("pdf")}
-                className="rounded-lg border bg-background font-semibold px-2 py-2 text-[11px] uppercase"
+                className="min-h-11 rounded-lg border bg-background font-semibold px-2 py-2 text-xs"
               >
                 <FileText className="w-3.5 h-3.5 inline mr-1" /> PDF
               </button>
@@ -549,25 +550,25 @@ function LedgerPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={cn("inline-flex px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase", TYPE_TONE[r.type])}>
-                        {r.type}
+                      <span className={cn("inline-flex px-2 py-0.5 rounded-full border text-xs font-semibold", TYPE_TONE[r.type])}>
+                        {sentence(r.type)}
                       </span>
                       {r.category && (
-                        <span className="inline-flex px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase bg-secondary/15 text-secondary-foreground border-secondary/30">
+                        <span className="inline-flex px-2 py-0.5 rounded-full border text-xs font-semibold bg-secondary/15 text-secondary-foreground border-secondary/30">
                           {String(r.category).replace(/_/g, " ")}
                         </span>
                       )}
                       {r.reversal_of_transaction_id && (
-                        <span className="inline-flex px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase bg-muted text-muted-foreground border-border">
+                        <span className="inline-flex px-2 py-0.5 rounded-full border text-xs font-semibold bg-muted text-muted-foreground border-border">
                           reversal
                         </span>
                       )}
-                      <span className={cn("inline-flex px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase", STATUS_TONE[r.status])}>
-                        {r.status}
+                      <span className={cn("inline-flex px-2 py-0.5 rounded-full border text-xs font-semibold", STATUS_TONE[r.status])}>
+                        {sentence(r.status)}
                       </span>
                       <span className="text-[10px] text-muted-foreground">{new Date(r.created_at).toLocaleString()}</span>
                       {r.job_id && (
-                        <span className="text-[10px] font-mono text-primary">job {r.job_id.slice(0, 8)}</span>
+                        <span className="text-[10px] font-mono text-cz-amber-text">job {r.job_id.slice(0, 8)}</span>
                       )}
                     </div>
                     {r.note && <p className="text-xs text-muted-foreground">{r.note}</p>}
@@ -580,7 +581,7 @@ function LedgerPage() {
           {hasMore && (
             <button
               onClick={() => setPages((p) => p + 1)}
-              className="w-full rounded-xl border bg-card py-2.5 text-xs font-semibold uppercase tracking-wide"
+              className="w-full rounded-xl border bg-card py-2.5 text-xs font-semibold"
             >
               Load {PAGE_SIZE} more
             </button>
@@ -594,7 +595,7 @@ function LedgerPage() {
       {/* Reconcile tab — wallet balances vs. transaction history, flags drift */}
       {tab === "reconcile" && (
         <div className="rounded-2xl border bg-card p-4 space-y-2">
-          <h3 className="font-display font-bold uppercase tracking-wide text-sm">Reconciliation (all time)</h3>
+          <h3 className="font-semibold text-sm">Reconciliation (all time)</h3>
           {[
             ["Total wallet balances held", reconcile?.walletTotal],
             ["Total money deposited", reconcile?.deposited],
@@ -617,7 +618,7 @@ function LedgerPage() {
                 : "bg-destructive/10 border-destructive/30",
             )}
           >
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Variance check</div>
+            <div className="text-xs text-muted-foreground">Variance check</div>
             <div className="font-display font-bold text-lg">{money(reconcile?.variance ?? 0)}</div>
             <p className="text-[11px] text-muted-foreground mt-1">
               {Math.abs(reconcile?.variance ?? 0) < 0.01
@@ -631,7 +632,7 @@ function LedgerPage() {
       {/* Audit tab — who approved/rejected/adjusted what */}
       {tab === "audit" && (
         <div className="rounded-2xl border bg-card divide-y">
-          <div className="p-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide">
+          <div className="p-3 flex items-center gap-2 text-xs font-semibold">
             <ScrollText className="w-3.5 h-3.5" /> Approvals, rejections, refunds & adjustments
           </div>
           {(auditLog ?? []).length === 0 ? (
@@ -654,7 +655,7 @@ function LedgerPage() {
         </div>
       )}
 
-      <Link to="/admin" className="block text-center text-xs text-muted-foreground underline py-2">
+      <Link to="/admin" className="flex min-h-11 items-center justify-center text-sm text-muted-foreground underline underline-offset-4">
         Back to admin dashboard
       </Link>
 

@@ -94,7 +94,7 @@ export function OfferCard({
     <article
       aria-label={`Offer from ${name}, ${usd(price)}`}
       className={cn(
-        "overflow-hidden rounded-[18px] border bg-cz-surface",
+        "overflow-hidden rounded-2xl border bg-cz-surface",
         primary && !expired
           ? "border-cz-border-strong shadow-[0_1px_0_var(--cz-border)]"
           : "border-cz-border",
@@ -122,7 +122,7 @@ export function OfferCard({
             )}
             {bid.driver && (
               <span className="inline-flex items-center gap-1">
-                {rated && <Star aria-hidden className="h-3.5 w-3.5 fill-cz-amber text-cz-amber" />}
+                {rated && <Star aria-hidden className="h-3.5 w-3.5 fill-cz-amber text-cz-amber-text" />}
                 {ratingLabel(bid.driver.rating_avg, bid.driver.rating_count)}
               </span>
             )}

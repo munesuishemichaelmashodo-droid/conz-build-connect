@@ -17,13 +17,13 @@ function TermsPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-3xl px-5 py-8">
-        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link to="/" className="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-foreground hover:bg-muted">
           <ArrowLeft className="w-4 h-4" /> Back
         </Link>
 
         <header className="mt-6 mb-8">
-          <div className="text-xs text-muted-foreground uppercase tracking-widest">Con Z Build Connect</div>
-          <h1 className="font-display font-bold text-3xl uppercase tracking-tight">Terms and Conditions</h1>
+          <div className="text-xs text-muted-foreground">Con Z Build Connect</div>
+          <h1 className="font-display font-bold text-3xl tracking-tight">Terms and Conditions</h1>
           <p className="text-xs text-muted-foreground mt-2">Last updated: 23 July 2026</p>
         </header>
 
@@ -164,7 +164,7 @@ function TermsPage() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-2">
-      <h2 className="font-display font-bold uppercase tracking-wide text-base">{title}</h2>
+      <h2 className="font-display font-bold text-base">{title}</h2>
       <div className="text-sm text-muted-foreground leading-relaxed">{children}</div>
     </section>
   );

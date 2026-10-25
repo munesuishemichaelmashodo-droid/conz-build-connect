@@ -159,11 +159,11 @@ function RevenueDashboard() {
   return (
     <div className="space-y-4">
       {/* Hero revenue card */}
-      <div className="rounded-2xl bg-gradient-dark text-white p-5 shadow-lift">
-        <div className="flex items-center gap-2 text-white/70 text-[11px] uppercase tracking-widest">
+      <div className="rounded-2xl dark bg-gradient-dark text-white p-5 shadow-lift">
+        <div className="flex items-center gap-2 text-white/70 text-xs">
           <DollarSign className="w-3.5 h-3.5" /> All-time platform revenue
         </div>
-        <div className="font-display font-bold text-4xl text-primary mt-1">{money(stats.total)}</div>
+        <div className="font-display font-bold text-4xl text-cz-amber-text mt-1">{money(stats.total)}</div>
         <div className="text-xs text-white/60 mt-1">
           {stats.jobs} commission events at {rate ?? 7}% rate
         </div>
@@ -172,19 +172,19 @@ function RevenueDashboard() {
       {/* Period stats */}
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-2xl border bg-card p-3">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1">
+          <div className="text-xs text-muted-foreground font-semibold flex items-center gap-1">
             <Calendar className="w-3 h-3" /> Today
           </div>
           <div className="font-display font-bold text-lg mt-1">{money(stats.today)}</div>
         </div>
         <div className="rounded-2xl border bg-card p-3">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1">
+          <div className="text-xs text-muted-foreground font-semibold flex items-center gap-1">
             <TrendingUp className="w-3 h-3" /> 7d
           </div>
           <div className="font-display font-bold text-lg mt-1">{money(stats.d7)}</div>
         </div>
         <div className="rounded-2xl border bg-card p-3">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1">
+          <div className="text-xs text-muted-foreground font-semibold flex items-center gap-1">
             <TrendingUp className="w-3 h-3" /> 30d
           </div>
           <div className="font-display font-bold text-lg mt-1">{money(stats.d30)}</div>
@@ -198,14 +198,15 @@ function RevenueDashboard() {
       {/* Commission rate editor */}
       <div className="rounded-2xl border bg-card p-5 space-y-3">
         <div className="flex items-center gap-2">
-          <Percent className="w-5 h-5 text-primary" />
-          <h3 className="font-display font-bold uppercase tracking-wide">Global commission rate</h3>
+          <Percent className="w-5 h-5 text-cz-amber-text" />
+          <h3 className="font-display font-bold">Global commission rate</h3>
         </div>
         <p className="text-xs text-muted-foreground">
           Deducted from a driver's wallet on every completed job. Changes apply immediately to future completions.
         </p>
         <div className="flex items-center gap-2">
           <input
+            aria-label="Global commission rate (%)"
             type="number"
             min={0}
             max={100}
@@ -229,10 +230,10 @@ function RevenueDashboard() {
       {/* Range + export */}
       <div className="rounded-2xl border bg-card p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="font-display font-bold uppercase tracking-wide text-sm">Revenue report</h3>
+          <h3 className="font-semibold text-sm">Revenue report</h3>
           <button
             onClick={exportCsv}
-            className="rounded-lg bg-success text-success-foreground font-semibold px-3 py-1.5 text-xs"
+            className="min-h-11 rounded-lg bg-success text-success-foreground font-semibold px-3 py-1.5 text-xs"
           >
             <Download className="w-3.5 h-3.5 inline mr-1" /> Export CSV
           </button>
@@ -242,9 +243,9 @@ function RevenueDashboard() {
             <button
               key={r}
               onClick={() => setRange(r)}
-              className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-semibold uppercase ${
-                range === r ? "bg-primary text-primary-foreground border-primary" : "bg-background"
-              }`}
+              className={`min-h-11 flex-1 rounded-lg border px-2 py-1.5 text-xs font-semibold ${
+ range === r ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "bg-background"
+ }`}
             >
               {r === "all" ? "All time" : `${r}d`}
             </button>
@@ -258,8 +259,8 @@ function RevenueDashboard() {
       {/* Top drivers by commission */}
       <div className="rounded-2xl border bg-card p-4 space-y-2">
         <div className="flex items-center gap-2">
-          <UsersIcon className="w-4 h-4 text-primary" />
-          <h3 className="font-display font-bold uppercase tracking-wide text-sm">Top drivers by commission</h3>
+          <UsersIcon className="w-4 h-4 text-cz-amber-text" />
+          <h3 className="font-semibold text-sm">Top drivers by commission</h3>
         </div>
         {!byDriver.length ? (
           <div className="text-xs text-muted-foreground py-4 text-center">No commission events in this period.</div>
@@ -285,7 +286,7 @@ function RevenueDashboard() {
 
       <Link
         to="/admin"
-        className="block text-center text-xs text-muted-foreground underline py-2"
+        className="flex min-h-11 items-center justify-center text-sm text-muted-foreground underline underline-offset-4"
       >
         Back to admin dashboard
       </Link>
@@ -523,11 +524,11 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
   return (
     <div className="rounded-2xl border bg-card p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-display font-bold uppercase tracking-wide text-sm">Wallet approvals</h3>
+        <h3 className="font-semibold text-sm">Wallet approvals</h3>
         {list.length > 0 && (
           <button
             onClick={exportApprovalsCsv}
-            className="rounded-lg bg-success text-success-foreground font-semibold px-3 py-1.5 text-xs"
+            className="min-h-11 rounded-lg bg-success text-success-foreground font-semibold px-3 py-1.5 text-xs"
           >
             <Download className="w-3.5 h-3.5 inline mr-1" /> Export CSV
           </button>
@@ -538,7 +539,7 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
         <button
           onClick={() => setTab("topups")}
           className={cn(
-            "flex-1 h-9 rounded-lg text-xs font-display uppercase tracking-wide relative",
+            "flex-1 h-11 rounded-lg text-sm font-semibold relative",
             tab === "topups" ? "bg-background shadow-sm" : "text-muted-foreground",
           )}
         >
@@ -552,7 +553,7 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
         <button
           onClick={() => setTab("withdrawals")}
           className={cn(
-            "flex-1 h-9 rounded-lg text-xs font-display uppercase tracking-wide relative",
+            "flex-1 h-11 rounded-lg text-sm font-semibold relative",
             tab === "withdrawals" ? "bg-background shadow-sm" : "text-muted-foreground",
           )}
         >
@@ -590,13 +591,13 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
               <div key={r.id} className="rounded-xl border p-3">
                 <div className="flex items-start gap-3">
                   <div className={cn("w-9 h-9 rounded-full flex items-center justify-center shrink-0",
-                    positive ? "bg-success/15 text-success" : "bg-primary/15 text-primary")}>
+                    positive ? "bg-success/15 text-success" : "bg-primary/15 text-cz-amber-text")}>
                     {positive ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <div className="text-sm font-semibold truncate">{p?.name ?? r.user_id.slice(0, 8)}</div>
-                      <div className={cn("font-display font-bold text-sm", positive ? "text-success" : "text-primary")}>
+                      <div className={cn("font-display font-bold text-sm", positive ? "text-success" : "text-cz-amber-text")}>
                         {positive ? "+" : "-"}{money(Number(r.amount))}
                       </div>
                     </div>
@@ -620,7 +621,7 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
                       </div>
                     )}
                     <div className="mt-2 flex items-center justify-between gap-2">
-                      <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase", statusTone[r.status])}>
+                      <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold", statusTone[r.status])}>
                         <Clock className="w-3 h-3" />{" "}
                         {!isTopup && r.status === "pending"
                           ? "Awaiting review"
@@ -635,7 +636,7 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
                           type="button"
                           disabled={busy.has(r.id)}
                           onClick={() => markPaid(r.id)}
-                          className="disabled:opacity-50 rounded-lg bg-primary text-primary-foreground px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1"
+                          className="min-h-11 disabled:opacity-50 rounded-lg bg-primary text-primary-foreground px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1"
                         >
                           <Check className="w-3 h-3" /> Record payout sent
                         </button>
@@ -645,7 +646,7 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
                           type="button"
                           disabled={busy.has(r.id)}
                           onClick={() => markFailed(r.id)}
-                          className="disabled:opacity-50 rounded-lg border border-destructive/40 text-destructive px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1"
+                          className="min-h-11 disabled:opacity-50 rounded-lg border border-destructive/40 text-destructive px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1"
                         >
                           <X className="w-3 h-3" /> Payout failed
                         </button>
@@ -656,7 +657,7 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
                             type="button"
                             disabled={busy.has(r.id)}
                             onClick={() => reject(isTopup ? "topup" : "withdrawal", r.id)}
-                            className="disabled:opacity-50 rounded-lg border border-destructive/40 text-destructive px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1"
+                            className="min-h-11 disabled:opacity-50 rounded-lg border border-destructive/40 text-destructive px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1"
                           >
                             <X className="w-3 h-3" /> Reject
                           </button>
@@ -664,7 +665,7 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
                             type="button"
                             disabled={busy.has(r.id)}
                             onClick={() => approve(isTopup ? "topup" : "withdrawal", r.id)}
-                            className="disabled:opacity-50 rounded-lg bg-success text-success-foreground px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1"
+                            className="min-h-11 disabled:opacity-50 rounded-lg bg-success text-success-foreground px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1"
                           >
                             <Check className="w-3 h-3" /> Approve
                           </button>

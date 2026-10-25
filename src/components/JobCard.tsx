@@ -4,7 +4,7 @@ import { materialLabel, money, statusInfo } from "@/lib/domain";
 
 const MATCH_BADGE: Record<string, { label: string; className: string }> = {
   excellent: { label: "Great fit", className: "bg-success/15 text-success border-success/30" },
-  good: { label: "Good fit", className: "bg-primary/10 text-primary border-primary/30" },
+  good: { label: "Good fit", className: "bg-primary/10 text-cz-amber-text border-primary/30" },
   oversized: { label: "Oversized", className: "bg-muted text-muted-foreground border-border" },
   multiple_trips: { label: "Multiple trips", className: "bg-warning/15 text-warning border-warning/30" },
 };
@@ -32,7 +32,7 @@ export function JobCard({
       </div>
       <div className="mt-3 flex items-center justify-between text-sm">
         <span className="text-muted-foreground">{Number(j.quantity_m3)} m³</span>
-        <span className="font-display font-bold text-primary text-lg">{money(Number(j.budget))}</span>
+        <span className="font-display font-bold text-cz-amber-text text-lg">{money(Number(j.budget))}</span>
       </div>
       {match && (
         <div className="mt-2">

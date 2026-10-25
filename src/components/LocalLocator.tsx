@@ -60,14 +60,14 @@ export function LocalLocator() {
   const mapHref = coords ? `https://www.openstreetmap.org/?mlat=${coords.lat}&mlon=${coords.lng}#map=17/${coords.lat}/${coords.lng}` : "#";
 
   return (
-    <div className="rounded-2xl border bg-card p-4 shadow-soft">
+    <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-            <MapPin className="w-5 h-5 text-primary" />
+          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+            <MapPin aria-hidden className="w-5 h-5 text-muted-foreground" />
           </div>
           <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">You are here</div>
+            <h2 className="text-[15px] font-semibold">Your location</h2>
             {loading ? (
               <div className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
                 <Loader2 className="w-3 h-3 animate-spin" /> Locating…
@@ -84,16 +84,16 @@ export function LocalLocator() {
               <div className="text-sm text-muted-foreground mt-1">Tap locate to see your address</div>
             )}
             {coords && (
-              <div className="text-[11px] text-muted-foreground mt-1">
+              <div className="text-xs text-muted-foreground mt-1">
                 {coords.acc ? `± ${Math.round(coords.acc)} m accuracy • ` : ""}
-                <a href={mapHref} target="_blank" rel="noreferrer" className="text-primary underline">
+                <a href={mapHref} target="_blank" rel="noreferrer" className="font-semibold text-foreground underline underline-offset-4">
                   Open in Maps
                 </a>
               </div>
             )}
           </div>
         </div>
-        <Button type="button" size="icon" variant="outline" onClick={locate} disabled={loading} title="Locate me">
+        <Button type="button" size="icon" variant="outline" onClick={locate} disabled={loading} title="Locate me" aria-label="Find my location">
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LocateFixed className="w-4 h-4" />}
         </Button>
       </div>

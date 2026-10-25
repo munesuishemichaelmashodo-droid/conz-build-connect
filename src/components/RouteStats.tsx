@@ -22,11 +22,11 @@ function Stat({
 }) {
   return (
     <div className="flex flex-col items-center gap-0.5 flex-1 min-w-0">
-      <span className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+      <span className="flex items-center gap-1 text-xs text-muted-foreground">
         {icon}
         {label}
       </span>
-      <span className="text-sm font-semibold tabular-nums truncate">{value}</span>
+      <span className="text-[15px] font-semibold tabular-nums truncate">{value}</span>
     </div>
   );
 }
@@ -75,12 +75,12 @@ export function RouteStats({
       />
       <Stat
         icon={<Clock className="w-3 h-3" />}
-        label="Duration"
+        label="Drive time"
         value={formatDuration(etaMin)}
       />
       <Stat
         icon={<MapPin className="w-3 h-3" />}
-        label="Arrive"
+        label="Arrives about"
         value={formatArrival(etaMin, now)}
       />
       {fare ? (

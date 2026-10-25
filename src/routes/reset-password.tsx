@@ -75,14 +75,14 @@ function ResetPasswordPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-screen-sm px-5 py-6">
-        <Link to="/auth" search={{ mode: "login" } as never} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link to="/auth" search={{ mode: "login" } as never} className="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-foreground hover:bg-muted">
           <ArrowLeft className="w-4 h-4" /> Back to login
         </Link>
         <div className="mt-8 rounded-2xl bg-card border p-4 shadow-soft space-y-4">
           <div className="flex items-center gap-3">
             <img src="/conz-logo.png" alt="CON Z" className="w-10 h-10 rounded-lg object-cover" width={40} height={40} />
             <div>
-              <h1 className="font-display font-bold text-2xl uppercase leading-none">Reset password</h1>
+              <h1 className="font-display font-bold text-2xl leading-none">Reset password</h1>
               <p className="text-xs text-muted-foreground">Set a new Con Z login password.</p>
             </div>
           </div>
@@ -131,7 +131,7 @@ function ResetPasswordPage() {
               <Label htmlFor="confirmPassword">Confirm password</Label>
               <Input id="confirmPassword" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} minLength={8} autoComplete="new-password" required />
             </div>
-            <Button type="submit" disabled={saving} className="w-full h-11 font-display uppercase tracking-wide">
+            <Button type="submit" disabled={saving} className="w-full h-11">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save new password"}
             </Button>
           </form>

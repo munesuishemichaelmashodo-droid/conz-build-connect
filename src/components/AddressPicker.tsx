@@ -12,7 +12,7 @@ import { CARTO_VOYAGER_TILES } from "@/lib/map-tiles";
 
 const pinIcon = L.divIcon({
   className: "",
-  html: `<div style="background:hsl(var(--primary));color:hsl(var(--primary-foreground));width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><span style="transform:rotate(45deg);font-size:14px">📍</span></div>`,
+  html: `<div style="background:var(--cz-amber);color:var(--cz-amber-ink);width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><span style="transform:rotate(45deg);font-size:14px">📍</span></div>`,
   iconSize: [28, 28],
   iconAnchor: [14, 28],
 });
@@ -74,6 +74,7 @@ function DraggableMarker({
       draggable
       position={[position.lat, position.lng]}
       icon={icon}
+      title="Delivery point (drag to adjust)"
       ref={(m) => {
         ref.current = m;
       }}
@@ -294,9 +295,9 @@ export function AddressPicker({
             <div className="relative flex-1 min-w-0">
               <label
                 htmlFor="addr-picker"
-                className="flex h-[50px] items-center gap-2.5 rounded-[14px] bg-cz-bg px-3.5 shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
+                className="flex h-[50px] items-center gap-2.5 rounded-xl bg-cz-bg px-3.5 shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
               >
-                <MapPin className="w-[18px] h-[18px] text-cz-amber shrink-0" />
+                <MapPin className="w-[18px] h-[18px] text-cz-amber-text shrink-0" />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="text-[11px] leading-tight text-cz-muted">{label}</span>
                   <input
@@ -329,7 +330,7 @@ export function AddressPicker({
                 {searching && <Loader2 className="w-4 h-4 animate-spin text-cz-muted shrink-0" />}
               </label>
               {open && query.trim().length >= 3 && (results.length > 0 || searching || results.length === 0) && (
-                <div className="absolute z-40 left-0 right-0 top-[56px] rounded-[14px] border border-cz-border bg-cz-surface shadow-lg max-h-64 overflow-auto">
+                <div className="absolute z-40 left-0 right-0 top-[56px] rounded-xl border border-cz-border bg-cz-surface shadow-lg max-h-64 overflow-auto">
                   {searching && <div className="px-3.5 py-3 text-sm text-cz-muted">Searching…</div>}
                   {!searching && results.length === 0 && (
                     <div className="px-3.5 py-3 text-sm text-cz-muted">No results found — try a different spelling.</div>
@@ -362,7 +363,7 @@ export function AddressPicker({
             <button
               type="button"
               onClick={() => setManualMode((v) => !v)}
-              className="min-h-9 whitespace-nowrap rounded-full bg-cz-bg/90 px-3 text-xs font-semibold text-cz-muted shadow"
+              className="min-h-11 whitespace-nowrap rounded-full bg-cz-bg/90 px-3.5 text-sm font-semibold text-cz-text shadow"
             >
               {manualMode ? "Hide" : "Coordinates"}
             </button>
@@ -379,7 +380,7 @@ export function AddressPicker({
           </div>
 
           {manualMode && (
-            <div className="flex gap-2 rounded-[14px] bg-cz-bg p-2 shadow-lg">
+            <div className="flex gap-2 rounded-xl bg-cz-bg p-2 shadow-lg">
               <input
                 type="number"
                 step="any"
@@ -428,7 +429,7 @@ export function AddressPicker({
             onClick={useMyLocation}
             disabled={locating}
             aria-label="Use my current location"
-            className="w-[50px] h-[50px] shrink-0 rounded-full bg-cz-bg text-cz-amber flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
+            className="w-[50px] h-[50px] shrink-0 rounded-full bg-cz-bg text-cz-amber-text flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
           >
             {locating ? <Loader2 className="w-5 h-5 animate-spin" /> : <LocateFixed className="w-[22px] h-[22px]" />}
           </button>
@@ -443,12 +444,12 @@ export function AddressPicker({
 
       <div className="flex gap-2">
         <div className="relative flex-1">
-          <MapPin className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
+          <MapPin aria-hidden className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
           <input
             id="addr-picker"
             value={query}
             placeholder="Search address, suburb or landmark…"
-            className="flex h-10 w-full rounded-md border border-input bg-background pl-8 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-12 w-full rounded-md border border-input bg-card pl-10 pr-3 py-2 text-base text-foreground placeholder:text-cz-faint focus-visible:outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
             onChange={(e) => {
               setQuery(e.target.value);
               setOpen(true);
@@ -471,10 +472,10 @@ export function AddressPicker({
             }}
           />
           {open && query.trim().length >= 3 && (results.length > 0 || searching || results.length === 0) && (
-            <div className="absolute z-20 left-0 right-0 top-11 rounded-md border bg-popover shadow-lg max-h-64 overflow-auto">
-              {searching && <div className="px-3 py-2 text-xs text-muted-foreground">Searching…</div>}
+            <div className="absolute z-20 left-0 right-0 top-[52px] rounded-xl border bg-popover shadow-lg max-h-64 overflow-auto">
+              {searching && <div className="px-3.5 py-3 text-sm text-muted-foreground">Searching…</div>}
               {!searching && results.length === 0 && (
-                <div className="px-3 py-2 text-xs text-muted-foreground">
+                <div className="px-3.5 py-3 text-sm text-muted-foreground">
                   No results found — try a different spelling.
                 </div>
               )}
@@ -484,7 +485,7 @@ export function AddressPicker({
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => pickResult(r)}
-                  className="block w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                  className="block w-full min-h-11 text-left px-3.5 py-2.5 text-sm border-b border-border last:border-b-0 hover:bg-muted"
                 >
                   {r.label}
                 </button>
@@ -499,7 +500,7 @@ export function AddressPicker({
             </div>
           )}
         </div>
-        <Button type="button" variant="outline" size="icon" onClick={useMyLocation} disabled={locating} title="Use my current location">
+        <Button type="button" variant="outline" size="icon" onClick={useMyLocation} disabled={locating} title="Use my current location" aria-label="Use my current location" className="h-12 w-12 shrink-0">
           {locating ? <Loader2 className="w-4 h-4 animate-spin" /> : <LocateFixed className="w-4 h-4" />}
         </Button>
       </div>
@@ -507,7 +508,7 @@ export function AddressPicker({
       <button
         type="button"
         onClick={() => setManualMode((v) => !v)}
-        className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+        className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
       >
         {manualMode ? "Hide coordinate entry" : "Enter coordinates manually"}
       </button>
@@ -519,15 +520,17 @@ export function AddressPicker({
             step="any"
             inputMode="decimal"
             placeholder="Lat e.g. -17.8252"
+            aria-label="Latitude"
             value={manualLat}
             onChange={(e) => setManualLat(e.target.value)}
-            className="flex h-10 w-full flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-12 w-full min-w-0 flex-1 rounded-md border border-input bg-card px-3 py-2 text-base text-foreground placeholder:text-cz-faint focus-visible:outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
           />
           <input
             type="number"
             step="any"
             inputMode="decimal"
             placeholder="Lng e.g. 31.0335"
+            aria-label="Longitude"
             value={manualLng}
             onChange={(e) => setManualLng(e.target.value)}
             onKeyDown={(e) => {
@@ -536,15 +539,15 @@ export function AddressPicker({
                 lockManualCoords();
               }
             }}
-            className="flex h-10 w-full flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-12 w-full min-w-0 flex-1 rounded-md border border-input bg-card px-3 py-2 text-base text-foreground placeholder:text-cz-faint focus-visible:outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
           />
-          <Button type="button" variant="secondary" onClick={lockManualCoords}>
+          <Button type="button" variant="outline" onClick={lockManualCoords} className="h-12 shrink-0">
             Lock
           </Button>
         </div>
       )}
 
-      <div className="w-full h-56 rounded-xl border overflow-hidden bg-muted">
+      <div className="w-full h-56 rounded-xl border border-border overflow-hidden bg-muted">
         <MapContainer
           center={[coords.lat, coords.lng]}
           zoom={zoom}
@@ -571,7 +574,7 @@ export function AddressPicker({
 
       {hasPin && (
         <div className="space-y-2">
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Pin: {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)} — drag the pin to fine-tune.
           </p>
           <Button
