@@ -641,7 +641,9 @@ const server = http.createServer(async (req, res) => {
           }
           return send(res, 409, { code: "23505", message: "duplicate key value violates unique constraint (mock)" });
         }
-        const fresh = { id: randomUUID(), created_at: new Date().toISOString(), ...row };
+        // Column defaults the real tables have (a new job starts open with no driver).
+        const defaults = name === "jobs" ? { status: "open", driver_id: null } : {};
+        const fresh = { id: randomUUID(), created_at: new Date().toISOString(), ...defaults, ...row };
         db[name].push(fresh);
         out.push(fresh);
       }

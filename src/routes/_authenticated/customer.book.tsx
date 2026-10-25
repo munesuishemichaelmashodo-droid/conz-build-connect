@@ -29,6 +29,7 @@ import {
   computeOffer,
   explainOffer,
   getSourcingOffer,
+  OPEN_REQUEST_HAUL_KM,
   type AwaitingSourcingResult,
   type OfferResult,
 } from "@/lib/booking.functions";
@@ -206,6 +207,9 @@ function BookDelivery() {
       setOffer(result.offer);
       setStep(5);
 
+      // An open request has no real distance (40 km is only the guide's middle haul),
+      // so keep its own explanation instead of "fair rate … 40 km".
+      if (result.openRequest) return;
       runExplain({ data: { material, quantity, distanceKm: result.distanceKm } })
         .then(({ explanation }) => {
           setOfferData((prev) => (prev ? { ...prev, explanation } : prev));
@@ -291,7 +295,7 @@ function BookDelivery() {
 
     if (error) return toast.error(error.message);
 
-    toast.success("Booking confirmed! Searching for trucks…");
+    toast.success("Job posted. We'll notify you when drivers send offers.");
 
     nav({ to: "/jobs/$id", params: { id: data.id } });
   };
@@ -441,7 +445,8 @@ function BookDelivery() {
               </details>
 
               <p className="text-[13px] text-cz-muted">
-                We’ll calculate the price using an eligible material pickup and the route to your delivery point.
+                You don't choose a supplier. We find a listed one near your delivery point and price the road
+                trip. If none covers it, drivers arrange the pickup and you get a guide range.
               </p>
               {address.trim().length > 2 && !coords && (
                 <p className="text-[13px] text-cz-danger-text">
@@ -476,8 +481,8 @@ function BookDelivery() {
 
   const tiers = [
     { key: "low", title: "Low", value: offerData.low, hint: "Fewer drivers may respond" },
-    { key: "recommended", title: "Recommended", value: offerData.recommended, hint: "Most drivers respond to this" },
-    { key: "high", title: "High", value: offerData.high, hint: "Fastest offers" },
+    { key: "recommended", title: "Recommended", value: offerData.recommended, hint: "The middle of the guide" },
+    { key: "high", title: "High", value: offerData.high, hint: "More drivers may respond" },
   ].filter((t) => Number.isFinite(t.value) && t.value >= offerData.min && t.value <= offerData.max);
 
   return (
@@ -489,6 +494,16 @@ function BookDelivery() {
       />
 
       <div className="flex-1 space-y-4 px-5 pb-6">
+        {offerData.openRequest && (
+          <Notice tone="info" title="No listed supplier covers this area yet">
+            These amounts are a guide for hauls of {OPEN_REQUEST_HAUL_KM.low} to {OPEN_REQUEST_HAUL_KM.high} km. Drivers collect from their own source and
+            send their own price; availability is confirmed only when a driver accepts.
+          </Notice>
+        )}
+        <p className="text-sm text-cz-muted">
+          This is the amount you offer drivers. They can accept it or send their own price, and you choose.
+          Posting the job doesn't charge you.
+        </p>
         <div id="tour-book-offer" data-tour="book-offer" className="space-y-3">
           <div role="radiogroup" aria-label="Your price" className="grid gap-2.5">
             {tiers.map((t) => {
@@ -573,13 +588,6 @@ function BookDelivery() {
           ) : (
             <>
               <DocketRow label="Pickup">Driver arranges it</DocketRow>
-              <div className="px-4 py-3">
-                <Notice tone="info" title="Open request">
-                  The price above is only a guide. Drivers see your order, collect the material from their own
-                  source and bid their own amount — you choose the offer you like. Availability is confirmed by the
-                  driver, not by ConZ.
-                </Notice>
-              </div>
             </>
           )}
           <p className="px-4 py-3 text-[13px] text-cz-muted">
@@ -664,7 +672,7 @@ function BookDelivery() {
         <CzButton id="tour-book-confirm" data-tour="book-confirm" onClick={confirm} disabled={posting}>
           {posting ? <Loader2 className="w-5 h-5 animate-spin" /> : `Post job · ${usd(offer)}`}
         </CzButton>
-        <p className="text-center text-xs text-cz-muted">We'll immediately search for the closest verified tipper truck.</p>
+        <p className="text-center text-xs text-cz-muted">Approved drivers near you see your request and can send offers.</p>
       </footer>
     </CzScreen>
   );

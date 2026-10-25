@@ -3,6 +3,7 @@ import {
   quickPriceBookingPath,
   quickPriceErrorMessage,
   quickPriceSignature,
+  quickPriceStage,
 } from "@/lib/quick-price";
 import { safeInternalPath } from "@/lib/safe-redirect";
 
@@ -87,5 +88,54 @@ describe("quickPriceErrorMessage", () => {
 
   it("falls back to a plain retry message", () => {
     expect(quickPriceErrorMessage("boom", false)).toMatch(/try again/);
+  });
+});
+
+describe("quickPriceStage", () => {
+  const base = { quantityValid: true, hasDelivery: true, loading: false, result: null };
+
+  it("asks for a valid load size first", () => {
+    const s = quickPriceStage({ ...base, quantityValid: false, hasDelivery: false });
+    expect(s.kind).toBe("needs_load");
+    expect(s.prompt).toMatch(/load size/i);
+  });
+
+  it("asks for the delivery point when that is all that is missing", () => {
+    const s = quickPriceStage({ ...base, hasDelivery: false });
+    expect(s.kind).toBe("needs_delivery");
+    expect(s.prompt).toMatch(/deliver/i);
+  });
+
+  it("explains that the pickup is found for the customer once ready", () => {
+    const s = quickPriceStage(base);
+    expect(s.kind).toBe("ready");
+    expect(s.prompt).toMatch(/supplier/i);
+  });
+
+  it("is checking while a request is in flight", () => {
+    expect(quickPriceStage({ ...base, loading: true }).kind).toBe("checking");
+  });
+
+  it("tells a supplier estimate apart from an open-request guide", () => {
+    expect(quickPriceStage({ ...base, result: { offer: { openRequest: false } } }).kind).toBe(
+      "estimate",
+    );
+    expect(quickPriceStage({ ...base, result: { offer: { openRequest: true } } }).kind).toBe(
+      "guide",
+    );
+  });
+
+  it("offers a retry after an error", () => {
+    const s = quickPriceStage({ ...base, result: { error: "Couldn't reach Con Z." } });
+    expect(s.kind).toBe("error");
+  });
+
+  it("never shows a price stage without a delivery point", () => {
+    const s = quickPriceStage({
+      ...base,
+      hasDelivery: false,
+      result: { offer: { openRequest: false } },
+    });
+    expect(s.kind).toBe("needs_delivery");
   });
 });

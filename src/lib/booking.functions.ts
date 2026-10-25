@@ -400,11 +400,11 @@ export const computePublicOffer = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<OfferResult | AwaitingSourcingResult> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const picked = await resolvePickupAndDistance(supabaseAdmin, data);
-    if (picked.kind === "open_request") {
-      throw new Error(
-        "We have no listed supplier for this material near you. Sign in and book it as an open request — drivers bid their own price.",
-      );
-    }
+    // No listed supplier covers this point: show the same open-request guide range
+    // a signed-in customer gets (buildOpenRequestOffer, compute_material_offer at a
+    // short, typical and long haul). No quote is stored and nothing claims stock.
+    // Before, this threw, and the visitor saw an error with no way forward.
+    if (picked.kind === "open_request") return buildOpenRequestOffer(supabaseAdmin, data);
     const { distanceKm, source, resolvedSource } = picked;
     if (distanceKm > MAX_SERVICE_KM) throw new Error(TOO_FAR_MESSAGE);
 

@@ -45,3 +45,37 @@ export function quickPriceErrorMessage(error: unknown, offline: boolean): string
   if (error instanceof Error && error.message.trim()) return error.message;
   return FALLBACK;
 }
+
+export type QuickPriceStageKind =
+  "needs_load" | "needs_delivery" | "ready" | "checking" | "estimate" | "guide" | "error";
+
+/**
+ * Where the customer is in the price check and what to tell them next.
+ * "estimate" = a listed supplier and road route were found; "guide" = no listed
+ * supplier covers the point, so drivers arrange pickup and the range is a guide.
+ * A price stage is never returned without a delivery point.
+ */
+export function quickPriceStage(input: {
+  quantityValid: boolean;
+  hasDelivery: boolean;
+  loading: boolean;
+  result: { offer?: { openRequest: boolean }; error?: string } | null;
+}): { kind: QuickPriceStageKind; prompt: string } {
+  if (!input.quantityValid)
+    return { kind: "needs_load", prompt: "Choose a load size to continue." };
+  if (!input.hasDelivery)
+    return {
+      kind: "needs_delivery",
+      prompt: "Next, set where the load should be delivered.",
+    };
+  if (input.loading) return { kind: "checking", prompt: "Finding a supplier and the road route…" };
+  if (input.result?.error) return { kind: "error", prompt: input.result.error };
+  if (input.result?.offer)
+    return input.result.offer.openRequest
+      ? { kind: "guide", prompt: "Guide range only. Drivers set the final price." }
+      : { kind: "estimate", prompt: "Estimate from a listed supplier and the road distance." };
+  return {
+    kind: "ready",
+    prompt: "We'll find a listed supplier near this point and price the road trip.",
+  };
+}

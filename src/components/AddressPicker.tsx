@@ -168,6 +168,8 @@ export function AddressPicker({
   const setPin = async (lat: number, lng: number, addressHint?: string, box?: BoundingBox) => {
     const req = ++pinRequest.current;
     const here = { lat, lng };
+    // A pin is a choice: close the suggestions so they don't cover the map.
+    setOpen(false);
     const coordText = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
     const firstAddr = addressHint ?? coordText;
     setCoords(here);
