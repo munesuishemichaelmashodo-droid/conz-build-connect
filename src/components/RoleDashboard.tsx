@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { driverNeedsBanner } from "@/lib/driver-onboarding";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,7 +58,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
 
   const restrictedUntil = (profile as any)?.restricted_until as string | null | undefined;
   const restricted = isCustomer && !!restrictedUntil ? new Date(restrictedUntil) > new Date() : false;
-  const showVerificationWarning = isDriver && driver?.verification_status !== "verified";
+  const showVerificationWarning = isDriver && driverNeedsBanner(driver);
 
   // Driver mode redesign (D1): same three queries above, new presentation.
   if (isDriver) {
