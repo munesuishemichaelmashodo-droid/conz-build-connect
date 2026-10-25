@@ -4,7 +4,7 @@
 // back from driver_profiles.verification_status.
 
 export const STAGES = [
-  { key: "phone", title: "Verify phone" },
+  { key: "phone", title: "Your phone" },
   { key: "details", title: "Your details" },
   { key: "documents", title: "Truck & documents" },
   { key: "status", title: "Account status" },
@@ -256,4 +256,116 @@ export function ratingLabel(
 export function jobsDoneLabel(n: number | null | undefined): string {
   const v = Math.max(0, Number(n ?? 0));
   return `${v} ${v === 1 ? "job" : "jobs"} done`;
+}
+
+// ---------------------------------------------------------------------------
+// Phone without SMS (25/10/2026). ConZ has no free SMS sender, so the phone step
+// saves the number to the driver's own profile and moves on. Nothing in the
+// database depends on phone verification (checked 25/10: no function or policy
+// reads auth phone confirmation), and a saved number is never shown as verified.
+// ---------------------------------------------------------------------------
+
+export type PhoneStatus = "sms_verified" | "unverified" | "missing";
+
+const digitsOnly = (v: string | null | undefined) => (v ?? "").replace(/\D/g, "");
+
+/** A saved international number (as normalisePhone builds it) finishes the phone step. */
+export function phoneStepComplete(profilePhone: string | null | undefined): boolean {
+  const d = digitsOnly(profilePhone);
+  return d.length >= 9 && d.length <= 15;
+}
+
+/**
+ * Verified by SMS only when Supabase Auth confirmed this same number (Auth stores
+ * it without the +). Anything else is unverified, never "verified".
+ */
+export function phoneStatus(input: {
+  profilePhone: string | null | undefined;
+  authPhone: string | null | undefined;
+  authPhoneConfirmedAt: string | null | undefined;
+}): PhoneStatus {
+  const saved = digitsOnly(input.profilePhone);
+  if (!saved) return "missing";
+  const auth = digitsOnly(input.authPhone);
+  if (auth && auth === saved && input.authPhoneConfirmedAt) return "sms_verified";
+  return "unverified";
+}
+
+/** Which step to reopen: progress comes from the database, so a driver can leave and come back. */
+export function firstUnfinishedStage(input: {
+  submitted: boolean;
+  phoneSaved: boolean;
+  detailsDone: boolean;
+}): number {
+  if (input.submitted) return 3;
+  if (!input.phoneSaved) return 0;
+  if (!input.detailsDone) return 1;
+  return 2;
+}
+
+export type ChecklistState = "done" | "waiting" | "todo" | "problem";
+
+export interface ChecklistRow {
+  key: "account" | "application" | "phone" | "identity" | "truck" | "approval";
+  label: string;
+  state: ChecklistState;
+}
+
+/**
+ * The status screen's separate lines. Inputs come from the database. Identity and
+ * truck are checked in the same admin review today (one verification status per
+ * driver), so both lines follow that status; final approval also needs the driver
+ * role, which only admin approval grants.
+ */
+export function applicationChecklist(input: {
+  phone: PhoneStatus;
+  submitted: boolean;
+  status: "pending" | "verified" | "rejected" | null | undefined;
+  isDriver: boolean;
+}): ChecklistRow[] {
+  const review: ChecklistState = !input.submitted
+    ? "todo"
+    : input.status === "verified"
+      ? "done"
+      : input.status === "rejected"
+        ? "problem"
+        : "waiting";
+  const reviewWord =
+    review === "done"
+      ? "approved"
+      : review === "problem"
+        ? "not accepted"
+        : review === "waiting"
+          ? "in review"
+          : "not sent";
+  const approved = input.status === "verified" && input.isDriver;
+  return [
+    { key: "account", label: "Con Z account created", state: "done" },
+    {
+      key: "application",
+      label: input.submitted ? "Application sent" : "Application not sent yet",
+      state: input.submitted ? "done" : "todo",
+    },
+    {
+      key: "phone",
+      label:
+        input.phone === "sms_verified"
+          ? "Phone verified by SMS"
+          : input.phone === "unverified"
+            ? "Phone saved (not verified)"
+            : "Phone number missing",
+      state: input.phone === "sms_verified" ? "done" : "todo",
+    },
+    { key: "identity", label: `ID and licence: ${reviewWord}`, state: review },
+    { key: "truck", label: `Truck: ${reviewWord}`, state: review },
+    {
+      key: "approval",
+      label: approved
+        ? "Approved to bid on jobs"
+        : input.status === "rejected"
+          ? "Not approved"
+          : "Not approved yet",
+      state: approved ? "done" : input.status === "rejected" ? "problem" : "waiting",
+    },
+  ];
 }
