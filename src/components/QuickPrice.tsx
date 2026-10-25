@@ -10,6 +10,7 @@ import { MATERIALS, money, type MaterialCategory } from "@/lib/domain";
 import { isValidQuantity } from "@/lib/load-size";
 import {
   computePublicOffer,
+  OPEN_REQUEST_HAUL_KM,
   type AwaitingSourcingResult,
   type OfferResult,
 } from "@/lib/booking.functions";
@@ -17,6 +18,7 @@ import {
   quickPriceBookingPath,
   quickPriceErrorMessage,
   quickPriceSignature,
+  quickPriceStage,
 } from "@/lib/quick-price";
 
 // The map (Leaflet) is the heaviest part of the page, so it only loads when
@@ -33,7 +35,7 @@ const MATERIAL_OPTIONS = MATERIALS.filter((m) => m.value !== "custom").map((m) =
 }));
 
 /**
- * Anonymous price check (homepage and /quote). Uses computePublicOffer (computePublicOffer: verified supplier, road distance and
+ * Anonymous price check (/quote). Uses computePublicOffer (verified supplier, road distance and
  * compute_material_offer), so the number shown is the engine's estimate and
  * nothing is priced in the browser.
  */
@@ -58,6 +60,12 @@ export function QuickPrice({ titleAs = "h2" }: { titleAs?: "h1" | "h2" }) {
   const bookPath = coords
     ? quickPriceBookingPath({ material, quantity, address, coords })
     : "/customer/book";
+  const stage = quickPriceStage({
+    quantityValid: isValidQuantity(quantity),
+    hasDelivery: !!coords,
+    loading,
+    result: current,
+  });
 
   const checkPrice = async () => {
     if (!coords || loading || !isValidQuantity(quantity)) return;
@@ -112,7 +120,13 @@ export function QuickPrice({ titleAs = "h2" }: { titleAs?: "h1" | "h2" }) {
           />
         )}
 
-        {current?.error && <Notice tone="danger">{current.error}</Notice>}
+        {!current?.offer && !current?.awaiting && <PickupExplainer />}
+
+        {stage.kind === "error" && current?.error && (
+          <Notice tone="danger" title="No price yet">
+            {current.error}
+          </Notice>
+        )}
 
         {current?.awaiting && (
           <Notice tone="info" title="No listed supplier for this yet">
@@ -120,7 +134,12 @@ export function QuickPrice({ titleAs = "h2" }: { titleAs?: "h1" | "h2" }) {
           </Notice>
         )}
 
-        {current?.offer && <PriceResult offer={current.offer} quantity={quantity} />}
+        {current?.offer &&
+          (current.offer.openRequest ? (
+            <GuideResult offer={current.offer} quantity={quantity} />
+          ) : (
+            <PriceResult offer={current.offer} quantity={quantity} />
+          ))}
 
         {current?.offer || current?.awaiting ? (
           <Link
@@ -128,7 +147,9 @@ export function QuickPrice({ titleAs = "h2" }: { titleAs?: "h1" | "h2" }) {
             search={{ mode: "register", role: "customer", next: bookPath } as never}
             className={czButtonClass("primary")}
           >
-            {current.offer ? "Book this delivery" : "Sign up to request it"}
+            {current.offer && !current.offer.openRequest
+              ? "Book this delivery"
+              : "Post this as a request"}
           </Link>
         ) : (
           <button
@@ -141,14 +162,24 @@ export function QuickPrice({ titleAs = "h2" }: { titleAs?: "h1" | "h2" }) {
               <>
                 <Loader2 aria-hidden className="h-5 w-5 animate-spin" /> Checking price…
               </>
+            ) : stage.kind === "error" ? (
+              "Try again"
             ) : (
               "See price"
             )}
           </button>
         )}
-        {!coords && !current && (
+        {(stage.kind === "needs_load" ||
+          stage.kind === "needs_delivery" ||
+          stage.kind === "ready" ||
+          stage.kind === "checking") && (
+          <p className="-mt-2 text-center text-sm text-cz-muted" aria-live="polite">
+            {stage.prompt}
+          </p>
+        )}
+        {(current?.offer || current?.awaiting) && (
           <p className="-mt-2 text-center text-sm text-cz-muted">
-            Set the delivery point to see a price.
+            Your material, load and address carry over when you sign up.
           </p>
         )}
       </div>
@@ -173,14 +204,66 @@ function PriceResult({ offer, quantity }: { offer: OfferResult; quantity: number
           )}
         </DocketRow>
         {offer.resolvedSource && (
-          <DocketRow label="Collected from" hint={`About ${offer.distanceKm} km away`}>
+          <DocketRow
+            label="Collected from"
+            hint={`Listed supplier, about ${offer.distanceKm} km by road from your site`}
+          >
             {offer.resolvedSource.supplierName}
           </DocketRow>
         )}
       </div>
       <p className="border-t border-cz-border px-4 py-3 text-sm leading-snug text-cz-muted">
-        Drivers send their own offers, so the price you accept can differ. You see each total before
-        you accept.
+        This is an estimate, not a confirmed price. Drivers send their own offers, so the price you
+        accept can differ. You see each total before you accept, and nothing is charged until then.
+      </p>
+    </div>
+  );
+}
+
+/** No listed supplier covers the point: an honest range, never a single "price". */
+function GuideResult({ offer, quantity }: { offer: OfferResult; quantity: number }) {
+  return (
+    <div className="rounded-xl border border-cz-border bg-cz-bg" aria-live="polite">
+      <div className="px-4 pt-4">
+        <Notice tone="info" title="No listed supplier covers this area yet">
+          You can still post it as a request. Drivers collect the material from their own source and
+          send you their prices.
+        </Notice>
+      </div>
+      <div className="px-4 pb-3 pt-4">
+        <MoneyFigure
+          label="Guide range"
+          estimate
+          value={`${money(offer.min)} to ${money(offer.max)}`}
+          size="lg"
+        />
+      </div>
+      <div className="divide-y divide-cz-border border-t border-cz-border">
+        <DocketRow label="Load">
+          {quantity} m³ {offer.label.toLowerCase()}
+          {offer.tripCount > 1 && (
+            <div className="text-xs text-cz-faint">About {offer.tripCount} trips</div>
+          )}
+        </DocketRow>
+        <DocketRow label="Collected from">Driver arranges it</DocketRow>
+      </div>
+      <p className="border-t border-cz-border px-4 py-3 text-sm leading-snug text-cz-muted">
+        The range covers hauls of {OPEN_REQUEST_HAUL_KM.low} to {OPEN_REQUEST_HAUL_KM.high} km,
+        because the pickup isn't known yet. It isn't a quote: drivers set the final price, and
+        availability is confirmed only when a driver accepts.
+      </p>
+    </div>
+  );
+}
+
+/** Answers "where does the material come from?" before a price exists. */
+function PickupExplainer() {
+  return (
+    <div className="rounded-xl bg-cz-surface-2 px-3.5 py-3 text-sm leading-snug">
+      <div className="font-semibold">You don't need to choose a supplier</div>
+      <p className="mt-0.5 text-cz-muted">
+        Set where the load goes. We find a listed supplier near it and price the road trip. If none
+        covers your area, drivers arrange the pickup.
       </p>
     </div>
   );

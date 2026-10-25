@@ -691,7 +691,7 @@ function JobDetail() {
         {showActionSection && (
           <Section id="tour-next-steps" title="What's next">
             <div className="space-y-4">
-              {showRadar && <RadarSearch etaMinutes={5} nearbyDrivers={nearbyDrivers} />}
+              {showRadar && <RadarSearch nearbyDrivers={nearbyDrivers} />}
 
               {showEscrowBanner && (
                 <div className={cn(
@@ -3063,7 +3063,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
           )}
         </dl>
 
-        {ctx.showRadar && <RadarSearch etaMinutes={5} nearbyDrivers={ctx.nearbyDrivers} />}
+        {ctx.showRadar && <RadarSearch nearbyDrivers={ctx.nearbyDrivers} />}
 
         {live.length > 1 && (
           <ToggleGroupPrimitive.Root
