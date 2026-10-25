@@ -129,6 +129,17 @@ describe.skipIf(!enabled)(
       ).toBe("1");
     });
 
+    it("Awaiting Delivery (BuySafe holding the money) credits nothing until Delivered (0116)", async () => {
+      const { user, pay } = newTopup();
+      expect((await ipn(signed({ reference: pay, status: "Awaiting Delivery" }))).status).toBe(200);
+      expect(balance(user)).toBe(0);
+      expect(q(`select status from public.payments where id='${pay}'`)).toBe("initiated");
+      expect((await ipn(signed({ reference: pay, status: "Delivered" }))).status).toBe(200);
+      expect(balance(user)).toBe(25);
+      expect((await ipn(signed({ reference: pay, status: "Delivered" }))).status).toBe(200); // duplicate
+      expect(balance(user)).toBe(25);
+    });
+
     it("a failure after Paid cannot regress the payment or remove the credit", async () => {
       const { user, pay } = newTopup();
       await ipn(signed({ reference: pay }));
