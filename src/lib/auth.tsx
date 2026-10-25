@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import type { AppRole } from "@/lib/domain";
 import { activateAccount } from "@/lib/account.functions";
+import { clearPendingTermsAcceptance, readPendingTermsAcceptance } from "@/lib/pending-terms";
 
 export type Profile = {
   id: string;
@@ -13,6 +14,8 @@ export type Profile = {
   avatar_url: string | null;
   status: "active" | "suspended" | "banned";
   referral_code: string | null;
+  /** When the user accepted the Terms and Privacy Policy; null until they do. */
+  terms_accepted_at?: string | null;
 };
 
 type AuthState = {
@@ -51,8 +54,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (repair) {
+      // A Google sign-up stores this flag just before the redirect when the
+      // Terms box was ticked; keep it until activation succeeds.
+      const termsAccepted = readPendingTermsAcceptance();
       try {
-        await activate();
+        await activate({ data: { termsAccepted } });
+        if (termsAccepted) clearPendingTermsAcceptance();
       } catch (error) {
         console.error("Account activation failed", error);
       }

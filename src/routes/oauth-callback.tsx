@@ -4,6 +4,9 @@ import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { safeInternalPath } from "@/lib/safe-redirect";
 import { Button } from "@/components/ui/button";
+import { ResendConfirmation } from "@/components/ResendConfirmation";
+import { linkErrorMessage, type LinkError } from "@/lib/auth-flow";
+import { initialAuthRedirect } from "@/lib/auth-url-snapshot";
 
 export const Route = createFileRoute("/oauth-callback")({
   ssr: false,
@@ -22,7 +25,10 @@ const POLL_MS = 250;
 
 function AuthCallbackPage() {
   const navigate = useNavigate();
-  const [state, setState] = useState<"waiting" | "failed" | "rechecking">("waiting");
+  const [state, setState] = useState<"waiting" | "failed" | "rechecking" | "link_error">("waiting");
+  // An expired, already-used or refused link (audit A-3). Read from the URL as
+  // it was when the page loaded; only the error code is kept.
+  const [linkError, setLinkError] = useState<LinkError | null>(null);
 
   const readNext = () => {
     try {
@@ -47,7 +53,25 @@ function AuthCallbackPage() {
 
   useEffect(() => {
     let cancelled = false;
+    const redirect = initialAuthRedirect();
+    const urlError = redirect.pathname === "/oauth-callback" ? redirect.error : null;
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!cancelled && session && event === "SIGNED_IN") {
+        cancelled = true;
+        goPostAuth();
+      }
+    });
     const finish = async () => {
+      if (urlError) {
+        // Nothing to wait for: the link itself failed. If the person is
+        // already signed in (e.g. re-opened a used confirmation link), carry on.
+        const { data } = await supabase.auth.getSession();
+        if (cancelled) return;
+        if (data.session) return goPostAuth();
+        setLinkError(urlError);
+        setState("link_error");
+        return;
+      }
       for (let i = 0; i < MAX_ATTEMPTS; i += 1) {
         const { data } = await supabase.auth.getSession();
         if (cancelled) return;
@@ -62,6 +86,7 @@ function AuthCallbackPage() {
     void finish();
     return () => {
       cancelled = true;
+      sub.subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -79,9 +104,33 @@ function AuthCallbackPage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-5">
       <div className="text-center space-y-3 max-w-xs">
-        {state !== "failed" && <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />}
+        {state !== "failed" && state !== "link_error" && (
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
+        )}
         <h1 className="font-display font-bold text-xl uppercase">Con Z Login</h1>
-        {state === "failed" ? (
+        {state === "link_error" && linkError ? (
+          <>
+            <p role="alert" className="text-sm text-muted-foreground">
+              {linkErrorMessage(linkError)}
+            </p>
+            <div className="flex flex-col gap-2 pt-2 text-left">
+              {linkError.kind === "expired" && (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    Already confirmed your email? Just log in. Otherwise we can send a new
+                    confirmation link.
+                  </p>
+                  <ResendConfirmation />
+                </>
+              )}
+              <Button asChild className="w-full">
+                <Link to="/auth" search={{ mode: "login" } as never}>
+                  {linkError.kind === "expired" ? "Go to login" : "Try again"}
+                </Link>
+              </Button>
+            </div>
+          </>
+        ) : state === "failed" ? (
           <>
             <p className="text-sm text-muted-foreground">
               This is taking longer than expected — often just a slow connection. If sign-in actually finished, checking

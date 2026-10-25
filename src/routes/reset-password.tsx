@@ -6,51 +6,57 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { describeAuthError, recoveryState, type RecoveryState } from "@/lib/auth-flow";
+import { initialAuthRedirect } from "@/lib/auth-url-snapshot";
+import { RequestResetLink } from "@/components/RequestResetLink";
 
 export const Route = createFileRoute("/reset-password")({
   ssr: false,
   component: ResetPasswordPage,
 });
 
-// Recovery links only put the session token in the URL fragment (#...),
-// which the Supabase client parses on load and turns into a real session by
-// firing a PASSWORD_RECOVERY auth event. If that never fires -- expired
-// link, link already used, or the redirect URL isn't on Supabase's allow
-// list so the tokens get silently dropped -- updateUser() below has no
-// session to act on. Previously we called updateUser() unconditionally,
-// which could report success-looking UI while nothing was actually saved,
-// then leave the person unable to log in with the "new" password. Now we
-// wait for a confirmed recovery session before allowing submission at all,
-// and show a clear expired/invalid state instead of a silent dead end.
+// The form only appears for a real password-recovery flow (audit A-2): either
+// Supabase's PASSWORD_RECOVERY event, or a session Supabase created from a
+// recovery link in the last hour (amr "recovery" in its token). A normal
+// signed-in session, or a made-up ?code= / #type=recovery in the URL, is not
+// enough; those users are sent to Account settings.
+// An expired or already-used link is shown as such straight away (audit A-3),
+// with a form to request a new one. supabase-js reads the link when the client
+// starts, which can be before this page mounts, so the URL flags come from
+// auth-url-snapshot (captured at app start, no tokens kept).
 function ResetPasswordPage() {
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [saving, setSaving] = useState(false);
-  const [sessionState, setSessionState] = useState<"checking" | "ready" | "invalid">("checking");
+  const [sessionState, setSessionState] = useState<"checking" | RecoveryState>("checking");
 
   useEffect(() => {
-    let settled = false;
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+    let cancelled = false;
+    let recoveryEvent = false;
+    const redirect = initialAuthRedirect();
+    const decide = (accessToken: string | null) => {
+      if (!cancelled)
+        setSessionState(
+          recoveryState({
+            redirect,
+            recoveryEvent,
+            accessToken,
+            nowSeconds: Math.floor(Date.now() / 1000),
+          }),
+        );
+    };
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") {
-        settled = true;
-        setSessionState("ready");
+        recoveryEvent = true;
+        decide(session?.access_token ?? null);
       }
     });
-    // If a recovery session was already established before this listener
-    // attached, onAuthStateChange won't fire again -- check directly too.
-    supabase.auth.getSession().then(({ data }) => {
-      if (!settled && data.session) {
-        settled = true;
-        setSessionState("ready");
-      }
-    });
-    const timeout = setTimeout(() => {
-      if (!settled) setSessionState("invalid");
-    }, 4000);
+    // getSession waits for the client to finish reading the link, so no timer is needed.
+    supabase.auth.getSession().then(({ data }) => decide(data.session?.access_token ?? null));
     return () => {
+      cancelled = true;
       sub.subscription.unsubscribe();
-      clearTimeout(timeout);
     };
   }, []);
 
@@ -61,7 +67,7 @@ function ResetPasswordPage() {
     setSaving(true);
     const { error } = await supabase.auth.updateUser({ password });
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(describeAuthError(error).message);
     toast.success("Password reset complete. You can now log in.");
     navigate({ to: "/home", replace: true });
   };
@@ -85,14 +91,35 @@ function ResetPasswordPage() {
               <Loader2 className="w-4 h-4 animate-spin" /> Verifying your reset link…
             </div>
           )}
-          {sessionState === "invalid" && (
-            <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 space-y-2">
-              <div className="flex items-center gap-2 text-destructive font-semibold">
-                <AlertTriangle className="w-4 h-4" /> This reset link is invalid or expired
+          {(sessionState === "invalid" || sessionState === "expired") && (
+            <div className="space-y-3">
+              <div
+                role="alert"
+                className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 space-y-2"
+              >
+                <div className="flex items-center gap-2 text-destructive font-semibold">
+                  <AlertTriangle className="w-4 h-4" />
+                  {sessionState === "expired"
+                    ? "This reset link has expired or was already used"
+                    : "Open this page from your reset email"}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Reset links work once and expire after an hour. Request a new one below and open
+                  it on this device.
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Reset links only work once and expire after a while. Go back and request a new one.
+              <RequestResetLink />
+            </div>
+          )}
+          {sessionState === "signed_in_not_recovery" && (
+            <div role="status" className="rounded-xl border bg-muted/40 p-4 space-y-3">
+              <p className="text-sm">
+                You're signed in. To change your password, use{" "}
+                <span className="font-semibold">Account settings</span>.
               </p>
+              <Button asChild className="w-full h-11">
+                <Link to="/profile">Go to Account settings</Link>
+              </Button>
             </div>
           )}
           <form onSubmit={submit} className={`space-y-3 ${sessionState !== "ready" ? "hidden" : ""}`}>
