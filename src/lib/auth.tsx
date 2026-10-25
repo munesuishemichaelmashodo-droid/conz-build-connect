@@ -16,6 +16,8 @@ export type Profile = {
   referral_code: string | null;
   /** When the user accepted the Terms and Privacy Policy; null until they do. */
   terms_accepted_at?: string | null;
+  /** When the welcome walkthrough was finished or skipped; null until then. */
+  onboarding_completed_at?: string | null;
 };
 
 type AuthState = {

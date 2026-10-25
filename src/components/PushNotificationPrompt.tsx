@@ -3,6 +3,7 @@ import { Bell, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { firstRunStage } from "@/lib/first-run";
 import { enablePushNotifications, pushPermissionState, pushSupported } from "@/lib/push";
 import {
   enableNativePushNotifications,
@@ -14,7 +15,9 @@ import {
 const DISMISS_KEY = "conz_push_prompt_dismissed";
 
 export function PushNotificationPrompt() {
-  const { userId } = useAuth();
+  const { userId, profile, loading: authLoading } = useAuth();
+  // The welcome walkthrough already asks for notifications; offer this card only after it.
+  const afterFirstRun = firstRunStage({ loading: authLoading, userId, profile }) === "done";
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const native = isNativePlatform();
@@ -39,7 +42,7 @@ export function PushNotificationPrompt() {
     };
   }, [userId, native]);
 
-  if (!visible || !userId) return null;
+  if (!visible || !userId || !afterFirstRun) return null;
 
   const dismiss = () => {
     localStorage.setItem(DISMISS_KEY, "1");

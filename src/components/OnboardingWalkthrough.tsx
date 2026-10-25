@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Package, Users, Briefcase, Wallet, X, Bell, MapPin, Check, type LucideIcon } from "lucide-react";
 import { enablePushNotifications, pushPermissionState } from "@/lib/push";
 import { locateOnce } from "@/lib/geolocate";
+import { useAuth } from "@/lib/auth";
+import { firstRunStage } from "@/lib/first-run";
 
 type Slide = { icon: LucideIcon; title: string; body: string };
 
@@ -43,6 +45,9 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
   const slides = role === "driver" ? DRIVER_SLIDES : CUSTOMER_SLIDES;
   const totalSteps = slides.length + 1; // +1 for the permissions screen at the end
   const onPermissionsStep = step === slides.length;
+  // Never on top of the Terms gate: the walkthrough waits until the Terms are accepted.
+  const { loading: authLoading, profile, refresh } = useAuth();
+  const stage = firstRunStage({ loading: authLoading, userId, profile });
 
   useEffect(() => {
     let alive = true;
@@ -79,9 +84,11 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
   const finish = async () => {
     setVisible(false);
     await supabase.from("profiles").update({ onboarding_completed_at: new Date().toISOString() }).eq("id", userId);
+    // Let the notifications card and the tour offer know the walkthrough is done.
+    await refresh();
   };
 
-  if (!visible) return null;
+  if (!visible || stage !== "walkthrough") return null;
 
   const isLast = step === totalSteps - 1;
   const slide = onPermissionsStep ? null : slides[step];
