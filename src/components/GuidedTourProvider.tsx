@@ -5,6 +5,7 @@ import { useGuidedTour } from "@/hooks/useGuidedTour";
 import { WelcomeTourPrompt } from "@/components/WelcomeTourPrompt";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { firstRunStage } from "@/lib/first-run";
 import { customerTour } from "@/lib/tour/customer-tour";
 import { driverTour } from "@/lib/tour/driver-tour";
 import type { TourConfig, TourEventType, TourKey, TourStep } from "@/lib/tour/types";
@@ -52,7 +53,7 @@ const DASHBOARD_TOUR: Record<string, TourKey> = { "/customer": "customer", "/dri
  *  only works if its state lives above the router outlet, not inside any
  *  one route's component tree. */
 export function GuidedTourProvider({ children }: { children: ReactNode }) {
-  const { userId } = useAuth();
+  const { userId, profile, loading: authLoading } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const qc = useQueryClient();
 
@@ -79,17 +80,10 @@ export function GuidedTourProvider({ children }: { children: ReactNode }) {
     return p;
   }, [progressRows]);
 
-  // Gate for the first-time welcome prompt: only once the *existing*
-  // short OnboardingWalkthrough is done, so the two never stack. Same
-  // profiles.onboarding_completed_at field that component itself reads.
-  const { data: onboardingDone } = useQuery({
-    queryKey: ["onboarding-completed-check", userId],
-    enabled: !!userId,
-    queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("onboarding_completed_at").eq("id", userId!).maybeSingle();
-      return !!data?.onboarding_completed_at;
-    },
-  });
+  // Gate for the first-time welcome prompt: only after the Terms gate and the
+  // short OnboardingWalkthrough are done (lib/first-run), so overlays never stack.
+  // Reads the same profile the walkthrough updates, so it reacts as soon as it closes.
+  const onboardingDone = firstRunStage({ loading: authLoading, userId, profile }) === "done";
 
   const writeProgress = useCallback(
     (tourKey: TourKey, patch: Record<string, unknown>) => {
