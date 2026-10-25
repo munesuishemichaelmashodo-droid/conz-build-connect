@@ -69,7 +69,7 @@ export function NewJobListener() {
     <div className="fixed bottom-4 right-4 left-4 sm:left-auto z-[1100] animate-in slide-in-from-bottom-4 fade-in">
       <div className="sm:w-80 rounded-2xl border-2 border-primary/40 bg-card shadow-xl p-4 space-y-3">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-semibold text-primary">
+          <div className="flex items-center gap-2 text-xs font-semibold text-cz-amber-text">
             <Bell className="w-3.5 h-3.5" />
             New job posted — open for bids
           </div>
@@ -94,8 +94,8 @@ export function NewJobListener() {
             <span className="truncate text-muted-foreground">{job.delivery_address}</span>
           </div>
           <div className="flex items-center justify-between pt-1.5 border-t border-border">
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">Offer</span>
-            <span className="font-display font-bold text-primary">{money(Number(job.budget))}</span>
+            <span className="text-xs text-muted-foreground">Offer</span>
+            <span className="font-display font-bold text-cz-amber-text">{money(Number(job.budget))}</span>
           </div>
         </div>
 

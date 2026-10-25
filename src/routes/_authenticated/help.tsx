@@ -127,15 +127,15 @@ function HelpPage() {
   return (
     <AppShell title="Help & support">
       <div className="space-y-6 max-w-2xl mx-auto">
-        <section className="rounded-2xl bg-gradient-dark text-white p-5">
-          <LifeBuoy className="w-8 h-8 text-primary" />
+        <section className="rounded-2xl dark bg-gradient-dark text-white p-5">
+          <LifeBuoy className="w-8 h-8 text-cz-amber-text" />
           <h1 className="font-display font-bold text-2xl mt-2">Need a hand?</h1>
           <p className="text-sm text-white/70 mt-1">Check the FAQ below or reach us directly.</p>
         </section>
 
         {(is("customer") || is("driver")) && (
           <section className="space-y-2">
-            <h2 className="font-display font-bold uppercase tracking-wide text-sm">How to use Con Z</h2>
+            <h2 className="font-semibold text-sm">How to use Con Z</h2>
             <div className="space-y-2">
               {is("customer") && <TourEntryCard config={customerTour} label="Customer walkthrough" />}
               {is("driver") && <TourEntryCard config={driverTour} label="Driver walkthrough" />}
@@ -145,11 +145,11 @@ function HelpPage() {
 
         {SECTIONS.map((section) => (
           <section key={section.title} className="space-y-2">
-            <h2 className="font-display font-bold uppercase tracking-wide text-sm">{section.title}</h2>
+            <h2 className="font-semibold text-sm">{section.title}</h2>
             <div className="divide-y rounded-2xl border bg-card">
               {section.items.map((f) => (
                 <details key={f.q} className="p-4 group">
-                  <summary className="font-semibold cursor-pointer flex justify-between items-center gap-3">
+                  <summary className="font-semibold cursor-pointer flex min-h-11 justify-between items-center gap-3">
                     <span>{f.q}</span>
                     <span className="text-muted-foreground group-open:rotate-45 transition shrink-0">+</span>
                   </summary>
@@ -162,21 +162,21 @@ function HelpPage() {
 
         <section className="grid gap-3">
           <a href="mailto:navyskyinnovations@gmail.com" className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-muted transition">
-            <Mail className="w-5 h-5 text-primary" />
+            <Mail className="w-5 h-5 text-cz-amber-text" />
             <div>
               <div className="font-semibold">Email support</div>
               <div className="text-xs text-muted-foreground">navyskyinnovations@gmail.com — we usually reply within a day.</div>
             </div>
           </a>
           <a href="tel:+263777770557" className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-muted transition">
-            <Phone className="w-5 h-5 text-primary" />
+            <Phone className="w-5 h-5 text-cz-amber-text" />
             <div>
               <div className="font-semibold">Call support</div>
               <div className="text-xs text-muted-foreground">+263 77 777 0557</div>
             </div>
           </a>
           <Link to="/report" search={{jobId: undefined}} className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-muted transition">
-            <MessageSquareWarning className="w-5 h-5 text-primary" />
+            <MessageSquareWarning className="w-5 h-5 text-cz-amber-text" />
             <div>
               <div className="font-semibold">Report an issue</div>
               <div className="text-xs text-muted-foreground">Something wrong with a job, driver, or the app? Let admins know.</div>
@@ -209,7 +209,7 @@ function TourEntryCard({ config, label }: { config: TourConfig; label: string })
       aria-label={`${buttonLabel} ${label}`}
       className="w-full flex items-center gap-3 rounded-2xl border bg-card p-4 text-left hover:bg-muted transition"
     >
-      <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+      <div className="w-10 h-10 rounded-xl bg-primary/10 text-cz-amber-text flex items-center justify-center shrink-0">
         {saved?.status === "in_progress" ? <RotateCcw className="w-5 h-5" /> : <Compass className="w-5 h-5" />}
       </div>
       <div className="flex-1 min-w-0">

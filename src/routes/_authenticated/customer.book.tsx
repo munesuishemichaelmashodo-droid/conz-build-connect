@@ -32,7 +32,6 @@ import {
   type AwaitingSourcingResult,
   type OfferResult,
 } from "@/lib/booking.functions";
-import { motion } from "framer-motion";
 import {
   CzScreen,
   CzHeader,
@@ -40,12 +39,14 @@ import {
   CzButton,
   HintBox,
   IconButton,
-  MaterialChips,
-  MoneyRow,
   areaOf,
   usd,
   usd2,
 } from "@/components/redesign";
+import { ChoiceChips, DocketPanel, DocketRow, Notice } from "@/components/ds";
+import { LoadPicker } from "@/components/ds/load-picker";
+import { MaterialThumb } from "@/components/ds/media";
+import { isValidQuantity, MIN_QUANTITY_M3 } from "@/lib/load-size";
 import { useNearbyTrucks } from "@/components/redesign/rpc";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
@@ -67,10 +68,8 @@ export const Route = createFileRoute("/_authenticated/customer/book")({
 });
 
 const BOOKABLE_MATERIALS = MATERIALS.filter((m) => m.value !== "custom");
-// Under 1m3, the pricing engine switches to a minimum-trip-charge model
-// (see compute_material_offer, mode "small_load") instead of rounding up
-// to a full truck-load bucket price.
-const MIN_QUANTITY_M3 = 0.25;
+// Quantity limits and stepping live in src/lib/load-size.ts (shared with the
+// homepage price check). Under 1 m³ the pricing engine uses a minimum-trip charge.
 
 function BookDelivery() {
   const { userId, is } = useAuth();
@@ -310,15 +309,8 @@ function BookDelivery() {
   // (canNext-equivalent checks in goToOffer), computeOffer/explainOffer
   // and the jobs insert in confirm() above are unchanged.
   // ---------------------------------------------------------------------
-  const quantityValid = quantity >= MIN_QUANTITY_M3 && quantity <= 30;
+  const quantityValid = isValidQuantity(quantity);
   const locationValid = address.trim().length > 2 && !!coords;
-  // Mirrors compute_material_offer's reference-truck trip rule — display only.
-  const tripsEstimate = quantity > 20 ? Math.ceil(quantity / 10) : 1;
-  const stepQty = (dir: -1 | 1) => {
-    const stepSize = quantity < 1 || (dir < 0 && quantity <= 1) ? 0.25 : 1;
-    const next = Math.round((quantity + dir * stepSize) * 100) / 100;
-    setQuantity(Math.min(30, Math.max(MIN_QUANTITY_M3, next)));
-  };
 
   if (sourcingResult) {
     return (
@@ -363,7 +355,7 @@ function BookDelivery() {
                   type="button"
                   onClick={() => nav({ to: "/customer" })}
                   aria-label="Back"
-                  className="w-[50px] h-[50px] shrink-0 rounded-[14px] bg-cz-bg text-cz-text flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
+                  className="w-[50px] h-[50px] shrink-0 rounded-xl bg-cz-bg text-cz-text flex items-center justify-center shadow-[0_2px_10px_rgb(28_24_21/0.18)] dark:shadow-[0_4px_14px_rgb(0_0_0/0.4)]"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
@@ -375,7 +367,7 @@ function BookDelivery() {
             />
           </div>
 
-          <section ref={setSheetEl} className="absolute inset-x-0 bottom-0 z-30 max-h-[62dvh] overflow-y-auto rounded-t-[24px] bg-cz-bg px-5 pt-2.5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.45)]">
+          <section ref={setSheetEl} className="absolute inset-x-0 bottom-0 z-30 max-h-[62dvh] overflow-y-auto rounded-t-3xl bg-cz-bg px-5 pt-2.5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgb(28_24_21/0.14)] dark:shadow-[0_-8px_30px_rgb(0_0_0/0.45)]">
             <div aria-hidden className="mx-auto mb-3.5 h-[5px] w-10 rounded-full bg-cz-border-strong" />
             <div className="space-y-4">
               {search.driverId && (
@@ -386,69 +378,27 @@ function BookDelivery() {
 
               <div id="tour-book-material" data-tour="book-material" className="space-y-3">
                 <h1 className="cz-display font-bold text-[26px] leading-tight">What do you need delivered?</h1>
-                <MaterialChips
-                  options={BOOKABLE_MATERIALS.map((m) => ({ value: m.value, label: m.label }))}
+                <ChoiceChips
+                  label="Material"
+                  scroll
+                  options={BOOKABLE_MATERIALS.map((m) => ({
+                    value: m.value,
+                    label: m.label,
+                    media: <MaterialThumb material={m.value} size={28} />,
+                  }))}
                   value={material}
-                  onChange={(v) => setMaterial(v)}
+                  onChange={(v) => setMaterial(v as MaterialCategory)}
                 />
               </div>
 
-              <div data-tour="book-quantity" className="flex items-center justify-between gap-2 rounded-[14px] border border-cz-border bg-cz-surface py-2 pl-4 pr-2">
-                <label htmlFor="qty" className="flex flex-col min-w-0">
-                  <span className="text-[13px] text-cz-muted">Quantity</span>
-                  <span className="text-xs text-cz-faint">
-                    {quantityValid
-                      ? tripsEstimate > 1
-                        ? `About ${tripsEstimate} tipper loads`
-                        : "About 1 tipper load"
-                      : `Between ${MIN_QUANTITY_M3} and 30 m³`}
-                  </span>
-                </label>
-                <div className="flex items-center gap-1.5">
-                  <IconButton onClick={() => stepQty(-1)} disabled={quantity <= MIN_QUANTITY_M3} aria-label="Less">
-                    <Minus className="w-[18px] h-[18px]" />
-                  </IconButton>
-                  <div className="flex items-baseline">
-                    <input
-                      id="qty"
-                      type="number"
-                      inputMode="decimal"
-                      min={MIN_QUANTITY_M3}
-                      max={30}
-                      step={0.25}
-                      value={quantity}
-                      onChange={(e) => setQuantity(Number(e.target.value))}
-                      className="w-[58px] bg-transparent text-right cz-display font-bold text-[28px] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <span className="cz-display font-bold text-[20px] ml-1">m³</span>
-                  </div>
-                  <IconButton onClick={() => stepQty(1)} disabled={quantity >= 30} aria-label="More">
-                    <Plus className="w-[18px] h-[18px]" />
-                  </IconButton>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                {[10, 15, 20].map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setQuantity(v)}
-                    aria-pressed={quantity === v}
-                    className={cn(
-                      "flex-1 min-h-10 rounded-full text-sm font-semibold",
-                      quantity === v ? "bg-cz-amber-tint-2 text-cz-amber-text" : "border border-cz-border-strong text-cz-muted",
-                    )}
-                  >
-                    {v} m³ load
-                  </button>
-                ))}
+              <div data-tour="book-quantity" className="rounded-xl border border-cz-border bg-cz-surface p-3.5">
+                <LoadPicker id="qty" value={quantity} onChange={setQuantity} />
               </div>
 
               <details
                 id="tour-book-review"
                 data-tour="book-review"
-                className="group rounded-[14px] border border-cz-border bg-cz-surface"
+                className="group rounded-xl border border-cz-border bg-cz-surface"
                 onToggle={(e) => setSheetOpenExtra((e.target as HTMLDetailsElement).open)}
               >
                 <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 text-[15px] font-semibold">
@@ -535,7 +485,7 @@ function BookDelivery() {
       <CzHeader
         title="Choose your price"
         onBack={goBack}
-        subtitle={`${offerData.label} · ${quantity} m³ → ${areaOf(address) || address} · ${offerData.openRequest ? "open request" : `${offerData.distanceKm} km`}`}
+        subtitle={`${offerData.label.charAt(0).toUpperCase()}${offerData.label.slice(1)} · ${quantity} m³ → ${areaOf(address) || address} · ${offerData.openRequest ? "open request" : `${offerData.distanceKm} km`}`}
       />
 
       <div className="flex-1 space-y-4 px-5 pb-6">
@@ -551,12 +501,22 @@ function BookDelivery() {
                   aria-checked={on}
                   onClick={() => setOffer(t.value)}
                   className={cn(
-                    "flex items-center justify-between gap-3 rounded-[16px] border px-4 py-3.5 text-left transition",
-                    on ? "border-cz-amber bg-cz-amber-tint" : "border-cz-border bg-cz-surface",
+                    "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 text-left transition",
+                    // Selected = raised neutral with a filled radio mark; orange stays on "Post job".
+                    on
+                      ? "border-cz-text bg-cz-surface-2 shadow-[inset_0_0_0_1px_var(--cz-text)]"
+                      : "border-cz-border bg-cz-surface hover:bg-cz-surface-2",
                   )}
                 >
-                  <span className="min-w-0">
-                    <span className="flex items-center gap-2 font-bold">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "h-5 w-5 shrink-0 rounded-full border-2",
+                      on ? "border-[6px] border-cz-text bg-cz-surface" : "border-cz-control",
+                    )}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2 font-semibold">
                       {t.title}
                       {t.key === "recommended" && (
                         <span className="rounded-full bg-cz-amber-tint-2 px-2 py-0.5 text-[11px] font-semibold text-cz-amber-text">
@@ -566,30 +526,25 @@ function BookDelivery() {
                     </span>
                     <span className="block text-[13px] text-cz-muted">{t.hint}</span>
                   </span>
-                  <span className={cn("cz-display font-bold text-[30px] tabular-nums", on ? "text-cz-amber" : "text-cz-text")}>
-                    {usd(t.value)}
-                  </span>
+                  <span className="cz-display font-bold text-[30px] tabular-nums text-cz-text">{usd(t.value)}</span>
                 </button>
               );
             })}
           </div>
 
-          <div className="rounded-[16px] border border-cz-border bg-cz-surface px-4 py-3">
+          <div className="rounded-2xl border border-cz-border bg-cz-surface px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm text-cz-muted">Or set your own</span>
               <div className="flex items-center gap-2">
                 <IconButton onClick={() => adjust(-1)} aria-label="Decrease offer">
                   <Minus className="w-[18px] h-[18px]" />
                 </IconButton>
-                <motion.span
-                  key={offer}
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: "spring", stiffness: 260, damping: 18 }}
-                  className="min-w-[84px] text-center cz-display font-bold text-[30px] text-cz-amber tabular-nums"
+                <span
+                  aria-live="polite"
+                  className="min-w-[84px] text-center cz-display font-bold text-[30px] text-cz-text tabular-nums"
                 >
                   {usd(offer)}
-                </motion.span>
+                </span>
                 <IconButton onClick={() => adjust(1)} aria-label="Increase offer">
                   <Plus className="w-[18px] h-[18px]" />
                 </IconButton>
@@ -599,38 +554,44 @@ function BookDelivery() {
           {offerData.explanation && <p className="text-[13px] text-cz-muted">{offerData.explanation}</p>}
         </div>
 
-        <CzCard className="space-y-2.5">
+        <DocketPanel title="What the price is based on">
           {offerData.materialCost > 0 && (
-            <MoneyRow label={`Material (${quantity} m³)`} value={usd2(offerData.materialCost)} />
+            <DocketRow label={`Material (${quantity} m³)`}>{usd2(offerData.materialCost)}</DocketRow>
           )}
           {offerData.transportCost > 0 && (
-            <MoneyRow label={`Transport (${offerData.distanceKm} km)`} value={usd2(offerData.transportCost)} />
+            <DocketRow label={`Transport (${offerData.distanceKm} km)`}>{usd2(offerData.transportCost)}</DocketRow>
           )}
           {offerData.resolvedSource ? (
             <>
-              <MoneyRow label="Picked up from" value={offerData.resolvedSource.label || offerData.resolvedSource.address || "Verified supplier location"} valueClassName="text-cz-muted text-sm" />
-              <StockStatusNote status={offerData.resolvedSource.stockStatus} />
+              <DocketRow label="Picked up from">
+                {offerData.resolvedSource.label || offerData.resolvedSource.address || "Verified supplier location"}
+              </DocketRow>
+              <div className="px-4 py-3">
+                <StockStatusNote status={offerData.resolvedSource.stockStatus} />
+              </div>
             </>
           ) : (
             <>
-              <MoneyRow label="Pickup" value="Driver arranges it" valueClassName="text-cz-muted text-sm" />
-              <p className="rounded-[12px] bg-cz-amber-tint px-3 py-2 text-[13px] text-cz-amber-text">
-                Open request: the price above is only a guide. Drivers see your order, collect the material from their
-                own source and bid their own amount — you choose the offer you like. Availability is confirmed by the
-                driver, not by ConZ.
-              </p>
+              <DocketRow label="Pickup">Driver arranges it</DocketRow>
+              <div className="px-4 py-3">
+                <Notice tone="info" title="Open request">
+                  The price above is only a guide. Drivers see your order, collect the material from their own
+                  source and bid their own amount — you choose the offer you like. Availability is confirmed by the
+                  driver, not by ConZ.
+                </Notice>
+              </div>
             </>
           )}
-          <p className="text-[13px] text-cz-muted">
+          <p className="px-4 py-3 text-[13px] text-cz-muted">
             Estimated {offerData.tripCount} trip{offerData.tripCount === 1 ? "" : "s"}, based on a {offerData.referenceCapacityM3} m³
             reference truck. All amounts in USD.
           </p>
-        </CzCard>
+        </DocketPanel>
 
         {!launch.escrowEnabled && (
           <div className="space-y-2">
             <div className="text-sm font-semibold text-cz-muted">How will you pay?</div>
-            <div className="flex items-start gap-3 rounded-[16px] border border-cz-amber bg-cz-amber-tint px-4 py-3.5">
+            <div className="flex items-start gap-3 rounded-2xl border border-cz-border bg-cz-surface px-4 py-3.5">
               <HandCoins className="w-4 h-4 mt-0.5 text-cz-muted" aria-hidden />
               <span className="min-w-0 flex-1">
                 <span className="block font-semibold">Pay the driver directly</span>
@@ -672,15 +633,17 @@ function BookDelivery() {
                   aria-checked={on}
                   onClick={() => setPaymentMethod(o.v)}
                   className={cn(
-                    "w-full flex items-start gap-3 rounded-[16px] border px-4 py-3.5 text-left transition",
-                    on ? "border-cz-amber bg-cz-amber-tint" : "border-cz-border bg-cz-surface",
+                    "w-full flex items-start gap-3 rounded-2xl border px-4 py-3.5 text-left transition",
+                    on
+                      ? "border-cz-text bg-cz-surface-2 shadow-[inset_0_0_0_1px_var(--cz-text)]"
+                      : "border-cz-border bg-cz-surface hover:bg-cz-surface-2",
                   )}
                 >
                   <span
                     aria-hidden
                     className={cn(
                       "mt-0.5 w-5 h-5 shrink-0 rounded-full border-2",
-                      on ? "border-[6px] border-cz-amber bg-cz-bg" : "border-cz-border-strong",
+                      on ? "border-[6px] border-cz-text bg-cz-surface" : "border-cz-control",
                     )}
                   />
                   <span className="min-w-0 flex-1">
@@ -701,7 +664,7 @@ function BookDelivery() {
         <CzButton id="tour-book-confirm" data-tour="book-confirm" onClick={confirm} disabled={posting}>
           {posting ? <Loader2 className="w-5 h-5 animate-spin" /> : `Post job · ${usd(offer)}`}
         </CzButton>
-        <p className="text-center text-[11px] text-cz-faint">We'll immediately search for the closest verified tipper truck.</p>
+        <p className="text-center text-xs text-cz-muted">We'll immediately search for the closest verified tipper truck.</p>
       </footer>
     </CzScreen>
   );

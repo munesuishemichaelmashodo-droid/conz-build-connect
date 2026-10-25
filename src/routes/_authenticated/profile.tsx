@@ -93,7 +93,7 @@ function ProfilePage() {
     <AppShell title="Profile">
       <div className="space-y-6">
         <section className="rounded-2xl bg-card border p-4 shadow-soft space-y-3">
-          <h2 className="font-display font-bold uppercase tracking-wide">Account</h2>
+          <h2 className="font-display font-bold">Account</h2>
           <div><Label htmlFor="n">Full name</Label><Input id="n" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} /></div>
           <div><Label htmlFor="p">Phone</Label><Input id="p" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={20} placeholder="+263 …" /></div>
           <Button onClick={saveProfile} disabled={saving} className="w-full">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}</Button>
@@ -112,7 +112,7 @@ function ProfilePage() {
         {activeRole === "driver" && is("driver") && (
           <section id="tour-driver-verification-section" className="rounded-2xl bg-card border p-4 shadow-soft space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="font-display font-bold uppercase tracking-wide">Driver verification</h2>
+              <h2 className="font-display font-bold">Driver verification</h2>
               <StatusBadge label={driver?.verification_status ?? "pending"} className={isVerified ? "bg-success/15 text-success border-success/30" : driver?.verification_status === "rejected" ? "bg-destructive/15 text-destructive border-destructive/30" : "bg-warning/15 text-warning border-warning/30"} />
             </div>
 
@@ -212,8 +212,8 @@ function SetPasswordCard() {
   return (
     <section className="rounded-2xl bg-card border p-4 shadow-soft space-y-3">
       <div className="flex items-center gap-2">
-        <KeyRound className="w-4 h-4 text-primary" />
-        <h2 className="font-display font-bold uppercase tracking-wide">Set / change login password</h2>
+        <KeyRound className="w-4 h-4 text-cz-amber-text" />
+        <h2 className="font-display font-bold">Set / change login password</h2>
       </div>
       <p className="text-xs text-muted-foreground">
         Set a password so you can log in with email + password — even if you originally signed up with Google.
@@ -229,7 +229,7 @@ function SetPasswordCard() {
           <Input id="npw2" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} minLength={8} autoComplete="new-password" />
         </div>
       </div>
-      <Button onClick={save} disabled={saving} className="w-full">
+      <Button onClick={save} disabled={saving} variant="outline" className="w-full">
         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save password"}
       </Button>
     </section>
@@ -261,12 +261,12 @@ function DocUpload({ field, label, hint, cameraFacing = "environment", userId, c
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
       <div className="grid grid-cols-2 gap-2">
         <label className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 hover:bg-muted transition p-3 cursor-pointer">
-          <Camera className="w-5 h-5 text-primary shrink-0" />
+          <Camera className="w-5 h-5 text-cz-amber-text shrink-0" />
           <span className="text-xs font-semibold">{uploading ? "Uploading…" : "Take photo"}</span>
           <input type="file" accept="image/*" capture={cameraFacing} disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="hidden" />
         </label>
         <label className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 hover:bg-muted transition p-3 cursor-pointer">
-          <ImageIcon className="w-5 h-5 text-primary shrink-0" />
+          <ImageIcon className="w-5 h-5 text-cz-amber-text shrink-0" />
           <span className="text-xs font-semibold">{uploading ? "Uploading…" : "Choose from gallery"}</span>
           <input type="file" accept="image/*" disabled={uploading} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="hidden" />
         </label>
@@ -301,7 +301,7 @@ function DeleteAccountCard() {
     <section className="rounded-2xl bg-card border border-destructive/30 p-4 shadow-soft space-y-3">
       <div className="flex items-center gap-2">
         <AlertTriangle className="w-4 h-4 text-destructive" />
-        <h2 className="font-display font-bold uppercase tracking-wide text-destructive">Delete account</h2>
+        <h2 className="font-display font-bold text-destructive">Delete account</h2>
       </div>
       <p className="text-xs text-muted-foreground">
         Permanently removes your personal info (name, phone, email, ID documents) and blocks this account from
@@ -379,8 +379,8 @@ function WithdrawalPinCard() {
     <section className="rounded-2xl bg-card border p-4 shadow-soft space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <KeyRound className="w-4 h-4 text-primary" />
-          <h2 className="font-display font-bold uppercase tracking-wide">Withdrawal PIN</h2>
+          <KeyRound className="w-4 h-4 text-cz-amber-text" />
+          <h2 className="font-display font-bold">Withdrawal PIN</h2>
         </div>
         {hasPin && <StatusBadge label="Set" className="bg-success/15 text-success border-success/30" />}
       </div>
@@ -403,7 +403,7 @@ function WithdrawalPinCard() {
           <Input id="pin2" type="password" inputMode="numeric" value={confirm} onChange={(e) => setConfirm(e.target.value.replace(/\D/g, "").slice(0, 8))} maxLength={8} />
         </div>
       </div>
-      <Button onClick={save} disabled={saving} className="w-full">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : hasPin ? "Update PIN" : "Set PIN"}</Button>
+      <Button onClick={save} disabled={saving} variant="outline" className="w-full">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : hasPin ? "Update PIN" : "Set PIN"}</Button>
       {hasPin && <PinRecoveryPanel />}
     </section>
   );
@@ -469,11 +469,12 @@ function PinRecoveryPanel() {
             Approved. Choose a new PIN before {new Date(latest!.expires_at).toLocaleString()}. Withdrawals pause for 24 hours afterwards as a safety measure.
           </p>
           <div className="grid grid-cols-2 gap-2">
-            <Input type="password" inputMode="numeric" placeholder="New PIN" value={pin} maxLength={8} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))} />
-            <Input type="password" inputMode="numeric" placeholder="Confirm" value={confirm} maxLength={8} onChange={(e) => setConfirm(e.target.value.replace(/\D/g, "").slice(0, 8))} />
+            <Input type="password" inputMode="numeric" placeholder="New PIN" aria-label="New PIN" value={pin} maxLength={8} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))} />
+            <Input type="password" inputMode="numeric" placeholder="Confirm" aria-label="Confirm new PIN" value={confirm} maxLength={8} onChange={(e) => setConfirm(e.target.value.replace(/\D/g, "").slice(0, 8))} />
           </div>
           <Button
             size="sm"
+            variant="outline"
             disabled={busy}
             onClick={async () => {
               if (!/^\d{4,8}$/.test(pin)) return void toast.error("PIN must be 4-8 digits");

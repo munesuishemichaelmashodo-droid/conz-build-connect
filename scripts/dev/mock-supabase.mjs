@@ -304,7 +304,7 @@ const db = {
   // A delivery nobody has touched for weeks, a stuck Paynow payment, a waiting
   // top-up and a passing reconciliation, so the admin "Needs attention" panel has
   // something to show.
-  wallet_topup_requests: [{ id: randomUUID(), user_id: ID.driver, amount: 10, status: "pending", created_at: hoursAgo(50) }],
+  wallet_topup_requests: [{ id: randomUUID(), user_id: ID.driver, amount: 10, method: "ecocash", reference: "SAMPLE-REF-1", status: "pending", created_at: hoursAgo(50) }],
   reconciliation_runs: [{ id: randomUUID(), ran_at: hoursAgo(12), ok: true, failed: [] }],
   notifications: Array.from({ length: 3 }, (_, i) => ({
     id: randomUUID(),
@@ -318,6 +318,21 @@ const db = {
   wallet_transactions: [],
   payments: [{ id: randomUUID(), user_id: ID.driver, type: "topup", amount: 5, status: "initiated", method: "paynow", created_at: hoursAgo(3) }],
   storage_objects: [],
+  // One verified sample supply site (exact coordinates) for the materials below,
+  // so the price check can resolve a pickup. Synthetic.
+  material_supply_locations: ["river_sand", "pit_sand", "quarry_dust", "crusher_run", "gravel", "stones"].map((material, i) => ({
+    id: `00000000-0000-4000-8000-0000000005${String(i).padStart(2, "0")}`,
+    material,
+    supplier_id: "00000000-0000-4000-8000-000000000501",
+    supplier_name: "Sample Quarry (synthetic)",
+    source_type: "quarry",
+    label: "Sample Quarry",
+    address: "Pomona, Harare (sample)",
+    lat: -17.7489,
+    lng: 31.0823,
+    status: "active",
+    verified: true,
+  })),
 };
 
 // --- RPCs (answers shaped like the real functions; values are synthetic) --------
@@ -411,6 +426,25 @@ const rpc = {
     if (job.status === "accepted") job.status = "in_progress";
     return job;
   },
+  // Shaped like the live eligibility RPC: exact, verified sites for the material.
+  resolve_material_source_candidates: ({ _material, _delivery_lat, _delivery_lng }) =>
+    db.material_supply_locations
+      .filter((r) => r.material === _material && r.verified && r.status === "active")
+      .map((r) => ({
+        supply_location_id: r.id,
+        supplier_id: r.supplier_id,
+        supplier_name: r.supplier_name,
+        source_type: r.source_type,
+        label: r.label,
+        address: r.address,
+        lat: r.lat,
+        lng: r.lng,
+        priority: 100,
+        haversine_km: Math.hypot(r.lat - Number(_delivery_lat), r.lng - Number(_delivery_lng)) * 111,
+        location_precision: "exact",
+      })),
+  create_price_quote_for: () => randomUUID(),
+  supply_stock_status: () => "unknown",
   compute_material_offer: ({ _quantity = 12, _distance_km = 15 }) => {
     const offer = Math.round(14 * Number(_quantity) + 2.1 * Number(_distance_km));
     return { offer, min: Math.round(offer * 0.85), max: Math.round(offer * 1.25), enforced: true, sample: true };
@@ -574,7 +608,11 @@ const server = http.createServer(async (req, res) => {
     if (isRpc) {
       const args = (req.method === "GET" ? Object.fromEntries(url.searchParams) : await readBody(req)) ?? {};
       const fn = rpc[name];
-      return send(res, 200, fn ? fn(args, me) : null);
+      const out = fn ? fn(args, me) : null;
+      // PostgREST returns JSON for every RPC, scalar text included.
+      return typeof out === "string"
+        ? send(res, 200, JSON.stringify(out), { "content-type": "application/json" })
+        : send(res, 200, out);
     }
     const params = [...url.searchParams.entries()];
     const wantsObject = (req.headers.accept ?? "").includes("vnd.pgrst.object");

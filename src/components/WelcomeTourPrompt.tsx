@@ -30,10 +30,10 @@ export function WelcomeTourPrompt({
     <Dialog open onOpenChange={(open) => !open && onDismiss()}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <div className="w-11 h-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-1">
+          <div className="w-11 h-11 rounded-2xl bg-primary/10 text-cz-amber-text flex items-center justify-center mb-1">
             <Compass className="w-5 h-5" />
           </div>
-          <DialogTitle className="font-display uppercase tracking-wide">Welcome to Con Z</DialogTitle>
+          <DialogTitle className="font-display">Welcome to Con Z</DialogTitle>
           <DialogDescription>
             {tourKey === "driver"
               ? "Want a quick walkthrough of finding jobs, bidding, and getting paid?"
@@ -41,7 +41,7 @@ export function WelcomeTourPrompt({
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="flex-col gap-2 sm:flex-col">
-          <Button onClick={onStart} className="w-full h-11 font-display uppercase tracking-wide">
+          <Button onClick={onStart} className="w-full h-11">
             Start tour
           </Button>
           <Button onClick={onDismiss} variant="ghost" className="w-full h-11">

@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { sentence } from "@/lib/status-stamp";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -107,7 +108,7 @@ function QuoteForm({ row, onDone }: { row: Row; onDone: () => void }) {
 
   return (
     <div className="mt-3 space-y-2 rounded-lg border p-3">
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="text-xs font-semibold text-muted-foreground">
         Issue a quote
       </div>
       <p className="text-xs text-muted-foreground">
@@ -226,9 +227,9 @@ function SourcingQueue() {
           <button
             key={s}
             onClick={() => setStatus(s)}
-            className={`rounded-full border px-3 py-1 text-xs font-semibold ${status === s ? "bg-primary text-primary-foreground" : "bg-background"}`}
+            className={`min-h-11 rounded-full border px-3 py-1 text-xs font-semibold ${status === s ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "bg-background"}`}
           >
-            {s.replace("_", " ")}
+            {sentence(s)}
           </button>
         ))}
       </div>

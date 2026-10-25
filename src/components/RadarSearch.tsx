@@ -22,7 +22,7 @@ export function RadarSearch({
   }, []);
 
   return (
-    <div className="relative rounded-3xl overflow-hidden bg-gradient-dark text-white p-8 shadow-lift">
+    <div className="relative rounded-3xl overflow-hidden dark bg-gradient-dark text-white p-8 shadow-lift">
       <div className="relative mx-auto w-64 h-64 flex items-center justify-center">
         {/* Radar rings */}
         {[0, 1, 2].map((ring) => (
@@ -81,11 +81,11 @@ export function RadarSearch({
       </motion.div>
       <div className="text-center text-xs text-white/60 mt-2 space-y-0.5">
         <div>
-          Estimated wait: <span className="text-primary font-semibold">{etaMinutes}–{etaMinutes + 5} min</span>
+          Estimated wait: <span className="text-cz-amber-text font-semibold">{etaMinutes}–{etaMinutes + 5} min</span>
         </div>
         {typeof nearbyDrivers === "number" && (
           <div>
-            <span className="text-primary font-semibold">{nearbyDrivers}</span>{" "}
+            <span className="text-cz-amber-text font-semibold">{nearbyDrivers}</span>{" "}
             verified {nearbyDrivers === 1 ? "driver" : "drivers"} active nearby
           </div>
         )}

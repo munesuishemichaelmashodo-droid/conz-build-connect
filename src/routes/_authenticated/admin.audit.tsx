@@ -31,20 +31,21 @@ type AuditRow = {
   created_at: string;
 };
 
+// Status-token tints (readable in both themes) instead of raw palette colours.
 const ACTION_STYLE: Record<string, string> = {
-  role_granted: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30",
-  role_revoked: "bg-rose-500/15 text-rose-500 border-rose-500/30",
-  commission_changed: "bg-amber-500/15 text-amber-500 border-amber-500/30",
-  user_status_changed: "bg-sky-500/15 text-sky-500 border-sky-500/30",
-  driver_verification_changed: "bg-primary/15 text-primary border-primary/30",
-  dispute_status_changed: "bg-violet-500/15 text-violet-500 border-violet-500/30",
-  wallet_credited_by_admin: "bg-amber-500/15 text-amber-500 border-amber-500/30",
-  topup_approved: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30",
-  topup_rejected: "bg-rose-500/15 text-rose-500 border-rose-500/30",
-  withdrawal_approved: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30",
-  withdrawal_rejected: "bg-rose-500/15 text-rose-500 border-rose-500/30",
-  strike_waived: "bg-sky-500/15 text-sky-500 border-sky-500/30",
-  demand_multiplier_updated: "bg-amber-500/15 text-amber-500 border-amber-500/30",
+  role_granted: "bg-cz-green-tint text-cz-green-text border-transparent",
+  role_revoked: "bg-cz-danger-tint text-cz-danger-text border-transparent",
+  commission_changed: "bg-cz-warn-tint text-cz-warn-text border-transparent",
+  user_status_changed: "bg-cz-info-tint text-cz-info-text border-transparent",
+  driver_verification_changed: "bg-cz-amber-tint text-cz-amber-text border-transparent",
+  dispute_status_changed: "bg-cz-surface-2 text-cz-text border-cz-border-strong",
+  wallet_credited_by_admin: "bg-cz-warn-tint text-cz-warn-text border-transparent",
+  topup_approved: "bg-cz-green-tint text-cz-green-text border-transparent",
+  topup_rejected: "bg-cz-danger-tint text-cz-danger-text border-transparent",
+  withdrawal_approved: "bg-cz-green-tint text-cz-green-text border-transparent",
+  withdrawal_rejected: "bg-cz-danger-tint text-cz-danger-text border-transparent",
+  strike_waived: "bg-cz-info-tint text-cz-info-text border-transparent",
+  demand_multiplier_updated: "bg-cz-warn-tint text-cz-warn-text border-transparent",
 };
 
 // Human-friendly labels for the meta JSON keys we log — falls back to the raw key if unmapped.
@@ -106,7 +107,7 @@ function AuditLogPage() {
     <div className="space-y-4">
       {/* Header */}
       <Card className="p-4 flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-primary/15 text-primary">
+        <div className="p-2 rounded-lg bg-primary/15 text-cz-amber-text">
           <ScrollText className="w-5 h-5" />
         </div>
         <div>
