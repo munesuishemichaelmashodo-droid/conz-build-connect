@@ -74,6 +74,8 @@ export function DriverHome({
         jobs_completed: number;
         verification_status?: "pending" | "verified" | "rejected" | null;
         nationality?: string | null;
+        verification_notes?: string | null;
+        reverify_due_at?: string | null;
       })
     | null
     | undefined;
@@ -143,6 +145,7 @@ export function DriverHome({
         driver?.verification_status,
         !!driver &&
           hasSubmitted(driver.verification_status, driver, (trucks?.length ?? 0) > 0, driver.nationality),
+        { notes: driver?.verification_notes, reverifyDueAt: driver?.reverify_due_at },
       )
     : null;
 

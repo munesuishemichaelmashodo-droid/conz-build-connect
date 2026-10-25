@@ -220,14 +220,32 @@ export function hasSubmitted(
 export function verificationBanner(
   status: "pending" | "verified" | "rejected" | null | undefined,
   submitted: boolean,
+  extra: { notes?: string | null; reverifyDueAt?: string | null; now?: Date } = {},
 ): { title: string; body: string; action: string } | null {
-  if (status === "verified") return null;
+  if (status === "verified") {
+    // is_verified_driver() also requires the 90-day re-check to be in date; when it
+    // isn't, the database stops this driver bidding, so say so.
+    if (reverifyOverdue(extra.reverifyDueAt, extra.now)) {
+      return {
+        title: "Your 90-day check is due",
+        body: "Upload any updated documents so Con Z can check them. You can bid again once they're approved.",
+        action: "Update documents",
+      };
+    }
+    return null;
+  }
   if (status === "rejected") {
     return {
       title: "Your application needs changes",
       body: "See what to fix, upload it again and resubmit.",
       action: "See what to fix",
     };
+  }
+  // A note on a pending profile means an approved driver changed a truck or a
+  // document (0114 / document re-review) and is back in review; show the reason.
+  const note = extra.notes?.trim();
+  if (note) {
+    return { title: "We're checking your changes", body: note, action: "Check status" };
   }
   if (submitted) {
     return {
@@ -238,9 +256,25 @@ export function verificationBanner(
   }
   return {
     title: "Finish your driver sign-up",
-    body: "Verify your phone, add your truck and upload your documents to start bidding.",
+    body: "Add your phone number, truck and documents to start bidding.",
     action: "Continue sign-up",
   };
+}
+
+function reverifyOverdue(due: string | null | undefined, now = new Date()): boolean {
+  if (!due) return false;
+  const t = new Date(due).getTime();
+  return !Number.isNaN(t) && t <= now.getTime();
+}
+
+/** True when a driver can't bid right now and the home screen should say why. */
+export function driverNeedsBanner(
+  driver:
+    { verification_status?: string | null; reverify_due_at?: string | null } | null | undefined,
+  now = new Date(),
+): boolean {
+  if (!driver || driver.verification_status !== "verified") return true;
+  return reverifyOverdue(driver.reverify_due_at, now);
 }
 
 /** "No ratings yet" instead of a 0.0 star when nobody has rated the driver. */
