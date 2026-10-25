@@ -14,6 +14,8 @@ export type Profile = {
   avatar_url: string | null;
   status: "active" | "suspended" | "banned";
   referral_code: string | null;
+  /** When the user accepted the Terms and Privacy Policy; null until they do. */
+  terms_accepted_at?: string | null;
 };
 
 type AuthState = {

@@ -16,9 +16,10 @@ export const Route = createFileRoute("/reset-password")({
 });
 
 // The form only appears for a real password-recovery flow (audit A-2): either
-// Supabase's PASSWORD_RECOVERY event, or a recovery link that landed on this
-// page and produced a session. A normal signed-in session is not enough; those
-// users are sent to Account settings, where changing the password is handled.
+// Supabase's PASSWORD_RECOVERY event, or a session Supabase created from a
+// recovery link in the last hour (amr "recovery" in its token). A normal
+// signed-in session, or a made-up ?code= / #type=recovery in the URL, is not
+// enough; those users are sent to Account settings.
 // An expired or already-used link is shown as such straight away (audit A-3),
 // with a form to request a new one. supabase-js reads the link when the client
 // starts, which can be before this page mounts, so the URL flags come from
@@ -34,17 +35,25 @@ function ResetPasswordPage() {
     let cancelled = false;
     let recoveryEvent = false;
     const redirect = initialAuthRedirect();
-    const decide = (hasSession: boolean) => {
-      if (!cancelled) setSessionState(recoveryState({ redirect, recoveryEvent, hasSession }));
+    const decide = (accessToken: string | null) => {
+      if (!cancelled)
+        setSessionState(
+          recoveryState({
+            redirect,
+            recoveryEvent,
+            accessToken,
+            nowSeconds: Math.floor(Date.now() / 1000),
+          }),
+        );
     };
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") {
         recoveryEvent = true;
-        decide(!!session);
+        decide(session?.access_token ?? null);
       }
     });
     // getSession waits for the client to finish reading the link, so no timer is needed.
-    supabase.auth.getSession().then(({ data }) => decide(!!data.session));
+    supabase.auth.getSession().then(({ data }) => decide(data.session?.access_token ?? null));
     return () => {
       cancelled = true;
       sub.subscription.unsubscribe();

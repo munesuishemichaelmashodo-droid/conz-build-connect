@@ -4,7 +4,9 @@ import {
   cooldownRemaining,
   describeAuthError,
   linkErrorMessage,
+  needsTermsAcceptance,
   parseAuthRedirect,
+  recentRecoveryAmr,
   recoveryState,
   resolveTermsAcceptance,
 } from "@/lib/auth-flow";
@@ -87,59 +89,96 @@ describe("parseAuthRedirect", () => {
 });
 
 describe("recoveryState", () => {
-  const recoveryLink = parseAuthRedirect({
-    pathname: "/reset-password",
-    search: "",
-    hash: "#access_token=x&type=recovery",
-  });
-  const plainLoad = parseAuthRedirect({ pathname: "/reset-password", search: "", hash: "" });
-  const expiredLink = parseAuthRedirect({
-    pathname: "/reset-password",
-    search: "",
-    hash: "#error=access_denied&error_code=otp_expired",
-  });
+  const NOW = 1_800_000_000; // seconds
+  const jwt = (payload: object) =>
+    `${Buffer.from('{"alg":"HS256"}').toString("base64url")}.${Buffer.from(JSON.stringify(payload)).toString("base64url")}.sig`;
+  const recoveryToken = jwt({ sub: "u1", amr: [{ method: "recovery", timestamp: NOW - 60 }] });
+  const oldRecoveryToken = jwt({ sub: "u1", amr: [{ method: "recovery", timestamp: NOW - 7200 }] });
+  const passwordToken = jwt({ sub: "u1", amr: [{ method: "password", timestamp: NOW - 60 }] });
+
+  const at = (pathname: string, search = "", hash = "") =>
+    parseAuthRedirect({ pathname, search, hash });
+  const plainLoad = at("/reset-password");
+  const state = (
+    redirect: ReturnType<typeof parseAuthRedirect>,
+    recoveryEvent: boolean,
+    accessToken: string | null,
+  ) => recoveryState({ redirect, recoveryEvent, accessToken, nowSeconds: NOW });
 
   it("is ready when Supabase reported a password-recovery event", () => {
-    expect(recoveryState({ redirect: plainLoad, recoveryEvent: true, hasSession: true })).toBe(
-      "ready",
-    );
+    expect(state(plainLoad, true, passwordToken)).toBe("ready");
   });
 
-  it("is ready for a recovery link that produced a session", () => {
-    expect(recoveryState({ redirect: recoveryLink, recoveryEvent: false, hasSession: true })).toBe(
-      "ready",
-    );
+  it("is ready when the session itself was created by a recovery link", () => {
+    expect(state(at("/reset-password", "", "#type=recovery"), false, recoveryToken)).toBe("ready");
   });
 
   it("does not accept a normal signed-in session", () => {
-    expect(recoveryState({ redirect: plainLoad, recoveryEvent: false, hasSession: true })).toBe(
+    expect(state(plainLoad, false, passwordToken)).toBe("signed_in_not_recovery");
+  });
+
+  it("does not let a made-up ?code= unlock the form for a normal session", () => {
+    expect(state(at("/reset-password", "?code=anything"), false, passwordToken)).toBe(
       "signed_in_not_recovery",
     );
   });
 
-  it("is invalid with no session and no link", () => {
-    expect(recoveryState({ redirect: plainLoad, recoveryEvent: false, hasSession: false })).toBe(
-      "invalid",
-    );
+  it("does not let a made-up #type=recovery unlock the form for a normal session", () => {
+    expect(
+      state(at("/reset-password", "", "#access_token=junk&type=recovery"), false, passwordToken),
+    ).toBe("signed_in_not_recovery");
   });
 
-  it("is invalid when a recovery link produced no session", () => {
-    expect(recoveryState({ redirect: recoveryLink, recoveryEvent: false, hasSession: false })).toBe(
-      "invalid",
-    );
+  it("does not accept a recovery sign-in older than an hour", () => {
+    expect(state(plainLoad, false, oldRecoveryToken)).toBe("signed_in_not_recovery");
+  });
+
+  it("treats a malformed token as a normal session", () => {
+    expect(state(plainLoad, false, "not-a-jwt")).toBe("signed_in_not_recovery");
+  });
+
+  it("is invalid with no session", () => {
+    expect(state(plainLoad, false, null)).toBe("invalid");
+    expect(state(at("/reset-password", "?code=abc"), false, null)).toBe("invalid");
   });
 
   it("is expired when the link carried an expiry error, even with an old session", () => {
-    expect(recoveryState({ redirect: expiredLink, recoveryEvent: false, hasSession: true })).toBe(
-      "expired",
-    );
+    expect(
+      state(
+        at("/reset-password", "", "#error=access_denied&error_code=otp_expired"),
+        false,
+        passwordToken,
+      ),
+    ).toBe("expired");
   });
 
-  it("ignores recovery evidence captured on a different page", () => {
-    const elsewhere = parseAuthRedirect({ pathname: "/home", search: "", hash: "#type=recovery" });
-    expect(recoveryState({ redirect: elsewhere, recoveryEvent: false, hasSession: true })).toBe(
-      "signed_in_not_recovery",
+  it("shows an expired link as expired even if a recovery session exists from before", () => {
+    expect(
+      state(
+        at("/reset-password", "?error=access_denied&error_code=otp_expired"),
+        false,
+        recoveryToken,
+      ),
+    ).toBe("expired");
+  });
+});
+
+describe("recentRecoveryAmr", () => {
+  const NOW = 1_800_000_000;
+  const jwt = (payload: object) =>
+    `h.${Buffer.from(JSON.stringify(payload)).toString("base64url")}.s`;
+  it("needs a recovery entry within the window", () => {
+    expect(
+      recentRecoveryAmr(jwt({ amr: [{ method: "recovery", timestamp: NOW - 10 }] }), NOW),
+    ).toBe(true);
+    expect(recentRecoveryAmr(jwt({ amr: [{ method: "otp", timestamp: NOW - 10 }] }), NOW)).toBe(
+      false,
     );
+    expect(
+      recentRecoveryAmr(jwt({ amr: [{ method: "recovery", timestamp: NOW + 600 }] }), NOW),
+    ).toBe(false);
+    expect(recentRecoveryAmr(jwt({}), NOW)).toBe(false);
+    expect(recentRecoveryAmr("", NOW)).toBe(false);
   });
 });
 
@@ -268,5 +307,32 @@ describe("resolveTermsAcceptance", () => {
         now,
       }),
     ).toBe(now.toISOString());
+  });
+});
+
+describe("needsTermsAcceptance", () => {
+  const base = {
+    loading: false,
+    userId: "u1",
+    profile: { terms_accepted_at: null },
+    path: "/home",
+  };
+  it("asks a signed-in user with no recorded acceptance", () => {
+    expect(needsTermsAcceptance(base)).toBe(true);
+  });
+  it("does not ask once accepted", () => {
+    expect(
+      needsTermsAcceptance({ ...base, profile: { terms_accepted_at: "2026-10-25T00:00:00Z" } }),
+    ).toBe(false);
+  });
+  it("does not ask signed-out visitors or before the profile loads", () => {
+    expect(needsTermsAcceptance({ ...base, userId: null })).toBe(false);
+    expect(needsTermsAcceptance({ ...base, profile: null })).toBe(false);
+    expect(needsTermsAcceptance({ ...base, loading: true })).toBe(false);
+  });
+  it("lets them read the Terms and finish a reset first", () => {
+    expect(needsTermsAcceptance({ ...base, path: "/terms" })).toBe(false);
+    expect(needsTermsAcceptance({ ...base, path: "/privacy" })).toBe(false);
+    expect(needsTermsAcceptance({ ...base, path: "/reset-password" })).toBe(false);
   });
 });

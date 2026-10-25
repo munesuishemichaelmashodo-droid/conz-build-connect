@@ -56,24 +56,57 @@ export function parseAuthRedirect(loc: {
 
 export type RecoveryState = "ready" | "expired" | "invalid" | "signed_in_not_recovery";
 
+/** How long after opening a reset link the form stays available. */
+export const RECOVERY_WINDOW_SECONDS = 60 * 60;
+
 /**
- * Whether the reset-password form may be shown. A normal signed-in session is
- * not enough: we need Supabase's PASSWORD_RECOVERY event, or a recovery link
- * that landed on this page and produced a session.
+ * True when the session's access token says Supabase created it from a
+ * password-recovery link (amr method "recovery") within the window. The
+ * token comes from Supabase Auth; a URL can't produce it. The payload is only
+ * read, never logged or stored.
+ */
+export function recentRecoveryAmr(
+  accessToken: string | null | undefined,
+  nowSeconds: number,
+): boolean {
+  if (!accessToken) return false;
+  try {
+    const part = accessToken.split(".")[1];
+    if (!part) return false;
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
+    const json =
+      typeof atob === "function" ? atob(b64) : Buffer.from(b64, "base64").toString("binary");
+    const payload = JSON.parse(json) as { amr?: { method?: unknown; timestamp?: unknown }[] };
+    return (payload.amr ?? []).some(
+      (e) =>
+        e?.method === "recovery" &&
+        typeof e.timestamp === "number" &&
+        e.timestamp <= nowSeconds + 60 &&
+        nowSeconds - e.timestamp <= RECOVERY_WINDOW_SECONDS,
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether the reset-password form may be shown (audit A-2). A normal signed-in
+ * session is never enough, and nothing in the URL can unlock the form: it needs
+ * Supabase's PASSWORD_RECOVERY event in this page, or a session Supabase marked
+ * as created by a recovery link (recentRecoveryAmr). URL flags are used only to
+ * explain an expired or used link.
  */
 export function recoveryState(input: {
   redirect: AuthRedirect;
   recoveryEvent: boolean;
-  hasSession: boolean;
+  accessToken: string | null;
+  nowSeconds: number;
 }): RecoveryState {
-  const { redirect, recoveryEvent, hasSession } = input;
-  const onResetPage = redirect.pathname === "/reset-password";
-  if (onResetPage && redirect.error) return "expired";
-  if (recoveryEvent && hasSession) return "ready";
-  const linkEvidence = onResetPage && (redirect.type === "recovery" || redirect.hasCode);
-  if (linkEvidence && hasSession) return "ready";
-  if (hasSession) return "signed_in_not_recovery";
-  return "invalid";
+  const { redirect, recoveryEvent, accessToken, nowSeconds } = input;
+  if (redirect.pathname === "/reset-password" && redirect.error) return "expired";
+  if (!accessToken) return "invalid";
+  if (recoveryEvent || recentRecoveryAmr(accessToken, nowSeconds)) return "ready";
+  return "signed_in_not_recovery";
 }
 
 export type AuthErrorKind =
@@ -160,4 +193,27 @@ export function resolveTermsAcceptance(input: {
   }
   if (input.clientAccepted) return input.now.toISOString();
   return null;
+}
+
+// Pages someone must be able to open while the Terms gate is up.
+const TERMS_GATE_EXEMPT = [
+  "/terms",
+  "/privacy",
+  "/reset-password",
+  "/oauth-callback",
+  "/verify-email",
+  "/auth",
+];
+
+/** Show the Terms gate only to a signed-in user whose profile has loaded with no acceptance. */
+export function needsTermsAcceptance(input: {
+  loading: boolean;
+  userId: string | null;
+  profile: { terms_accepted_at?: string | null } | null;
+  path: string;
+}): boolean {
+  if (input.loading || !input.userId || !input.profile) return false;
+  if (TERMS_GATE_EXEMPT.some((p) => input.path === p || input.path.startsWith(`${p}/`)))
+    return false;
+  return !input.profile.terms_accepted_at;
 }

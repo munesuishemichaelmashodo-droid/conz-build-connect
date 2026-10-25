@@ -155,3 +155,19 @@ export const activateAccount = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+// The user ticks "I accept the Terms and Privacy Policy" in the app (TermsGate).
+// This is the user's own statement, recorded with the server's clock, through
+// their own session (RLS: own row only), and only if nothing is recorded yet.
+export const acceptTerms = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("profiles")
+      .update({ terms_accepted_at: new Date().toISOString() })
+      .eq("id", context.userId)
+      .is("terms_accepted_at", null)
+      .select("terms_accepted_at");
+    if (error) throw new Error("Could not save your acceptance. Try again.");
+    return { recorded: (data ?? []).length > 0 };
+  });

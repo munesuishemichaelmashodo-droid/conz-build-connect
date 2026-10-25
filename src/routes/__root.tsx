@@ -17,6 +17,7 @@ import { AuthProvider } from "@/lib/auth";
 import { ViewModeProvider } from "@/lib/view-mode";
 import { Toaster } from "@/components/ui/sonner";
 import { GuidedTourProvider } from "@/components/GuidedTourProvider";
+import { TermsGate } from "@/components/TermsGate";
 import { SITE_URL } from "@/lib/site";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -185,6 +186,7 @@ function RootComponent() {
         <ViewModeProvider>
           <GuidedTourProvider>
             <Outlet />
+            <TermsGate />
             <Toaster position="top-center" richColors closeButton visibleToasts={3} />
           </GuidedTourProvider>
         </ViewModeProvider>
