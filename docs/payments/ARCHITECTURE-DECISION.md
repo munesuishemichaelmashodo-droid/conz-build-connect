@@ -96,10 +96,17 @@ DPO training about $1,280 once (SI 155/2024). VAT registration becomes compulsor
 3. Does IMTT apply on Paynow's settlement to the company account?
 4. How to treat unused prepaid credit (liability vs income)?
 
+## 30-day sprint update (25/10/2026)
+
+See the shared doc "ConZ 30-Day Revenue Sprint" and `conz-30-day-revenue-model.xlsx`. Proposed: keep this model,
+add a "pay exactly what this job needs" top-up button and the manual top-up form, collect through a company-owned
+account from day 1, fallback = post-paid with a one-job limit (Bolt's cash-trip model). Base-case model: about $196
+collected in 30 days; $300 needs 19 completed jobs at a $350 average.
+
 ## Founder decisions required (sign each)
 
 1. Approve Option D as the MVP model, with Pesepay as the fallback collector. ☐ / ☐
-2. Commission base: (a) whole job price — current; (b) transport only; (c) price minus a declared material cost. ☐
+2. Commission base: **confirmed by the founders 25/10/2026: 7% of materials + transport** (the whole accepted job price, as the code does). ☑
 3. Charge exactly the amount held at acceptance (recommended) or recompute at completion (current). ☐
 4. Driver cancellation after acceptance: free (current) / strikes only / a small fee. ☐
 5. Unused credit: refundable on request (current app text) / only on account closure / not refundable. ☐
