@@ -14,6 +14,10 @@ const HOST = process.env["CONZ_TEST_PG_HOST"];
 const DB = process.env["CONZ_TEST_PG_DB"];
 const USER = process.env["CONZ_TEST_PG_USER"] ?? "postgres";
 const enabled = !!HOST && !!DB && !/supabase\.co|prod/i.test(`${HOST}${DB}`);
+// CI sets CONZ_REQUIRE_DB_TESTS so these tests can't silently skip there.
+if (process.env["CONZ_REQUIRE_DB_TESTS"] && !enabled) {
+  throw new Error("CONZ_REQUIRE_DB_TESTS is set but no test database is configured");
+}
 const KEY = "mock-integration-key-not-real";
 const run = promisify(execFile);
 
