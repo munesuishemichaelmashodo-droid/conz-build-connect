@@ -27,9 +27,23 @@ function AdminVerifications() {
         .order("created_at", { ascending: false });
       const ids = (drivers ?? []).map((d) => d.user_id);
       if (!ids.length) return [];
-      const { data: profiles } = await supabase.from("profiles").select("id,full_name,email,phone").in("id", ids);
+      const [{ data: profiles }, { data: trucks }] = await Promise.all([
+        supabase.from("profiles").select("id,full_name,email,phone").in("id", ids),
+        // Admins read every truck (0114). Shown so approval covers the truck too.
+        supabase
+          .from("trucks")
+          .select("id,driver_id,registration,capacity_m3,photo_url,created_at")
+          .in("driver_id", ids)
+          .order("created_at", { ascending: true }),
+      ]);
       const pmap = new Map(profiles?.map((p) => [p.id, p]) ?? []);
-      return (drivers ?? []).map((d) => ({ ...d, profile: pmap.get(d.user_id) }));
+      const tmap = new Map<string, NonNullable<typeof trucks>>();
+      for (const t of trucks ?? []) tmap.set(t.driver_id, [...(tmap.get(t.driver_id) ?? []), t]);
+      return (drivers ?? []).map((d) => ({
+        ...d,
+        profile: pmap.get(d.user_id),
+        trucks: tmap.get(d.user_id) ?? [],
+      }));
     },
   });
 
@@ -108,6 +122,29 @@ function AdminVerifications() {
               <div className="text-sm">
                 <span className="text-muted-foreground">Nationality: </span>
                 <span>{(d as any).nationality ?? "—"}</span>
+              </div>
+              {d.verification_notes && d.verification_status === "pending" && (
+                <div className="text-xs rounded-lg border border-warning/30 bg-warning/10 p-2">
+                  {d.verification_notes}
+                </div>
+              )}
+              <div className="text-sm space-y-1">
+                <div className="text-muted-foreground">Trucks</div>
+                {d.trucks.length === 0 ? (
+                  <div className="text-xs text-destructive">No truck registered</div>
+                ) : (
+                  d.trucks.map((t) => (
+                    <div key={t.id} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="font-mono">{t.registration}</span>
+                      <span>{t.capacity_m3} m³</span>
+                      {t.photo_url && (
+                        <button onClick={() => view(t.photo_url)} className="underline">
+                          Photo
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
 
               {/* ID, licence & vehicle photos */}
