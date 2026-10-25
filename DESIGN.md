@@ -6,7 +6,7 @@ records the system as implemented; the tokens live in `src/styles.css` and the s
 components in `src/components/ds/` and `src/components/ui/`.
 
 Specification: the "ConZ premium UI redesign: discovery and proposal" document
-(23 Oct 2026). Branch: `design/site-docket`.
+(23 Oct 2026). Merged into the working branch on 26 Oct 2026 (`design/docket-update`).
 
 ## Principles
 
@@ -107,9 +107,9 @@ Rules:
 | `LogoLockup` (`ds/`)                                       | every header                       | one lockup: icon + "Con Z" + optional role label                                                                                                                                         |
 | `Notice` (`ds/`)                                           | inline alerts                      | info / success / warning / danger with icon; dismissible only when it is safe to dismiss                                                                                                 |
 | `BottomSheet`, `Dialog`, `Drawer`                          | overlays                           | sheet on phones, dialog from 768 px                                                                                                                                                      |
-| `LoadPicker` (`ds/load-picker`)                            | homepage, /quote, booking          | one control and one set of limits (`lib/load-size`: 0.25–30 m³, quarter steps under 1 m³, presets 10/15/20)                                                                              |
+| `LoadPicker` (`ds/load-picker`)                            | /quote, booking                    | one control and one set of limits (`lib/load-size`: 0.25–30 m³, quarter steps under 1 m³, presets 10/15/20)                                                                              |
 | `Milestones` (`ds/`)                                       | tracking                           | ticks only steps the data proves (`publicStepsDone`); never predicts the next one                                                                                                        |
-| `QuickPrice`                                               | homepage, /quote                   | anonymous price check on `computePublicOffer`; result labelled "Estimate"; map loads on first use                                                                                        |
+| `QuickPrice`                                               | /quote (homepage links to it)      | anonymous price check on `computePublicOffer`; result labelled "Estimate"; map loads on first use                                                                                        |
 | Bottom navigation (`CustomerBottomNav`, `DriverBottomNav`) | customer and driver                | four items, labelled icons, 56 px; current tab = ink label + tinted icon well                                                                                                            |
 | Admin sidebar + tables (`ds/table`)                        | admin ≥ 1024 px                    | grouped sidebar; sortable columns reorder loaded rows only; cards on phones                                                                                                              |
 

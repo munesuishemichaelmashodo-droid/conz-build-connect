@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { money } from "@/lib/domain";
 import { EmptyState } from "@/components/ui-bits";
+import { Notice } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useEffect, useState } from "react";
@@ -298,7 +299,13 @@ function WalletPage() {
           <Gauge pct={balance > 0 ? available / balance : 0} ring={status.ring} />
         </div>
 
-        <dl className="mt-4 grid grid-cols-3 gap-2 relative text-center">
+        {/* Pending withdrawal only means something while withdrawals are switched on. */}
+        <dl
+          className={cn(
+            "mt-4 grid gap-2 relative text-center",
+            canWithdraw || pendingWithdrawal > 0 ? "grid-cols-3" : "grid-cols-2",
+          )}
+        >
           <div className="rounded-xl bg-white/5 py-2">
             <dt className="text-xs text-white/75">Total</dt>
             <dd className="font-display font-bold text-sm">{money(balance)}</dd>
@@ -307,10 +314,12 @@ function WalletPage() {
             <dt className="text-xs text-white/75">Held</dt>
             <dd className="font-display font-bold text-sm">{money(held)}</dd>
           </div>
-          <div className="rounded-xl bg-white/5 py-2">
-            <dt className="text-xs text-white/75">Pending withdrawal</dt>
-            <dd className="font-display font-bold text-sm">{money(pendingWithdrawal)}</dd>
-          </div>
+          {(canWithdraw || pendingWithdrawal > 0) && (
+            <div className="rounded-xl bg-white/5 py-2">
+              <dt className="text-xs text-white/75">Pending withdrawal</dt>
+              <dd className="font-display font-bold text-sm">{money(pendingWithdrawal)}</dd>
+            </div>
+          )}
         </dl>
 
         <div className="mt-5 grid grid-cols-2 gap-2 relative">
@@ -381,21 +390,17 @@ function WalletPage() {
           </div>
 
           {noFunds && (
-            <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-              <div className="font-semibold text-xs">No available funds</div>
-              <p className="text-[13px] mt-1 opacity-90">
-                Your available balance is {money(available)}. Top up to cover the commission on new jobs.
-              </p>
-            </div>
+            <Notice tone="danger" title="No available funds">
+              Your available balance is {money(available)}. Top up to cover the commission on new
+              jobs.
+            </Notice>
           )}
 
-          {!pinLoading && !hasPin && (
-            <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4 text-sm">
-              <div className="font-semibold text-xs text-warning">Set a withdrawal PIN</div>
-              <p className="text-[13px] mt-1 opacity-90">
-                A 4–8 digit PIN protects your withdrawals. Set it from your Profile.
-              </p>
-            </div>
+          {/* Only relevant while withdrawals are switched on (launch switch). */}
+          {canWithdraw && !pinLoading && !hasPin && (
+            <Notice tone="warning" title="Set a withdrawal PIN">
+              A 4–8 digit PIN protects your withdrawals. Set it from your Profile.
+            </Notice>
           )}
         </div>
       )}
