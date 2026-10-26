@@ -9,6 +9,7 @@ import {
   recentRecoveryAmr,
   recoveryState,
   resolveTermsAcceptance,
+  signUpOutcome,
 } from "@/lib/auth-flow";
 
 describe("parseAuthRedirect", () => {
@@ -334,5 +335,20 @@ describe("needsTermsAcceptance", () => {
     expect(needsTermsAcceptance({ ...base, path: "/terms" })).toBe(false);
     expect(needsTermsAcceptance({ ...base, path: "/privacy" })).toBe(false);
     expect(needsTermsAcceptance({ ...base, path: "/reset-password" })).toBe(false);
+  });
+});
+
+describe("signUpOutcome", () => {
+  it("is signed in when sign-up returned a session", () => {
+    expect(signUpOutcome({ hasSession: true, identityCount: 1 })).toBe("signed_in");
+  });
+  it("spots an email that already has an account (no identities, nothing emailed)", () => {
+    expect(signUpOutcome({ hasSession: false, identityCount: 0 })).toBe("existing_account");
+  });
+  it("asks a new user to check their email", () => {
+    expect(signUpOutcome({ hasSession: false, identityCount: 1 })).toBe("check_email");
+  });
+  it("treats a missing identity list as a new user (older responses)", () => {
+    expect(signUpOutcome({ hasSession: false, identityCount: null })).toBe("check_email");
   });
 });

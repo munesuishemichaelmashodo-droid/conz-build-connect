@@ -598,6 +598,19 @@ const server = http.createServer(async (req, res) => {
     u.phone_confirmed_at = new Date().toISOString();
     return send(res, 200, session(u));
   }
+  if (path === "/auth/v1/signup" && req.method === "POST") {
+    // Like Supabase with "Confirm email" on: no session. An email that is already
+    // registered gets the same 200 but a user with no identities, and nothing is sent.
+    const body = (await readBody(req)) ?? {};
+    const email = String(body?.email ?? "").toLowerCase();
+    const known = [...users.values()].some((u) => u.email?.toLowerCase() === email);
+    const id = randomUUID();
+    return send(res, 200, {
+      id, aud: "authenticated", role: "authenticated", email,
+      identities: known ? [] : [{ id, provider: "email", identity_data: { email } }],
+      user_metadata: body?.data ?? {}, created_at: new Date().toISOString(),
+    });
+  }
   if (path === "/auth/v1/logout") return send(res, 204);
   if (path === "/auth/v1/recover" || path === "/auth/v1/otp" || path === "/auth/v1/resend") return send(res, 200, {});
 

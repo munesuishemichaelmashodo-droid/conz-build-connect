@@ -217,3 +217,18 @@ export function needsTermsAcceptance(input: {
     return false;
   return !input.profile.terms_accepted_at;
 }
+
+/**
+ * What a successful supabase.auth.signUp means. For an email that is already
+ * registered, Supabase returns success with a user that has no identities and
+ * sends NO email (to avoid revealing accounts), so "check your email" would be
+ * a dead end. identityCount is data.user.identities?.length (null if absent).
+ */
+export function signUpOutcome(input: {
+  hasSession: boolean;
+  identityCount: number | null;
+}): "signed_in" | "existing_account" | "check_email" {
+  if (input.hasSession) return "signed_in";
+  if (input.identityCount === 0) return "existing_account";
+  return "check_email";
+}
