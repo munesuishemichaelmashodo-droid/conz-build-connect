@@ -1,6 +1,7 @@
 import { stockStatusCopy } from "@/lib/stockStatus";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { AddressPicker } from "@/components/AddressPicker";
 import { SpotlightCallout } from "@/components/SpotlightCallout";
@@ -20,6 +21,7 @@ import {
   HandCoins,
 } from "lucide-react";
 import { MATERIALS, type MaterialCategory, money } from "@/lib/domain";
+import { getSourcingRequestsEnabled, requestSourcingQuote } from "@/lib/sourcing-request.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useLaunchSwitches } from "@/lib/launch-switches";
@@ -80,6 +82,14 @@ function BookDelivery() {
   const runOffer = useServerFn(computeOffer);
   const runExplain = useServerFn(explainOffer);
   const runSourcingOffer = useServerFn(getSourcingOffer);
+  const runSourcingRequest = useServerFn(requestSourcingQuote);
+  const runSourcingEnabled = useServerFn(getSourcingRequestsEnabled);
+  const { data: sourcingSwitch } = useQuery({
+    queryKey: ["sourcing-requests-enabled"],
+    staleTime: 5 * 60_000,
+    queryFn: () => runSourcingEnabled().catch(() => ({ enabled: false })),
+  });
+  const [requestingQuote, setRequestingQuote] = useState(false);
 
   const [step, setStep] = useState<number>(0);
   const [address, setAddress] = useState(search.address ?? "");
@@ -273,7 +283,7 @@ function BookDelivery() {
         delivery_lng: coords.lng,
 
         pickup_address: offerData.resolvedSource
-          ? (offerData.resolvedSource.label ?? offerData.resolvedSource.address ?? "Verified supplier location")
+          ? (offerData.resolvedSource.label ?? offerData.resolvedSource.address ?? "Listed supplier location")
           : "Driver arranges pickup",
         pickup_lat: offerData.resolvedSource ? offerData.resolvedSource.lat : null,
         pickup_lng: offerData.resolvedSource ? offerData.resolvedSource.lng : null,
@@ -500,6 +510,47 @@ function BookDelivery() {
             send their own price; availability is confirmed only when a driver accepts.
           </Notice>
         )}
+        {offerData.openRequest && sourcingSwitch?.enabled && material !== "custom" && (
+          <CzCard>
+            <div className="space-y-2 p-4" data-testid="sourcing-request-option">
+              <h2 className="text-[15px] font-semibold">Prefer a confirmed quote first?</h2>
+              <p className="text-sm text-cz-text-2">
+                Ask Con Z to find a listed supplier for this order and send you a quote. There is no set reply time,
+                and nothing is booked or charged until you accept a quote.
+              </p>
+              <CzButton
+                kind="secondary"
+                disabled={requestingQuote || !coords}
+                onClick={async () => {
+                  if (!coords) return;
+                  setRequestingQuote(true);
+                  try {
+                    const r = await runSourcingRequest({
+                      data: {
+                        material,
+                        quantity,
+                        deliveryLat: coords.lat,
+                        deliveryLng: coords.lng,
+                        address,
+                        preferredDate: date || undefined,
+                        notes: notes.trim() || undefined,
+                        idempotencyKey: attemptKey(),
+                      },
+                    });
+                    attemptRef.current = null;
+                    setSourcingResult(r);
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "We couldn't record your request. Please try again.");
+                  } finally {
+                    setRequestingQuote(false);
+                  }
+                }}
+              >
+                {requestingQuote ? "Sending request…" : "Ask Con Z for a quote"}
+              </CzButton>
+            </div>
+          </CzCard>
+        )}
         <p className="text-sm text-cz-muted">
           This is the amount you offer drivers. They can accept it or send their own price, and you choose.
           Posting the job doesn't charge you.
@@ -579,7 +630,7 @@ function BookDelivery() {
           {offerData.resolvedSource ? (
             <>
               <DocketRow label="Picked up from">
-                {offerData.resolvedSource.label || offerData.resolvedSource.address || "Verified supplier location"}
+                {offerData.resolvedSource.label || offerData.resolvedSource.address || "Listed supplier location"}
               </DocketRow>
               <div className="px-4 py-3">
                 <StockStatusNote status={offerData.resolvedSource.stockStatus} />
