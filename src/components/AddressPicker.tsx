@@ -209,7 +209,7 @@ export function AddressPicker({
     setSearching(false);
     setResults(r);
     if (r.length === 0) {
-      toast.error("Couldn't find that place in Zimbabwe — try a suburb or landmark name");
+      toast.error("We couldn't find that place. Try a suburb or landmark, or tap the map to drop a pin.");
       return;
     }
     pickResult(r[0]);
@@ -335,7 +335,7 @@ export function AddressPicker({
                 <div className="absolute z-40 left-0 right-0 top-[56px] rounded-xl border border-cz-border bg-cz-surface shadow-lg max-h-64 overflow-auto">
                   {searching && <div className="px-3.5 py-3 text-sm text-cz-muted">Searching…</div>}
                   {!searching && results.length === 0 && (
-                    <div className="px-3.5 py-3 text-sm text-cz-muted">No results found — try a different spelling.</div>
+                    <div className="px-3.5 py-3 text-sm text-cz-muted">No places match that. Try a suburb, road or landmark, or tap the map to drop a pin.</div>
                   )}
                   {results.map((r, i) => (
                     <button
@@ -478,7 +478,7 @@ export function AddressPicker({
               {searching && <div className="px-3.5 py-3 text-sm text-muted-foreground">Searching…</div>}
               {!searching && results.length === 0 && (
                 <div className="px-3.5 py-3 text-sm text-muted-foreground">
-                  No results found — try a different spelling.
+                  No places match that. Try a suburb, road or landmark, or tap the map to drop a pin.
                 </div>
               )}
               {results.map((r, i) => (
