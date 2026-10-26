@@ -113,7 +113,9 @@ begin
 
   select (value::text)::numeric into _diesel_price from public.system_settings where key = 'diesel_price_per_liter';
   -- (0118) Every operating assumption is validated and reported, with its source.
-  if _diesel_price is null or _diesel_price <= 0 or _diesel_price > 10 then
+  -- Same bounds as admin_set_diesel_price (0 < price <= 100), so a value the admin can
+  -- set is always the value used.
+  if _diesel_price is null or _diesel_price <= 0 or _diesel_price > 100 then
     _diesel_price := 2.04; _diesel_source := 'default';
   end if;
   select (value::text)::numeric into _fuel_l_per_100km from public.system_settings where key = 'fuel_l_per_100km';

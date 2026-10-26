@@ -80,6 +80,12 @@ describe("fuelEstimate", () => {
     expect(fuelEstimate({ ...base, routeKm: 0 }).available).toBe(false);
     expect(fuelEstimate({ ...base, trips: null }).available).toBe(false);
     expect(fuelEstimate({ ...base, dieselPerLitre: null }).available).toBe(false);
+    expect(fuelEstimate({ ...base, dieselPerLitre: 0 }).available).toBe(false);
+    expect(fuelEstimate({ ...base, dieselPerLitre: 101 }).available).toBe(false);
+  });
+  it("accepts any diesel price the admin setter allows (up to $100/L)", () => {
+    const f = fuelEstimate({ ...base, dieselPerLitre: 12 });
+    expect(f.available && f.cost).toBe(192); // 16 L × $12
   });
   it("labels a straight-line distance as such", () => {
     const f = fuelEstimate({ ...base, routeIsRoad: false });

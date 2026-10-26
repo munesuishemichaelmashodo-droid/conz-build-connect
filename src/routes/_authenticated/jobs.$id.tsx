@@ -1587,7 +1587,7 @@ function BidForm({
               <div className="tabular-nums">−{usd2(fee)}</div>
             </div>
             <div className="text-right">
-              <div className="text-[13px] text-cz-muted">You receive</div>
+              <div className="text-[13px] text-cz-muted">After Con Z fee</div>
               <div className="cz-display text-[22px] font-bold leading-none tabular-nums text-cz-green-text">
                 {usd2(take?.afterFee ?? priceNum - fee)}
               </div>
@@ -1599,7 +1599,7 @@ function BidForm({
             <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 font-semibold">
               <span>Estimated fuel</span>
               <span className="tabular-nums">
-                {fuel.available ? `about ${usd2(fuel.cost)} · left ${usd2(take?.afterFuel ?? 0)}` : "Can't estimate"}
+                {fuel.available ? `about ${usd2(fuel.cost)} · ${usd2(take?.afterFuel ?? 0)} after fuel` : "Can't estimate"}
               </span>
             </summary>
             <div className="space-y-1 px-3 pb-3 text-cz-muted">

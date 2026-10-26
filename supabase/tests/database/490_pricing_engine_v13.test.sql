@@ -2,7 +2,7 @@
 -- v1.2 (copied here as pg_temp.cmo_v12); missing inputs are refused; market-priced
 -- big loads no longer add transport twice; assumptions are reported.
 begin;
-select plan(15);
+select plan(17);
 
 -- Known prices (production values of 26/10/2026 for river sand and stones).
 delete from public.material_price_buckets where material in ('river_sand','stones');
@@ -291,6 +291,12 @@ select ok(public.compute_material_offer('river_sand',12,15) ? 'materialPriceUpda
 insert into public.system_settings (key, value) values ('fuel_l_per_100km', to_jsonb(500));
 select is((public.compute_material_offer('river_sand',12,80)->'assumptions'->>'fuelLitresPer100km')::numeric, 32::numeric, 'An impossible fuel setting falls back to the default');
 delete from public.system_settings where key = 'fuel_l_per_100km';
+update public.system_settings set value = to_jsonb(12) where key = 'diesel_price_per_liter';
+select is(public.compute_material_offer('river_sand',12,80)->'assumptions'->>'dieselSource', 'setting',
+  'A diesel price the admin setter allows ($12) is used, not replaced by the default');
+select is((public.compute_material_offer('river_sand',12,80)->>'offer')::numeric, (pg_temp.cmo_v12('river_sand',12,80)->>'offer')::numeric,
+  'and gives the same quote as v1.2');
+update public.system_settings set value = to_jsonb(1.87) where key = 'diesel_price_per_liter';
 
 -- 4. Big loads priced from market data: transport is no longer added twice
 select set_config('t.c', tests.create_user('pe_cust')::text, true);

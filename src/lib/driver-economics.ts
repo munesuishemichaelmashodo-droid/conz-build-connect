@@ -66,7 +66,8 @@ export function fuelEstimate(input: {
   if (trips == null || trips < 1)
     return { available: false, reason: "Choose a truck to work out the trips." };
   const diesel = input.dieselPerLitre;
-  if (diesel == null || !Number.isFinite(diesel) || diesel <= 0 || diesel > 10) {
+  // Same bounds as admin_set_diesel_price and the engine (0 < price <= 100).
+  if (diesel == null || !Number.isFinite(diesel) || diesel <= 0 || diesel > 100) {
     return { available: false, reason: "No diesel price is set." };
   }
   const lPer100 =
