@@ -4,7 +4,6 @@ import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -37,16 +36,18 @@ import { AddTruckForm } from "@/components/AddTruckForm";
 import {
   DOC_LABELS,
   OPTIONAL_DOCS,
-  OTP_LENGTH,
-  RESEND_SECONDS,
   STAGES,
+  applicationChecklist,
   detailsComplete,
+  firstUnfinishedStage,
   hasSubmitted,
-  isOtpFormatValid,
-  mapOtpError,
   missingRequired,
   normalisePhone,
+  phoneStatus,
+  phoneStepComplete,
   statusView,
+  type ChecklistState,
+  type PhoneStatus,
   validateDocFile,
   type DocKey,
   type DocMap,
@@ -56,7 +57,7 @@ export const Route = createFileRoute("/_authenticated/become-driver")({
   component: BecomeDriverPage,
 });
 
-// Sign-up SMS goes out through the Send SMS hook, which only allows +263 by default.
+// Driver sign-up is for Zimbabwe mobile numbers.
 const DIAL_CODE = "+263";
 
 type ProfileRow = DocMap & {
@@ -69,13 +70,20 @@ const PROFILE_COLUMNS =
   "selfie_url,national_id_url,license_url,tipper_photo_url,tipper_photo_side_url,tipper_photo_back_url,operator_license_url,certificate_of_fitness_url,git_insurance_url,zinara_url,nationality,verification_status,verification_notes";
 
 function BecomeDriverPage() {
-  const { userId, profile, email, refresh } = useAuth();
+  const { userId, profile, email, refresh, is } = useAuth();
   const qc = useQueryClient();
   const nav = useNavigate();
 
   const [stage, setStage] = useState(0);
   const [ready, setReady] = useState(false);
-  const [phoneVerified, setPhoneVerified] = useState(false);
+  // The number is saved on the driver's own profile and is NOT verified (no SMS).
+  // It only counts as verified if Supabase Auth already confirmed this same number.
+  const [savedPhone, setSavedPhone] = useState<string | null>(null);
+  const [authPhone, setAuthPhone] = useState<{ phone: string | null; confirmedAt: string | null }>({
+    phone: null,
+    confirmedAt: null,
+  });
+  const [savingDetails, setSavingDetails] = useState(false);
   const [name, setName] = useState(profile?.full_name ?? "");
   const [nationality, setNationality] = useState<string>("Zimbabwe");
   const [docs, setDocs] = useState<DocMap>({});
@@ -104,49 +112,87 @@ function BecomeDriverPage() {
     },
   });
 
-  // First load: make sure a driver_profiles row exists, learn whether the phone is
-  // already confirmed, and jump to the first unfinished stage.
+  // First load: make sure a driver_profiles row exists, read what is already
+  // saved, and reopen the first unfinished step.
   useEffect(() => {
     if (!userId) return;
     (async () => {
       await supabase
         .from("driver_profiles")
         .upsert({ user_id: userId }, { onConflict: "user_id", ignoreDuplicates: true });
-      const [{ data: auth }, { data: p }] = await Promise.all([
+      const [{ data: auth }, { data: p }, { data: prof }, { data: t }] = await Promise.all([
         supabase.auth.getUser(),
         supabase
           .from("driver_profiles")
           .select(PROFILE_COLUMNS)
           .eq("user_id", userId)
           .maybeSingle(),
+        supabase.from("profiles").select("full_name, phone").eq("id", userId).maybeSingle(),
+        supabase.from("trucks").select("id").eq("driver_id", userId),
       ]);
-      const confirmed = !!auth.user?.phone && !!auth.user?.phone_confirmed_at;
-      setPhoneVerified(confirmed);
+      setAuthPhone({
+        phone: auth.user?.phone ?? null,
+        confirmedAt: auth.user?.phone_confirmed_at ?? null,
+      });
+      const phone = (prof as { phone: string | null } | null)?.phone ?? null;
+      setSavedPhone(phone);
+      const fullName = (prof as { full_name: string | null } | null)?.full_name ?? "";
+      if (fullName) setName(fullName);
       const r = p as unknown as ProfileRow | null;
       if (r) {
         setDocs(r);
         if (r.nationality) setNationality(r.nationality);
       }
-      const { data: t } = await supabase.from("trucks").select("id").eq("driver_id", userId);
+      const truckCount = t?.length ?? 0;
       const submitted =
-        !!r && hasSubmitted(r.verification_status, r, (t?.length ?? 0) > 0, r.nationality);
+        !!r && hasSubmitted(r.verification_status, r, truckCount > 0, r.nationality);
       setStage(
-        submitted
-          ? 3
-          : confirmed
-            ? r && missingRequired(r, (t?.length ?? 0) > 0).length < 7
-              ? 2
-              : 1
-            : 0,
+        firstUnfinishedStage({
+          submitted,
+          phoneSaved: phoneStepComplete(phone),
+          detailsDone: !!r?.nationality && detailsComplete(fullName, r.nationality),
+        }),
       );
       setReady(true);
     })();
   }, [userId]);
 
+  const currentPhoneStatus: PhoneStatus = phoneStatus({
+    profilePhone: savedPhone,
+    authPhone: authPhone.phone,
+    authPhoneConfirmedAt: authPhone.confirmedAt,
+  });
+
+  // Details are saved when the driver presses Continue, so leaving and coming
+  // back resumes at the documents step. Name goes on their own profile;
+  // nationality on their own driver profile (RLS: own rows only).
+  const saveDetails = async (): Promise<boolean> => {
+    if (!userId) return false;
+    setSavingDetails(true);
+    try {
+      const [{ data: a, error: e1 }, { data: b, error: e2 }] = await Promise.all([
+        supabase.from("profiles").update({ full_name: name.trim() }).eq("id", userId).select("id"),
+        supabase
+          .from("driver_profiles")
+          .update({ nationality })
+          .eq("user_id", userId)
+          .select("user_id"),
+      ]);
+      if (e1 || e2 || !a?.length || !b?.length) throw new Error("not saved");
+      await refresh();
+      return true;
+    } catch {
+      toast.error("Couldn't save your details. Check your connection and try again.");
+      return false;
+    } finally {
+      setSavingDetails(false);
+    }
+  };
+
   const missing = missingRequired(docs, hasTruck);
 
   const canContinue = () => {
-    if (stage === 0) return phoneVerified;
+    if (stage === 0) return phoneStepComplete(savedPhone);
     if (stage === 1) return detailsComplete(name, nationality);
     if (stage === 2) return missing.length === 0;
     return false;
@@ -193,7 +239,7 @@ function BecomeDriverPage() {
     <AppShell title="Become a driver">
       <div className="max-w-md mx-auto space-y-5">
         <div>
-          <div className="flex items-center justify-between text-[11px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold mb-1">
             <span>
               Step {stage + 1} of {STAGES.length}
             </span>
@@ -207,9 +253,10 @@ function BecomeDriverPage() {
         <div className="rounded-2xl border bg-card p-5 shadow-soft min-h-[280px]">
           {stage === 0 && (
             <PhoneStage
-              verified={phoneVerified}
-              onVerified={() => setPhoneVerified(true)}
               userId={userId!}
+              savedPhone={savedPhone}
+              status={currentPhoneStatus}
+              onSaved={setSavedPhone}
             />
           )}
 
@@ -258,6 +305,12 @@ function BecomeDriverPage() {
 
           {stage === 3 && (
             <StatusStage
+              checklist={applicationChecklist({
+                phone: currentPhoneStatus,
+                submitted: true,
+                status: row?.verification_status,
+                isDriver: is("driver"),
+              })}
               status={row?.verification_status}
               notes={row?.verification_notes}
               onFix={() => setStage(2)}
@@ -290,11 +343,20 @@ function BecomeDriverPage() {
               </Button>
             ) : (
               <Button
-                onClick={() => setStage((s) => s + 1)}
-                disabled={!canContinue()}
+                onClick={async () => {
+                  if (stage === 1 && !(await saveDetails())) return;
+                  setStage((s) => s + 1);
+                }}
+                disabled={!canContinue() || savingDetails}
                 className="flex-1"
               >
-                Continue <ChevronRight className="w-4 h-4 ml-1" />
+                {savingDetails ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    Continue <ChevronRight className="w-4 h-4 ml-1" />
+                  </>
+                )}
               </Button>
             )}
           </div>
@@ -305,147 +367,90 @@ function BecomeDriverPage() {
 }
 
 // ---------------------------------------------------------------------------
-// Stage 1 — real SMS verification through Supabase Auth (phone_change OTP).
-// There is no simulated mode: if the project has no SMS provider the error says so.
+// Stage 1 — phone number, no SMS. ConZ has no free SMS sender, so the number is
+// saved on the driver's own profile and shown as NOT verified. It never touches
+// the Supabase Auth phone (updateUser({ phone }) would try to send an SMS).
+// Driver approval is a separate admin decision.
 // ---------------------------------------------------------------------------
+function localPart(phone: string | null): string {
+  const d = (phone ?? "").replace(/\D/g, "");
+  return d.startsWith("263") ? `0${d.slice(3)}` : d;
+}
+
 function PhoneStage({
-  verified,
-  onVerified,
   userId,
+  savedPhone,
+  status,
+  onSaved,
 }: {
-  verified: boolean;
-  onVerified: () => void;
   userId: string;
+  savedPhone: string | null;
+  status: PhoneStatus;
+  onSaved: (phone: string) => void;
 }) {
-  const [local, setLocal] = useState("");
-  const [sentTo, setSentTo] = useState<string | null>(null);
-  const [code, setCode] = useState("");
+  const [local, setLocal] = useState(() => localPart(savedPhone));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState(0);
-
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [cooldown]);
 
   const e164 = normalisePhone(DIAL_CODE, local);
+  const unchanged = !!savedPhone && e164 === savedPhone;
 
-  const sendCode = async () => {
+  const save = async () => {
     if (!e164) return setError("Enter a valid Zimbabwe mobile number, for example 077 123 4567.");
     setBusy(true);
     setError(null);
-    const { error: err } = await supabase.auth.updateUser({ phone: e164 });
+    // Own row only (RLS). select() so a silently-filtered update is caught too.
+    const { data, error: err } = await supabase
+      .from("profiles")
+      .update({ phone: e164 })
+      .eq("id", userId)
+      .select("id");
     setBusy(false);
-    if (err) return setError(mapOtpError(err.message).message);
-    setSentTo(e164);
-    setCode("");
-    setCooldown(RESEND_SECONDS);
-  };
-
-  const verify = async () => {
-    if (!sentTo || !isOtpFormatValid(code)) return;
-    setBusy(true);
-    setError(null);
-    const { error: err } = await supabase.auth.verifyOtp({
-      phone: sentTo,
-      token: code,
-      type: "phone_change",
-    });
-    if (err) {
-      setBusy(false);
-      setCode("");
-      return setError(mapOtpError(err.message).message);
+    if (err || !data?.length) {
+      return setError("Couldn't save your number. Check your connection and try again.");
     }
-    // Keep the profile phone in step with the confirmed number (best effort).
-    await supabase.from("profiles").update({ phone: sentTo }).eq("id", userId);
-    setBusy(false);
-    toast.success("Phone verified");
-    onVerified();
+    onSaved(e164);
+    toast.success("Number saved");
   };
-
-  if (verified) {
-    return (
-      <div className="space-y-3 text-center py-6">
-        <div className="w-14 h-14 rounded-full bg-success/15 border border-success/40 mx-auto flex items-center justify-center">
-          <Check className="w-7 h-7 text-success" />
-        </div>
-        <h2 className="font-display font-bold text-xl">Phone verified</h2>
-        <p className="text-sm text-muted-foreground">Press Continue to enter your details.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <Smartphone className="w-5 h-5 text-primary" />
-        <h2 className="font-display font-bold text-xl">Verify your phone</h2>
+        <Smartphone className="w-5 h-5 text-cz-amber-text" />
+        <h2 className="font-display font-bold text-xl">Your phone number</h2>
       </div>
       <p className="text-sm text-muted-foreground">
-        We text a {OTP_LENGTH}-digit code to your mobile. Customers and Con Z use this number to
-        reach you about jobs.
+        Customers and Con Z use this number to reach you about jobs. We don't send a code; Con Z may
+        call you on it while reviewing your application.
       </p>
 
-      {!sentTo ? (
-        <>
-          <Label htmlFor="ph">Mobile number</Label>
-          <div className="flex gap-2">
-            <div className="flex items-center rounded-md border px-3 text-sm text-muted-foreground">
-              {DIAL_CODE}
-            </div>
-            <Input
-              id="ph"
-              inputMode="tel"
-              autoComplete="tel-national"
-              placeholder="77 123 4567"
-              value={local}
-              onChange={(e) => setLocal(e.target.value.replace(/[^\d\s]/g, ""))}
-              maxLength={14}
-            />
-          </div>
-          <Button onClick={sendCode} disabled={busy || !e164} className="w-full">
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send code"}
-          </Button>
-        </>
-      ) : (
-        <>
-          <p className="text-sm">
-            Code sent to <b>{sentTo}</b>.
-          </p>
-          <div className="flex justify-center">
-            <InputOTP maxLength={OTP_LENGTH} value={code} onChange={setCode} inputMode="numeric">
-              <InputOTPGroup>
-                {Array.from({ length: OTP_LENGTH }).map((_, i) => (
-                  <InputOTPSlot key={i} index={i} />
-                ))}
-              </InputOTPGroup>
-            </InputOTP>
-          </div>
-          <Button onClick={verify} disabled={busy || !isOtpFormatValid(code)} className="w-full">
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify"}
-          </Button>
-          <div className="flex items-center justify-between text-xs">
-            <button
-              className="underline text-muted-foreground"
-              onClick={() => {
-                setSentTo(null);
-                setCode("");
-                setError(null);
-              }}
-            >
-              Change number
-            </button>
-            <button
-              className="underline disabled:no-underline disabled:opacity-50"
-              disabled={cooldown > 0 || busy}
-              onClick={sendCode}
-            >
-              {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
-            </button>
-          </div>
-        </>
+      <Label htmlFor="ph">Mobile number</Label>
+      <div className="flex gap-2">
+        <div className="flex items-center rounded-md border px-3 text-sm text-muted-foreground">
+          {DIAL_CODE}
+        </div>
+        <Input
+          id="ph"
+          inputMode="tel"
+          autoComplete="tel-national"
+          placeholder="77 123 4567"
+          value={local}
+          onChange={(e) => {
+            setLocal(e.target.value.replace(/[^\d\s]/g, ""));
+            setError(null);
+          }}
+          maxLength={14}
+        />
+      </div>
+      <Button onClick={save} disabled={busy || !e164 || unchanged} className="w-full">
+        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : unchanged ? "Saved" : "Save number"}
+      </Button>
+
+      {savedPhone && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Saved: <b>{savedPhone}</b> ·{" "}
+          {status === "sms_verified" ? "verified by SMS" : "not verified"}. Press Continue.
+        </p>
       )}
 
       {error && (
@@ -510,7 +515,7 @@ function DocumentsStage({
       )}
 
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        <h3 className="text-xs font-semibold text-muted-foreground">
           You
         </h3>
         {row("selfie_url", "user")}
@@ -519,7 +524,7 @@ function DocumentsStage({
       </section>
 
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        <h3 className="text-xs font-semibold text-muted-foreground">
           Truck
         </h3>
         {row("tipper_photo_url", "environment")}
@@ -552,7 +557,7 @@ function DocumentsStage({
       </section>
 
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        <h3 className="text-xs font-semibold text-muted-foreground">
           Transport papers (recommended)
         </h3>
         {OPTIONAL_DOCS.map((f) => row(f))}
@@ -572,7 +577,15 @@ function DocumentsStage({
 // ---------------------------------------------------------------------------
 // Stage 4 — what the database says about the application.
 // ---------------------------------------------------------------------------
+const CHECK_TONE: Record<ChecklistState, { dot: string; text: string }> = {
+  done: { dot: "bg-success", text: "text-foreground" },
+  waiting: { dot: "bg-warning", text: "text-foreground" },
+  todo: { dot: "bg-muted-foreground/40", text: "text-muted-foreground" },
+  problem: { dot: "bg-destructive", text: "text-destructive" },
+};
+
 function StatusStage({
+  checklist,
   status,
   notes,
   onFix,
@@ -580,6 +593,7 @@ function StatusStage({
   onOpenDriverMode,
   onHome,
 }: {
+  checklist: ReturnType<typeof applicationChecklist>;
   status: "pending" | "verified" | "rejected" | null | undefined;
   notes: string | null | undefined;
   onFix: () => void;
@@ -610,8 +624,22 @@ function StatusStage({
         <h2 className="font-display font-bold text-2xl">{v.title}</h2>
         <p className="text-sm text-muted-foreground mt-2">{v.body}</p>
       </div>
+      <ul
+        className="rounded-xl border p-3 text-left text-sm space-y-2"
+        aria-label="Application status"
+      >
+        {checklist.map((row) => (
+          <li key={row.key} className="flex items-center gap-2">
+            <span
+              aria-hidden
+              className={cn("w-2.5 h-2.5 rounded-full shrink-0", CHECK_TONE[row.state].dot)}
+            />
+            <span className={CHECK_TONE[row.state].text}>{row.label}</span>
+          </li>
+        ))}
+      </ul>
       <div className="rounded-xl border bg-muted/30 p-3 text-left text-xs text-muted-foreground flex gap-2">
-        <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+        <ShieldCheck className="w-4 h-4 text-cz-amber-text shrink-0 mt-0.5" />
         <span>Your ID, licence and truck photos are only visible to you and Con Z admins.</span>
       </div>
       <div className="flex flex-col gap-2">

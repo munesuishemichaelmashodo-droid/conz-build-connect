@@ -200,10 +200,9 @@ export function AdminAttention({ isSuper }: { isSuper: boolean }) {
                   {item.to && (
                     <Link
                       to={item.to}
-                      className="mt-1.5 inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-foreground underline underline-offset-2"
+                      className="mt-1.5 inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-cz-amber-text underline underline-offset-2"
                     >
-                      Open{" "}
-                      <ChevronRight className="w-3.5 h-3.5" />
+                      Open <ChevronRight className="w-3.5 h-3.5" />
                     </Link>
                   )}
                 </div>

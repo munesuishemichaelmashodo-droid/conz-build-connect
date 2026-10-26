@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { sentence } from "@/lib/status-stamp";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ShieldCheck, ShieldX, ShieldQuestion, ExternalLink } from "lucide-react";
@@ -27,9 +28,23 @@ function AdminVerifications() {
         .order("created_at", { ascending: false });
       const ids = (drivers ?? []).map((d) => d.user_id);
       if (!ids.length) return [];
-      const { data: profiles } = await supabase.from("profiles").select("id,full_name,email,phone").in("id", ids);
+      const [{ data: profiles }, { data: trucks }] = await Promise.all([
+        supabase.from("profiles").select("id,full_name,email,phone").in("id", ids),
+        // Admins read every truck (0114). Shown so approval covers the truck too.
+        supabase
+          .from("trucks")
+          .select("id,driver_id,registration,capacity_m3,photo_url,created_at")
+          .in("driver_id", ids)
+          .order("created_at", { ascending: true }),
+      ]);
       const pmap = new Map(profiles?.map((p) => [p.id, p]) ?? []);
-      return (drivers ?? []).map((d) => ({ ...d, profile: pmap.get(d.user_id) }));
+      const tmap = new Map<string, NonNullable<typeof trucks>>();
+      for (const t of trucks ?? []) tmap.set(t.driver_id, [...(tmap.get(t.driver_id) ?? []), t]);
+      return (drivers ?? []).map((d) => ({
+        ...d,
+        profile: pmap.get(d.user_id),
+        trucks: tmap.get(d.user_id) ?? [],
+      }));
     },
   });
 
@@ -69,11 +84,11 @@ function AdminVerifications() {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`flex-1 rounded-lg border py-2 text-xs font-semibold uppercase ${
-              filter === f ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground"
-            }`}
+            className={`min-h-11 flex-1 rounded-lg border py-2 text-xs font-semibold ${
+ filter === f ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "bg-card text-muted-foreground"
+ }`}
           >
-            {f}
+            {sentence(f)}
           </button>
         ))}
       </div>
@@ -109,32 +124,55 @@ function AdminVerifications() {
                 <span className="text-muted-foreground">Nationality: </span>
                 <span>{(d as any).nationality ?? "—"}</span>
               </div>
+              {d.verification_notes && d.verification_status === "pending" && (
+                <div className="text-xs rounded-lg border border-warning/30 bg-warning/10 p-2">
+                  {d.verification_notes}
+                </div>
+              )}
+              <div className="text-sm space-y-1">
+                <div className="text-muted-foreground">Trucks</div>
+                {d.trucks.length === 0 ? (
+                  <div className="text-xs text-destructive">No truck registered</div>
+                ) : (
+                  d.trucks.map((t) => (
+                    <div key={t.id} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="font-mono">{t.registration}</span>
+                      <span>{t.capacity_m3} m³</span>
+                      {t.photo_url && (
+                        <button onClick={() => view(t.photo_url)} className="underline">
+                          Photo
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
 
               {/* ID, licence & vehicle photos */}
               <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => view(d.national_id_url)} disabled={!d.national_id_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                <button onClick={() => view(d.national_id_url)} disabled={!d.national_id_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                   <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> National ID
                 </button>
-                <button onClick={() => view(d.selfie_url)} disabled={!d.selfie_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                <button onClick={() => view(d.selfie_url)} disabled={!d.selfie_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                   <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Selfie
                 </button>
-                <button onClick={() => view((d as any).license_url)} disabled={!(d as any).license_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                <button onClick={() => view((d as any).license_url)} disabled={!(d as any).license_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                   <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Licence
                 </button>
-                <button onClick={() => view((d as any).tipper_photo_url)} disabled={!(d as any).tipper_photo_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                <button onClick={() => view((d as any).tipper_photo_url)} disabled={!(d as any).tipper_photo_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                   <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Tipper (front)
                 </button>
-                <button onClick={() => view((d as any).tipper_photo_side_url)} disabled={!(d as any).tipper_photo_side_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                <button onClick={() => view((d as any).tipper_photo_side_url)} disabled={!(d as any).tipper_photo_side_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                   <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Tipper (side)
                 </button>
-                <button onClick={() => view((d as any).tipper_photo_back_url)} disabled={!(d as any).tipper_photo_back_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                <button onClick={() => view((d as any).tipper_photo_back_url)} disabled={!(d as any).tipper_photo_back_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                   <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Tipper (back)
                 </button>
               </div>
 
               {/* Transport compliance documents */}
               <div className="space-y-1.5">
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                   Transport compliance —{" "}
                   {[
                     (d as any).operator_license_url,
@@ -144,16 +182,16 @@ function AdminVerifications() {
                   ].filter(Boolean).length}/4 on file
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => view((d as any).operator_license_url)} disabled={!(d as any).operator_license_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                  <button onClick={() => view((d as any).operator_license_url)} disabled={!(d as any).operator_license_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                     <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Operator licence
                   </button>
-                  <button onClick={() => view((d as any).certificate_of_fitness_url)} disabled={!(d as any).certificate_of_fitness_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                  <button onClick={() => view((d as any).certificate_of_fitness_url)} disabled={!(d as any).certificate_of_fitness_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                     <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> Fitness cert
                   </button>
-                  <button onClick={() => view((d as any).git_insurance_url)} disabled={!(d as any).git_insurance_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                  <button onClick={() => view((d as any).git_insurance_url)} disabled={!(d as any).git_insurance_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                     <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> GIT insurance
                   </button>
-                  <button onClick={() => view((d as any).zinara_url)} disabled={!(d as any).zinara_url} className="rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
+                  <button onClick={() => view((d as any).zinara_url)} disabled={!(d as any).zinara_url} className="min-h-11 rounded-lg border py-2 text-xs font-semibold disabled:opacity-40">
                     <ExternalLink className="w-3.5 h-3.5 inline mr-1" /> ZINARA
                   </button>
                 </div>
@@ -164,7 +202,7 @@ function AdminVerifications() {
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <button
                     onClick={() => setStatus(d.user_id, "verified")}
-                    className="rounded-lg bg-success text-success-foreground font-semibold py-2 text-sm"
+                    className="min-h-11 rounded-lg bg-success text-success-foreground font-semibold py-2 text-sm"
                   >
                     <ShieldCheck className="w-4 h-4 inline mr-1" /> Approve
                   </button>
@@ -173,7 +211,7 @@ function AdminVerifications() {
                       const reason = window.prompt("Reason for rejection (optional)") ?? undefined;
                       setStatus(d.user_id, "rejected", reason);
                     }}
-                    className="rounded-lg bg-destructive text-destructive-foreground font-semibold py-2 text-sm"
+                    className="min-h-11 rounded-lg bg-destructive text-destructive-foreground font-semibold py-2 text-sm"
                   >
                     <ShieldX className="w-4 h-4 inline mr-1" /> Reject
                   </button>

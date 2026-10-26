@@ -1,14 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { TipperIllustration } from "@/components/ds/media";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Briefcase, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { bestCapacityMatchTier, type CapacityMatchTier } from "@/lib/capacityMatch";
 import { CzScreen, CzHeader } from "@/components/redesign";
 import { JobRow } from "@/components/redesign/JobRow";
 import { FeedJobCard } from "@/components/redesign/FeedJobCard";
-import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
+import { CustomerBottomNav, DriverBottomNav, NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 import { useQuickAccept } from "@/components/redesign/useQuickAccept";
 import { useCustomerCards } from "@/components/redesign/rpc";
 import { NotificationsBell } from "@/components/NotificationsBell";
@@ -108,7 +109,7 @@ function JobsPage() {
 
   return (
     <>
-      <CzScreen className={isDriver && !isCustomer ? DRIVER_NAV_SPACE : "pb-8"}>
+      <CzScreen className={isDriver !== isCustomer ? NAV_SPACE : "pb-8"}>
         <CzHeader
           title={isDriver && !isCustomer ? "My jobs" : "Jobs"}
           backTo={isDriver && !isCustomer ? "/driver" : "/customer"}
@@ -128,9 +129,9 @@ function JobsPage() {
           {isLoading ? (
             <div className="text-center text-cz-muted py-10">Loading…</div>
           ) : all.length === 0 ? (
-            <div className="rounded-[18px] border border-dashed border-cz-border-strong p-8 text-center">
-              <Briefcase className="w-9 h-9 mx-auto text-cz-faint" />
-              <p className="mt-2 font-semibold">No jobs yet</p>
+            <div className="rounded-2xl border border-dashed border-cz-border-strong p-8 text-center">
+              <TipperIllustration className="mx-auto w-40 opacity-90" />
+              <p className="mt-3 font-semibold">No jobs yet</p>
               <p className="text-sm text-cz-muted">{isCustomer ? "Post your first delivery request." : "Check back soon for open requests."}</p>
             </div>
           ) : (
@@ -166,6 +167,7 @@ function JobsPage() {
         </div>
       </CzScreen>
       {isDriver && !isCustomer && <DriverBottomNav />}
+      {isCustomer && !isDriver && <CustomerBottomNav />}
     </>
   );
 }

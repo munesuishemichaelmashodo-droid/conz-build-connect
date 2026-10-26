@@ -67,7 +67,7 @@ export function SupplyConfirmationCard({ job, viewer }: Props) {
   if (confirmation) {
     return (
       <div
-        className="flex items-start gap-3 rounded-[14px] border border-cz-border bg-cz-surface px-3.5 py-3 text-[13px]"
+        className="flex items-start gap-3 rounded-xl border border-cz-border bg-cz-surface px-3.5 py-3 text-[13px]"
         data-testid="supply-confirmed"
       >
         <CheckCircle2 aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-cz-green" />
@@ -90,11 +90,11 @@ export function SupplyConfirmationCard({ job, viewer }: Props) {
   if (viewer === "customer") {
     return (
       <Collapsible
-        className="rounded-[14px] border border-cz-border bg-cz-surface text-[13px]"
+        className="rounded-xl border border-cz-border bg-cz-surface text-[13px]"
         data-testid="supply-unconfirmed"
       >
-        <CollapsibleTrigger className="group flex min-h-12 w-full items-center gap-3 rounded-[14px] px-3.5 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cz-amber">
-          <CircleDashed aria-hidden className="h-5 w-5 shrink-0 text-cz-amber" />
+        <CollapsibleTrigger className="group flex min-h-12 w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cz-amber">
+          <CircleDashed aria-hidden className="h-5 w-5 shrink-0 text-cz-amber-text" />
           <span className="min-w-0 flex-1 text-sm font-semibold">
             Supply <span className="text-cz-amber-text">· Not confirmed</span>
           </span>
@@ -127,11 +127,11 @@ export function SupplyConfirmationCard({ job, viewer }: Props) {
 
   return (
     <div
-      className="rounded-[14px] border border-cz-border bg-cz-surface px-3.5 py-3 text-[13px] space-y-2.5"
+      className="rounded-xl border border-cz-border bg-cz-surface px-3.5 py-3 text-[13px] space-y-2.5"
       data-testid="supply-unconfirmed"
     >
       <div className="flex items-start gap-3">
-        <CircleDashed aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-cz-amber" />
+        <CircleDashed aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-cz-amber-text" />
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold">
             Supply <span className="text-cz-amber-text">· Not confirmed</span>
@@ -172,7 +172,7 @@ export function SupplyConfirmationCard({ job, viewer }: Props) {
               type="button"
               onClick={confirm}
               disabled={busy}
-              className="min-h-11 rounded-xl border-[1.5px] border-cz-amber text-sm font-bold text-cz-amber disabled:opacity-50"
+              className="min-h-11 rounded-xl border-[1.5px] border-cz-amber text-sm font-bold text-cz-amber-text disabled:opacity-50"
             >
               {busy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Supply is secured"}
             </button>

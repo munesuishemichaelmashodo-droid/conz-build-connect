@@ -3,6 +3,7 @@ import { Bell, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { firstRunStage } from "@/lib/first-run";
 import { enablePushNotifications, pushPermissionState, pushSupported } from "@/lib/push";
 import {
   enableNativePushNotifications,
@@ -14,7 +15,9 @@ import {
 const DISMISS_KEY = "conz_push_prompt_dismissed";
 
 export function PushNotificationPrompt() {
-  const { userId } = useAuth();
+  const { userId, profile, loading: authLoading } = useAuth();
+  // The welcome walkthrough already asks for notifications; offer this card only after it.
+  const afterFirstRun = firstRunStage({ loading: authLoading, userId, profile }) === "done";
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const native = isNativePlatform();
@@ -39,7 +42,7 @@ export function PushNotificationPrompt() {
     };
   }, [userId, native]);
 
-  if (!visible || !userId) return null;
+  if (!visible || !userId || !afterFirstRun) return null;
 
   const dismiss = () => {
     localStorage.setItem(DISMISS_KEY, "1");
@@ -60,21 +63,26 @@ export function PushNotificationPrompt() {
   };
 
   return (
-    <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-2">
+    <section aria-labelledby="push-prompt-title" className="rounded-2xl border border-border bg-card p-4 space-y-2">
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
-          <Bell className="w-4 h-4 text-primary" /> Turn on notifications
-        </div>
-        <button onClick={dismiss} className="text-muted-foreground shrink-0" aria-label="Dismiss">
-          <X className="w-4 h-4" />
+        <h2 id="push-prompt-title" className="flex items-center gap-2 pt-2 text-[15px] font-semibold">
+          <Bell aria-hidden className="w-4 h-4 text-muted-foreground" /> Turn on notifications
+        </h2>
+        <button
+          type="button"
+          onClick={dismiss}
+          className="-mr-2 -mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
+          aria-label="Dismiss"
+        >
+          <X aria-hidden className="w-4 h-4" />
         </button>
       </div>
       <p className="text-sm text-muted-foreground">
         Get alerted about new jobs, messages, and payments even when Con Z isn't open.
       </p>
-      <Button onClick={enable} disabled={loading} size="sm" className="w-full">
+      <Button onClick={enable} disabled={loading} variant="outline" className="w-full">
         {loading ? "Enabling…" : "Enable notifications"}
       </Button>
-    </div>
+    </section>
   );
 }

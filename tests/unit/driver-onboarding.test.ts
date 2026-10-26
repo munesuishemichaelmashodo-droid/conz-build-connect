@@ -10,6 +10,10 @@ import {
   normalisePhone,
   statusView,
   validateDocFile,
+  phoneStatus,
+  phoneStepComplete,
+  firstUnfinishedStage,
+  applicationChecklist,
 } from "@/lib/driver-onboarding";
 
 const allDocs = {
@@ -110,5 +114,138 @@ describe("statusView", () => {
     expect(statusView("pending").title).toBe("Under review");
     expect(statusView("verified").title).toBe("Approved");
     expect(statusView("rejected").title).toBe("Not approved");
+  });
+});
+
+describe("phone without SMS", () => {
+  it("a saved number is complete for the phone step without any SMS", () => {
+    expect(phoneStepComplete("+263771234567")).toBe(true);
+    expect(phoneStepComplete(null)).toBe(false);
+    expect(phoneStepComplete("12")).toBe(false);
+  });
+
+  it("an entered number stays unverified", () => {
+    expect(
+      phoneStatus({ profilePhone: "+263771234567", authPhone: null, authPhoneConfirmedAt: null }),
+    ).toBe("unverified");
+  });
+
+  it("is SMS-verified only when Supabase confirmed that same number", () => {
+    expect(
+      phoneStatus({
+        profilePhone: "+263771234567",
+        authPhone: "263771234567",
+        authPhoneConfirmedAt: "2026-10-01T00:00:00Z",
+      }),
+    ).toBe("sms_verified");
+    // Confirmed a different number earlier: the saved one is not verified.
+    expect(
+      phoneStatus({
+        profilePhone: "+263779999999",
+        authPhone: "263771234567",
+        authPhoneConfirmedAt: "2026-10-01T00:00:00Z",
+      }),
+    ).toBe("unverified");
+    // Auth phone set but never confirmed.
+    expect(
+      phoneStatus({
+        profilePhone: "+263771234567",
+        authPhone: "263771234567",
+        authPhoneConfirmedAt: null,
+      }),
+    ).toBe("unverified");
+  });
+
+  it("is missing with no saved number", () => {
+    expect(phoneStatus({ profilePhone: "", authPhone: null, authPhoneConfirmedAt: null })).toBe(
+      "missing",
+    );
+  });
+});
+
+describe("firstUnfinishedStage (resume)", () => {
+  it("starts at the phone step when no number is saved", () => {
+    expect(firstUnfinishedStage({ submitted: false, phoneSaved: false, detailsDone: false })).toBe(
+      0,
+    );
+  });
+  it("resumes at details once the number is saved", () => {
+    expect(firstUnfinishedStage({ submitted: false, phoneSaved: true, detailsDone: false })).toBe(
+      1,
+    );
+  });
+  it("resumes at documents once details are saved", () => {
+    expect(firstUnfinishedStage({ submitted: false, phoneSaved: true, detailsDone: true })).toBe(2);
+  });
+  it("shows the status once submitted, whatever else", () => {
+    expect(firstUnfinishedStage({ submitted: true, phoneSaved: false, detailsDone: false })).toBe(
+      3,
+    );
+  });
+});
+
+describe("applicationChecklist", () => {
+  const base = {
+    phone: "unverified" as const,
+    submitted: true,
+    status: "pending" as const,
+    isDriver: false,
+  };
+
+  it("keeps phone, review and approval as separate lines", () => {
+    const rows = applicationChecklist(base);
+    expect(rows.map((r) => r.key)).toEqual([
+      "account",
+      "application",
+      "phone",
+      "identity",
+      "truck",
+      "approval",
+    ]);
+  });
+
+  it("never calls an entered number verified", () => {
+    const phone = applicationChecklist(base).find((r) => r.key === "phone")!;
+    expect(phone.state).toBe("todo");
+    expect(phone.label).toMatch(/not verified/i);
+    expect(phone.label).not.toMatch(/sms verified/i);
+  });
+
+  it("labels an SMS-confirmed number as such", () => {
+    const phone = applicationChecklist({ ...base, phone: "sms_verified" }).find(
+      (r) => r.key === "phone",
+    )!;
+    expect(phone.state).toBe("done");
+    expect(phone.label).toMatch(/verified by sms/i);
+  });
+
+  it("a pending application is not approved", () => {
+    const rows = applicationChecklist(base);
+    expect(rows.find((r) => r.key === "approval")!.state).toBe("waiting");
+    expect(rows.find((r) => r.key === "identity")!.state).toBe("waiting");
+  });
+
+  it("approval needs both verified status and the driver role", () => {
+    expect(
+      applicationChecklist({ ...base, status: "verified", isDriver: false }).find(
+        (r) => r.key === "approval",
+      )!.state,
+    ).toBe("waiting");
+    expect(
+      applicationChecklist({ ...base, status: "verified", isDriver: true }).find(
+        (r) => r.key === "approval",
+      )!.state,
+    ).toBe("done");
+  });
+
+  it("shows a rejection on the review lines", () => {
+    const rows = applicationChecklist({ ...base, status: "rejected" });
+    expect(rows.find((r) => r.key === "identity")!.state).toBe("problem");
+    expect(rows.find((r) => r.key === "approval")!.state).toBe("problem");
+  });
+
+  it("not submitted yet", () => {
+    const rows = applicationChecklist({ ...base, submitted: false });
+    expect(rows.find((r) => r.key === "application")!.state).toBe("todo");
   });
 });

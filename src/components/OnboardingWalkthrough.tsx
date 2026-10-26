@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Package, Users, Briefcase, Wallet, X, Bell, MapPin, Check, type LucideIcon } from "lucide-react";
 import { enablePushNotifications, pushPermissionState } from "@/lib/push";
 import { locateOnce } from "@/lib/geolocate";
+import { useAuth } from "@/lib/auth";
+import { firstRunStage } from "@/lib/first-run";
 
 type Slide = { icon: LucideIcon; title: string; body: string };
 
@@ -43,6 +45,9 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
   const slides = role === "driver" ? DRIVER_SLIDES : CUSTOMER_SLIDES;
   const totalSteps = slides.length + 1; // +1 for the permissions screen at the end
   const onPermissionsStep = step === slides.length;
+  // Never on top of the Terms gate: the walkthrough waits until the Terms are accepted.
+  const { loading: authLoading, profile, refresh } = useAuth();
+  const stage = firstRunStage({ loading: authLoading, userId, profile });
 
   useEffect(() => {
     let alive = true;
@@ -79,9 +84,11 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
   const finish = async () => {
     setVisible(false);
     await supabase.from("profiles").update({ onboarding_completed_at: new Date().toISOString() }).eq("id", userId);
+    // Let the notifications card and the tour offer know the walkthrough is done.
+    await refresh();
   };
 
-  if (!visible) return null;
+  if (!visible || stage !== "walkthrough") return null;
 
   const isLast = step === totalSteps - 1;
   const slide = onPermissionsStep ? null : slides[step];
@@ -104,7 +111,7 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
               transition={{ duration: 0.25 }}
               className="space-y-5 w-full max-w-xs mx-auto"
             >
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 text-cz-amber-text flex items-center justify-center mx-auto">
                 <Bell className="w-8 h-8" />
               </div>
               <h2 className="font-display font-bold text-2xl">One last thing</h2>
@@ -118,7 +125,7 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
                 disabled={notifGranted || requesting !== null}
                 className="w-full flex items-center gap-3 rounded-xl border p-3 text-left disabled:opacity-70"
               >
-                <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-lg bg-primary/10 text-cz-amber-text flex items-center justify-center shrink-0">
                   <Bell className="w-4 h-4" />
                 </div>
                 <div className="flex-1">
@@ -130,7 +137,7 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
                 {notifGranted ? (
                   <Check className="w-5 h-5 text-success shrink-0" />
                 ) : (
-                  <span className="text-xs font-semibold text-primary shrink-0">
+                  <span className="text-xs font-semibold text-cz-amber-text shrink-0">
                     {requesting === "notif" ? "…" : "Enable"}
                   </span>
                 )}
@@ -142,7 +149,7 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
                 disabled={locationGranted || requesting !== null}
                 className="w-full flex items-center gap-3 rounded-xl border p-3 text-left disabled:opacity-70"
               >
-                <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-lg bg-primary/10 text-cz-amber-text flex items-center justify-center shrink-0">
                   <MapPin className="w-4 h-4" />
                 </div>
                 <div className="flex-1">
@@ -154,7 +161,7 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
                 {locationGranted ? (
                   <Check className="w-5 h-5 text-success shrink-0" />
                 ) : (
-                  <span className="text-xs font-semibold text-primary shrink-0">
+                  <span className="text-xs font-semibold text-cz-amber-text shrink-0">
                     {requesting === "location" ? "…" : "Enable"}
                   </span>
                 )}
@@ -169,7 +176,7 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
               transition={{ duration: 0.25 }}
               className="space-y-4"
             >
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 text-cz-amber-text flex items-center justify-center mx-auto">
                 {Icon && <Icon className="w-8 h-8" />}
               </div>
               <h2 className="font-display font-bold text-2xl">{slide!.title}</h2>
@@ -190,7 +197,7 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
         </div>
         <Button
           onClick={() => (isLast ? finish() : setStep((s) => s + 1))}
-          className="w-full h-12 font-display font-bold uppercase tracking-wide"
+          className="w-full h-12 font-semibold"
         >
           {isLast ? "Get started" : "Next"}
         </Button>

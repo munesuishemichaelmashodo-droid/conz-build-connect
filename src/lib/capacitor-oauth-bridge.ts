@@ -75,16 +75,23 @@ export async function registerOAuthRedirectListener() {
       /* system browser may already be closed/closing — fine either way */
     }
 
+    let failed = false;
     if (parsed.kind === "code") {
       const { error } = await nativeOAuthClient().auth.exchangeCodeForSession(parsed.code);
-      if (error) console.error("[oauth] code exchange failed:", error.message);
+      if (error) {
+        failed = true;
+        console.error("[oauth] code exchange failed:", error.message);
+      }
     } else if (parsed.kind === "tokens_refused") {
+      failed = true;
       console.error("[oauth] refused a token-bearing redirect (expected a PKCE code)");
     } else {
+      failed = true;
       console.error("[oauth] provider error:", parsed.message);
     }
-    // Never forward anything from the redirect URL; /oauth-callback just
-    // waits for the session (present after a successful exchange).
-    window.location.href = `${PROD_ORIGIN}/oauth-callback`;
+    // Never forward anything from the redirect URL. On failure, only our own
+    // fixed flag goes along, so /oauth-callback can say so straight away
+    // instead of waiting for a session that will never come (audit A-3).
+    window.location.href = `${PROD_ORIGIN}/oauth-callback${failed ? "?error=sign_in_failed" : ""}`;
   });
 }

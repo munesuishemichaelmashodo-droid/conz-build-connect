@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { money } from "@/lib/domain";
 import { EmptyState } from "@/components/ui-bits";
+import { Notice } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useEffect, useState } from "react";
@@ -283,13 +284,13 @@ function WalletPage() {
         id="tour-wallet-balance"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-3xl bg-gradient-dark text-white p-6 shadow-lift"
+        className="relative overflow-hidden rounded-3xl dark bg-gradient-dark text-white p-6 shadow-lift"
       >
         <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-primary/20 blur-3xl" />
         <div className="flex items-start justify-between relative">
           <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-white/75">{canWithdraw ? "Available to withdraw" : "ConZ credit available"}</div>
-            <div className="font-display font-bold text-primary text-5xl mt-1 tracking-tight" aria-label={`Available balance ${money(available)}`}>{money(available)}</div>
+            <div className="text-xs text-white/75">{canWithdraw ? "Available to withdraw" : "ConZ credit available"}</div>
+            <div className="font-display font-bold text-cz-amber-text text-5xl mt-1 tracking-tight" aria-label={`Available balance ${money(available)}`}>{money(available)}</div>
             <div className={cn("inline-flex items-center gap-1.5 mt-3 text-xs font-semibold", status.tone)}>
               <span className={cn("w-2 h-2 rounded-full", status.dot)} />
               {status.label}
@@ -298,33 +299,41 @@ function WalletPage() {
           <Gauge pct={balance > 0 ? available / balance : 0} ring={status.ring} />
         </div>
 
-        <dl className="mt-4 grid grid-cols-3 gap-2 relative text-center">
+        {/* Pending withdrawal only means something while withdrawals are switched on. */}
+        <dl
+          className={cn(
+            "mt-4 grid gap-2 relative text-center",
+            canWithdraw || pendingWithdrawal > 0 ? "grid-cols-3" : "grid-cols-2",
+          )}
+        >
           <div className="rounded-xl bg-white/5 py-2">
-            <dt className="text-xs uppercase tracking-wider text-white/75">Total</dt>
+            <dt className="text-xs text-white/75">Total</dt>
             <dd className="font-display font-bold text-sm">{money(balance)}</dd>
           </div>
           <div className="rounded-xl bg-white/5 py-2">
-            <dt className="text-xs uppercase tracking-wider text-white/75">Held</dt>
+            <dt className="text-xs text-white/75">Held</dt>
             <dd className="font-display font-bold text-sm">{money(held)}</dd>
           </div>
-          <div className="rounded-xl bg-white/5 py-2">
-            <dt className="text-xs uppercase tracking-wider text-white/75">Pending withdrawal</dt>
-            <dd className="font-display font-bold text-sm">{money(pendingWithdrawal)}</dd>
-          </div>
+          {(canWithdraw || pendingWithdrawal > 0) && (
+            <div className="rounded-xl bg-white/5 py-2">
+              <dt className="text-xs text-white/75">Pending withdrawal</dt>
+              <dd className="font-display font-bold text-sm">{money(pendingWithdrawal)}</dd>
+            </div>
+          )}
         </dl>
 
         <div className="mt-5 grid grid-cols-2 gap-2 relative">
           <Button
             onClick={() => setTopUpOpen(true)}
-            className={cn("h-11 rounded-xl font-display uppercase tracking-wide", !canWithdraw && "col-span-2")}
+            className={cn("h-11 rounded-xl", !canWithdraw && "col-span-2")}
           >
-            <Plus className="w-4 h-4 mr-1" /> Top Up
+            <Plus className="w-4 h-4 mr-1" /> Top up
           </Button>
           {canWithdraw && (
             <Button
               onClick={() => setWithdrawOpen(true)}
               variant="secondary"
-              className="h-11 rounded-xl font-display uppercase tracking-wide bg-white/10 text-white hover:bg-white/20 border-white/10"
+              className="h-11 rounded-xl bg-white/10 text-white hover:bg-white/20 border-white/10"
             >
               <Banknote className="w-4 h-4 mr-1" /> Withdraw
             </Button>
@@ -354,7 +363,7 @@ function WalletPage() {
             aria-selected={tab === t}
             onClick={() => setTab(t)}
             className={cn(
-              "flex-1 min-h-11 rounded-lg text-xs font-display uppercase tracking-wide transition relative",
+              "flex-1 min-h-11 rounded-lg text-xs transition relative",
               tab === t ? "bg-background text-foreground shadow-sm" : "text-muted-foreground",
             )}
           >
@@ -381,21 +390,17 @@ function WalletPage() {
           </div>
 
           {noFunds && (
-            <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-              <div className="font-display font-bold uppercase text-xs tracking-wide">No available funds</div>
-              <p className="text-[13px] mt-1 opacity-90">
-                Your available balance is {money(available)}. Top up to cover the commission on new jobs.
-              </p>
-            </div>
+            <Notice tone="danger" title="No available funds">
+              Your available balance is {money(available)}. Top up to cover the commission on new
+              jobs.
+            </Notice>
           )}
 
-          {!pinLoading && !hasPin && (
-            <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4 text-sm">
-              <div className="font-display font-bold uppercase text-xs tracking-wide text-warning">Set a withdrawal PIN</div>
-              <p className="text-[13px] mt-1 opacity-90">
-                A 4–8 digit PIN protects your withdrawals. Set it from your Profile.
-              </p>
-            </div>
+          {/* Only relevant while withdrawals are switched on (launch switch). */}
+          {canWithdraw && !pinLoading && !hasPin && (
+            <Notice tone="warning" title="Set a withdrawal PIN">
+              A 4–8 digit PIN protects your withdrawals. Set it from your Profile.
+            </Notice>
           )}
         </div>
       )}
@@ -412,7 +417,7 @@ function WalletPage() {
                     <ArrowDownLeft className="w-5 h-5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold">Top Up · Paynow</div>
+                    <div className="text-sm font-semibold">Top-up · Paynow</div>
                     <div className="text-xs text-muted-foreground">
                       {new Date(p.paid_at ?? p.created_at).toLocaleString()} · {PAYNOW_STATUS[p.status] ?? p.status}
                     </div>
@@ -561,7 +566,7 @@ function RequestRow({
     : WITHDRAWAL_STATUS[status] ?? { label: status };
   const statusTone: Record<string, string> = {
     pending: "bg-warning/15 text-warning border-warning/30",
-    approved: isTopup || paid ? "bg-success/15 text-success border-success/30" : "bg-primary/15 text-primary border-primary/30",
+    approved: isTopup || paid ? "bg-success/15 text-success border-success/30" : "bg-primary/15 text-cz-amber-text border-primary/30",
     rejected: "bg-destructive/15 text-destructive border-destructive/30",
     cancelled: "bg-muted text-muted-foreground border-border",
     failed: "bg-destructive/15 text-destructive border-destructive/30",
@@ -570,13 +575,13 @@ function RequestRow({
     <div className="rounded-2xl bg-card border p-3">
       <div className="flex items-start gap-3">
         <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0",
-          isTopup ? "bg-success/15 text-success" : "bg-primary/15 text-primary")}>
+          isTopup ? "bg-success/15 text-success" : "bg-primary/15 text-cz-amber-text")}>
           {isTopup ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <div className="text-sm font-semibold">{isTopup ? "Top Up" : "Withdrawal"} · {method.toUpperCase()}</div>
-            <div className={cn("text-sm font-display font-bold", isTopup ? "text-success" : "text-primary")}>
+            <div className="text-sm font-semibold">{isTopup ? "Top-up" : "Withdrawal"} · {method.toUpperCase()}</div>
+            <div className={cn("text-sm font-display font-bold", isTopup ? "text-success" : "text-cz-amber-text")}>
               {isTopup ? "+" : "−"}{money(amount)}
             </div>
           </div>
@@ -584,7 +589,7 @@ function RequestRow({
             {reference ? `Ref: ${reference} · ` : ""}{new Date(createdAt).toLocaleString()}
           </div>
           <div className="mt-2 flex items-center justify-between gap-2">
-            <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase", statusTone[status])}>
+            <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold", statusTone[status])}>
               <Clock className="w-3 h-3" /> {info.label}
             </span>
             {status === "pending" && (
@@ -627,7 +632,7 @@ function Gauge({ pct: raw, ring }: { pct: number; ring: string }) {
           strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct)} />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
-        <Fuel className="w-6 h-6 text-primary" />
+        <Fuel className="w-6 h-6 text-cz-amber-text" />
       </div>
     </div>
   );
@@ -672,13 +677,13 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm rounded-3xl">
         <DialogHeader>
-          <DialogTitle className="font-display uppercase tracking-wide">Top Up Wallet</DialogTitle>
+          <DialogTitle className="font-display">Top up wallet</DialogTitle>
           <DialogDescription>Enter an amount — you'll be securely redirected to Paynow to complete payment.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="rounded-2xl bg-muted p-4">
-            <label htmlFor="topup-amount" className="text-xs uppercase tracking-widest text-muted-foreground">Enter Amount</label>
+            <label htmlFor="topup-amount" className="text-xs text-muted-foreground">Enter Amount</label>
             <div className="flex items-baseline gap-1 mt-1">
               <span className="font-display font-bold text-3xl">$</span>
               <input
@@ -698,8 +703,8 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
                   type="button"
                   onClick={() => setAmount(p)}
                   className={cn(
-                    "flex-1 h-9 rounded-lg text-xs font-display font-bold border transition",
-                    amount === p ? "bg-primary text-primary-foreground border-primary" : "hover:border-primary/40",
+                    "flex-1 h-11 rounded-lg text-sm font-semibold tabular-nums border transition",
+                    amount === p ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "border-input hover:bg-muted",
                   )}
                 >
                   ${p}
@@ -709,7 +714,7 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
           </div>
 
           <div className="rounded-2xl border p-3 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-primary/10 text-cz-amber-text flex items-center justify-center shrink-0">
               <Zap className="w-4 h-4" />
             </div>
             <div className="text-[12px] text-muted-foreground leading-snug">
@@ -717,7 +722,7 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
             </div>
           </div>
 
-          <Button onClick={submit} disabled={submitting} className="w-full h-12 rounded-xl font-display uppercase tracking-wide">
+          <Button onClick={submit} disabled={submitting} className="w-full h-12 rounded-xl">
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Pay with Paynow — {money(amount || 0)}</>}
           </Button>
           <p className="text-xs text-center text-muted-foreground">
@@ -815,7 +820,7 @@ function WithdrawDialog({
     >
       <DialogContent className="max-w-sm rounded-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-display uppercase tracking-wide">
+          <DialogTitle className="font-display">
             {step === "form" ? "Withdraw" : "Confirm withdrawal"}
           </DialogTitle>
           <DialogDescription>
@@ -839,7 +844,7 @@ function WithdrawDialog({
               <Button type="button" variant="outline" disabled={submitting} onClick={() => setStep("form")} className="h-12 rounded-xl">
                 Back
               </Button>
-              <Button type="button" disabled={submitting} onClick={submit} className="h-12 rounded-xl font-display uppercase tracking-wide">
+              <Button type="button" disabled={submitting} onClick={submit} className="h-12 rounded-xl">
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" aria-label="Submitting" /> : "Submit request"}
               </Button>
             </div>
@@ -856,7 +861,7 @@ function WithdrawDialog({
           >
             <div className="rounded-2xl bg-muted p-4">
               <div className="flex items-center justify-between">
-                <label htmlFor="wd-amount" className="text-xs uppercase tracking-widest text-muted-foreground">Amount</label>
+                <label htmlFor="wd-amount" className="text-xs text-muted-foreground">Amount</label>
                 <div className="text-xs text-muted-foreground">Available {money(available)}</div>
               </div>
               <div className="flex items-baseline gap-1 mt-1">
@@ -881,7 +886,7 @@ function WithdrawDialog({
             </div>
 
             <div>
-              <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Payout Method</div>
+              <div className="text-xs text-muted-foreground mb-2">Payout Method</div>
               <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Payout method">
                 {METHODS.map((m) => (
                   <button
@@ -892,10 +897,10 @@ function WithdrawDialog({
                     onClick={() => setMethod(m.id)}
                     className={cn(
                       "flex items-center gap-2 rounded-xl border p-2.5 text-left transition text-xs font-semibold min-h-11",
-                      method === m.id ? "border-primary bg-primary/5" : "hover:border-primary/40",
+                      method === m.id ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "border-input hover:bg-muted",
                     )}
                   >
-                    <m.icon className="w-4 h-4 text-primary" />
+                    <m.icon aria-hidden className="w-4 h-4 text-muted-foreground" />
                     {m.label}
                   </button>
                 ))}
@@ -903,7 +908,7 @@ function WithdrawDialog({
             </div>
 
             <div>
-              <label htmlFor="wd-dest" className="text-xs uppercase tracking-widest text-muted-foreground">Destination (phone / account)</label>
+              <label htmlFor="wd-dest" className="text-xs text-muted-foreground">Destination (phone / account)</label>
               <input
                 id="wd-dest"
                 value={destination}
@@ -917,7 +922,7 @@ function WithdrawDialog({
             </div>
 
             <div>
-              <label htmlFor="wd-pin" className="text-xs uppercase tracking-widest text-muted-foreground">Withdrawal PIN</label>
+              <label htmlFor="wd-pin" className="text-xs text-muted-foreground">Withdrawal PIN</label>
               <input
                 id="wd-pin"
                 type="password"
@@ -940,7 +945,7 @@ function WithdrawDialog({
               </p>
             </div>
 
-            <Button type="submit" disabled={!hasPin || available <= 0} className="w-full h-12 rounded-xl font-display uppercase tracking-wide">
+            <Button type="submit" disabled={!hasPin || available <= 0} className="w-full h-12 rounded-xl">
               Review withdrawal
             </Button>
           </form>

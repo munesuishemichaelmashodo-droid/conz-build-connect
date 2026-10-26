@@ -187,7 +187,7 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
 
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
-      <div className="font-display font-bold uppercase text-sm tracking-wide flex items-center gap-2">
+      <div className="font-semibold text-sm flex items-center gap-2">
         <MessageCircle className="w-4 h-4 text-success" /> Contact {name}
       </div>
       <p className="text-xs text-muted-foreground -mt-2">
@@ -636,14 +636,14 @@ function JobDetail() {
 
             <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
               <div>
-                <div className="text-[11px] uppercase text-muted-foreground tracking-widest">Quantity</div>
+                <div className="text-xs text-muted-foreground">Quantity</div>
                 <div className="font-semibold">{Number(job.quantity_m3)} m³</div>
               </div>
               <div>
-                <div className="text-[11px] uppercase text-muted-foreground tracking-widest">
+                <div className="text-xs text-muted-foreground">
                   {isOwner ? "Your offer" : "Offer"}
                 </div>
-                <div className="font-display font-bold text-primary text-lg">{money(Number(job.budget))}</div>
+                <div className="font-display font-bold text-cz-amber-text text-lg">{money(Number(job.budget))}</div>
               </div>
             </div>
 
@@ -664,7 +664,7 @@ function JobDetail() {
             {job.final_price && (
               <div className="mt-3 pt-3 border-t text-sm flex justify-between">
                 <span className="text-muted-foreground">Agreed price</span>
-                <span className="font-display font-bold text-primary">{money(Number(job.final_price))}</span>
+                <span className="font-display font-bold text-cz-amber-text">{money(Number(job.final_price))}</span>
               </div>
             )}
           </div>
@@ -672,8 +672,8 @@ function JobDetail() {
 
         {isOwner && escrowRefund && (
           <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4 space-y-1">
-            <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
-              <ShieldCheck className="w-4 h-4 text-primary" />
+            <div className="flex items-center gap-2 font-semibold text-sm">
+              <ShieldCheck className="w-4 h-4 text-cz-amber-text" />
               Con Z Pay refund
             </div>
             <p className="text-sm text-muted-foreground">
@@ -691,15 +691,15 @@ function JobDetail() {
         {showActionSection && (
           <Section id="tour-next-steps" title="What's next">
             <div className="space-y-4">
-              {showRadar && <RadarSearch etaMinutes={5} nearbyDrivers={nearbyDrivers} />}
+              {showRadar && <RadarSearch nearbyDrivers={nearbyDrivers} />}
 
               {showEscrowBanner && (
                 <div className={cn(
                   "rounded-2xl border p-4 space-y-2",
                   escrowPaid ? "border-success/40 bg-success/10" : "border-primary/40 bg-primary/5",
                 )}>
-                  <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
-                    <ShieldCheck className={cn("w-4 h-4", escrowPaid ? "text-success" : "text-primary")} />
+                  <div className="flex items-center gap-2 font-semibold text-sm">
+                    <ShieldCheck className={cn("w-4 h-4", escrowPaid ? "text-success" : "text-cz-amber-text")} />
                     Con Z Pay
                   </div>
                   {escrowPaid ? (
@@ -738,7 +738,7 @@ function JobDetail() {
 
               {showCounterResponse && (
                 <div className="rounded-2xl bg-primary/5 border border-primary/30 p-4 space-y-3">
-                  <div className="font-display font-bold uppercase text-sm tracking-wide text-primary">
+                  <div className="font-semibold text-sm text-cz-amber-text">
                     Customer proposed a new price
                   </div>
                   <div className="flex items-baseline gap-2">
@@ -784,7 +784,7 @@ function JobDetail() {
 
               {showDeliveryPinDisplay && (
                 <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4 space-y-2 text-center">
-                  <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
+                  <div className="text-xs text-muted-foreground font-semibold">
                     Delivery confirmation code
                   </div>
                   <div className="font-display font-bold text-4xl tracking-[0.2em]">{deliveryPin ?? "······"}</div>
@@ -827,7 +827,7 @@ function JobDetail() {
             <div className="space-y-4">
               {showProofPhotos && (
                 <div className="rounded-2xl bg-card border p-4 space-y-3">
-                  <div className="font-display font-bold uppercase text-sm tracking-wide">Proof of delivery</div>
+                  <div className="font-semibold text-sm">Proof of delivery</div>
                   <div className="grid grid-cols-2 gap-3">
                     {job.pickup_photo_url && (
                       <figure className="space-y-1">
@@ -916,7 +916,7 @@ function JobDetail() {
                             src={b.profile?.avatar_url ?? undefined}
                             alt={b.profile?.full_name ?? "Driver"}
                           />
-                          <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                          <AvatarFallback className="bg-primary/10 text-cz-amber-text font-bold">
                             {(b.profile?.full_name ?? "D").trim().slice(0, 1).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
@@ -946,7 +946,7 @@ function JobDetail() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-display font-bold text-primary text-xl">{money(Number(b.price))}</div>
+                        <div className="font-display font-bold text-cz-amber-text text-xl">{money(Number(b.price))}</div>
                         {b.delivery_date && <div className="text-[11px] text-muted-foreground">{b.delivery_date}</div>}
                       </div>
                     </div>
@@ -972,7 +972,7 @@ function JobDetail() {
 
                     {b.counter_status === "countered" && (
                       <div className="mt-2 rounded-lg bg-primary/5 border border-primary/30 p-2.5 text-xs space-y-1">
-                        <div className="font-semibold text-primary">
+                        <div className="font-semibold text-cz-amber-text">
                           Your counter-offer: {money(Number(b.customer_counter_price))}
                         </div>
                         <div className="text-muted-foreground">Waiting for the driver to respond.</div>
@@ -1061,7 +1061,7 @@ function JobDetail() {
                 <Link
                   to="/customer/book"
                   search={bookAgainSearch(job, { sameDriver: true }) ?? {}}
-                  className="block w-full text-center rounded-xl bg-primary text-primary-foreground font-display font-bold uppercase tracking-wide py-3"
+                  className="block w-full text-center rounded-xl bg-primary text-primary-foreground font-display font-bold py-3"
                 >
                   Book this driver again
                 </Link>
@@ -1137,7 +1137,7 @@ function CounterOfferRow({
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="w-full min-h-11 text-center text-xs font-semibold text-primary underline underline-offset-2">
+      <button type="button" onClick={() => setOpen(true)} className="w-full min-h-11 text-center text-xs font-semibold text-cz-amber-text underline underline-offset-2">
         Propose a different price
       </button>
     );
@@ -1164,7 +1164,7 @@ function CounterOfferRow({
 
 const MATCH_TIER_LABEL: Record<string, { label: string; className: string }> = {
   excellent: { label: "Excellent match", className: "bg-success/15 text-success border-success/30" },
-  good: { label: "Good match", className: "bg-primary/10 text-primary border-primary/30" },
+  good: { label: "Good match", className: "bg-primary/10 text-cz-amber-text border-primary/30" },
   oversized: { label: "Oversized", className: "bg-muted text-muted-foreground border-border" },
   multiple_trips: { label: "Multiple trips", className: "bg-warning/15 text-warning border-warning/30" },
 };
@@ -1373,7 +1373,7 @@ function BidForm({
                 aria-pressed={priceNum === v}
                 className={cn(
                   "min-h-12 rounded-xl text-[15px] font-semibold tabular-nums",
-                  priceNum === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-cz-border-strong bg-cz-surface",
+                  priceNum === v ? "border border-cz-text bg-cz-surface-2 text-cz-text shadow-[inset_0_0_0_1px_var(--cz-text)]" : "border border-cz-border-strong bg-cz-surface text-cz-text hover:bg-cz-surface-2",
                 )}
               >
                 {usd(v)}
@@ -1425,7 +1425,7 @@ function BidForm({
           </HintBox>
         )}
         {showFundsWarning && (
-          <div className="rounded-[14px] bg-cz-warn-tint p-3.5 text-cz-warn-text space-y-2">
+          <div className="rounded-xl bg-cz-warn-tint p-3.5 text-cz-warn-text space-y-2">
             <div className="flex items-start gap-2">
               <Wallet className="w-4 h-4 mt-0.5 shrink-0" />
               <div className="text-sm">
@@ -1460,7 +1460,7 @@ function BidForm({
                 aria-pressed={etaMinutes === o.v}
                 className={cn(
                   "min-h-12 rounded-xl text-[15px] font-semibold",
-                  etaMinutes === o.v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-cz-border-strong bg-cz-surface",
+                  etaMinutes === o.v ? "border border-cz-text bg-cz-surface-2 text-cz-text shadow-[inset_0_0_0_1px_var(--cz-text)]" : "border border-cz-border-strong bg-cz-surface text-cz-text hover:bg-cz-surface-2",
                 )}
               >
                 {o.label}
@@ -1500,7 +1500,7 @@ function BidForm({
           </div>
         )}
 
-        <details className="group rounded-[14px] border border-cz-border bg-cz-surface">
+        <details className="group rounded-xl border border-cz-border bg-cz-surface">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-[15px] font-semibold">
             Delivery date & message <span className="text-cz-muted font-normal text-sm">(optional)</span>
             <ChevronDown className="w-4 h-4 text-cz-muted transition group-open:rotate-180" />
@@ -1525,9 +1525,9 @@ function BidForm({
         </details>
 
         {job && (
-          <details className="group rounded-[14px] border border-cz-border bg-cz-surface">
+          <details className="group rounded-xl border border-cz-border bg-cz-surface">
             <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-[15px] font-semibold">
-              <span className="flex items-center gap-2"><Navigation2 className="w-4 h-4 text-cz-amber" /> Check the route</span>
+              <span className="flex items-center gap-2"><Navigation2 className="w-4 h-4 text-cz-amber-text" /> Check the route</span>
               <ChevronDown className="w-4 h-4 text-cz-muted transition group-open:rotate-180" />
             </summary>
             <div className="px-4 pb-4 -mt-2">
@@ -1578,7 +1578,7 @@ function RatingSummary({ title, stars, comment }: { title: string; stars: number
   const rounded = Math.round(stars);
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-2">
-      <div className="font-display font-bold uppercase text-sm tracking-wide">{title}</div>
+      <div className="font-semibold text-sm">{title}</div>
       <div className="flex items-center gap-2">
         <div className="flex gap-1">
           {[1, 2, 3, 4, 5].map((n) => (
@@ -1634,7 +1634,7 @@ function RateForm({ jobId, driverId, onSaved }: { jobId: string; driverId: strin
 
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
-      <div className="font-display font-bold uppercase text-sm tracking-wide">Rate this driver</div>
+      <div className="font-semibold text-sm">Rate this driver</div>
       <Stars value={q} onChange={setQ} label="Quality" />
       <Stars value={c} onChange={setC} label="Communication" />
       <Stars value={r} onChange={setR} label="Reliability" />
@@ -1699,7 +1699,7 @@ function RateCustomerForm({ jobId, customerId, onSaved }: { jobId: string; custo
 
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
-      <div className="font-display font-bold uppercase text-sm tracking-wide">Rate this customer (optional)</div>
+      <div className="font-semibold text-sm">Rate this customer (optional)</div>
       <p className="text-xs text-muted-foreground">Help other drivers by sharing your experience.</p>
       <Stars value={punctuality} onChange={setP} label="Punctuality" />
       <Stars value={communication} onChange={setC} label="Communication" />
@@ -1975,7 +1975,7 @@ function RaiseDisputeDialog({ jobId, against, label }: { jobId: string; against:
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button type="button" className={czButtonClass("danger", "md")}>
+        <button type="button" className={czButtonClass("secondary", "md")}>
           <Flag className="w-4 h-4" /> {label ?? "Report a problem"}
         </button>
       </DialogTrigger>
@@ -2051,7 +2051,7 @@ function JobTimeline({ job }: { job: any }) {
         {steps.map((s, i) => {
           const Icon = s.done ? s.icon : Circle;
           const color = s.active
-            ? "text-primary"
+            ? "text-cz-amber-text"
             : s.done
               ? "text-success"
               : "text-muted-foreground";
@@ -2076,7 +2076,7 @@ function JobTimeline({ job }: { job: any }) {
                   <div className={`h-0.5 flex-1 ${s.done ? "bg-success" : "bg-border"}`} />
                 )}
               </div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wide text-center ${color}`}>
+              <div className={`text-xs font-semibold text-center ${color}`}>
                 {s.label}
               </div>
             </div>
@@ -2171,7 +2171,7 @@ function firstName(name: string | null | undefined, fallback: string) {
 /** Round overlay button for use on top of a map. */
 function MapBackButton({ to, onClick }: { to?: string; onClick?: () => void }) {
   const cls =
-    "pointer-events-auto w-11 h-11 shrink-0 rounded-[14px] bg-cz-bg text-cz-text flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.4)]";
+    "pointer-events-auto w-11 h-11 shrink-0 rounded-xl bg-cz-bg text-cz-text flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.4)]";
   return onClick ? (
     <button type="button" onClick={onClick} aria-label="Back" className={cls}>
       <ArrowLeft className="w-5 h-5" />
@@ -2189,7 +2189,7 @@ function ContactCard({ ctx, subtitle, role }: { ctx: JobScreenCtx; subtitle: Rea
   const { other, name, call } = useJobContact(ctx.job, ctx.isOwner);
   const who = role === "driver" ? "driver" : "customer";
   return (
-    <div className="flex items-center gap-3 rounded-[14px] border border-cz-border bg-cz-surface px-3.5 py-3">
+    <div className="flex items-center gap-3 rounded-xl border border-cz-border bg-cz-surface px-3.5 py-3">
       <InitialsAvatar name={other?.full_name ?? name} />
       <div className="flex-1 min-w-0">
         <div className="font-semibold truncate">{other?.full_name ?? name}</div>
@@ -2256,7 +2256,7 @@ function StageHero({
       <span className="rounded-full bg-cz-bg/60 p-5">
         <Icon className="h-14 w-14" />
       </span>
-      <span className="text-xs font-semibold uppercase tracking-widest opacity-90">
+      <span className="text-xs font-semibold opacity-90">
         Step {stage + 1} of 4 · {label}
       </span>
     </div>
@@ -2421,9 +2421,9 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
         />
         <div id="tour-place-bid" className="px-5 space-y-4">
           <CzCard selected className="space-y-3">
-            <div className="text-sm font-semibold text-cz-amber-text">Customer proposed a new price</div>
+            <div className="text-sm font-semibold text-cz-text">Customer proposed a new price</div>
             <div className="flex items-baseline gap-3">
-              <span className="cz-display font-bold text-5xl text-cz-amber">{usd(Number(myBid.customer_counter_price))}</span>
+              <span className="cz-display font-bold text-5xl text-cz-text tabular-nums">{usd(Number(myBid.customer_counter_price))}</span>
               <span className="text-sm text-cz-muted line-through">{usd(Number(myBid.price))}</span>
             </div>
             <p className="text-sm text-cz-muted">
@@ -2469,7 +2469,7 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
         <div className={cn("flex flex-col items-center gap-3.5 px-5 pt-6 pb-6 text-center", expired && "hidden")}>
           <div className="relative w-[132px] h-[132px] flex items-center justify-center">
             <span aria-hidden className="cz-pulse-ring absolute inset-0 rounded-full border-2 border-cz-amber" />
-            <span className="w-[92px] h-[92px] rounded-full bg-cz-amber-tint-2 flex items-center justify-center text-cz-amber">
+            <span className="w-[92px] h-[92px] rounded-full bg-cz-amber-tint-2 flex items-center justify-center text-cz-amber-text">
               <Truck className="w-11 h-11" strokeWidth={1.8} />
             </span>
           </div>
@@ -2481,7 +2481,7 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
 
         <div id="tour-place-bid" className="px-5 space-y-2.5">
           <div className="text-sm font-semibold text-cz-muted">Offers on this job</div>
-          <div className="flex items-center justify-between gap-3 rounded-[14px] border-[1.5px] border-cz-amber bg-cz-surface px-4 py-3.5">
+          <div className="flex items-center justify-between gap-3 rounded-xl border-[1.5px] border-cz-text bg-cz-surface px-4 py-3.5">
             <div className="min-w-0">
               <div className="font-bold">Your offer</div>
               <div className="text-[13px] text-cz-muted truncate">
@@ -2497,10 +2497,10 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
                 <div className="text-[13px] text-cz-muted">You declined the customer's counter of {usd(Number(myBid.customer_counter_price))}.</div>
               )}
             </div>
-            <span className="cz-display font-bold text-[28px] text-cz-amber tabular-nums">{usd(Number(myBid.price))}</span>
+            <span className="cz-display font-bold text-[28px] text-cz-text tabular-nums">{usd(Number(myBid.price))}</span>
           </div>
           {summary && (
-            <div className="flex items-center justify-between gap-3 rounded-[14px] border border-cz-border bg-cz-surface px-4 py-3.5">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-cz-border bg-cz-surface px-4 py-3.5">
               <div className="min-w-0">
                 <div className="font-semibold">
                   {summary.others === 0 ? "No other offers yet" : `${summary.others} other driver${summary.others === 1 ? "" : "s"}`}
@@ -2574,7 +2574,7 @@ function JobSummaryCard({ job, id = "tour-job-header" }: { job: any; id?: string
   return (
     <CzCard id={id} className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <MaterialBadge>
+        <MaterialBadge material={job.material}>
           {materialLabel(job.material as any, job.custom_material)} · {Number(job.quantity_m3)} m³
         </MaterialBadge>
         <span className="text-[13px] text-cz-muted">Customer offered {usd(Number(job.budget))}</span>
@@ -2828,9 +2828,9 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
 
         <ProofPhotos job={job} viewer="driver" />
 
-        <details className="group rounded-[14px] border border-cz-border bg-cz-surface">
+        <details className="group rounded-xl border border-cz-border bg-cz-surface">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-[15px] font-semibold">
-            <span className="flex items-center gap-2"><Navigation2 className="w-4 h-4 text-cz-amber" /> More navigation options</span>
+            <span className="flex items-center gap-2"><Navigation2 className="w-4 h-4 text-cz-amber-text" /> More navigation options</span>
             <ChevronDown className="w-4 h-4 text-cz-muted transition group-open:rotate-180" />
           </summary>
           <div className="px-4 pb-4 -mt-2">
@@ -2921,7 +2921,7 @@ function DriverPaid({ ctx }: { ctx: JobScreenCtx }) {
         {driver && lvl && (
           <CzCard className="space-y-2.5">
             <div className="flex justify-between text-sm">
-              <span className="font-semibold text-cz-amber">{lvl.label}</span>
+              <span className="font-semibold text-cz-amber-text">{lvl.label}</span>
               <span className="text-cz-muted">
                 {next && lvl.nextAt != null
                   ? `${Math.max(0, lvl.nextAt - driver.jobs_completed)} jobs to ${next.label}`
@@ -3063,7 +3063,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
           )}
         </dl>
 
-        {ctx.showRadar && <RadarSearch etaMinutes={5} nearbyDrivers={ctx.nearbyDrivers} />}
+        {ctx.showRadar && <RadarSearch nearbyDrivers={ctx.nearbyDrivers} />}
 
         {live.length > 1 && (
           <ToggleGroupPrimitive.Root
@@ -3111,7 +3111,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
         </div>
 
         {earlier.length > 0 && (
-          <details className="group rounded-[18px] border border-cz-border bg-cz-surface">
+          <details className="group rounded-2xl border border-cz-border bg-cz-surface">
             <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 text-sm font-semibold text-cz-muted [&::-webkit-details-marker]:hidden">
               {earlier.length} earlier offer{earlier.length === 1 ? "" : "s"}
               <ChevronDown aria-hidden className="h-4 w-4 transition group-open:rotate-180" />
@@ -3134,7 +3134,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
           <div className="text-sm font-semibold text-cz-muted">Your request</div>
           <CzCard id="tour-job-header" className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <MaterialBadge>
+              <MaterialBadge material={job.material}>
                 {materialLabel(job.material as any, job.custom_material)} · {Number(job.quantity_m3)} m³
               </MaterialBadge>
               <span className="text-[13px] text-cz-muted">{ctx.isEscrow ? "Con Z Pay" : "Pay driver directly"}</span>
@@ -3214,7 +3214,7 @@ function RaisePriceCard({ job, onRaised }: { job: any; onRaised: () => void }) {
             aria-pressed={target === v}
             className={cn(
               "min-h-12 rounded-xl text-[15px] font-semibold tabular-nums",
-              target === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-cz-border-strong bg-cz-surface",
+              target === v ? "border border-cz-text bg-cz-surface-2 text-cz-text shadow-[inset_0_0_0_1px_var(--cz-text)]" : "border border-cz-border-strong bg-cz-surface text-cz-text hover:bg-cz-surface-2",
             )}
           >
             +{usd(v - current)}
@@ -3293,7 +3293,7 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
 
         <div className="space-y-2">
           <div className="text-sm font-semibold text-cz-muted">Pay with</div>
-          <div className="flex items-center gap-3 rounded-[14px] border-[1.5px] border-cz-amber bg-cz-amber-tint px-4 py-3.5">
+          <div className="flex items-center gap-3 rounded-xl border-[1.5px] border-cz-amber bg-cz-amber-tint px-4 py-3.5">
             <span aria-hidden className="w-5 h-5 rounded-full border-[6px] border-cz-amber bg-cz-bg shrink-0" />
             <div className="min-w-0">
               <div className="font-semibold">Paynow</div>
@@ -3509,7 +3509,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
           </div>
           <ShareTrackingButton
             ctx={ctx}
-            className="pointer-events-auto min-h-11 inline-flex items-center gap-1.5 rounded-[14px] bg-cz-bg px-3.5 text-sm font-semibold shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
+            className="pointer-events-auto min-h-11 inline-flex items-center gap-1.5 rounded-xl bg-cz-bg px-3.5 text-sm font-semibold shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
           />
         </div>
       </div>
@@ -3534,17 +3534,6 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
                 </button>
               </div>
             </HintBox>
-          )}
-
-          {step >= 2 && job.pickup_photo_url && (
-            <div className="flex items-center gap-3">
-              <div className="w-16 shrink-0">
-                <SignedProofPhoto path={job.pickup_photo_url} alt="Loaded truck at pickup" />
-              </div>
-              <div className="text-[13px] text-cz-muted">
-                <span className="font-semibold text-cz-green-text">Loaded</span> — photo taken at pickup
-              </div>
-            </div>
           )}
 
           {/* Information, not an action: a tinted card, so solid orange stays for the
@@ -3581,12 +3570,24 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
             </section>
           )}
 
-          {ctx.showCompleteButton && (
-            <CzButton id="tour-confirm-delivery" kind={job.delivery_photo_url ? "primary" : "ghost"} onClick={ctx.completeJob} disabled={!job.delivery_photo_url}>
-              <CheckCircle2 className="w-5 h-5" />
-              {job.delivery_photo_url ? "Load received — finish" : "Waiting for driver's delivery photo"}
-            </CzButton>
-          )}
+          {/* Until the driver's delivery photo is in, this is a status line, not a
+              greyed-out button: there is nothing for the customer to tap yet. */}
+          {ctx.showCompleteButton &&
+            (job.delivery_photo_url ? (
+              <CzButton id="tour-confirm-delivery" kind="primary" onClick={ctx.completeJob}>
+                <CheckCircle2 className="w-5 h-5" />
+                Confirm the load arrived
+              </CzButton>
+            ) : (
+              <p
+                id="tour-confirm-delivery"
+                role="status"
+                className="flex items-center gap-2 rounded-xl border border-dashed border-cz-border-strong px-3.5 py-3 text-sm text-cz-muted"
+              >
+                <Clock aria-hidden className="h-4 w-4 shrink-0" />
+                You can confirm once the driver adds the delivery photo.
+              </p>
+            ))}
         </div>
 
         {location !== "live" && (

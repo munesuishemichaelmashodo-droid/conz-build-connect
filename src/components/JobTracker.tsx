@@ -16,7 +16,7 @@ import { CARTO_VOYAGER_TILES } from "@/lib/map-tiles";
 // Fix default marker icons (Vite breaks Leaflet's default path resolution)
 const truckIcon = L.divIcon({
   className: "",
-  html: `<div style="background:hsl(var(--primary));color:hsl(var(--primary-foreground));width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px">🚚</div>`,
+  html: `<div style="background:var(--cz-amber);color:var(--cz-amber-ink);width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px">🚚</div>`,
   iconSize: [32, 32],
   iconAnchor: [16, 16],
 });
@@ -121,8 +121,8 @@ export function DriverShareLocation({ jobId, driverId, compact = false }: { jobI
           title="Don't forget to turn this on"
           body="The customer can't see your progress at all until you tap 'Start sharing location' — do this every time you begin a delivery, or they'll have no idea where their order is."
         />
-        <div className="flex items-center gap-3 rounded-[14px] border border-cz-border bg-cz-surface px-3.5 py-3">
-          <Navigation2 className={sharing ? "w-5 h-5 text-cz-green shrink-0" : "w-5 h-5 text-cz-amber shrink-0"} />
+        <div className="flex items-center gap-3 rounded-xl border border-cz-border bg-cz-surface px-3.5 py-3">
+          <Navigation2 className={sharing ? "w-5 h-5 text-cz-green shrink-0" : "w-5 h-5 text-cz-amber-text shrink-0"} />
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold">
               Live location{" "}
@@ -146,7 +146,7 @@ export function DriverShareLocation({ jobId, driverId, compact = false }: { jobI
                 type="button"
                 onClick={start}
                 disabled={busy}
-                className="min-h-11 shrink-0 rounded-xl border-[1.5px] border-cz-amber px-3.5 text-sm font-bold text-cz-amber disabled:opacity-50"
+                className="min-h-11 shrink-0 rounded-xl border-[1.5px] border-cz-amber px-3.5 text-sm font-bold text-cz-amber-text disabled:opacity-50"
               >
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Start sharing"}
               </button>
@@ -171,8 +171,8 @@ export function DriverShareLocation({ jobId, driverId, compact = false }: { jobI
         title="Don't forget to turn this on"
         body="The customer can't see your progress at all until you tap 'Start sharing location' — do this every time you begin a delivery, or they'll have no idea where their order is."
       />
-      <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
-        <Navigation2 className="w-4 h-4 text-primary" /> Live GPS
+      <div className="flex items-center gap-2 font-semibold text-sm">
+        <Navigation2 className="w-4 h-4 text-cz-amber-text" /> Live GPS
       </div>
       <p className="text-xs text-muted-foreground">Share your live location with the customer while you deliver.</p>
       {!privacyOn ? (
@@ -290,8 +290,8 @@ export function CustomerTrackMap({
         body="Once your driver starts sharing their location, you'll see them move on this map right up to your delivery point."
       />
       <div className="rounded-2xl bg-card border overflow-hidden">
-        <div className="flex items-center gap-2 px-4 pt-4 pb-2 font-display font-bold uppercase text-sm tracking-wide">
-          <MapPin className="w-4 h-4 text-primary" /> Live driver location
+        <div className="flex items-center gap-2 px-4 pt-4 pb-2 font-semibold text-sm">
+          <MapPin className="w-4 h-4 text-cz-amber-text" /> Live driver location
         </div>
         {!loc ? (
           <p className="px-4 pb-4 text-xs text-muted-foreground">
@@ -315,7 +315,7 @@ export function CustomerTrackMap({
                     subdomains="abcd"
                     maxZoom={20}
                   />
-                <Marker position={[loc.lat, loc.lng]} icon={truckIcon}>
+                <Marker position={[loc.lat, loc.lng]} icon={truckIcon} title="Truck location">
                   <Popup>Updated {new Date(loc.updated_at).toLocaleTimeString()}</Popup>
                 </Marker>
               </MapContainer>
@@ -398,7 +398,7 @@ export function DriverRouteView({
     if (loading) {
       return (
         <div className={box} style={{ height }}>
-          <Loader2 className="w-5 h-5 animate-spin text-cz-amber" />
+          <Loader2 className="w-5 h-5 animate-spin text-cz-amber-text" />
           <span>Loading route to the delivery point…</span>
           {slow && (
             <>

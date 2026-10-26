@@ -4,7 +4,7 @@
 // back from driver_profiles.verification_status.
 
 export const STAGES = [
-  { key: "phone", title: "Verify phone" },
+  { key: "phone", title: "Your phone" },
   { key: "details", title: "Your details" },
   { key: "documents", title: "Truck & documents" },
   { key: "status", title: "Account status" },
@@ -220,14 +220,32 @@ export function hasSubmitted(
 export function verificationBanner(
   status: "pending" | "verified" | "rejected" | null | undefined,
   submitted: boolean,
+  extra: { notes?: string | null; reverifyDueAt?: string | null; now?: Date } = {},
 ): { title: string; body: string; action: string } | null {
-  if (status === "verified") return null;
+  if (status === "verified") {
+    // is_verified_driver() also requires the 90-day re-check to be in date; when it
+    // isn't, the database stops this driver bidding, so say so.
+    if (reverifyOverdue(extra.reverifyDueAt, extra.now)) {
+      return {
+        title: "Your 90-day check is due",
+        body: "Upload any updated documents so Con Z can check them. You can bid again once they're approved.",
+        action: "Update documents",
+      };
+    }
+    return null;
+  }
   if (status === "rejected") {
     return {
       title: "Your application needs changes",
       body: "See what to fix, upload it again and resubmit.",
       action: "See what to fix",
     };
+  }
+  // A note on a pending profile means an approved driver changed a truck or a
+  // document (0114 / document re-review) and is back in review; show the reason.
+  const note = extra.notes?.trim();
+  if (note) {
+    return { title: "We're checking your changes", body: note, action: "Check status" };
   }
   if (submitted) {
     return {
@@ -238,9 +256,25 @@ export function verificationBanner(
   }
   return {
     title: "Finish your driver sign-up",
-    body: "Verify your phone, add your truck and upload your documents to start bidding.",
+    body: "Add your phone number, truck and documents to start bidding.",
     action: "Continue sign-up",
   };
+}
+
+function reverifyOverdue(due: string | null | undefined, now = new Date()): boolean {
+  if (!due) return false;
+  const t = new Date(due).getTime();
+  return !Number.isNaN(t) && t <= now.getTime();
+}
+
+/** True when a driver can't bid right now and the home screen should say why. */
+export function driverNeedsBanner(
+  driver:
+    { verification_status?: string | null; reverify_due_at?: string | null } | null | undefined,
+  now = new Date(),
+): boolean {
+  if (!driver || driver.verification_status !== "verified") return true;
+  return reverifyOverdue(driver.reverify_due_at, now);
 }
 
 /** "No ratings yet" instead of a 0.0 star when nobody has rated the driver. */
@@ -256,4 +290,116 @@ export function ratingLabel(
 export function jobsDoneLabel(n: number | null | undefined): string {
   const v = Math.max(0, Number(n ?? 0));
   return `${v} ${v === 1 ? "job" : "jobs"} done`;
+}
+
+// ---------------------------------------------------------------------------
+// Phone without SMS (25/10/2026). ConZ has no free SMS sender, so the phone step
+// saves the number to the driver's own profile and moves on. Nothing in the
+// database depends on phone verification (checked 25/10: no function or policy
+// reads auth phone confirmation), and a saved number is never shown as verified.
+// ---------------------------------------------------------------------------
+
+export type PhoneStatus = "sms_verified" | "unverified" | "missing";
+
+const digitsOnly = (v: string | null | undefined) => (v ?? "").replace(/\D/g, "");
+
+/** A saved international number (as normalisePhone builds it) finishes the phone step. */
+export function phoneStepComplete(profilePhone: string | null | undefined): boolean {
+  const d = digitsOnly(profilePhone);
+  return d.length >= 9 && d.length <= 15;
+}
+
+/**
+ * Verified by SMS only when Supabase Auth confirmed this same number (Auth stores
+ * it without the +). Anything else is unverified, never "verified".
+ */
+export function phoneStatus(input: {
+  profilePhone: string | null | undefined;
+  authPhone: string | null | undefined;
+  authPhoneConfirmedAt: string | null | undefined;
+}): PhoneStatus {
+  const saved = digitsOnly(input.profilePhone);
+  if (!saved) return "missing";
+  const auth = digitsOnly(input.authPhone);
+  if (auth && auth === saved && input.authPhoneConfirmedAt) return "sms_verified";
+  return "unverified";
+}
+
+/** Which step to reopen: progress comes from the database, so a driver can leave and come back. */
+export function firstUnfinishedStage(input: {
+  submitted: boolean;
+  phoneSaved: boolean;
+  detailsDone: boolean;
+}): number {
+  if (input.submitted) return 3;
+  if (!input.phoneSaved) return 0;
+  if (!input.detailsDone) return 1;
+  return 2;
+}
+
+export type ChecklistState = "done" | "waiting" | "todo" | "problem";
+
+export interface ChecklistRow {
+  key: "account" | "application" | "phone" | "identity" | "truck" | "approval";
+  label: string;
+  state: ChecklistState;
+}
+
+/**
+ * The status screen's separate lines. Inputs come from the database. Identity and
+ * truck are checked in the same admin review today (one verification status per
+ * driver), so both lines follow that status; final approval also needs the driver
+ * role, which only admin approval grants.
+ */
+export function applicationChecklist(input: {
+  phone: PhoneStatus;
+  submitted: boolean;
+  status: "pending" | "verified" | "rejected" | null | undefined;
+  isDriver: boolean;
+}): ChecklistRow[] {
+  const review: ChecklistState = !input.submitted
+    ? "todo"
+    : input.status === "verified"
+      ? "done"
+      : input.status === "rejected"
+        ? "problem"
+        : "waiting";
+  const reviewWord =
+    review === "done"
+      ? "approved"
+      : review === "problem"
+        ? "not accepted"
+        : review === "waiting"
+          ? "in review"
+          : "not sent";
+  const approved = input.status === "verified" && input.isDriver;
+  return [
+    { key: "account", label: "Con Z account created", state: "done" },
+    {
+      key: "application",
+      label: input.submitted ? "Application sent" : "Application not sent yet",
+      state: input.submitted ? "done" : "todo",
+    },
+    {
+      key: "phone",
+      label:
+        input.phone === "sms_verified"
+          ? "Phone verified by SMS"
+          : input.phone === "unverified"
+            ? "Phone saved (not verified)"
+            : "Phone number missing",
+      state: input.phone === "sms_verified" ? "done" : "todo",
+    },
+    { key: "identity", label: `ID and licence: ${reviewWord}`, state: review },
+    { key: "truck", label: `Truck: ${reviewWord}`, state: review },
+    {
+      key: "approval",
+      label: approved
+        ? "Approved to bid on jobs"
+        : input.status === "rejected"
+          ? "Not approved"
+          : "Not approved yet",
+      state: approved ? "done" : input.status === "rejected" ? "problem" : "waiting",
+    },
+  ];
 }
