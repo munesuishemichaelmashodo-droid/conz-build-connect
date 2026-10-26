@@ -655,7 +655,12 @@ const server = http.createServer(async (req, res) => {
           return send(res, 409, { code: "23505", message: "duplicate key value violates unique constraint (mock)" });
         }
         // Column defaults the real tables have (a new job starts open with no driver).
-        const defaults = name === "jobs" ? { status: "open", driver_id: null } : {};
+        const defaults =
+          name === "jobs"
+            ? { status: "open", driver_id: null }
+            : name === "bids" // what bids_guard_insert and tg_bids_offer_expiry set in the database
+              ? { status: "pending", counter_status: "none", expires_at: new Date(Date.now() + 30 * 60_000).toISOString() }
+              : {};
         const fresh = { id: randomUUID(), created_at: new Date().toISOString(), ...defaults, ...row };
         db[name].push(fresh);
         out.push(fresh);
