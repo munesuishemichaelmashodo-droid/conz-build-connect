@@ -66,7 +66,7 @@ export function quickPriceStage(input: {
   if (!input.hasDelivery)
     return {
       kind: "needs_delivery",
-      prompt: "Next, set where the load should be delivered.",
+      prompt: "Where should we deliver? Add your delivery location to see an estimate.",
     };
   if (input.loading) return { kind: "checking", prompt: "Finding a supplier and the road route…" };
   if (input.result?.error) return { kind: "error", prompt: input.result.error };
