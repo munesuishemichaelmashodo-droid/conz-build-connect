@@ -1,4 +1,5 @@
 import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
+import { serverNow, syncServerClock } from "@/lib/server-clock";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1451,7 +1452,7 @@ function BidForm({
               { v: 15, label: "15 min" },
               { v: 30, label: "30 min" },
               { v: 60, label: "1 hr" },
-              { v: null, label: "Later" },
+              { v: null, label: "Not sure" },
             ].map((o) => (
               <button
                 key={String(o.v)}
@@ -1467,6 +1468,11 @@ function BidForm({
               </button>
             ))}
           </div>
+          {etaMinutes === null && (
+            <p className="text-[13px] text-cz-muted">
+              The customer sees "To confirm" for pickup and arrival. Offers with a time are easier to choose.
+            </p>
+          )}
         </div>
 
         {trucks && trucks.length > 0 && (
@@ -2990,9 +2996,14 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
   const { job, bids, id } = ctx;
   // Re-evaluate which offers are still live as their 30-minute windows
   // (migration 0062) run out.
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(() => serverNow());
   useEffect(() => {
-    const t = window.setInterval(() => setNow(Date.now()), 15_000);
+    const refresh = () => setNow(serverNow());
+    void syncServerClock().then(refresh);
+    const t = window.setInterval(() => {
+      void syncServerClock().then(refresh); // no-op once measured
+      refresh();
+    }, 15_000);
     return () => window.clearInterval(t);
   }, []);
   const [sort, setSort] = useState<OfferSort>("price");

@@ -122,7 +122,9 @@ export function OfferCard({
             )}
             {bid.driver && (
               <span className="inline-flex items-center gap-1">
-                {rated && <Star aria-hidden className="h-3.5 w-3.5 fill-cz-amber text-cz-amber-text" />}
+                {rated && (
+                  <Star aria-hidden className="h-3.5 w-3.5 fill-cz-amber text-cz-amber-text" />
+                )}
                 {ratingLabel(bid.driver.rating_avg, bid.driver.rating_count)}
               </span>
             )}
@@ -161,13 +163,13 @@ export function OfferCard({
       <dl className="mx-4 mt-3 grid grid-cols-3 divide-x divide-cz-border rounded-xl bg-cz-surface-2 py-2.5">
         <Fact
           label="Pickup in"
-          value={eta ? keepUnits(formatDuration(eta)) : "Not given"}
+          value={eta ? keepUnits(formatDuration(eta)) : "To confirm"}
           muted={!eta}
           sub={km ? `${km} km away` : null}
         />
         <Fact
           label="At your site"
-          value={atSite ? `~${keepUnits(formatDuration(atSite))}` : "Not given"}
+          value={atSite ? `~${keepUnits(formatDuration(atSite))}` : "To confirm"}
           muted={!atSite}
           sub={bid.delivery_date ?? null}
         />
