@@ -1,4 +1,5 @@
 // Server-only Payonify Relay client (SANDBOX ONLY). Never imported by client code.
+// Wired to Con Z Pay by payonify.process.server.ts and payonify.functions.ts (0120).
 //
 // Built from the public docs at docs.payonify.com (read 26/10/2026):
 //   - Base URL https://api.payonify.com, endpoints under /v1.
@@ -26,11 +27,12 @@
 // never blindly retry createTransfer: record the intent first, and after an unclear
 // failure look the transfer up (listTransfers) before sending another.
 //
-// Nothing here changes money in ConZ's database. Wiring it to jobs, the wallet or
-// commission needs its own reviewed migration (see docs/payments/PAYONIFY-RELAY.md).
+// Nothing here changes money in ConZ's database; apply_payonify_charge (0120) does, and only
+// for charges re-fetched from this API. Transfers/reversals are not wired to anything yet.
 
 const API_BASE = "https://api.payonify.com/v1";
 export const WEBHOOK_TOLERANCE_SECONDS = 5 * 60;
+const REQUEST_TIMEOUT_MS = 20_000;
 
 export type PayonifyCurrency = "usd" | "zwg";
 
@@ -39,12 +41,29 @@ export type PayonifyConfig = { publishableKey: string; secretKey: string; webhoo
 export class PayonifyError extends Error {
   constructor(
     message: string,
-    readonly status: number,
+    readonly status: number, // HTTP status; 0 = no response (timeout / network)
     readonly code: string | null,
   ) {
     super(message);
     this.name = "PayonifyError";
   }
+}
+
+/**
+ * True only when Payonify answered and clearly refused the request (a 4xx other than
+ * timeout, conflict or rate limit), so nothing was created. Anything else (no response,
+ * 5xx, 408/409/429) is unclear: the charge may exist, so look it up before trying again.
+ */
+export function isDefinitiveRejection(err: unknown): boolean {
+  if (!(err instanceof PayonifyError)) return false;
+  return err.status >= 400 && err.status < 500 && ![408, 409, 429].includes(err.status);
+}
+
+/** Payonify shows livemode as a boolean or as the string "true"/"false". Anything else is unknown. */
+export function parseLivemode(value: unknown): boolean | null {
+  if (value === true || value === "true") return true;
+  if (value === false || value === "false") return false;
+  return null;
 }
 
 /**
@@ -96,15 +115,22 @@ async function call<T>(
   body?: unknown,
   fetchImpl: FetchLike = fetch,
 ): Promise<T> {
-  const res = await fetchImpl(`${API_BASE}${path}`, {
-    method,
-    headers: {
-      Authorization: basicAuth(cfg),
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetchImpl(`${API_BASE}${path}`, {
+      method,
+      headers: {
+        Authorization: basicAuth(cfg),
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch {
+    // Timeout or network failure: the request may or may not have reached Payonify.
+    throw new PayonifyError("Payonify could not be reached", 0, "network_error");
+  }
   const text = await res.text();
   let json: unknown = null;
   try {
@@ -146,15 +172,54 @@ export type ChargeStatus =
   | "succeeded"
   | "failed"
   | "cancelled";
+/** A charge as Payonify returns it (docs: amount is an object {value, currency}). */
 export type Charge = {
   id: string;
   object: "charge";
-  amount: number;
-  currency: PayonifyCurrency;
-  status: ChargeStatus;
-  livemode: boolean;
-  metadata?: Record<string, string>;
+  amount: { value: number; currency: PayonifyCurrency } | number;
+  currency?: PayonifyCurrency;
+  status: ChargeStatus | string;
+  livemode: boolean | string;
+  paid?: boolean;
+  failure_code?: string | null;
+  failure_reason?: string | null;
+  metadata?: Record<string, string> | null;
 };
+
+/** The fields ConZ checks, in one shape. Missing or malformed fields come back null. */
+export type ChargeFacts = {
+  id: string;
+  status: string;
+  amountMinor: number | null;
+  currency: string | null;
+  livemode: boolean | null;
+  conzPaymentId: string | null;
+  failureCode: string | null;
+};
+
+export function chargeFacts(charge: Charge): ChargeFacts {
+  const amt = charge.amount as unknown;
+  let amountMinor: number | null = null;
+  let currency: string | null = null;
+  if (amt && typeof amt === "object") {
+    const o = amt as { value?: unknown; currency?: unknown };
+    amountMinor = Number.isInteger(o.value) ? (o.value as number) : null;
+    currency = typeof o.currency === "string" ? o.currency : null;
+  } else if (Number.isInteger(amt)) {
+    amountMinor = amt as number;
+  }
+  if (!currency && typeof charge.currency === "string") currency = charge.currency;
+  const meta = charge.metadata && typeof charge.metadata === "object" ? charge.metadata : null;
+  return {
+    id: String(charge.id ?? ""),
+    status: typeof charge.status === "string" ? charge.status : "",
+    amountMinor,
+    currency,
+    livemode: parseLivemode(charge.livemode),
+    conzPaymentId: typeof meta?.conz_payment_id === "string" ? meta.conz_payment_id : null,
+    failureCode: typeof charge.failure_code === "string" ? charge.failure_code : null,
+  };
+}
 
 export function createEcocashCharge(
   cfg: PayonifyConfig,
@@ -344,10 +409,13 @@ export async function verifyPayonifyWebhook(
   const expected = await signPayonifyPayload(secret, t, rawBody);
   if (!sigs.some((s) => timingSafeEqualHex(s.toLowerCase(), expected))) return null;
   try {
-    const event = JSON.parse(rawBody) as PayonifyEvent;
+    const event = JSON.parse(rawBody) as Omit<PayonifyEvent, "livemode"> & { livemode: unknown };
     if (typeof event?.id !== "string" || typeof event?.type !== "string") return null;
-    if (event.livemode !== false) return null;
-    return event;
+    // Sandbox only: anything not clearly a test event is refused.
+    if (parseLivemode(event.livemode) !== false) return null;
+    if (!event.data || typeof event.data.object !== "object" || event.data.object === null)
+      return null;
+    return { ...event, livemode: false };
   } catch {
     return null;
   }

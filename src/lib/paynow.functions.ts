@@ -129,12 +129,17 @@ export const initiateEscrowPayment = createServerFn({ method: "POST" })
 
     const { data: previous } = await db
       .from("payments")
-      .select("id, status, paynow_poll_url, created_at")
+      .select("id, status, method, paynow_poll_url, created_at")
       .eq("job_id", data.jobId)
       .eq("type", "escrow")
       .in("status", ["initiated", "paid", "released", "refund_due", "refunded"]);
     if ((previous ?? []).some((p: { status: string }) => p.status !== "initiated")) {
       return { ok: false, error: "already_paid" };
+    }
+    // An open attempt through another provider (Payonify test) may still be paid: never
+    // start a second charge for the same job alongside it.
+    if ((previous ?? []).some((p: { method: string | null }) => p.method !== "paynow")) {
+      return { ok: false, error: "other_payment_open" };
     }
     // A customer who started a Paynow payment, left, and taps Pay again may
     // actually have completed the first one. Check those attempts with
