@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { parseOfferMessage } from "@/lib/proposed-source";
 import { ShieldCheck, Star } from "lucide-react";
 import { mmss, useSecondsLeft } from "@/components/redesign/rpc";
 import { levelInfo } from "@/lib/domain";
@@ -122,7 +123,9 @@ export function OfferCard({
             )}
             {bid.driver && (
               <span className="inline-flex items-center gap-1">
-                {rated && <Star aria-hidden className="h-3.5 w-3.5 fill-cz-amber text-cz-amber-text" />}
+                {rated && (
+                  <Star aria-hidden className="h-3.5 w-3.5 fill-cz-amber text-cz-amber-text" />
+                )}
                 {ratingLabel(bid.driver.rating_avg, bid.driver.rating_count)}
               </span>
             )}
@@ -181,7 +184,23 @@ export function OfferCard({
       </dl>
 
       <div className="space-y-3 px-4 pb-4 pt-3">
-        {bid.message && <p className="text-sm text-cz-muted">"{bid.message}"</p>}
+        {(() => {
+          const { source, note } = parseOfferMessage(bid.message);
+          return (
+            <>
+              {source && (
+                <p className="text-sm" data-testid="proposed-source">
+                  <span className="text-cz-muted">Loads at: </span>
+                  <span className="font-semibold">{source}</span>
+                  <span className="block text-[12px] text-cz-muted">
+                    The driver's choice, not checked by Con Z.
+                  </span>
+                </p>
+              )}
+              {note && <p className="text-sm text-cz-muted">"{note}"</p>}
+            </>
+          );
+        })()}
 
         {bid.counter_status === "countered" && (
           <div className="rounded-xl bg-cz-amber-tint px-3 py-2.5 text-[13px]">
