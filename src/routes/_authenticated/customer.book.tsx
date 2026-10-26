@@ -1,4 +1,5 @@
 import { stockStatusCopy } from "@/lib/stockStatus";
+import { priceFreshness } from "@/lib/pricing-display";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
@@ -590,6 +591,21 @@ function BookDelivery() {
               <DocketRow label="Pickup">Driver arranges it</DocketRow>
             </>
           )}
+          {offerData.dataSource === "market" && (
+            <p className="px-4 pt-3 text-[13px] text-cz-muted">
+              Based on recent accepted offers for similar loads, so material and transport are priced together.
+            </p>
+          )}
+          {(() => {
+            const f = priceFreshness(offerData.materialPriceUpdatedAt);
+            if (f.state === "unknown" || offerData.openRequest) return null;
+            return (
+              <p className="px-4 pt-3 text-[13px] text-cz-muted" data-testid="price-freshness">
+                Material prices last reviewed {f.label}.
+                {f.state === "stale" ? " Drivers' offers reflect today's prices." : ""}
+              </p>
+            );
+          })()}
           <p className="px-4 py-3 text-[13px] text-cz-muted">
             Estimated {offerData.tripCount} trip{offerData.tripCount === 1 ? "" : "s"}, based on a {offerData.referenceCapacityM3} m³
             reference truck. All amounts in USD.

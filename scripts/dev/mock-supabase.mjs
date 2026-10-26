@@ -144,6 +144,7 @@ const db = {
   driver_availability: [{ driver_id: ID.driver, status: "offline", lat: null, lng: null, updated_at: hoursAgo(3) }],
   system_settings: [
     { key: "commission_rate", value: 7 },
+    { key: "diesel_price_per_liter", value: 1.87 }, // production value 26/10/2026
     { key: "escrow_enabled", value: false },
     { key: "withdrawals_enabled", value: false },
   ],
