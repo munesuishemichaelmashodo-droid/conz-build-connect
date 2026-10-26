@@ -283,7 +283,7 @@ function BookDelivery() {
         delivery_lng: coords.lng,
 
         pickup_address: offerData.resolvedSource
-          ? (offerData.resolvedSource.label ?? offerData.resolvedSource.address ?? "Verified supplier location")
+          ? (offerData.resolvedSource.label ?? offerData.resolvedSource.address ?? "Listed supplier location")
           : "Driver arranges pickup",
         pickup_lat: offerData.resolvedSource ? offerData.resolvedSource.lat : null,
         pickup_lng: offerData.resolvedSource ? offerData.resolvedSource.lng : null,
@@ -630,7 +630,7 @@ function BookDelivery() {
           {offerData.resolvedSource ? (
             <>
               <DocketRow label="Picked up from">
-                {offerData.resolvedSource.label || offerData.resolvedSource.address || "Verified supplier location"}
+                {offerData.resolvedSource.label || offerData.resolvedSource.address || "Listed supplier location"}
               </DocketRow>
               <div className="px-4 py-3">
                 <StockStatusNote status={offerData.resolvedSource.stockStatus} />

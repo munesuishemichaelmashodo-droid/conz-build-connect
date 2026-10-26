@@ -304,3 +304,16 @@ site names the operator, Navysky Innovations (Private) Limited, company no. 1451
 12705 Timire Park, Ruwa; contact email navyskyinnovations@gmail.com (directors' IDs deliberately not published).
 The old ZIMRA TIN (sole proprietorship) was removed from Terms/Privacy; add the company's TIN when issued.
 Still open: repair `schema_migrations` for 0077–0108 before any `supabase db push`.
+
+## 26/10/2026 — release review (branch `release/integration-review`, read-only checks)
+
+Full evidence and plan: `docs/release/RELEASE-READINESS-2026-10-26.md`. Corrections to the notes above:
+- **0103 was never applied.** Production's `admin_set_demand_multiplier` accepts any admin with no step-up, and
+  `admin_set_diesel_price` runs the 0100 body. Apply 0103 (owner approval); the settings screen already handles step-up.
+- 0079: `find_next_loads_for_driver` differs from git by one token (live-only edit); the other 0079 functions match.
+- The history gap is 0072–0108: 0072–0076 and 0098 are recorded under different versions than the git files. Repair
+  commands are in the release doc. Still: never run `supabase db push` before the repair.
+- 0117 renumbered to `20261026121000` (0116 in PR #18 uses `20261026120000`).
+- Pomona Stone Quarries and Davis Granite are "verified" **locations** (public-source seeds 0050/0054), not partners.
+- Quotation requests (0087/0088 backend, live, 0 rows) are reachable again only behind
+  `system_settings.sourcing_requests_enabled = true` (off by default).
