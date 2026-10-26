@@ -14,7 +14,7 @@ import { COUNTRY_CODES } from "@/lib/country-codes";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { safeInternalPath } from "@/lib/safe-redirect";
-import { describeAuthError } from "@/lib/auth-flow";
+import { describeAuthError, signUpOutcome } from "@/lib/auth-flow";
 import { rememberPendingTermsAcceptance } from "@/lib/pending-terms";
 import { ResendConfirmation } from "@/components/ResendConfirmation";
 import { toast } from "sonner";
@@ -71,6 +71,8 @@ function AuthPage() {
   const [resetLoading, setResetLoading] = useState(false);
   // Set when a password sign-in fails because the email isn't confirmed yet (audit A-4).
   const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
+  // Sign-up hit an email that already has an account (Supabase sends nothing then).
+  const [existingEmail, setExistingEmail] = useState<string | null>(null);
   const [authDebug, setAuthDebug] = useState<null | {
     stage: string;
     message: string;
@@ -193,6 +195,7 @@ function AuthPage() {
     if (password.length < 8) return toast.error("Password must be at least 8 characters");
     if (!acceptedTerms) return toast.error("Please accept the Terms and Privacy Policy to continue");
     setAuthDebug(null);
+    setExistingEmail(null);
     setLoading(true);
     const endpoint = `${supabaseUrl}/auth/v1/signup`;
     try {
@@ -222,6 +225,18 @@ function AuthPage() {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) {
           setLoading(false);
+          const outcome = signUpOutcome({
+            hasSession: false,
+            identityCount: data.user?.identities?.length ?? null,
+          });
+          if (outcome === "existing_account") {
+            // No email was sent, so don't say it was: send them to log in instead.
+            setExistingEmail(email);
+            setResetEmail(email);
+            setPassword("");
+            setTab("login");
+            return;
+          }
           nav({ to: "/verify-email", search: { email } as never });
           return;
         }
@@ -393,6 +408,22 @@ function AuthPage() {
                   <p className="text-sm text-muted-foreground mt-1">
                     To approve money or change admin roles, sign in again with Google. You'll come
                     straight back to where you were.
+                  </p>
+                </div>
+                <Button type="button" onClick={google} disabled={loading} className="w-full h-11 gap-2">
+                  <GoogleLogo />
+                  Continue with Google
+                </Button>
+              </div>
+            )}
+            {existingEmail && (
+              <div role="alert" className="rounded-xl border border-primary/40 bg-primary/5 p-4 space-y-3">
+                <div>
+                  <p className="font-semibold">You already have an account</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    <span className="font-semibold break-all">{existingEmail}</span> is already registered,
+                    so we didn't send a new link. If you first joined with Google, continue with Google.
+                    Otherwise log in below, or reset your password if you've forgotten it.
                   </p>
                 </div>
                 <Button type="button" onClick={google} disabled={loading} className="w-full h-11 gap-2">
