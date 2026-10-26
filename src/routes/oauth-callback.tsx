@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { safeInternalPath } from "@/lib/safe-redirect";
+import { takeNext } from "@/lib/post-auth-next";
 import { Button } from "@/components/ui/button";
 import { ResendConfirmation } from "@/components/ResendConfirmation";
 import { linkErrorMessage, type LinkError } from "@/lib/auth-flow";
@@ -30,17 +30,8 @@ function AuthCallbackPage() {
   // it was when the page loaded; only the error code is kept.
   const [linkError, setLinkError] = useState<LinkError | null>(null);
 
-  const readNext = () => {
-    try {
-      const stashed = sessionStorage.getItem("conz.postAuthNext");
-      sessionStorage.removeItem("conz.postAuthNext");
-      const safe = safeInternalPath(stashed);
-      if (safe) return safe;
-    } catch {
-      /* ignore */
-    }
-    return null;
-  };
+  // Set before Google sign-in or email sign-up (src/lib/post-auth-next.ts).
+  const readNext = () => takeNext();
 
   const goPostAuth = () => {
     const next = readNext();

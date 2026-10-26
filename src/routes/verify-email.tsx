@@ -3,9 +3,12 @@ import { z } from "zod";
 import { ArrowLeft, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ResendConfirmation } from "@/components/ResendConfirmation";
+import { safeInternalPath } from "@/lib/safe-redirect";
 
 const searchSchema = z.object({
   email: z.string().optional(),
+  // Where they were going (e.g. the booking from the price check); kept on the links.
+  next: z.string().optional(),
 });
 
 export const Route = createFileRoute("/verify-email")({
@@ -15,12 +18,14 @@ export const Route = createFileRoute("/verify-email")({
 });
 
 function VerifyEmailPage() {
-  const { email } = Route.useSearch();
+  const { email, next } = Route.useSearch();
+  const safeNext = safeInternalPath(next) ?? undefined;
+  const hasBooking = !!safeNext?.startsWith("/customer/book");
 
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-screen-sm px-5 py-6">
-        <Link to="/auth" search={{ mode: "login" } as never} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link to="/auth" search={{ mode: "login", next: safeNext } as never} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-4 h-4" /> Back to login
         </Link>
 
@@ -49,11 +54,21 @@ function VerifyEmailPage() {
           <div className="flex gap-3">
             <span className="font-display font-bold text-cz-amber-text">2.</span>
             <span>
-              Tap the <span className="font-semibold">link</span> to verify your account, then come back
-              and log in.
+              Tap the <span className="font-semibold">link</span> to confirm your account. If it doesn't
+              sign you in, come back here and log in.
             </span>
           </div>
         </div>
+
+        {hasBooking && (
+          <p className="mt-4 rounded-xl border border-cz-border bg-cz-surface px-4 py-3 text-sm">
+            <span className="font-semibold">Your delivery details are kept on this phone.</span>{" "}
+            <span className="text-muted-foreground">
+              Open the link here and we'll take you back to your booking with the material, load and
+              address you entered.
+            </span>
+          </p>
+        )}
 
         <div className="mt-6">
           <p className="text-center text-sm text-muted-foreground mb-2">Haven't received it?</p>
@@ -62,7 +77,7 @@ function VerifyEmailPage() {
         </div>
 
         <Button asChild variant="outline" className="w-full h-11 mt-6">
-          <Link to="/auth" search={{ mode: "login" } as never}>
+          <Link to="/auth" search={{ mode: "register", next: safeNext } as never}>
             Go back and edit email
           </Link>
         </Button>

@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { safeInternalPath } from "@/lib/safe-redirect";
 import { describeAuthError, signUpOutcome } from "@/lib/auth-flow";
+import { rememberNext, takeNext } from "@/lib/post-auth-next";
 import { rememberPendingTermsAcceptance } from "@/lib/pending-terms";
 import { ResendConfirmation } from "@/components/ResendConfirmation";
 import { toast } from "sonner";
@@ -44,8 +45,11 @@ function AuthPage() {
   // safeInternalPath rejects "/\evil.com"-style bypasses (audit F8 open redirect).
   const safeNext = safeInternalPath(next);
   const goPostAuth = () => {
-    if (safeNext) {
-      window.location.replace(safeNext);
+    // A destination remembered before an email confirmation, used once.
+    const target = safeNext ?? takeNext();
+    if (safeNext) takeNext();
+    if (target) {
+      window.location.replace(target);
     } else {
       nav({ to: "/home", replace: true });
     }
@@ -198,6 +202,9 @@ function AuthPage() {
     setExistingEmail(null);
     setLoading(true);
     const endpoint = `${supabaseUrl}/auth/v1/signup`;
+    // Keep the booking they started (e.g. from the price check) across the
+    // confirmation email, which may open in another tab.
+    rememberNext(safeNext);
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -237,7 +244,7 @@ function AuthPage() {
             setTab("login");
             return;
           }
-          nav({ to: "/verify-email", search: { email } as never });
+          nav({ to: "/verify-email", search: { email, next: safeNext ?? undefined } as never });
           return;
         }
       }
@@ -261,13 +268,12 @@ function AuthPage() {
     const isCancellation = (m: string) =>
       /cancel/i.test(m) || /closed/i.test(m) || /popup/i.test(m) || /dismiss/i.test(m);
     try {
-      if (safeNext) {
-        try {
-          sessionStorage.setItem("conz.postAuthNext", safeNext);
-        } catch {
-          /* ignore */
-        }
-      }
+      // Google sign-up can't carry the Customer/Driver choice (the account starts as a
+      // customer), so a driver goes straight to the driver application afterwards.
+      // Admin approval there grants the driver role (migration 0042).
+      rememberNext(
+        safeNext ?? (tab === "register" && role === "driver" ? "/become-driver" : null),
+      );
 
       // Google actively blocks OAuth sign-in inside an embedded WebView
       // (returns "Error 403: disallowed_useragent") -- this app runs
@@ -555,7 +561,9 @@ function AuthPage() {
               Continue with Google
             </Button>
             <p className="text-xs text-muted-foreground text-center">
-              Google sign-up creates a Customer account. Switch to a Driver account from your profile.
+              {role === "driver"
+                ? "With Google, you'll go straight to the driver application to add your truck and documents."
+                : "One tap with your Google account. No confirmation email needed."}
             </p>
           </TabsContent>
         </Tabs>
