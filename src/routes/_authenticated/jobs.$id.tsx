@@ -1,5 +1,6 @@
 import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
-import { composeOfferMessage, MAX_SOURCE_LENGTH, parseOfferMessage } from "@/lib/proposed-source";
+import { composeOfferMessage, isDriverArranged, MAX_SOURCE_LENGTH, parseOfferMessage } from "@/lib/proposed-source";
+import { OfferMessage } from "@/components/redesign/ProposedSource";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -951,7 +952,15 @@ function JobDetail() {
                         {b.delivery_date && <div className="text-[11px] text-muted-foreground">{b.delivery_date}</div>}
                       </div>
                     </div>
-                    {b.message && <p className="text-sm text-muted-foreground mt-2">{b.message}</p>}
+                    {b.message && (
+                      <div className="mt-2 space-y-1">
+                        <OfferMessage
+                          message={b.message}
+                          driverArranged={isDriverArranged(job)}
+                          noteClassName="text-sm text-muted-foreground"
+                        />
+                      </div>
+                    )}
 
                     {b.truck_reg && (
                       <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
@@ -1193,7 +1202,7 @@ function BidForm({
   const [message, setMessage] = useState(parseOfferMessage(existing?.message).note);
   const [proposedSource, setProposedSource] = useState(parseOfferMessage(existing?.message).source ?? "");
   // Open request: no listed supplier, so the driver arranges the material (no pickup pin).
-  const driverArrangesPickup = !!job && (job.pickup_lat == null || job.pickup_lng == null);
+  const driverArrangesPickup = isDriverArranged(job);
   const [truckId, setTruckId] = useState<string>(existing?.truck_id ?? "");
   // Migration 0060: optional "I can reach pickup in" (minutes).
   const [etaMinutes, setEtaMinutes] = useState<number | null>(existing?.eta_minutes ?? null);
@@ -3121,6 +3130,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
                 bid={b}
                 kmToPickup={locations[b.id]?.km_to_pickup ?? null}
                 deliveryKm={Number(breakdown?.distance_km) || null}
+                driverArranged={isDriverArranged(job)}
                 highlights={highlights[b.id]}
                 guide={guideBand(b.price, breakdown)}
                 primary={b.id === primaryId}

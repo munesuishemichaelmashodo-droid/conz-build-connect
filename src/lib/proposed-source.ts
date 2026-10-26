@@ -37,3 +37,25 @@ export function parseOfferMessage(message: string | null | undefined): {
   if (end <= 0) return { source: null, note: m };
   return { source: rest.slice(0, end).trim(), note: rest.slice(end + 1).trim() };
 }
+
+/**
+ * A job where no listed supplier is set: the driver arranges the material, so there is
+ * no pickup pin. Only on these jobs is a "Loading at:" line shown as a proposed source.
+ */
+export function isDriverArranged(
+  job: { pickup_lat?: number | null; pickup_lng?: number | null } | null | undefined,
+): boolean {
+  return !!job && (job.pickup_lat == null || job.pickup_lng == null);
+}
+
+/**
+ * What to show for an offer message. On a job with a listed supplier the message is shown
+ * whole, so a driver can't make a typed "Loading at:" line look like a second source.
+ */
+export function offerMessageParts(
+  message: string | null | undefined,
+  driverArranged: boolean,
+): { source: string | null; note: string } {
+  if (!driverArranged) return { source: null, note: (message ?? "").trim() };
+  return parseOfferMessage(message);
+}

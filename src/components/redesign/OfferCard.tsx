@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { parseOfferMessage } from "@/lib/proposed-source";
+import { OfferMessage } from "@/components/redesign/ProposedSource";
 import { ShieldCheck, Star } from "lucide-react";
 import { mmss, useSecondsLeft } from "@/components/redesign/rpc";
 import { levelInfo } from "@/lib/domain";
@@ -63,6 +63,7 @@ export function OfferCard({
   footer,
   kmToPickup,
   deliveryKm,
+  driverArranged = false,
 }: {
   bid: OfferBid;
   /** The one filled Choose button on the screen. */
@@ -76,6 +77,8 @@ export function OfferCard({
   kmToPickup?: number | null;
   /** Pickup → delivery road distance, for the estimated time at the site. */
   deliveryKm?: number | null;
+  /** No listed supplier: show a "Loading at:" line as the driver's proposed source. */
+  driverArranged?: boolean;
 }) {
   const secondsLeft = useSecondsLeft(bid.expires_at);
   const expired = secondsLeft === 0;
@@ -184,23 +187,7 @@ export function OfferCard({
       </dl>
 
       <div className="space-y-3 px-4 pb-4 pt-3">
-        {(() => {
-          const { source, note } = parseOfferMessage(bid.message);
-          return (
-            <>
-              {source && (
-                <p className="text-sm" data-testid="proposed-source">
-                  <span className="text-cz-muted">Loads at: </span>
-                  <span className="font-semibold">{source}</span>
-                  <span className="block text-[12px] text-cz-muted">
-                    The driver's choice, not checked by Con Z.
-                  </span>
-                </p>
-              )}
-              {note && <p className="text-sm text-cz-muted">"{note}"</p>}
-            </>
-          );
-        })()}
+        <OfferMessage message={bid.message} driverArranged={driverArranged} />
 
         {bid.counter_status === "countered" && (
           <div className="rounded-xl bg-cz-amber-tint px-3 py-2.5 text-[13px]">
