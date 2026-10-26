@@ -1,4 +1,5 @@
 import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
+import { cancelPolicyText, customerCanCancel } from "@/lib/cancel-policy";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -551,7 +552,9 @@ function JobDetail() {
   const showDeliveryPinDisplay = isOwner && ["accepted", "in_progress"].includes(job.status);
   const showCompleteButton = isOwner && !isEscrow && (job.status === "accepted" || job.status === "in_progress");
   const showDeliveryPinEntry = isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && !!job.delivery_photo_url;
-  const showCancel = isOwner && (job.status === "open" || job.status === "accepted" || job.status === "in_progress");
+  // Customers can cancel until the load is collected; after that cancel_job refuses and
+  // "Report a problem" (a dispute) is the way to raise it.
+  const showCancel = isOwner && customerCanCancel(job.status);
   const showActionSection = showRadar || showEscrowBanner || showBidForm || showPickupUpload || showDeliveryUpload || showDeliveryPinDisplay || showCompleteButton || showDeliveryPinEntry || showCancel;
 
   const showProofPhotos = !!(job.pickup_photo_url || job.delivery_photo_url);
@@ -1878,19 +1881,10 @@ function CancelJobDialog({ jobId, status, onCancelled }: { jobId: string; status
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const policy =
-    status === "open"
-      ? "You can cancel this job for free."
-      : status === "accepted"
-        ? "This driver has already accepted your job. Cancelling now may result in a fee and a strike on your account."
-        : "The driver has already loaded your material. Cancelling now will result in a strike and may affect your account. This should only be used for genuine emergencies.";
+  // cancel_job charges no fee; it records a strike once a driver has accepted.
+  const policy = cancelPolicyText(status);
 
-  const tone =
-    status === "open"
-      ? "text-muted-foreground"
-      : status === "accepted"
-        ? "text-warning"
-        : "text-destructive";
+  const tone = status === "open" ? "text-muted-foreground" : "text-warning";
 
   const submit = async () => {
     setLoading(true);
