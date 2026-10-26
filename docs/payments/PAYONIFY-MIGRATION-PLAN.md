@@ -55,7 +55,7 @@ legal/accounting sign-off on holding customer funds.
      refuses a key whose mode doesn't match the environment (PR #27 already refuses live keys).
    - `PAYONIFY_PUBLISHABLE_KEY`, `PAYONIFY_SECRET_KEY`, `PAYONIFY_WEBHOOK_SECRET` in Vercel only, never in git,
      the database, logs or chat. Separate webhook secret per environment; rotation procedure written down.
-4. **Webhooks, idempotent.** `POST /api/public/payonify-webhook`: read the raw body; verify `Payonify-Signature`
+4. **Webhooks, idempotent.** `POST /api/payonify/webhook` (the URL already saved in the Payonify project: `https://www.conz.co.zw/api/payonify/webhook`; it returns 404 until this endpoint is built and deployed): read the raw body; verify `Payonify-Signature`
    (HMAC-SHA256 of `t.rawBody`, 5-minute tolerance, timing-safe); reject live events in Preview and test events in
    Production; insert into `provider_events` (duplicate id → return 200, do nothing); apply the state change in one
    database function inside one transaction; return 2xx only after commit. Events may repeat (up to 10 tries) and
