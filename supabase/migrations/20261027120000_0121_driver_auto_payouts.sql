@@ -425,4 +425,35 @@ end $$;
 revoke all on function public.admin_retry_payout(uuid, text) from public, anon;
 grant execute on function public.admin_retry_payout(uuid, text) to authenticated;
 
+-- 6. Schedule: pg_cron -> pg_net -> /api/internal/payonify-payouts every 5 minutes. Inert until BOTH
+--    app_secrets rows are set: payonify_payouts_url (e.g. https://www.conz.co.zw/api/internal/payonify-payouts)
+--    and payonify_payouts_secret (same value as the PAYONIFY_PAYOUTS_SECRET env var).
+create or replace function public.request_payonify_payouts()
+returns text language plpgsql security definer set search_path to 'public', 'extensions' as $$
+declare _url text; _secret text;
+begin
+  select value into _url    from public.app_secrets where key = 'payonify_payouts_url';
+  select value into _secret from public.app_secrets where key = 'payonify_payouts_secret';
+  if coalesce(_url, '') = '' or coalesce(_secret, '') = '' then return 'not_configured'; end if;
+  if not exists (select 1 from public.driver_payouts
+                  where status in ('queued', 'sending', 'sent') and next_attempt_at <= now()) then
+    return 'nothing_due';
+  end if;
+  perform net.http_post(
+    url := _url,
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-conz-payouts-secret', _secret),
+    body := '{}'::jsonb);
+  return 'requested';
+end $$;
+revoke all on function public.request_payonify_payouts() from public, anon, authenticated;
+grant execute on function public.request_payonify_payouts() to service_role;
+
+do $$
+begin
+  if exists (select 1 from pg_namespace where nspname = 'cron') then
+    perform cron.unschedule('payonify-payouts') where exists (select 1 from cron.job where jobname = 'payonify-payouts');
+    perform cron.schedule('payonify-payouts', '*/5 * * * *', 'select public.request_payonify_payouts();');
+  end if;
+end $$;
+
 commit;

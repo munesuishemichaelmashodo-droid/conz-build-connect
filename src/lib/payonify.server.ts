@@ -21,11 +21,9 @@
 //     "<t>.<raw body>" with the webhook secret, 5-minute tolerance, delivered more
 //     than once (dedupe by event id).
 //
-// NOT documented, so this module does not assume them: an idempotency header,
-// transfer metadata, the exact hold before charge funds become "available".
-// Because a transfer POST cannot be made idempotent on Payonify's side, callers must
-// never blindly retry createTransfer: record the intent first, and after an unclear
-// failure look the transfer up (listTransfers) before sending another.
+// 27/10: docs.payonify.com/idempotence documents an Idempotency-Key header for POSTs; payouts
+// (payonify.payouts.server.ts) send one per payout row and reuse it on every attempt. Still not
+// documented: transfer metadata, the exact hold before charge funds become "available".
 //
 // Nothing here changes money in ConZ's database; apply_payonify_charge (0120) does, and only
 // for charges re-fetched from this API. Transfers/reversals are not wired to anything yet.
@@ -125,6 +123,7 @@ async function call<T>(
   path: string,
   body?: unknown,
   fetchImpl: FetchLike = fetch,
+  idempotencyKey?: string,
 ): Promise<T> {
   let res: Response;
   try {
@@ -134,6 +133,8 @@ async function call<T>(
         Authorization: basicAuth(cfg),
         "Content-Type": "application/json",
         Accept: "application/json",
+        // docs.payonify.com/idempotence: a retried POST with the same key creates nothing new.
+        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -165,11 +166,12 @@ export type TransferStatus = "pending" | "succeeded" | "failed";
 export type Transfer = {
   id: string;
   object: "transfer";
-  amount: number;
-  net_amount: number;
+  /** Docs show {value, currency}; older examples a plain integer. */
+  amount: { value: number; currency: PayonifyCurrency } | number;
+  net_amount: { value: number; currency: PayonifyCurrency } | number | null;
   application_fee_amount: number;
-  status: TransferStatus;
-  livemode: boolean;
+  status: TransferStatus | string;
+  livemode: boolean | string;
   created: number;
   description: string | null;
   failure_code: string | null;
@@ -312,6 +314,8 @@ export function createTransfer(
     currency: PayonifyCurrency;
     mobileNumber: string;
     description: string;
+    /** Reuse the same key for every attempt of one payout. */
+    idempotencyKey?: string;
   },
   fetchImpl?: FetchLike,
 ): Promise<Transfer> {
@@ -333,7 +337,38 @@ export function createTransfer(
       },
     },
     fetchImpl,
+    args.idempotencyKey,
   );
+}
+
+function minorOf(v: unknown): number | null {
+  if (v && typeof v === "object") {
+    const n = (v as { value?: unknown }).value;
+    return Number.isInteger(n) ? (n as number) : null;
+  }
+  return Number.isInteger(v) ? (v as number) : null;
+}
+
+export type TransferFacts = {
+  id: string;
+  status: string;
+  amountMinor: number | null;
+  netMinor: number | null;
+  livemode: boolean | null;
+  failureCode: string | null;
+  failureMessage: string | null;
+};
+
+export function transferFacts(t: Transfer): TransferFacts {
+  return {
+    id: String(t.id ?? ""),
+    status: typeof t.status === "string" ? t.status : "",
+    amountMinor: minorOf(t.amount),
+    netMinor: minorOf(t.net_amount),
+    livemode: parseLivemode(t.livemode),
+    failureCode: typeof t.failure_code === "string" ? t.failure_code : null,
+    failureMessage: typeof t.failure_message === "string" ? t.failure_message : null,
+  };
 }
 
 export const getTransfer = (cfg: PayonifyConfig, id: string, fetchImpl?: FetchLike) =>

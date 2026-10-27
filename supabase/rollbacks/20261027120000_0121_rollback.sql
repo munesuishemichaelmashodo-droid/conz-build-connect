@@ -3,6 +3,8 @@
 -- and keep a copy of public.driver_payouts if it has rows; wallet transactions and ledger entries it
 -- wrote stay (they are the record of money that moved).
 begin;
+select cron.unschedule('payonify-payouts') where exists (select 1 from cron.job where jobname = 'payonify-payouts');
+drop function if exists public.request_payonify_payouts();
 drop trigger if exists payments_queue_driver_payout on public.payments;
 drop function if exists public.tg_queue_driver_payout();
 drop function if exists public.admin_retry_payout(uuid, text);

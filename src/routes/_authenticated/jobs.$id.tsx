@@ -1,4 +1,5 @@
 import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
+import { kickJobPayout } from "@/lib/payonify.functions";
 import { DISPUTE_OPTIONS, disputeOption, disputeReason, MIN_DISPUTE_EXPLANATION, type DisputeSide } from "@/lib/dispute-options";
 import { serverNow, syncServerClock } from "@/lib/server-clock";
 import { commissionFee, earnings, fuelEstimate } from "@/lib/driver-economics";
@@ -388,6 +389,7 @@ function JobDetail() {
   const [payingEscrow, setPayingEscrow] = useState(false);
   // Blocks a second "confirm delivery" tap while the first is still in flight.
   const completingRef = useRef(false);
+  const runKickPayout = useServerFn(kickJobPayout);
 
   const isEscrow = job?.payment_method === "escrow";
   const { data: escrowPayment } = useQuery({
@@ -534,6 +536,8 @@ function JobDetail() {
       }
       toast.success(outcome.already ? "This delivery was already confirmed." : "Delivery confirmed.");
       qc.invalidateQueries({ queryKey: ["job", id] });
+      // Con Z Pay via Payonify: send the driver's payout now rather than at the next scheduled run.
+      if (isEscrow) void runKickPayout({ data: { jobId: id } }).catch(() => undefined);
     } catch (err) {
       toast.error(friendlyPaymentError(err));
     } finally {

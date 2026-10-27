@@ -14,6 +14,10 @@ async function handleWebhook(request: Request): Promise<Response> {
     {
       env: process.env,
       db: supabaseAdmin as never,
+      onTransferEvent: async (cfg, transferId) => {
+        const { applyTransferEvent } = await import("@/lib/payonify.payouts.server");
+        return applyTransferEvent(supabaseAdmin as never, cfg, transferId);
+      },
     },
   );
   return new Response(JSON.stringify(body), {

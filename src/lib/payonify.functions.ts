@@ -447,3 +447,46 @@ export const adminCheckPayonifyPayment = createServerFn({ method: "POST" })
       return { ok: false, outcome: "payonify_unreachable" };
     }
   });
+
+/**
+ * Sends the driver payout for a job that has just been completed, instead of waiting for the next
+ * scheduled run (0121). Only a party to the job can ask, and only payouts the database already queued
+ * are sent; asking twice is harmless.
+ */
+export const kickJobPayout = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { jobId: string }) => {
+    if (!data?.jobId || typeof data.jobId !== "string") throw new Error("Missing job");
+    return { jobId: data.jobId };
+  })
+  .handler(async ({ data, context }): Promise<{ status: string | null }> => {
+    const { payonifyServerGate } = await import("@/lib/payonify.process.server");
+    const gate = payonifyServerGate(process.env);
+    if (!gate.ok) return { status: null };
+    const db = await adminDb();
+    const { data: job } = await db
+      .from("jobs")
+      .select("id,customer_id,driver_id,status")
+      .eq("id", data.jobId)
+      .maybeSingle();
+    if (!job || (job.customer_id !== context.userId && job.driver_id !== context.userId))
+      return { status: null };
+    const payouts = db as unknown as {
+      from: (t: "driver_payouts") => {
+        select: (c: string) => {
+          eq: (
+            k: string,
+            v: string,
+          ) => { maybeSingle: () => PromiseLike<{ data: { status: string } | null }> };
+        };
+      };
+    };
+    const read = async () =>
+      (await payouts.from("driver_payouts").select("status").eq("job_id", data.jobId).maybeSingle())
+        .data?.status ?? null;
+    const before = await read();
+    if (before !== "queued") return { status: before };
+    const { processPayouts } = await import("@/lib/payonify.payouts.server");
+    await processPayouts(db as never, gate.cfg, gate.mode, { deadlineMs: 15_000 }, 5);
+    return { status: await read() };
+  });

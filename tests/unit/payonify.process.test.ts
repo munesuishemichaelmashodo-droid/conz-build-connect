@@ -185,6 +185,40 @@ describe("webhook", () => {
     ...over,
   });
 
+  it("hands transfer events to the payout lookup and records the outcome", async () => {
+    const { raw, header } = await signedEvent(
+      event({ type: "transfer.succeeded", data: { object: { id: "tr_7", object: "transfer" } } }),
+    );
+    const { db, calls } = fakeDb();
+    const seen: string[] = [];
+    const r = await handlePayonifyWebhook(raw, header, {
+      env: ENV,
+      db,
+      nowSeconds: NOW,
+      onTransferEvent: async (_cfg, id) => {
+        seen.push(id);
+        return "applied";
+      },
+    });
+    expect(r.status).toBe(200);
+    expect(seen).toEqual(["tr_7"]);
+    expect(JSON.stringify(calls)).toContain("payout_applied");
+  });
+
+  it("asks Payonify to retry a transfer event when the lookup fails", async () => {
+    const { raw, header } = await signedEvent(
+      event({ type: "transfer.failed", data: { object: { id: "tr_8", object: "transfer" } } }),
+    );
+    const { db } = fakeDb();
+    const r = await handlePayonifyWebhook(raw, header, {
+      env: ENV,
+      db,
+      nowSeconds: NOW,
+      onTransferEvent: async () => "lookup_failed",
+    });
+    expect(r.status).toBe(503);
+  });
+
   it("returns 503 while Payonify is not enabled on this deployment", async () => {
     const { raw, header } = await signedEvent(event());
     const { db, calls } = fakeDb();

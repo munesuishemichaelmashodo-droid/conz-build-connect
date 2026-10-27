@@ -172,6 +172,8 @@ export type WebhookDeps = {
   db: RpcDb;
   fetchCharge?: (cfg: PayonifyConfig, id: string) => Promise<Charge>;
   nowSeconds?: number;
+  /** transfer.* events: look the transfer up and record a driver payout's result (0121). */
+  onTransferEvent?: (cfg: PayonifyConfig, transferId: string) => Promise<string>;
 };
 
 export type WebhookResponse = { status: number; body: Record<string, unknown> };
@@ -204,8 +206,32 @@ export async function handlePayonifyWebhook(
   const obj = event.data.object as { id?: unknown };
   const objectId = typeof obj.id === "string" && obj.id ? obj.id : null;
 
+  if (event.type.startsWith("transfer.") && objectId && deps.onTransferEvent) {
+    // Driver payouts (0121). The handler re-fetches the transfer; the body is never trusted.
+    let outcome: string;
+    try {
+      outcome = await deps.onTransferEvent(gate.cfg, objectId);
+    } catch {
+      return { status: 503, body: { error: "transfer_lookup_failed" } };
+    }
+    if (outcome === "lookup_failed")
+      return { status: 503, body: { error: "transfer_lookup_failed" } };
+    const r = await recordEvent(
+      deps.db,
+      event.id,
+      event.type,
+      objectId,
+      null,
+      `payout_${outcome}`,
+      live,
+    );
+    return r.ok
+      ? { status: 200, body: { received: true, outcome: r.outcome } }
+      : { status: 500, body: { error: "db_error" } };
+  }
+
   if (!event.type.startsWith("charge.")) {
-    // Transfers, refunds, reversals, payouts, checkout: not acted on yet; recorded for admins.
+    // Refunds, reversals, payouts, checkout: not acted on yet; recorded for admins.
     const r = await recordEvent(
       deps.db,
       event.id,
