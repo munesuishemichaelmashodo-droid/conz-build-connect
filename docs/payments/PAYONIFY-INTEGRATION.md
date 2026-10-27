@@ -84,6 +84,18 @@ never mark real jobs paid or credit real wallets). Live mode is allowed on produ
 
 Nothing is configured anywhere yet. No keys were created, used or stored in this work.
 
+### Test site (sandbox)
+
+- Site: the Vercel preview for `payments/payonify-relay`. Database: Supabase `conz-staging`
+  (`fpckydgssuefzzxivvig`), never production. Google sign-in is not set up there: use email and password.
+- Vercel Preview variables scoped to that branch: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`,
+  `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (all staging), `PAYONIFY_MODE=test`,
+  `PAYONIFY_PUBLISHABLE_KEY` (`pk_test_`), `PAYONIFY_SECRET_KEY` (`sk_test_`), `PAYONIFY_WEBHOOK_SECRET`,
+  `PAYONIFY_TESTER_USER_IDS`. A change only takes effect after a new preview build.
+- Admin → Approvals → "Payments provider" shows whether Payonify is on here and names any empty setting.
+- Staging test accounts (passwords are not kept in git): `test-customer@example.com`,
+  `test-driver@example.com`, `qa-admin@example.com` (super admin, staging only).
+
 ## 3. Switch-over day (owner steps, in order)
 
 1. **Before:** company bank account, Payonify KYC approved, Relay activated, live keys issued.
