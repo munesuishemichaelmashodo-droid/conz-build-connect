@@ -144,9 +144,13 @@ const db = {
   driver_availability: [{ driver_id: ID.driver, status: "offline", lat: null, lng: null, updated_at: hoursAgo(3) }],
   system_settings: [
     { key: "commission_rate", value: 7 },
+    { key: "diesel_price_per_liter", value: 1.87 }, // production value 26/10/2026
     { key: "escrow_enabled", value: false },
     { key: "withdrawals_enabled", value: false },
+    // Quotation requests are off in production until the owner turns them on; MOCK_SOURCING=1 shows them here.
+    ...(process.env.MOCK_SOURCING === "1" ? [{ key: "sourcing_requests_enabled", value: true }] : []),
   ],
+  material_sourcing_requests: [],
   jobs: [
     {
       id: "00000000-0000-4000-8000-00000000a001",
@@ -337,6 +341,31 @@ const db = {
 
 // --- RPCs (answers shaped like the real functions; values are synthetic) --------
 const rpc = {
+  // Shaped like the live RPC (0088): customers only, idempotent on the key, returns the id.
+  create_material_sourcing_request: (a, me) => {
+    if (!me) return null;
+    const dup = db.material_sourcing_requests.find(
+      (r) => r.customer_id === me.id && a.p_idempotency_key && r.idempotency_key === a.p_idempotency_key,
+    );
+    if (dup) return dup.id;
+    const row = {
+      id: randomUUID(),
+      customer_id: me.id,
+      material: a.p_material,
+      quantity_m3: a.p_quantity_m3,
+      delivery_address: a.p_delivery_address,
+      delivery_lat: a.p_delivery_lat,
+      delivery_lng: a.p_delivery_lng,
+      preferred_date: a.p_preferred_date,
+      notes: a.p_notes,
+      status: "requested",
+      idempotency_key: a.p_idempotency_key,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    db.material_sourcing_requests.push(row);
+    return row.id;
+  },
   launch_switches: () => ({
     escrowEnabled: false,
     withdrawalsEnabled: false,
@@ -597,6 +626,19 @@ const server = http.createServer(async (req, res) => {
     u.new_phone = null;
     u.phone_confirmed_at = new Date().toISOString();
     return send(res, 200, session(u));
+  }
+  if (path === "/auth/v1/signup" && req.method === "POST") {
+    // Like Supabase with "Confirm email" on: no session. An email that is already
+    // registered gets the same 200 but a user with no identities, and nothing is sent.
+    const body = (await readBody(req)) ?? {};
+    const email = String(body?.email ?? "").toLowerCase();
+    const known = [...users.values()].some((u) => u.email?.toLowerCase() === email);
+    const id = randomUUID();
+    return send(res, 200, {
+      id, aud: "authenticated", role: "authenticated", email,
+      identities: known ? [] : [{ id, provider: "email", identity_data: { email } }],
+      user_metadata: body?.data ?? {}, created_at: new Date().toISOString(),
+    });
   }
   if (path === "/auth/v1/logout") return send(res, 204);
   if (path === "/auth/v1/recover" || path === "/auth/v1/otp" || path === "/auth/v1/resend") return send(res, 200, {});

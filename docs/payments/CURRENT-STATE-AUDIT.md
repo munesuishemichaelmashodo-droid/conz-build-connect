@@ -84,6 +84,12 @@ audit + admin log). The driver wallet screen lists and cancels requests but has 
 | P-9 | Decision | `wallet.tsx` text | Source | "Contact support to get unused credit back" promises a manual payout while withdrawals are off | Founders decide the refund rule for unused credit |
 | P-10 | P3 | `tests/unit/paynow-ipn-db.test.ts` | Source | 9 DB-backed callback tests are skipped in CI (need a test database) | Run them in the CI pgTAP job |
 
+**Status 26/10/2026** (owner: Paynow stays unchanged until the product is stabilised; see
+`PAYONIFY-MIGRATION-PLAN.md`): P-10 **done** (CI's `database-tests` job runs `paynow-ipn-db.test.ts` with
+`CONZ_REQUIRE_DB_TESTS`, so the tests can't skip there). P-6 has a fix in PR #11 (0113) and P-11 in draft PR #18
+(0116); neither is merged or applied. P-1 (reconcile secret) is an owner setting. P-2, P-3, P-4, P-5, P-7 are still
+open and wait for the payments phase. P-8, P-9 are founder decisions.
+
 No confirmed P0. Escrow and withdrawals are blocked in the database (`launch_switches`, triggers) as well as hidden in the app (Live + Source).
 
 ## 5. Tests that exist

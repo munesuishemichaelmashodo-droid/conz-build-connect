@@ -173,8 +173,8 @@ export function QuickPrice({ titleAs = "h2" }: { titleAs?: "h1" | "h2" }) {
             className={czButtonClass("primary")}
           >
             {current.offer && !current.offer.openRequest
-              ? "Book this delivery"
-              : "Post this as a request"}
+              ? "Continue to booking"
+              : "Request driver bids"}
           </Link>
         ) : (
           <button
@@ -204,8 +204,23 @@ export function QuickPrice({ titleAs = "h2" }: { titleAs?: "h1" | "h2" }) {
         )}
         {(current?.offer || current?.awaiting) && (
           <p className="-mt-2 text-center text-sm text-cz-muted">
-            Your material, load and address carry over when you sign up.
+            {current.offer && !current.offer.openRequest
+              ? "Create your account, then review your delivery details before posting. Posting doesn't charge you."
+              : "Create your account and your material, load and address carry over. Posting doesn't charge you."}
           </p>
+        )}
+        {current?.offer?.openRequest && (
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById("addr-picker");
+              el?.scrollIntoView({ block: "center", behavior: "smooth" });
+              el?.focus();
+            }}
+            className={czButtonClass("ghost", "md")}
+          >
+            Change delivery location
+          </button>
         )}
       </div>
     </DocketPanel>
@@ -250,9 +265,9 @@ function GuideResult({ offer, quantity }: { offer: OfferResult; quantity: number
   return (
     <div className="rounded-xl border border-cz-border bg-cz-bg" aria-live="polite">
       <div className="px-4 pt-4">
-        <Notice tone="info" title="No listed supplier covers this area yet">
-          You can still post it as a request. Drivers collect the material from their own source and
-          send you their prices.
+        <Notice tone="info" title="No fixed-price supplier nearby yet">
+          Approved drivers can still send you their prices. They collect the material from their own
+          source.
         </Notice>
       </div>
       <div className="px-4 pb-3 pt-4">

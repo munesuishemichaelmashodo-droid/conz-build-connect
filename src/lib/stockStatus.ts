@@ -35,7 +35,7 @@ export function stockStatusCopy(status: unknown): StockCopy {
       return {
         title: "Availability not yet confirmed",
         detail:
-          "No stock is recorded for this supplier. Your price and route are real; we confirm the supply before loading and tell you when it is confirmed.",
+          "No stock is recorded for this supplier. The route is measured on real roads and the price is an estimate; we confirm the supply before loading and tell you when it is confirmed.",
         tone: "warn",
       };
   }
@@ -44,4 +44,14 @@ export function stockStatusCopy(status: unknown): StockCopy {
 /** Wording for the confirmed state (0104). */
 export function supplyConfirmedCopy(role: string | null | undefined): string {
   return role === "admin" ? "Supply confirmed by ConZ" : "Supply confirmed by your driver";
+}
+
+/**
+ * What the person who can confirm the supply should do. The customer-facing detail ("we confirm…")
+ * is written for the customer; the driver and admin are the "we".
+ */
+export function supplyActionCopy(viewer: "driver" | "admin"): string {
+  return viewer === "driver"
+    ? "Check with the supplier that the load is ready before you go, then tap Confirm. The customer is told when you do."
+    : "Confirm only after the driver or the supplier has told you the load is ready. The customer is told when you do.";
 }
