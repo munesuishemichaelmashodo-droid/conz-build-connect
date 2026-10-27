@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { PriceAccuracyCard } from "@/components/admin/PriceAccuracyCard";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -197,6 +198,8 @@ function AdminSettings() {
           <p className="text-xs text-muted-foreground text-center">Only super admins can change the price multiplier.</p>
         )}
       </div>
+
+      <PriceAccuracyCard />
 
       <div className="rounded-2xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
