@@ -1,16 +1,92 @@
 // Helpers for the homepage price check. Display and navigation only: the price
 // itself always comes from computePublicOffer on the server.
 
+import { isValidQuantity } from "@/lib/load-size";
+
 export type QuickPriceInput = {
   material: string;
   quantity: number;
   coords: { lat: number; lng: number } | null;
 };
 
-/** Identifies the inputs a price was worked out for, so a stale price is never shown. */
-export function quickPriceSignature({ material, quantity, coords }: QuickPriceInput): string {
-  const where = coords ? `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}` : "none";
-  return `${material}|${quantity}|${where}`;
+/** Trims and collapses runs of whitespace; everything else (spelling, case, numbers) still counts. */
+export function normalizeQuickPriceAddress(address: string): string {
+  return address.trim().replace(/\s+/g, " ");
+}
+
+/**
+ * Identifies the inputs a price was worked out for, so a stale price is never shown or booked.
+ * Includes the delivery address: editing it must retire the old result even when the map pin
+ * (and so the coordinates) did not move.
+ */
+export function quickPriceSignature({
+  material,
+  quantity,
+  coords,
+  address = "",
+}: QuickPriceInput & { address?: string }): string {
+  const where = coords ? [coords.lat.toFixed(5), coords.lng.toFixed(5)] : null;
+  // JSON keeps the fields apart even if the address contains a separator character.
+  return JSON.stringify([material, quantity, where, normalizeQuickPriceAddress(address)]);
+}
+
+/** The stored result, only if it was worked out for exactly the inputs on screen now. */
+export function currentQuickPrice<T extends { sig: string }>(
+  result: T | null,
+  sig: string,
+): T | null {
+  return result && result.sig === sig ? result : null;
+}
+
+/**
+ * Hands out request numbers so only the newest price check may change the screen. A slower,
+ * older request that finishes last (or fails last) is ignored.
+ */
+export function createLatestRequestGate() {
+  let latest = 0;
+  return {
+    begin: () => ++latest,
+    isLatest: (id: number) => id === latest,
+  };
+}
+export type LatestRequestGate = ReturnType<typeof createLatestRequestGate>;
+
+export type QuickPriceRunResult<R> = { sig: string; value?: R; error: unknown | null };
+
+/**
+ * One price check, with the React state setters passed in so the race rules can be tested
+ * without a browser:
+ *  - nothing starts without a delivery point and a valid quantity;
+ *  - a reply is stored only if its request is still the newest AND the inputs still match it;
+ *  - only the newest request may clear the "checking" state.
+ * Returns whether the reply was applied.
+ */
+export async function runQuickPrice<R>(args: {
+  gate: LatestRequestGate;
+  sig: string;
+  currentSig: () => string;
+  hasDelivery: boolean;
+  quantity: number;
+  fetch: () => Promise<R>;
+  setPending: (sig: string | null) => void;
+  setResult: (r: QuickPriceRunResult<R>) => void;
+}): Promise<"applied" | "ignored" | "not_started"> {
+  if (!args.hasDelivery || !isValidQuantity(args.quantity)) return "not_started";
+  const id = args.gate.begin();
+  args.setPending(args.sig);
+  const stillWanted = () => args.gate.isLatest(id) && args.currentSig() === args.sig;
+  try {
+    const value = await args.fetch();
+    if (!stillWanted()) return "ignored";
+    args.setResult({ sig: args.sig, value, error: null });
+    return "applied";
+  } catch (error) {
+    if (!stillWanted()) return "ignored";
+    args.setResult({ sig: args.sig, error });
+    return "applied";
+  } finally {
+    if (args.gate.isLatest(id)) args.setPending(null);
+  }
 }
 
 /**
