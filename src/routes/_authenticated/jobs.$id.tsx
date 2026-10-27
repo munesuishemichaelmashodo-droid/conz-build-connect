@@ -1881,6 +1881,7 @@ function SignedProofPhoto({ path, alt }: { path: string; alt: string }) {
 function DeliveryPinEntry({ jobId, onConfirmed }: { jobId: string; onConfirmed: () => void }) {
   const [pin, setPin] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const runKickPayout = useServerFn(kickJobPayout);
 
   const submit = async () => {
     if (pin.trim().length < 4) return toast.error("Enter the code the customer gave you");
@@ -1904,6 +1905,8 @@ function DeliveryPinEntry({ jobId, onConfirmed }: { jobId: string; onConfirmed: 
     }
     toast.success("Delivery confirmed. The job is settled.");
     setPin("");
+    // Con Z Pay via Payonify: send the driver's payout now (no-op for other jobs).
+    void runKickPayout({ data: { jobId } }).catch(() => undefined);
     onConfirmed();
   };
 
