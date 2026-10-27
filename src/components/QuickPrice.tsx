@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, MapPin } from "lucide-react";
 import { czButtonClass } from "@/components/redesign";
@@ -15,10 +15,13 @@ import {
   type OfferResult,
 } from "@/lib/booking.functions";
 import {
+  createLatestRequestGate,
+  currentQuickPrice,
   quickPriceBookingPath,
   quickPriceErrorMessage,
   quickPriceSignature,
   quickPriceStage,
+  runQuickPrice,
 } from "@/lib/quick-price";
 
 // The map (Leaflet) is the heaviest part of the page, so it only loads when
@@ -46,7 +49,10 @@ export function QuickPrice({ titleAs = "h2" }: { titleAs?: "h1" | "h2" }) {
   const [address, setAddress] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [pickerOn, setPickerOn] = useState(false);
-  const [loading, setLoading] = useState(false);
+  // Signature of the price check in flight, if any. "Checking" shows only while it matches the
+  // inputs on screen, so editing anything during a check lets the customer check again at once.
+  const [pendingSig, setPendingSig] = useState<string | null>(null);
+  const gate = useRef(createLatestRequestGate()).current;
   const [result, setResult] = useState<{
     sig: string;
     offer?: OfferResult;
@@ -54,9 +60,12 @@ export function QuickPrice({ titleAs = "h2" }: { titleAs?: "h1" | "h2" }) {
     error?: string;
   } | null>(null);
 
-  const sig = quickPriceSignature({ material, quantity, coords });
-  // A result only stays on screen while the inputs still match it.
-  const current = result && result.sig === sig ? result : null;
+  const sig = quickPriceSignature({ material, quantity, coords, address });
+  const sigRef = useRef(sig);
+  sigRef.current = sig;
+  const loading = pendingSig === sig;
+  // A result only stays on screen (and can be booked) while the inputs still match it.
+  const current = currentQuickPrice(result, sig);
   const bookPath = coords
     ? quickPriceBookingPath({ material, quantity, address, coords })
     : "/customer/book";
@@ -68,21 +77,37 @@ export function QuickPrice({ titleAs = "h2" }: { titleAs?: "h1" | "h2" }) {
   });
 
   const checkPrice = async () => {
-    if (!coords || loading || !isValidQuantity(quantity)) return;
-    setLoading(true);
-    try {
-      const r = await runOffer({
-        data: { material, quantity, deliveryLat: coords.lat, deliveryLng: coords.lng, address },
-      });
-      setResult(r.status === "awaiting_sourcing" ? { sig, awaiting: r } : { sig, offer: r });
-    } catch (error) {
-      setResult({
-        sig,
-        error: quickPriceErrorMessage(error, typeof navigator !== "undefined" && !navigator.onLine),
-      });
-    } finally {
-      setLoading(false);
-    }
+    if (loading) return;
+    const c = coords;
+    await runQuickPrice({
+      gate,
+      sig,
+      currentSig: () => sigRef.current,
+      hasDelivery: !!c,
+      quantity,
+      fetch: () =>
+        runOffer({
+          data: { material, quantity, deliveryLat: c!.lat, deliveryLng: c!.lng, address },
+        }),
+      setPending: setPendingSig,
+      setResult: ({ sig: s, value, error }) => {
+        if (value) {
+          setResult(
+            value.status === "awaiting_sourcing"
+              ? { sig: s, awaiting: value }
+              : { sig: s, offer: value },
+          );
+        } else {
+          setResult({
+            sig: s,
+            error: quickPriceErrorMessage(
+              error,
+              typeof navigator !== "undefined" && !navigator.onLine,
+            ),
+          });
+        }
+      },
+    });
   };
 
   return (

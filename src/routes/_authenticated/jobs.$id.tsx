@@ -1,4 +1,9 @@
 import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
+import { serverNow, syncServerClock } from "@/lib/server-clock";
+import { commissionFee, earnings, fuelEstimate } from "@/lib/driver-economics";
+import { composeOfferMessage, isDriverArranged, MAX_SOURCE_LENGTH, parseOfferMessage } from "@/lib/proposed-source";
+import { OfferMessage } from "@/components/redesign/ProposedSource";
+import { cancelPolicyText, customerCanCancel } from "@/lib/cancel-policy";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -553,7 +558,9 @@ function JobDetail() {
   const showDeliveryPinDisplay = isOwner && ["accepted", "in_progress"].includes(job.status);
   const showCompleteButton = isOwner && !isEscrow && (job.status === "accepted" || job.status === "in_progress");
   const showDeliveryPinEntry = isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && !!job.delivery_photo_url;
-  const showCancel = isOwner && (job.status === "open" || job.status === "accepted" || job.status === "in_progress");
+  // Customers can cancel until the load is collected; after that cancel_job refuses and
+  // "Report a problem" (a dispute) is the way to raise it.
+  const showCancel = isOwner && customerCanCancel(job.status);
   const showActionSection = showRadar || showEscrowBanner || showBidForm || showPickupUpload || showDeliveryUpload || showDeliveryPinDisplay || showCompleteButton || showDeliveryPinEntry || showCancel;
 
   const showProofPhotos = !!(job.pickup_photo_url || job.delivery_photo_url);
@@ -956,7 +963,15 @@ function JobDetail() {
                         {b.delivery_date && <div className="text-[11px] text-muted-foreground">{b.delivery_date}</div>}
                       </div>
                     </div>
-                    {b.message && <p className="text-sm text-muted-foreground mt-2">{b.message}</p>}
+                    {b.message && (
+                      <div className="mt-2 space-y-1">
+                        <OfferMessage
+                          message={b.message}
+                          driverArranged={isDriverArranged(job)}
+                          noteClassName="text-sm text-muted-foreground"
+                        />
+                      </div>
+                    )}
 
                     {b.truck_reg && (
                       <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
@@ -1194,7 +1209,11 @@ function BidForm({
   // quickest way to get picked) — the driver adjusts from there.
   const [price, setPrice] = useState(existing?.price?.toString() ?? (job?.budget != null ? String(Number(job.budget)) : ""));
   const [date, setDate] = useState(existing?.delivery_date ?? "");
-  const [message, setMessage] = useState(existing?.message ?? "");
+  // The saved message may start with the driver's proposed source (proposed-source.ts).
+  const [message, setMessage] = useState(parseOfferMessage(existing?.message).note);
+  const [proposedSource, setProposedSource] = useState(parseOfferMessage(existing?.message).source ?? "");
+  // Open request: no listed supplier, so the driver arranges the material (no pickup pin).
+  const driverArrangesPickup = isDriverArranged(job);
   const [truckId, setTruckId] = useState<string>(existing?.truck_id ?? "");
   // Migration 0060: optional "I can reach pickup in" (minutes).
   const [etaMinutes, setEtaMinutes] = useState<number | null>(existing?.eta_minutes ?? null);
@@ -1279,7 +1298,7 @@ function BidForm({
         driver_id: userId!,
         price: p,
         delivery_date: date || null,
-        message: message.trim() || null,
+        message: composeOfferMessage(driverArrangesPickup ? proposedSource : "", message),
         truck_id: truckId,
         eta_minutes: etaMinutes,
       } as any,
@@ -1317,13 +1336,30 @@ function BidForm({
     },
   });
 
+  // Diesel price (admin setting) and fuel use (0118 setting, else the engine default),
+  // for the driver's fuel estimate only. Both readable like commission_rate.
+  const { data: fuelSettings } = useQuery({
+    queryKey: ["fuel-settings"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("system_settings")
+        .select("key,value")
+        .in("key", ["diesel_price_per_liter", "fuel_l_per_100km"]);
+      const get = (k: string) => {
+        const v = Number((data ?? []).find((r: { key: string }) => r.key === k)?.value);
+        return Number.isFinite(v) ? v : null;
+      };
+      return { diesel: get("diesel_price_per_liter"), fuel: get("fuel_l_per_100km") };
+    },
+  });
   const budget = Number(job?.budget ?? 0);
   const priceNum = Math.max(0, Number(price) || 0);
   const setPriceNum = (n: number) => setPrice(String(Math.max(5, Math.round(n * 100) / 100)));
   const firstJobFree = driverProfile ? driverProfile.first_job_free_used === false : false;
   // Flat commission for every driver level (owner decision 11/10/2026).
   const effectivePct = commissionRate != null ? commissionRate : null;
-  const fee = effectivePct != null ? (firstJobFree ? 0 : Math.round(priceNum * effectivePct) / 100) : null;
+  // Same rounding as the database's commission_amount (driver-economics.ts).
+  const fee = effectivePct != null ? commissionFee(priceNum, effectivePct, firstJobFree) : null;
   const pctLabel = effectivePct != null ? `${Number(effectivePct.toFixed(2))}%` : "";
   const chips = budget > 0 ? [budget, budget + 10, budget + 20, budget + 30] : [];
   // Server-computed at posting time by tg_validate_job_budget (same
@@ -1331,6 +1367,21 @@ function BidForm({
   const pb = job?.pricing_breakdown as { low?: number; high?: number } | null | undefined;
   const range = pb && Number(pb.low) > 0 && Number(pb.high) >= Number(pb.low) ? { low: Number(pb.low), high: Number(pb.high) } : null;
   const km = job ? straightKm({ lat: job.pickup_lat, lng: job.pickup_lng }, { lat: job.delivery_lat, lng: job.delivery_lng }) : null;
+  // Road distance from the booking quote when the job has one (pricing_breakdown is
+  // written by tg_validate_job_budget); otherwise the straight line, labelled as such.
+  const pbRoute = job?.pricing_breakdown as { distance_km?: number; distance_source?: string } | null | undefined;
+  const roadKm = pbRoute && pbRoute.distance_source && pbRoute.distance_source !== "haversine" && Number(pbRoute.distance_km) > 0
+    ? Number(pbRoute.distance_km)
+    : null;
+  const routeKm = roadKm ?? km;
+  const fuel = fuelEstimate({
+    routeKm,
+    routeIsRoad: roadKm != null,
+    trips: preview?.trips ?? null,
+    litresPer100km: fuelSettings?.fuel ?? null,
+    dieselPerLitre: fuelSettings?.diesel ?? null,
+  });
+  const take = earnings(priceNum, fee, fuel);
 
   return (
     <form onSubmit={submit} className="flex flex-1 flex-col">
@@ -1347,7 +1398,11 @@ function BidForm({
             </div>
             <div className="text-sm text-cz-muted">
               {(job.pickup_address || "Supplier pickup point") + " → " + job.delivery_address}
-              {km != null ? ` · about ${Math.round(km)} km` : ""}
+              {roadKm != null
+                ? ` · about ${Math.round(roadKm)} km by road`
+                : km != null
+                  ? ` · about ${Math.round(km)} km in a straight line`
+                  : ""}
             </div>
             <div className="text-sm text-cz-text">
               Customer offered <strong className="text-cz-text">{usd(budget)}</strong>
@@ -1450,6 +1505,27 @@ function BidForm({
           </div>
         )}
 
+        {driverArrangesPickup && (
+          <div className="space-y-1.5">
+            <Label htmlFor="proposed-source" className="text-sm font-semibold text-cz-muted">
+              Where will you load the material?
+            </Label>
+            <Input
+              id="proposed-source"
+              value={proposedSource}
+              onChange={(e) => setProposedSource(e.target.value)}
+              maxLength={MAX_SOURCE_LENGTH}
+              placeholder="Quarry, yard or river bed, and area"
+              aria-describedby="proposed-source-hint"
+              className="min-h-11"
+            />
+            <p id="proposed-source-hint" className="text-[13px] text-cz-muted">
+              No listed supplier covers this job. The customer sees this as your proposed source, marked as not
+              checked by Con Z. You confirm where you loaded when you collect.
+            </p>
+          </div>
+        )}
+
         <div className="space-y-2">
           <div className="text-sm font-semibold text-cz-muted">I can reach pickup in</div>
           <div className="grid grid-cols-4 gap-2">
@@ -1457,7 +1533,7 @@ function BidForm({
               { v: 15, label: "15 min" },
               { v: 30, label: "30 min" },
               { v: 60, label: "1 hr" },
-              { v: null, label: "Later" },
+              { v: null, label: "Not sure" },
             ].map((o) => (
               <button
                 key={String(o.v)}
@@ -1473,6 +1549,11 @@ function BidForm({
               </button>
             ))}
           </div>
+          {etaMinutes === null && (
+            <p className="text-[13px] text-cz-muted">
+              The customer sees "To confirm" for pickup and arrival. Offers with a time are easier to choose.
+            </p>
+          )}
         </div>
 
         {trucks && trucks.length > 0 && (
@@ -1556,12 +1637,34 @@ function BidForm({
               <div className="tabular-nums">−{usd2(fee)}</div>
             </div>
             <div className="text-right">
-              <div className="text-[13px] text-cz-muted">You earn</div>
+              <div className="text-[13px] text-cz-muted">After Con Z fee</div>
               <div className="cz-display text-[22px] font-bold leading-none tabular-nums text-cz-green-text">
-                {usd2(priceNum - fee)}
+                {usd2(take?.afterFee ?? priceNum - fee)}
               </div>
             </div>
           </div>
+        )}
+        {fee != null && priceNum > 0 && (
+          <details className="rounded-xl border border-cz-border bg-cz-bg text-[13px]" data-testid="running-cost">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 font-semibold">
+              <span>Estimated fuel</span>
+              <span className="tabular-nums">
+                {fuel.available ? `about ${usd2(fuel.cost)} · ${usd2(take?.afterFuel ?? 0)} after fuel` : "Can't estimate"}
+              </span>
+            </summary>
+            <div className="space-y-1 px-3 pb-3 text-cz-muted">
+              {fuel.available ? (
+                <>
+                  <p>
+                    About {fuel.km} km and {fuel.litres} L: {fuel.assumptions.join(", ")}.
+                  </p>
+                  <p>Not included: {fuel.excluded.join("; ")}. This is a guide, not a promise of profit.</p>
+                </>
+              ) : (
+                <p>{fuel.reason} Check the route yourself before offering.</p>
+              )}
+            </div>
+          </details>
         )}
         {sendBlockedReason && (
           <p role="status" className="text-[13px] font-semibold text-cz-warn-text" data-testid="send-blocked-reason">
@@ -1884,19 +1987,10 @@ function CancelJobDialog({ jobId, status, onCancelled }: { jobId: string; status
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const policy =
-    status === "open"
-      ? "You can cancel this job for free."
-      : status === "accepted"
-        ? "This driver has already accepted your job. Cancelling now may result in a fee and a strike on your account."
-        : "The driver has already loaded your material. Cancelling now will result in a strike and may affect your account. This should only be used for genuine emergencies.";
+  // cancel_job charges no fee; it records a strike once a driver has accepted.
+  const policy = cancelPolicyText(status);
 
-  const tone =
-    status === "open"
-      ? "text-muted-foreground"
-      : status === "accepted"
-        ? "text-warning"
-        : "text-destructive";
+  const tone = status === "open" ? "text-muted-foreground" : "text-warning";
 
   const submit = async () => {
     setLoading(true);
@@ -2998,9 +3092,14 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
   const { job, bids, id } = ctx;
   // Re-evaluate which offers are still live as their 30-minute windows
   // (migration 0062) run out.
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(() => serverNow());
   useEffect(() => {
-    const t = window.setInterval(() => setNow(Date.now()), 15_000);
+    const refresh = () => setNow(serverNow());
+    void syncServerClock().then(refresh);
+    const t = window.setInterval(() => {
+      void syncServerClock().then(refresh); // no-op once measured
+      refresh();
+    }, 15_000);
     return () => window.clearInterval(t);
   }, []);
   const [sort, setSort] = useState<OfferSort>("price");
@@ -3103,6 +3202,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
                 bid={b}
                 kmToPickup={locations[b.id]?.km_to_pickup ?? null}
                 deliveryKm={Number(breakdown?.distance_km) || null}
+                driverArranged={isDriverArranged(job)}
                 highlights={highlights[b.id]}
                 guide={guideBand(b.price, breakdown)}
                 primary={b.id === primaryId}

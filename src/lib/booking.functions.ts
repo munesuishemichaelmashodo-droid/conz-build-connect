@@ -9,20 +9,15 @@ import {
   type ResolvedMaterialSource,
 } from "@/lib/materialSource.functions";
 import { classifyResolution, type AwaitingSourcingResult } from "@/lib/sourcingFallback";
+import {
+  BOOKING_MATERIALS,
+  sourcingQuoteProblem,
+  sourcingRequestProblem,
+} from "@/lib/sourcing-request";
 
 export type { AwaitingSourcingResult } from "@/lib/sourcingFallback";
 
-const MATERIALS = [
-  "river_sand",
-  "pit_sand",
-  "quarry_dust",
-  "crusher_run",
-  "gravel",
-  "stones",
-  "top_soil",
-  "filling_soil",
-  "custom",
-] as const;
+const MATERIALS = BOOKING_MATERIALS;
 
 const MAX_SERVICE_KM = 900;
 const TOO_FAR_MESSAGE =
@@ -202,6 +197,12 @@ export type OfferResult = {
   // pricingVersion/tripCount are shown without being client-editable. Always
   // present because a quote requires an eligible verified supply location.
   resolvedSource: ResolvedMaterialSource | null;
+  // Engine v1.3 (0118) extras; absent from older engines. Where the estimate came from
+  // (price bands, recent accepted offers, small load), when the material price was last
+  // updated, and the operating assumptions (fuel, diesel, how the return trip is covered).
+  dataSource?: string;
+  materialPriceUpdatedAt?: string | null;
+  assumptions?: Record<string, string | number | boolean | null> | null;
 };
 
 type OfferGuide = {
@@ -222,6 +223,10 @@ type OfferGuide = {
   tripCount?: number;
   referenceCapacityM3?: number;
   pricingVersion?: string;
+  dataSource?: string;
+  mode?: string;
+  materialPriceUpdatedAt?: string | null;
+  assumptions?: Record<string, string | number | boolean | null> | null;
 };
 
 function buildOfferResult(
@@ -265,6 +270,9 @@ function buildOfferResult(
     quoteId,
     openRequest: false,
     resolvedSource,
+    dataSource: g.dataSource ?? g.mode ?? "bands",
+    materialPriceUpdatedAt: g.materialPriceUpdatedAt ?? null,
+    assumptions: g.assumptions ?? null,
   };
 }
 
@@ -475,21 +483,9 @@ export const getSourcingOffer = createServerFn({ method: "POST" })
       )
       .eq("id", data.requestId)
       .maybeSingle();
-    if (error || !req || req.customer_id !== userId) throw new Error("Sourcing request not found.");
-    if (
-      req.status !== "quote_ready" ||
-      !req.quote_id ||
-      !req.supply_location_id ||
-      !req.quote_valid_until
-    ) {
-      throw new Error("This sourcing request doesn't have an active quote.");
-    }
-    if (new Date(req.quote_valid_until).getTime() <= Date.now()) {
-      throw new Error("This quote has expired. Please request sourcing again.");
-    }
-    if (req.delivery_lat == null || req.delivery_lng == null) {
-      throw new Error("This request has no delivery pin, so it can't be booked.");
-    }
+    if (error) throw new Error("Sourcing request not found.");
+    const reqProblem = sourcingRequestProblem(req, userId);
+    if (reqProblem) throw new Error(reqProblem);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const admin = supabaseAdmin as any;
@@ -500,16 +496,8 @@ export const getSourcingOffer = createServerFn({ method: "POST" })
       )
       .eq("id", req.quote_id)
       .maybeSingle();
-    if (
-      !quote ||
-      quote.customer_id !== userId ||
-      quote.consumed_at ||
-      quote.supply_location_id !== req.supply_location_id ||
-      new Date(quote.expires_at).getTime() <= Date.now() ||
-      quote.distance_source !== "osrm"
-    ) {
-      throw new Error("This quote is no longer valid. Please request sourcing again.");
-    }
+    const quoteProblem = sourcingQuoteProblem(quote, req, userId);
+    if (quoteProblem) throw new Error(quoteProblem);
     const { data: loc } = await admin
       .from("material_supply_locations")
       .select("id, supplier_id, source_type, label, address, lat, lng, suppliers(name)")

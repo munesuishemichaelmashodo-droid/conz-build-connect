@@ -3,7 +3,7 @@ import { CheckCircle2, ChevronDown, CircleDashed, Loader2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { stockStatusCopy, supplyConfirmedCopy } from "@/lib/stockStatus";
+import { stockStatusCopy, supplyActionCopy, supplyConfirmedCopy } from "@/lib/stockStatus";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type Props = {
@@ -136,7 +136,9 @@ export function SupplyConfirmationCard({ job, viewer }: Props) {
           <div className="text-sm font-semibold">
             Supply <span className="text-cz-amber-text">· Not confirmed</span>
           </div>
-          <div className="text-cz-muted">{copy.detail}</div>
+          <div className="text-cz-muted">
+            {supplyActionCopy(viewer === "driver" ? "driver" : "admin")}
+          </div>
         </div>
         {canConfirm && !confirming && (
           <button
