@@ -317,3 +317,17 @@ Full evidence and plan: `docs/release/RELEASE-READINESS-2026-10-26.md`. Correcti
 - Pomona Stone Quarries and Davis Granite are "verified" **locations** (public-source seeds 0050/0054), not partners.
 - Quotation requests (0087/0088 backend, live, 0 rows) are reachable again only behind
   `system_settings.sourcing_requests_enabled = true` (off by default).
+
+## 27/10/2026 — released (PR #40) + 0117/0118 live
+
+- PR #40 merged the working branch into `main` (#29, #30, #31, #32, #36, #37, #39). Live check after deploy: site on
+  `ovwrsocjmkpiygipmrdk`, public price check returns a result through the server.
+- **0117 LIVE** (recorded `20261026121000`): `accept_bid` = `59d403be…`, `tg_guard_bid_insert` = `d5bdeaaf…`.
+- **0118 LIVE** (recorded `20261026130000`): `compute_material_offer` = `f6815ad0…` (v1.3); policy "Public settings
+  readable by authenticated" now also allows `fuel_l_per_100km`, `long_haul_markup`.
+- Both were checked equal to their undo scripts before applying; undo in `supabase/rollbacks/`. Applied as file bodies
+  without header comments via `execute_sql`.
+- Still not applied (need the owner): 0103, 0114, 0115, 0119, 0120 (Payonify, PR #38).
+- Test database for Payonify: Supabase project `conz-staging` (`fpckydgssuefzzxivvig`), loaded from git at
+  `acc9da0` (all migrations through 0120); venmax-admin paused to make room. Vercel Preview vars for branch
+  `payments/payonify-relay` point there.
