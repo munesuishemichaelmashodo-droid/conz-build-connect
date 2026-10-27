@@ -1,5 +1,6 @@
 import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
 import { serverNow, syncServerClock } from "@/lib/server-clock";
+import { commissionFee, earnings, fuelEstimate } from "@/lib/driver-economics";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1312,13 +1313,30 @@ function BidForm({
     },
   });
 
+  // Diesel price (admin setting) and fuel use (0118 setting, else the engine default),
+  // for the driver's fuel estimate only. Both readable like commission_rate.
+  const { data: fuelSettings } = useQuery({
+    queryKey: ["fuel-settings"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("system_settings")
+        .select("key,value")
+        .in("key", ["diesel_price_per_liter", "fuel_l_per_100km"]);
+      const get = (k: string) => {
+        const v = Number((data ?? []).find((r: { key: string }) => r.key === k)?.value);
+        return Number.isFinite(v) ? v : null;
+      };
+      return { diesel: get("diesel_price_per_liter"), fuel: get("fuel_l_per_100km") };
+    },
+  });
   const budget = Number(job?.budget ?? 0);
   const priceNum = Math.max(0, Number(price) || 0);
   const setPriceNum = (n: number) => setPrice(String(Math.max(5, Math.round(n * 100) / 100)));
   const firstJobFree = driverProfile ? driverProfile.first_job_free_used === false : false;
   // Flat commission for every driver level (owner decision 11/10/2026).
   const effectivePct = commissionRate != null ? commissionRate : null;
-  const fee = effectivePct != null ? (firstJobFree ? 0 : Math.round(priceNum * effectivePct) / 100) : null;
+  // Same rounding as the database's commission_amount (driver-economics.ts).
+  const fee = effectivePct != null ? commissionFee(priceNum, effectivePct, firstJobFree) : null;
   const pctLabel = effectivePct != null ? `${Number(effectivePct.toFixed(2))}%` : "";
   const chips = budget > 0 ? [budget, budget + 10, budget + 20, budget + 30] : [];
   // Server-computed at posting time by tg_validate_job_budget (same
@@ -1326,6 +1344,21 @@ function BidForm({
   const pb = job?.pricing_breakdown as { low?: number; high?: number } | null | undefined;
   const range = pb && Number(pb.low) > 0 && Number(pb.high) >= Number(pb.low) ? { low: Number(pb.low), high: Number(pb.high) } : null;
   const km = job ? straightKm({ lat: job.pickup_lat, lng: job.pickup_lng }, { lat: job.delivery_lat, lng: job.delivery_lng }) : null;
+  // Road distance from the booking quote when the job has one (pricing_breakdown is
+  // written by tg_validate_job_budget); otherwise the straight line, labelled as such.
+  const pbRoute = job?.pricing_breakdown as { distance_km?: number; distance_source?: string } | null | undefined;
+  const roadKm = pbRoute && pbRoute.distance_source && pbRoute.distance_source !== "haversine" && Number(pbRoute.distance_km) > 0
+    ? Number(pbRoute.distance_km)
+    : null;
+  const routeKm = roadKm ?? km;
+  const fuel = fuelEstimate({
+    routeKm,
+    routeIsRoad: roadKm != null,
+    trips: preview?.trips ?? null,
+    litresPer100km: fuelSettings?.fuel ?? null,
+    dieselPerLitre: fuelSettings?.diesel ?? null,
+  });
+  const take = earnings(priceNum, fee, fuel);
 
   return (
     <form onSubmit={submit} className="flex flex-1 flex-col">
@@ -1342,7 +1375,11 @@ function BidForm({
             </div>
             <div className="text-sm text-cz-muted">
               {(job.pickup_address || "Supplier pickup point") + " → " + job.delivery_address}
-              {km != null ? ` · about ${Math.round(km)} km` : ""}
+              {roadKm != null
+                ? ` · about ${Math.round(roadKm)} km by road`
+                : km != null
+                  ? ` · about ${Math.round(km)} km in a straight line`
+                  : ""}
             </div>
             <div className="text-sm text-cz-text">
               Customer offered <strong className="text-cz-text">{usd(budget)}</strong>
@@ -1556,12 +1593,34 @@ function BidForm({
               <div className="tabular-nums">−{usd2(fee)}</div>
             </div>
             <div className="text-right">
-              <div className="text-[13px] text-cz-muted">You earn</div>
+              <div className="text-[13px] text-cz-muted">After Con Z fee</div>
               <div className="cz-display text-[22px] font-bold leading-none tabular-nums text-cz-green-text">
-                {usd2(priceNum - fee)}
+                {usd2(take?.afterFee ?? priceNum - fee)}
               </div>
             </div>
           </div>
+        )}
+        {fee != null && priceNum > 0 && (
+          <details className="rounded-xl border border-cz-border bg-cz-bg text-[13px]" data-testid="running-cost">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 font-semibold">
+              <span>Estimated fuel</span>
+              <span className="tabular-nums">
+                {fuel.available ? `about ${usd2(fuel.cost)} · ${usd2(take?.afterFuel ?? 0)} after fuel` : "Can't estimate"}
+              </span>
+            </summary>
+            <div className="space-y-1 px-3 pb-3 text-cz-muted">
+              {fuel.available ? (
+                <>
+                  <p>
+                    About {fuel.km} km and {fuel.litres} L: {fuel.assumptions.join(", ")}.
+                  </p>
+                  <p>Not included: {fuel.excluded.join("; ")}. This is a guide, not a promise of profit.</p>
+                </>
+              ) : (
+                <p>{fuel.reason} Check the route yourself before offering.</p>
+              )}
+            </div>
+          </details>
         )}
         {sendBlockedReason && (
           <p role="status" className="text-[13px] font-semibold text-cz-warn-text" data-testid="send-blocked-reason">

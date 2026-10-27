@@ -202,6 +202,12 @@ export type OfferResult = {
   // pricingVersion/tripCount are shown without being client-editable. Always
   // present because a quote requires an eligible verified supply location.
   resolvedSource: ResolvedMaterialSource | null;
+  // Engine v1.3 (0118) extras; absent from older engines. Where the estimate came from
+  // (price bands, recent accepted offers, small load), when the material price was last
+  // updated, and the operating assumptions (fuel, diesel, how the return trip is covered).
+  dataSource?: string;
+  materialPriceUpdatedAt?: string | null;
+  assumptions?: Record<string, string | number | boolean | null> | null;
 };
 
 type OfferGuide = {
@@ -222,6 +228,10 @@ type OfferGuide = {
   tripCount?: number;
   referenceCapacityM3?: number;
   pricingVersion?: string;
+  dataSource?: string;
+  mode?: string;
+  materialPriceUpdatedAt?: string | null;
+  assumptions?: Record<string, string | number | boolean | null> | null;
 };
 
 function buildOfferResult(
@@ -265,6 +275,9 @@ function buildOfferResult(
     quoteId,
     openRequest: false,
     resolvedSource,
+    dataSource: g.dataSource ?? g.mode ?? "bands",
+    materialPriceUpdatedAt: g.materialPriceUpdatedAt ?? null,
+    assumptions: g.assumptions ?? null,
   };
 }
 
