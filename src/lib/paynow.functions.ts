@@ -27,6 +27,13 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service-role RPCs/tables added by 0073+ are not in the generated Supabase types yet
     const db = supabaseAdmin as any;
 
+    // Payment switch (0120): once a super admin moves payments to Payonify, Paynow starts no
+    // new payments. If the switch can't be read, Paynow carries on as before.
+    const { data: sw } = await db.rpc("launch_switches");
+    if ((sw as { paymentProvider?: string } | null)?.paymentProvider === "payonify") {
+      return { ok: false, error: "paynow_paused" };
+    }
+
     const { data: payment, error } = await db
       .from("payments")
       .insert({
@@ -112,6 +119,9 @@ export const initiateEscrowPayment = createServerFn({ method: "POST" })
     const { data: switches } = await db.rpc("launch_switches");
     if (!(switches as { escrowEnabled?: boolean } | null)?.escrowEnabled) {
       return { ok: false, error: "escrow_unavailable" };
+    }
+    if ((switches as { paymentProvider?: string } | null)?.paymentProvider === "payonify") {
+      return { ok: false, error: "paynow_paused" };
     }
 
     const { data: job } = await db

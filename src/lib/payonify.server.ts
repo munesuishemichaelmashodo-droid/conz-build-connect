@@ -1,4 +1,4 @@
-// Server-only Payonify Relay client (SANDBOX ONLY). Never imported by client code.
+// Server-only Payonify Relay client (test or live keys, per PAYONIFY_MODE). Never imported by client code.
 // Wired to Con Z Pay by payonify.process.server.ts and payonify.functions.ts (0120).
 //
 // Built from the public docs at docs.payonify.com (read 26/10/2026):
@@ -36,7 +36,15 @@ const REQUEST_TIMEOUT_MS = 20_000;
 
 export type PayonifyCurrency = "usd" | "zwg";
 
-export type PayonifyConfig = { publishableKey: string; secretKey: string; webhookSecret?: string };
+export type PayonifyMode = "test" | "live";
+
+export type PayonifyConfig = {
+  publishableKey: string;
+  secretKey: string;
+  webhookSecret?: string;
+  /** Which Payonify mode the keys belong to. Defaults to "test". */
+  mode?: PayonifyMode;
+};
 
 export class PayonifyError extends Error {
   constructor(
@@ -68,20 +76,23 @@ export function parseLivemode(value: unknown): boolean | null {
 
 /**
  * Reads PAYONIFY_* from the server environment. Returns null when not configured.
- * Live keys are refused: this integration is sandbox-only until the owner approves
- * live payments, so a live key in the environment is treated as a configuration error.
+ * The keys must belong to the requested mode (pk_test_/sk_test_ or pk_live_/sk_live_): a
+ * live key in a test setup, or the reverse, is a configuration error and is refused.
  */
 export function getPayonifyConfig(
   env: Record<string, string | undefined> = process.env,
+  mode: PayonifyMode = "test",
 ): PayonifyConfig | null {
   const publishableKey = env["PAYONIFY_PUBLISHABLE_KEY"]?.trim();
   const secretKey = env["PAYONIFY_SECRET_KEY"]?.trim();
   if (!publishableKey || !secretKey) return null;
-  if (!publishableKey.startsWith("pk_test_") || !secretKey.startsWith("sk_test_")) {
-    throw new Error("Payonify is sandbox-only: use pk_test_/sk_test_ keys.");
+  if (!publishableKey.startsWith(`pk_${mode}_`) || !secretKey.startsWith(`sk_${mode}_`)) {
+    throw new Error(
+      `Payonify keys don't match PAYONIFY_MODE=${mode}: use pk_${mode}_/sk_${mode}_ keys.`,
+    );
   }
   const webhookSecret = env["PAYONIFY_WEBHOOK_SECRET"]?.trim() || undefined;
-  return { publishableKey, secretKey, webhookSecret };
+  return { publishableKey, secretKey, webhookSecret, mode };
 }
 
 /** Decimal dollars (as stored in ConZ, numeric(12,2)) to integer cents, exactly. */
@@ -384,8 +395,8 @@ export type PayonifyEvent = {
 
 /**
  * Verifies the Payonify-Signature header against the RAW request body and returns the
- * parsed event, or null if the signature, timestamp or body is wrong. Live-mode events
- * are rejected while the integration is sandbox-only. Callers must still dedupe by
+ * parsed event, or null if the signature, timestamp or body is wrong, or the event is from
+ * the other mode (expectedLivemode). Callers must still dedupe by
  * event.id and re-fetch the object from the API before acting on it.
  */
 export async function verifyPayonifyWebhook(
@@ -393,6 +404,7 @@ export async function verifyPayonifyWebhook(
   header: string | null,
   secret: string,
   nowSeconds: number = Math.floor(Date.now() / 1000),
+  expectedLivemode = false,
 ): Promise<PayonifyEvent | null> {
   if (!header || !secret) return null;
   const parts = new Map<string, string[]>();
@@ -411,11 +423,11 @@ export async function verifyPayonifyWebhook(
   try {
     const event = JSON.parse(rawBody) as Omit<PayonifyEvent, "livemode"> & { livemode: unknown };
     if (typeof event?.id !== "string" || typeof event?.type !== "string") return null;
-    // Sandbox only: anything not clearly a test event is refused.
-    if (parseLivemode(event.livemode) !== false) return null;
+    // An event from the other mode (test vs live), or of unclear mode, is refused.
+    if (parseLivemode(event.livemode) !== expectedLivemode) return null;
     if (!event.data || typeof event.data.object !== "object" || event.data.object === null)
       return null;
-    return { ...event, livemode: false };
+    return { ...event, livemode: expectedLivemode };
   } catch {
     return null;
   }

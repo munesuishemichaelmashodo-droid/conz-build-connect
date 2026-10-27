@@ -154,7 +154,7 @@ function AdminApprovals() {
 
   return (
     <div className="space-y-6">
-      <PayonifyAdminPanel />
+      <PayonifyAdminPanel canSwitch={isSuper} />
       <section className="space-y-3">
         <h2 className="font-semibold text-sm flex items-center gap-2">
           <Undo2 className="w-4 h-4" /> Escrow refunds due ({dueRefunds.length})

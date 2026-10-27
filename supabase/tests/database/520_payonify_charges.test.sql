@@ -2,7 +2,7 @@
 -- charge/payment binding, test/live separation, no state regression, and Paynow untouched.
 
 begin;
-select plan(51);
+select plan(68);
 select tests.enable_launch_features();
 
 select set_config('t.cust',  tests.create_user('cust')::text, true);
@@ -61,8 +61,8 @@ select throws_ok($$insert into public.payments (user_id, type, amount, currency,
   values (current_setting('t.cust')::uuid, 'escrow', 20, 'USD', 'payonify', 'initiated', 'payonify')$$,
   '23514', null, 'A: a Payonify payment must record test or live mode');
 select throws_ok($$insert into public.payments (user_id, type, amount, currency, method, status, provider, provider_livemode)
-  values (current_setting('t.cust')::uuid, 'topup', 20, 'USD', 'payonify', 'initiated', 'payonify', false)$$,
-  '23514', null, 'A: Payonify takes Con Z Pay (escrow) payments only, not wallet top-ups');
+  values (current_setting('t.cust')::uuid, 'withdrawal', 20, 'USD', 'payonify', 'initiated', 'payonify', false)$$,
+  '23514', null, 'A: Payonify takes Con Z Pay and top-ups only (not withdrawals)');
 select throws_ok($$insert into public.payments (user_id, type, amount, currency, method, status, provider)
   values (current_setting('t.cust')::uuid, 'escrow', 20, 'USD', 'x', 'initiated', 'stripe')$$,
   '23514', null, 'A: unknown providers are refused');
@@ -192,6 +192,55 @@ select tests.login_as(current_setting('t.cust')::uuid);
 select is((select count(*)::int from public.payonify_webhook_events), 0, 'G: customers cannot read webhook events');
 select tests.login_as(current_setting('t.admin')::uuid);
 select is((select count(*)::int from public.payonify_webhook_events), 1, 'G: admins can');
+select tests.as_owner();
+
+-- ===========================================================================
+-- H. Driver wallet top-up through Payonify
+-- ===========================================================================
+select tests.as_owner();
+select set_config('t.wb0', tests.balance(current_setting('t.drv')::uuid)::text, true);
+insert into public.payments (user_id, type, amount, currency, method, status, provider, provider_livemode)
+values (current_setting('t.drv')::uuid, 'topup', 10, 'USD', 'payonify', 'initiated', 'payonify', false);
+select set_config('t.p_t', (select id::text from public.payments where user_id = current_setting('t.drv')::uuid
+  and provider = 'payonify' and type = 'topup'), true);
+select throws_ok($$insert into public.payments (user_id, type, amount, currency, method, status, provider, provider_livemode)
+  values (current_setting('t.drv')::uuid, 'topup', 5, 'USD', 'payonify', 'initiated', 'payonify', false)$$,
+  '23505', null, 'H: only one open Payonify top-up per user');
+select is(pg_temp.apply('t', 'evt_t2', 'ch_t', 'succeeded', _amount => 1000), 'credited', 'H: a succeeded top-up credits the wallet');
+select is(tests.balance(current_setting('t.drv')::uuid), current_setting('t.wb0')::numeric + 10, 'H: wallet up by exactly $10');
+select is(pg_temp.apply('t', 'evt_t3', 'ch_t', 'succeeded', _amount => 1000), 'duplicate_ignored', 'H: a repeat does not credit twice');
+select is(tests.balance(current_setting('t.drv')::uuid), current_setting('t.wb0')::numeric + 10, 'H: still +$10');
+select ok(exists(select 1 from public.notifications where user_id = current_setting('t.drv')::uuid
+  and type = 'wallet_topup' and body like '%via EcoCash%'), 'H: the driver is told it came via EcoCash');
+select ok(exists(select 1 from public.wallet_transactions where user_id = current_setting('t.drv')::uuid
+  and note like 'EcoCash top-up (ref ch_t)%'), 'H: wallet history names EcoCash and the charge');
+
+-- ===========================================================================
+-- I. The payment switch
+-- ===========================================================================
+select set_config('t.sup', tests.create_user('pp_sup', array['admin','super_admin'])::text, true);
+select tests.login_as(current_setting('t.cust')::uuid);
+select is(public.launch_switches()->>'paymentProvider', 'paynow', 'I: Paynow is the default');
+select throws_like($$select public.admin_set_payment_provider('payonify', 'going live')$$, '%Only super admins%',
+  'I: a customer cannot switch');
+select tests.login_as_mfa(current_setting('t.admin')::uuid);
+select throws_like($$select public.admin_set_payment_provider('payonify', 'going live')$$, '%Only super admins%',
+  'I: a plain admin cannot switch');
+select tests.login_as(current_setting('t.sup')::uuid);
+select throws_like($$select public.admin_set_payment_provider('payonify', 'going live')$$, '%MFA_REQUIRED%',
+  'I: a super admin needs a fresh step-up');
+select tests.login_as_mfa(current_setting('t.sup')::uuid);
+select throws_like($$select public.admin_set_payment_provider('stripe', 'going live')$$, '%paynow or payonify%',
+  'I: only the two providers');
+select throws_like($$select public.admin_set_payment_provider('payonify', 'x')$$, '%reason%', 'I: a reason is required');
+select is(public.admin_set_payment_provider('payonify', 'live test passed'), 'payonify', 'I: super admin with step-up switches');
+select is(public.launch_switches()->>'paymentProvider', 'payonify', 'I: the app sees the switch');
+select tests.as_owner();
+select ok(exists(select 1 from public.admin_audit_log where action = 'payment_provider_changed'
+  and meta->>'from' = 'paynow' and meta->>'to' = 'payonify'), 'I: the switch is audit-logged');
+update public.system_settings set value = '"nonsense"'::jsonb where key = 'payment_provider';
+select tests.login_as(current_setting('t.cust')::uuid);
+select is(public.launch_switches()->>'paymentProvider', 'paynow', 'I: an unreadable setting falls back to Paynow');
 select tests.as_owner();
 
 select * from finish();

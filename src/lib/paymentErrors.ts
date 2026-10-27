@@ -35,7 +35,9 @@ const PAYNOW_CODES: Record<string, string> = {
   not_your_job: "Only the customer who booked this job can pay for it.",
   other_payment_open:
     "Another payment for this job is still open. Finish it or wait for it to close before paying a different way.",
-  payonify_unavailable: "EcoCash test payments are not available on this account.",
+  payonify_unavailable: "EcoCash payments are not available on this account right now.",
+  paynow_paused: "Paynow is no longer used for new payments. Pay with EcoCash instead.",
+  invalid_amount: "Enter an amount of at least $1.",
   previous_attempt_unclear:
     "We're still confirming your last payment attempt. Don't pay again yet — contact support if this doesn't clear.",
   invalid_number: "Enter a valid EcoCash number, for example 077 123 4567.",

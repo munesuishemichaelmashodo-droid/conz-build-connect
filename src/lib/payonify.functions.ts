@@ -1,9 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { topupAmountError } from "@/lib/paymentErrors";
 
-// Con Z Pay through Payonify (EcoCash, SANDBOX ONLY). Off for everyone unless the server has
-// PAYONIFY_MODE=test, test keys, a non-production database and the user is a listed tester
-// (see payonify.process.server.ts). Paynow stays the payment option for everyone else.
+// Payments through Payonify (EcoCash): Con Z Pay (escrow) and driver wallet top-ups.
+// Off unless the server has PAYONIFY_MODE (test|live) with matching keys; test mode never runs
+// against the production database. Listed testers see it first; everyone sees it only once a
+// super admin sets the payment switch to Payonify. Until then Paynow is the option for everyone.
 //
 // The browser never decides a payment is paid: these functions only start a charge or ask
 // Payonify for its status; the state change happens in apply_payonify_charge (migration 0120).
@@ -12,7 +14,7 @@ export type PayonifyPaymentState = "pending" | "paid" | "failed" | "cancelled" |
 
 export type PayonifyStartResult =
   | { ok: true; paymentId: string; state: PayonifyPaymentState; resumed?: boolean }
-  | { ok: false; error: PayonifyStartError; paymentId?: string };
+  | { ok: false; error: PayonifyStartError; paymentId?: string; message?: string };
 
 export type PayonifyStartError =
   | "payonify_unavailable"
@@ -24,6 +26,7 @@ export type PayonifyStartError =
   | "other_payment_open"
   | "previous_attempt_unclear"
   | "invalid_number"
+  | "invalid_amount"
   | "payment_declined"
   | "payment_status_unknown"
   | "payment_create_failed";
@@ -42,12 +45,34 @@ function stateOf(status: string | null | undefined): PayonifyPaymentState {
   return "unknown";
 }
 
-/** Whether to show the Payonify option to this user. Reveals nothing else. */
-export const payonifyAvailability = createServerFn({ method: "GET" })
+async function adminDb() {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service-role RPCs/columns added by 0073+/0120 are not in the generated types yet
+  return supabaseAdmin as any;
+}
+
+export type PaymentOptions = {
+  /** Paynow may start new payments (the switch is on Paynow). */
+  paynow: boolean;
+  /** Payonify may start new payments for this user. */
+  payonify: boolean;
+  /** "test" shows the test label; null when Payonify is not offered. */
+  payonifyMode: "test" | "live" | null;
+};
+
+/** Which ways to pay this user is offered. Reveals nothing else. */
+export const paymentOptions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<{ available: boolean }> => {
-    const { payonifyGateFor } = await import("@/lib/payonify.process.server");
-    return { available: payonifyGateFor(process.env, context.userId).ok };
+  .handler(async ({ context }): Promise<PaymentOptions> => {
+    const { payonifyGateFor, readPaymentSwitch } = await import("@/lib/payonify.process.server");
+    const db = await adminDb();
+    const provider = await readPaymentSwitch(db);
+    const gate = payonifyGateFor(process.env, context.userId, provider);
+    return {
+      paynow: provider === "paynow",
+      payonify: gate.ok,
+      payonifyMode: gate.ok ? gate.mode : null,
+    };
   });
 
 type PrevRow = {
@@ -59,6 +84,26 @@ type PrevRow = {
   created_at: string;
 };
 
+/** Ask Payonify about open attempts first, so a customer who already paid isn't charged twice. */
+async function settleOpenAttempts(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service-role client
+  db: any,
+  cfg: import("@/lib/payonify.server").PayonifyConfig,
+  rows: PrevRow[],
+) {
+  const { applyPayonifyCharge } = await import("@/lib/payonify.process.server");
+  const { chargeFacts, getCharge } = await import("@/lib/payonify.server");
+  for (const p of rows) {
+    if (p.status !== "initiated" || p.provider !== "payonify" || !p.provider_reference) continue;
+    try {
+      const facts = chargeFacts(await getCharge(cfg, p.provider_reference));
+      await applyPayonifyCharge(db, p.id, "poll", null, facts);
+    } catch {
+      /* Payonify unreachable: the attempt stays open and blocks a new one. */
+    }
+  }
+}
+
 export const initiatePayonifyEscrowPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { jobId: string; mobileNumber: string }) => {
@@ -68,18 +113,12 @@ export const initiatePayonifyEscrowPayment = createServerFn({ method: "POST" })
     return { jobId: data.jobId, mobileNumber: data.mobileNumber };
   })
   .handler(async ({ data, context }): Promise<PayonifyStartResult> => {
-    const { payonifyGateFor, applyPayonifyCharge } = await import("@/lib/payonify.process.server");
-    const {
-      chargeFacts,
-      createEcocashCharge,
-      getCharge,
-      isDefinitiveRejection,
-      toEcocashNumber,
-      toMinorUnits,
-      PayonifyError,
-    } = await import("@/lib/payonify.server");
+    const { payonifyGateFor, readPaymentSwitch, startPayonifyCharge } =
+      await import("@/lib/payonify.process.server");
+    const { toEcocashNumber, toMinorUnits } = await import("@/lib/payonify.server");
+    const db = await adminDb();
 
-    const gate = payonifyGateFor(process.env, context.userId);
+    const gate = payonifyGateFor(process.env, context.userId, await readPaymentSwitch(db));
     if (!gate.ok) return { ok: false, error: "payonify_unavailable" };
 
     let mobileNumber: string;
@@ -88,10 +127,6 @@ export const initiatePayonifyEscrowPayment = createServerFn({ method: "POST" })
     } catch {
       return { ok: false, error: "invalid_number" };
     }
-
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service-role RPCs/columns added by 0073+/0120 are not in the generated types yet
-    const db = supabaseAdmin as any;
 
     // Same rules as the Paynow escrow path (paynow.functions.ts initiateEscrowPayment).
     const { data: switches } = await db.rpc("launch_switches");
@@ -123,22 +158,12 @@ export const initiatePayonifyEscrowPayment = createServerFn({ method: "POST" })
 
     let previous = await loadPrevious();
     if (previous.some((p) => p.status !== "initiated")) return { ok: false, error: "already_paid" };
-
     // One open attempt per job, across providers: never start a second charge while another
     // may still be paid. Open Paynow attempts are left to Paynow's own checks and expiry.
     if (previous.some((p) => p.provider !== "payonify"))
       return { ok: false, error: "other_payment_open" };
 
-    // An open Payonify attempt: ask Payonify how it stands before doing anything else.
-    for (const p of previous) {
-      if (!p.provider_reference) continue;
-      try {
-        const facts = chargeFacts(await getCharge(gate.cfg, p.provider_reference));
-        await applyPayonifyCharge(db, p.id, "poll", null, facts);
-      } catch {
-        /* Payonify unreachable: the attempt stays open and blocks a new one below. */
-      }
-    }
+    await settleOpenAttempts(db, gate.cfg, previous);
     previous = await loadPrevious();
     if (previous.some((p) => p.status !== "initiated")) return { ok: false, error: "already_paid" };
     const open = previous[0];
@@ -162,70 +187,86 @@ export const initiatePayonifyEscrowPayment = createServerFn({ method: "POST" })
     }
     if (amountMinor < 100) return { ok: false, error: "job_not_payable" };
 
-    // Record the attempt BEFORE calling Payonify, so a crash mid-call leaves a trace.
-    const { data: payment, error } = await db
-      .from("payments")
-      .insert({
-        user_id: context.userId,
-        job_id: data.jobId,
-        type: "escrow",
-        amount,
-        currency: "USD",
-        method: "payonify",
-        status: "initiated",
-        provider: "payonify",
-        provider_livemode: false,
-      })
-      .select("id")
-      .single();
-    if (error?.code === "23505") return { ok: false, error: "other_payment_open" }; // a parallel tap won
-    if (error || !payment) return { ok: false, error: "payment_create_failed" };
-
-    try {
-      const charge = await createEcocashCharge(gate.cfg, {
+    const r = await startPayonifyCharge(
+      db,
+      gate,
+      { userId: context.userId, jobId: data.jobId, type: "escrow", amount },
+      {
         amountMinor,
-        currency: "usd",
         mobileNumber,
         description: `Con Z Pay - ${String(job.material ?? "material").slice(0, 40)} delivery`,
-        metadata: { conz_payment_id: payment.id, job_id: data.jobId },
-      });
-      const facts = chargeFacts(charge);
-      // The charge we just created is ours: keep its id even if a check below rejects the
-      // reply, so a status check or an admin can always find it at Payonify.
-      if (facts.id) {
-        await db.from("payments").update({ provider_reference: facts.id }).eq("id", payment.id);
-      }
-      const applied = await applyPayonifyCharge(db, payment.id, "initiate", null, facts);
-      if (!applied.ok) return { ok: false, error: "payment_status_unknown", paymentId: payment.id };
-      return { ok: true, paymentId: payment.id, state: stateOf(applied.status) };
-    } catch (err) {
-      if (isDefinitiveRejection(err)) {
-        // Payonify answered and refused: nothing was created, so the attempt is closed.
-        await db.from("payments").update({ status: "failed" }).eq("id", payment.id);
-        await db.rpc("record_payment_event", {
-          _payment_id: payment.id,
-          _source: "initiate",
-          _outcome: "provider_rejected",
-          _detail: err instanceof PayonifyError ? `${err.status} ${err.code ?? ""}`.trim() : null,
-        });
-        return { ok: false, error: "payment_declined", paymentId: payment.id };
-      }
-      // Unclear (timeout, 5xx): the charge may exist. Keep the attempt open; a status check
-      // or the webhook settles it. Never retry the charge blindly.
-      await db.rpc("record_payment_event", {
-        _payment_id: payment.id,
-        _source: "initiate",
-        _outcome: "initiate_unclear",
-        _detail:
-          err instanceof PayonifyError
-            ? `${err.status} ${err.code ?? ""}`.trim()
-            : "unexpected error",
-      });
-      return { ok: false, error: "payment_status_unknown", paymentId: payment.id };
-    }
+      },
+    );
+    return r.ok
+      ? { ok: true, paymentId: r.paymentId, state: stateOf(r.status) }
+      : { ok: false, error: r.error, paymentId: r.paymentId, message: r.message };
   });
 
-/** "Check status": asks Payonify about this customer's own payment and applies the answer. */
+/** Driver wallet top-up through EcoCash. Same limits as Paynow top-ups (enforced in the DB). */
+export const initiatePayonifyTopup = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { amount: number; mobileNumber: string }) => {
+    const amount = Number(data?.amount);
+    if (topupAmountError(amount)) throw new Error("Enter a valid amount between $1 and $100,000");
+    if (typeof data.mobileNumber !== "string" || data.mobileNumber.length > 20)
+      throw new Error("Enter a valid EcoCash number");
+    return { amount: Math.round(amount * 100) / 100, mobileNumber: data.mobileNumber };
+  })
+  .handler(async ({ data, context }): Promise<PayonifyStartResult> => {
+    const { payonifyGateFor, readPaymentSwitch, startPayonifyCharge } =
+      await import("@/lib/payonify.process.server");
+    const { toEcocashNumber, toMinorUnits } = await import("@/lib/payonify.server");
+    const db = await adminDb();
+
+    const gate = payonifyGateFor(process.env, context.userId, await readPaymentSwitch(db));
+    if (!gate.ok) return { ok: false, error: "payonify_unavailable" };
+
+    let mobileNumber: string;
+    try {
+      mobileNumber = toEcocashNumber(data.mobileNumber);
+    } catch {
+      return { ok: false, error: "invalid_number" };
+    }
+    let amountMinor: number;
+    try {
+      amountMinor = toMinorUnits(data.amount);
+    } catch {
+      return { ok: false, error: "invalid_amount" };
+    }
+    if (amountMinor < 100) return { ok: false, error: "invalid_amount" };
+
+    // One open EcoCash top-up at a time: check it with Payonify first, then resume or refuse.
+    const loadOpen = async (): Promise<PrevRow[]> => {
+      const { data: rows } = await db
+        .from("payments")
+        .select("id,status,method,provider,provider_reference,created_at")
+        .eq("user_id", context.userId)
+        .eq("type", "topup")
+        .eq("provider", "payonify")
+        .eq("status", "initiated");
+      return (rows ?? []) as PrevRow[];
+    };
+    await settleOpenAttempts(db, gate.cfg, await loadOpen());
+    const open = (await loadOpen())[0];
+    if (open) {
+      return open.provider_reference
+        ? { ok: true, paymentId: open.id, state: "pending", resumed: true }
+        : { ok: false, error: "previous_attempt_unclear", paymentId: open.id };
+    }
+
+    const r = await startPayonifyCharge(
+      db,
+      gate,
+      { userId: context.userId, jobId: null, type: "topup", amount: data.amount },
+      { amountMinor, mobileNumber, description: "ConZ wallet top-up" },
+    );
+    // The database's top-up limits (minimum, wallet cap) refuse the insert: say so plainly.
+    return r.ok
+      ? { ok: true, paymentId: r.paymentId, state: stateOf(r.status) }
+      : { ok: false, error: r.error, paymentId: r.paymentId, message: r.message };
+  });
+
+/** "Check status": asks Payonify about this user's own payment and applies the answer. */
 export const refreshPayonifyPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { paymentId: string }) => {
@@ -234,15 +275,15 @@ export const refreshPayonifyPayment = createServerFn({ method: "POST" })
   })
   .handler(
     async ({ data, context }): Promise<{ state: PayonifyPaymentState; checked: boolean }> => {
-      const { payonifyGateFor, applyPayonifyCharge } =
+      const { payonifyServerGate, applyPayonifyCharge } =
         await import("@/lib/payonify.process.server");
       const { chargeFacts, getCharge } = await import("@/lib/payonify.server");
-      const gate = payonifyGateFor(process.env, context.userId);
+      // Checking an existing payment needs only a configured server, not the tester list or
+      // the switch: a payment started before a switch-back must still be able to finish.
+      const gate = payonifyServerGate(process.env);
       if (!gate.ok) return { state: "unknown", checked: false };
 
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 0120 columns are not in the generated types yet
-      const db = supabaseAdmin as any;
+      const db = await adminDb();
       const { data: p } = await db
         .from("payments")
         .select("id,user_id,status,provider,provider_reference")
@@ -286,6 +327,11 @@ async function requireAdmin(userId: string) {
 export type PayonifyAdminOverview = {
   installed: boolean;
   enabledHere: boolean;
+  /** Mode this deployment is configured for, or why Payonify is off here. */
+  serverMode: "test" | "live" | null;
+  serverReason: string | null;
+  /** The payment switch: which provider takes new payments. */
+  switchProvider: "paynow" | "payonify";
   payments: Array<{
     id: string;
     job_id: string | null;
@@ -317,8 +363,12 @@ export const adminPayonifyOverview = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<PayonifyAdminOverview> => {
     const db = await requireAdmin(context.userId);
-    const { payonifyServerGate } = await import("@/lib/payonify.process.server");
-    const enabledHere = payonifyServerGate(process.env).ok;
+    const { payonifyServerGate, readPaymentSwitch } = await import("@/lib/payonify.process.server");
+    const gate = payonifyServerGate(process.env);
+    const enabledHere = gate.ok;
+    const serverMode = gate.ok ? gate.mode : null;
+    const serverReason = gate.ok ? null : gate.reason;
+    const switchProvider = await readPaymentSwitch(db);
     const pays = await db
       .from("payments")
       .select(
@@ -327,7 +377,17 @@ export const adminPayonifyOverview = createServerFn({ method: "GET" })
       .eq("provider", "payonify")
       .order("created_at", { ascending: false })
       .limit(30);
-    if (pays.error) return { installed: false, enabledHere, payments: [], events: [], history: [] };
+    if (pays.error)
+      return {
+        installed: false,
+        enabledHere,
+        serverMode,
+        serverReason,
+        switchProvider,
+        payments: [],
+        events: [],
+        history: [],
+      };
     const events = await db
       .from("payonify_webhook_events")
       .select("event_id,event_type,object_id,outcome,received_at")
@@ -342,6 +402,9 @@ export const adminPayonifyOverview = createServerFn({ method: "GET" })
     return {
       installed: true,
       enabledHere,
+      serverMode,
+      serverReason,
+      switchProvider,
       payments: pays.data ?? [],
       events: events.data ?? [],
       history: history.data ?? [],

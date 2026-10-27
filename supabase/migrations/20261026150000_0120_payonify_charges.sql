@@ -17,10 +17,17 @@
 --   3. apply_payonify_charge(): service_role only. Mirrors apply_paynow_result: locks the
 --      payment, checks it is a Payonify payment, that the charge belongs to it (charge id and
 --      metadata), that test/live mode, currency and amount match; succeeded marks an escrow
---      payment paid exactly once (Payonify is Con Z Pay only); failed/cancelled close an unpaid one;
+--      payment paid / credits a top-up exactly once; failed/cancelled close an unpaid one;
 --      nothing ever moves a paid payment backwards; anomalies notify admins. Every call is
 --      logged in payment_events. The caller passes the charge as re-fetched from Payonify's
 --      API, never the webhook body alone.
+--   4. The payment switch: system_settings 'payment_provider' ('paynow' default | 'payonify'),
+--      read through launch_switches().paymentProvider, changed only by a super admin with a
+--      recent step-up via admin_set_payment_provider() (audit-logged). The app starts new
+--      payments only through the selected provider; payments already in flight finish where
+--      they started. Applying this migration does NOT switch anything: the default is Paynow.
+--   5. credit_wallet_from_payment(): same as 0082, but the wallet note and notification name
+--      the provider that took the money (Paynow or EcoCash) instead of always "Paynow".
 -- Statuses are Payonify's documented charge statuses (docs.payonify.com/api/charges, 26/10/2026):
 -- requires_payment_method, requires_authorization, pending, succeeded, failed, cancelled.
 -- -----------------------------------------------------------------------------
@@ -54,14 +61,18 @@ create unique index if not exists payments_provider_reference_key
 create unique index if not exists payments_one_open_payonify_per_job
   on public.payments (job_id) where provider = 'payonify' and status = 'initiated';
 
--- Payonify takes Con Z Pay (escrow) payments only; wallet top-ups stay on Paynow.
+-- Payonify takes Con Z Pay (escrow) payments and driver wallet top-ups only.
 do $$
 begin
-  if not exists (select 1 from pg_constraint where conname = 'payments_payonify_escrow_only') then
+  if not exists (select 1 from pg_constraint where conname = 'payments_payonify_types') then
     alter table public.payments
-      add constraint payments_payonify_escrow_only check (provider <> 'payonify' or type = 'escrow');
+      add constraint payments_payonify_types check (provider <> 'payonify' or type in ('escrow', 'topup'));
   end if;
 end $$;
+
+-- At most one open Payonify top-up per user (same reason as the per-job index above).
+create unique index if not exists payments_one_open_payonify_topup_per_user
+  on public.payments (user_id) where provider = 'payonify' and status = 'initiated' and type = 'topup';
 
 grant select (provider) on public.payments to authenticated;
 
@@ -182,7 +193,7 @@ begin
   _before := _p.status;
   _amt := round(_amount_minor::numeric / 100, 2);
 
-  if _p.provider <> 'payonify' or _p.type <> 'escrow' then
+  if _p.provider <> 'payonify' or _p.type not in ('escrow', 'topup') then
     _outcome := 'rejected_wrong_provider';
     _detail := format('payment provider %s, type %s', _p.provider, _p.type);
   elsif _charge_id is null or btrim(_charge_id) = ''
@@ -214,9 +225,13 @@ begin
          set provider_reference = coalesce(provider_reference, _charge_id),
              reported_amount = _amt
        where id = _p.id;
-      -- Only Con Z Pay (escrow) is offered through Payonify; wallet top-ups stay on Paynow.
-      perform public.mark_escrow_payment_paid(_p.id);
-      _outcome := 'escrow_marked_paid';
+      if _p.type = 'escrow' then
+        perform public.mark_escrow_payment_paid(_p.id);
+        _outcome := 'escrow_marked_paid';
+      else
+        perform public.credit_wallet_from_payment(_p.id);
+        _outcome := 'credited';
+      end if;
     elsif _p.status in ('paid', 'released', 'refund_due', 'refunded') then
       _outcome := 'duplicate_ignored';
     else
@@ -316,5 +331,156 @@ end $$;
 
 revoke all on function public.record_payonify_event(text, text, text, uuid, boolean, text) from public, anon, authenticated;
 grant execute on function public.record_payonify_event(text, text, text, uuid, boolean, text) to service_role;
+
+-- -----------------------------------------------------------------------------
+-- The payment switch (4)
+-- -----------------------------------------------------------------------------
+insert into public.system_settings (key, value) values ('payment_provider', '"paynow"'::jsonb)
+on conflict (key) do nothing;
+
+-- Which provider takes NEW payments. Anything unreadable or unknown means Paynow.
+create or replace function public.payment_provider()
+returns text
+language plpgsql stable security definer set search_path = public
+as $$
+declare _v text;
+begin
+  select value #>> '{}' into _v from public.system_settings where key = 'payment_provider';
+  return case when _v = 'payonify' then 'payonify' else 'paynow' end;
+exception when others then
+  return 'paynow';
+end $$;
+revoke all on function public.payment_provider() from public, anon, authenticated;
+grant execute on function public.payment_provider() to service_role;
+
+-- Same as 0107 plus paymentProvider.
+create or replace function public.launch_switches()
+returns jsonb
+language sql stable security definer set search_path = public
+as $$
+  select jsonb_build_object(
+    'escrowEnabled',      public._launch_setting_bool('escrow_enabled', false),
+    'withdrawalsEnabled', public._launch_setting_bool('withdrawals_enabled', false),
+    'maxJobBudget',       public._launch_setting_num('max_job_budget', 500),
+    'maxWalletBalance',   public._launch_setting_num('max_wallet_balance', 150),
+    'minTopup',           public._launch_setting_num('min_topup', 1),
+    'paymentProvider',    public.payment_provider()
+  );
+$$;
+revoke all on function public.launch_switches() from public, anon;
+grant execute on function public.launch_switches() to authenticated, service_role;
+
+create or replace function public.admin_set_payment_provider(_provider text, _reason text)
+returns text
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare _before text := public.payment_provider();
+begin
+  if not public.has_role(auth.uid(), 'super_admin') then
+    raise exception 'Only super admins can change the payment provider';
+  end if;
+  perform public.require_aal2();
+  if _provider is null or _provider not in ('paynow', 'payonify') then
+    raise exception 'Provider must be paynow or payonify';
+  end if;
+  if _reason is null or length(btrim(_reason)) < 5 then
+    raise exception 'Give a reason (at least 5 characters)';
+  end if;
+  insert into public.system_settings(key, value, updated_by, updated_at)
+  values ('payment_provider', to_jsonb(_provider), auth.uid(), now())
+  on conflict (key) do update
+     set value = excluded.value, updated_by = auth.uid(), updated_at = now();
+  perform public.log_admin_action(
+    _action => 'payment_provider_changed',
+    _meta   => jsonb_build_object('from', _before, 'to', _provider, 'reason', btrim(_reason)));
+  return _provider;
+end $$;
+revoke all on function public.admin_set_payment_provider(text, text) from public, anon;
+grant execute on function public.admin_set_payment_provider(text, text) to authenticated, service_role;
+
+-- -----------------------------------------------------------------------------
+-- (5) credit_wallet_from_payment: body of 0082, provider-aware wording only.
+-- Ledger accounts are unchanged (paynow_clearing): see PAYONIFY-INTEGRATION.md.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.credit_wallet_from_payment(_payment_id uuid)
+ RETURNS wallets
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  _p public.payments;
+  _new_bal numeric;
+  _w public.wallets;
+  _via text;
+begin
+  select * into _p from public.payments where id = _payment_id for update;
+  if not found then raise exception 'Payment not found'; end if;
+
+  -- idempotent: safe to call more than once for the same payment
+  if _p.status = 'paid' then
+    select * into _w from public.wallets where user_id = _p.user_id;
+    return _w;
+  end if;
+
+  -- F3: only a payment still awaiting its result can be credited. A failed /
+  -- cancelled one is never credited here (late successes are flagged for an
+  -- admin by apply_paynow_result instead).
+  if _p.status <> 'initiated' then
+    raise exception 'Payment % is % and cannot be credited', _payment_id, _p.status;
+  end if;
+
+  if _p.type <> 'topup' then
+    raise exception 'Payment % is not a topup', _payment_id;
+  end if;
+
+  -- wallets.balance has no currency. Until it does, a ZWG payment
+  -- would silently inflate a USD balance. Fail loudly instead.
+  if coalesce(_p.currency, 'USD') <> 'USD' then
+    raise exception 'Only USD top-ups are supported (payment % is %)',
+      _payment_id, _p.currency;
+  end if;
+
+  if not public.is_valid_money(_p.amount) then
+    raise exception 'Payment % has an invalid amount', _payment_id;
+  end if;
+
+  _via := case when _p.provider = 'payonify' then 'EcoCash' else 'Paynow' end;
+
+  insert into public.wallets(user_id, balance) values (_p.user_id, 0)
+    on conflict (user_id) do nothing;
+
+  update public.wallets
+     set balance = balance + _p.amount, updated_at = now(), limited = false
+   where user_id = _p.user_id
+  returning balance into _new_bal;
+
+  insert into public.wallet_transactions(user_id, type, amount, balance_after, note, created_by)
+  values (_p.user_id, 'topup', _p.amount, _new_bal,
+          format('%s top-up (ref %s)', _via, coalesce(_p.paynow_reference, _p.provider_reference, '-')),
+          _p.user_id);
+  -- Ledger (0082)
+  perform public.post_ledger('paynow_topup',
+    jsonb_build_array(
+      jsonb_build_object('account', 'paynow_clearing', 'amount',  _p.amount),
+      jsonb_build_object('account', 'user_wallets', 'amount', -(_p.amount))),
+    _p.id, null, _p.user_id, _via || ' top-up');
+
+  update public.payments set status = 'paid', updated_at = now() where id = _payment_id;
+
+  insert into public.wallet_audit_log(user_id, actor_id, action, meta)
+  values (_p.user_id, _p.user_id, 'paynow_topup_credited',
+          jsonb_build_object('payment_id', _payment_id, 'amount', _p.amount,
+                             'currency', _p.currency, 'provider', _p.provider));
+
+  insert into public.notifications(user_id, type, title, body)
+  values (_p.user_id, 'wallet_topup', 'Top-up successful',
+          format('$%s added to your wallet via %s.', _p.amount::text, _via));
+
+  select * into _w from public.wallets where user_id = _p.user_id;
+  return _w;
+end $function$;
 
 commit;

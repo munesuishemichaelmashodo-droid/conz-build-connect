@@ -202,6 +202,29 @@ describe.skipIf(!enabled)(
       });
     });
 
+    it("credits a driver's wallet once for an EcoCash top-up", async () => {
+      const stamp = `${Date.now()}t`;
+      const driver = q(`select tests.create_driver('pyt_${stamp}', 20)`);
+      const before = Number(q(`select balance from public.wallets where user_id='${driver}'`));
+      const pay = q(
+        `insert into public.payments(user_id,type,amount,currency,method,status,provider,provider_livemode)
+       values ('${driver}','topup',15,'USD','payonify','initiated','payonify',false) returning id`,
+      );
+      const ch = `ch_t_${pay.slice(0, 8)}`;
+      setCharge(ch, pay, "succeeded", 1500);
+      const ev = `evt_t_${pay.slice(0, 8)}`;
+      expect(await deliver(ev, "charge.succeeded", ch)).toMatchObject({
+        status: 200,
+        body: { outcome: "credited" },
+      });
+      expect(await deliver(ev, "charge.succeeded", ch)).toMatchObject({
+        body: { outcome: "duplicate_event" },
+      });
+      expect(Number(q(`select balance from public.wallets where user_id='${driver}'`))).toBe(
+        before + 15,
+      );
+    });
+
     it("records transfer events without acting on them", async () => {
       const ev = `evt_tr_${Date.now()}`;
       expect(await deliver(ev, "transfer.succeeded", "tr_1")).toMatchObject({

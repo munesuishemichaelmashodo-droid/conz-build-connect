@@ -305,12 +305,16 @@ site names the operator, Navysky Innovations (Private) Limited, company no. 1451
 The old ZIMRA TIN (sole proprietorship) was removed from Terms/Privacy; add the company's TIN when issued.
 Still open: repair `schema_migrations` for 0077–0108 before any `supabase db push`.
 
-## 26/10/2026 — Payonify Relay (sandbox only), branch `payments/payonify-relay`
+## 26-27/10/2026 — Payonify Relay + payment switch, branch `payments/payonify-relay` (PR #38)
 
 - `0120_payonify_charges` is **NOT applied** anywhere but the local test stack (no DROP; undo in
   `supabase/rollbacks/`). Adds `payments.provider/provider_reference/provider_livemode`, `apply_payonify_charge()`,
-  `payonify_webhook_events`, and makes Paynow's 1-hour expiry skip Payonify rows.
-- Payonify is off unless `PAYONIFY_MODE=test` + test keys + a NON-production `SUPABASE_URL` + the user is in
-  `PAYONIFY_TESTER_USER_IDS`. The code refuses live keys and the production database: going live is a code change.
-- Webhook `POST /api/payonify/webhook` re-fetches the charge before applying it. Full write-up, env checklist,
-  sandbox plan and blockers: `docs/payments/PAYONIFY-INTEGRATION.md`.
+  `payonify_webhook_events`, the payment switch (`system_settings.payment_provider`, default `paynow`;
+  `admin_set_payment_provider()` = super admin + step-up + audit; `launch_switches().paymentProvider`), and makes
+  Paynow's 1-hour expiry skip Payonify rows.
+- Owner decision 27/10: build the switch, flip later (after KYC, live keys and a $1 live test). Payonify handles
+  Con Z Pay and driver top-ups. It is off unless `PAYONIFY_MODE` is `test`/`live` with matching keys; test mode refuses
+  the production database. Before the switch only `PAYONIFY_TESTER_USER_IDS` see it; after it, everyone, and Paynow
+  starts nothing new.
+- Webhook `POST /api/payonify/webhook` re-fetches the charge before applying it. Write-up, settings, switch-over
+  steps and blockers: `docs/payments/PAYONIFY-INTEGRATION.md`.

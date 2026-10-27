@@ -343,6 +343,8 @@ const rpc = {
     maxJobBudget: 500,
     maxWalletBalance: 150,
     minTopup: 1,
+    // MOCK_PAYMENT_PROVIDER=payonify shows the screens after the payment switch (0120).
+    paymentProvider: process.env.MOCK_PAYMENT_PROVIDER === "payonify" ? "payonify" : "paynow",
   }),
   driver_today_earnings: () => ({ earned: 0, jobs: 0 }),
   customer_cards: ({ _job_ids = [] }) =>

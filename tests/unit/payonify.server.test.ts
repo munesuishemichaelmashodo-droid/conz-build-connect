@@ -36,13 +36,22 @@ describe("config", () => {
       }),
     ).toMatchObject({ publishableKey: "pk_test_a" });
   });
-  it("refuses live keys (sandbox only)", () => {
+  it("refuses keys from the other mode", () => {
+    const live = { PAYONIFY_PUBLISHABLE_KEY: "pk_live_a", PAYONIFY_SECRET_KEY: "sk_live_b" };
+    const test = { PAYONIFY_PUBLISHABLE_KEY: "pk_test_a", PAYONIFY_SECRET_KEY: "sk_test_b" };
+    expect(() => getPayonifyConfig(live)).toThrow(/PAYONIFY_MODE=test/);
+    expect(() => getPayonifyConfig(test, "live")).toThrow(/PAYONIFY_MODE=live/);
     expect(() =>
-      getPayonifyConfig({
-        PAYONIFY_PUBLISHABLE_KEY: "pk_live_a",
-        PAYONIFY_SECRET_KEY: "sk_live_b",
-      }),
-    ).toThrow(/sandbox-only/);
+      getPayonifyConfig({ ...live, PAYONIFY_SECRET_KEY: "sk_test_b" }, "live"),
+    ).toThrow();
+  });
+  it("accepts live keys in live mode", () => {
+    expect(
+      getPayonifyConfig(
+        { PAYONIFY_PUBLISHABLE_KEY: "pk_live_a", PAYONIFY_SECRET_KEY: "sk_live_b" },
+        "live",
+      ),
+    ).toMatchObject({ mode: "live" });
   });
 });
 

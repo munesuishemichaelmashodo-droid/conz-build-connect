@@ -3,8 +3,11 @@
 // Payonify result changes a payment. Kept free of framework imports so it is unit-testable.
 //
 // Rules this file enforces:
-//   - Off unless PAYONIFY_MODE=test, test keys are configured, and the server is NOT using the
-//     production database (sandbox charges must never move production money state).
+//   - Off unless PAYONIFY_MODE is "test" or "live" and keys of that mode are configured.
+//   - Test mode never runs against the production database (fake money must never mark real
+//     jobs paid or credit real wallets).
+//   - Who sees it: listed testers always (for the sandbox and the owner's $1 live test);
+//     everyone once a super admin sets the payment switch to Payonify (launch_switches()).
 //   - A webhook is never trusted on its own: after the signature check, the charge is re-fetched
 //     from Payonify's API and that authoritative copy is applied.
 //   - Every verified event is recorded once (by event id); repeats are acknowledged and ignored.
@@ -12,12 +15,16 @@
 
 import {
   chargeFacts,
+  createEcocashCharge,
   getCharge,
+  isDefinitiveRejection,
+  PayonifyError,
   getPayonifyConfig,
   verifyPayonifyWebhook,
   type Charge,
   type ChargeFacts,
   type PayonifyConfig,
+  type PayonifyMode,
 } from "@/lib/payonify.server";
 
 /** Production Supabase project. Sandbox (test-mode) charges are refused against it. */
@@ -26,7 +33,7 @@ export const PRODUCTION_SUPABASE_REF = "ovwrsocjmkpiygipmrdk";
 type Env = Record<string, string | undefined>;
 
 export type GateResult =
-  | { ok: true; cfg: PayonifyConfig }
+  | { ok: true; cfg: PayonifyConfig; mode: PayonifyMode }
   | {
       ok: false;
       reason: "disabled" | "not_configured" | "bad_keys" | "production_database" | "not_a_tester";
@@ -37,30 +44,54 @@ export const isUuid = (v: unknown): v is string => typeof v === "string" && UUID
 
 /** Server-side switch for the whole integration (webhook included). */
 export function payonifyServerGate(env: Env): GateResult {
-  if ((env["PAYONIFY_MODE"] ?? "").trim() !== "test") return { ok: false, reason: "disabled" };
+  const raw = (env["PAYONIFY_MODE"] ?? "").trim();
+  if (raw !== "test" && raw !== "live") return { ok: false, reason: "disabled" };
+  const mode: PayonifyMode = raw;
   let cfg: PayonifyConfig | null;
   try {
-    cfg = getPayonifyConfig(env);
+    cfg = getPayonifyConfig(env, mode);
   } catch {
     return { ok: false, reason: "bad_keys" };
   }
   if (!cfg) return { ok: false, reason: "not_configured" };
-  if ((env["SUPABASE_URL"] ?? "").includes(PRODUCTION_SUPABASE_REF)) {
+  if (mode === "test" && (env["SUPABASE_URL"] ?? "").includes(PRODUCTION_SUPABASE_REF)) {
     return { ok: false, reason: "production_database" };
   }
-  return { ok: true, cfg };
+  return { ok: true, cfg, mode };
 }
 
-/** Who may see the Payonify option: only listed tester accounts, never ordinary customers. */
-export function payonifyGateFor(env: Env, userId: string): GateResult {
-  const gate = payonifyServerGate(env);
-  if (!gate.ok) return gate;
-  const testers = (env["PAYONIFY_TESTER_USER_IDS"] ?? "")
+export const isPayonifyTester = (env: Env, userId: string) =>
+  (env["PAYONIFY_TESTER_USER_IDS"] ?? "")
     .split(",")
     .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  if (!testers.includes(userId.toLowerCase())) return { ok: false, reason: "not_a_tester" };
-  return gate;
+    .filter(Boolean)
+    .includes(userId.toLowerCase());
+
+/**
+ * May this user start a Payonify payment? Testers always (when configured); everyone else only
+ * once the payment switch (launch_switches().paymentProvider) is set to Payonify.
+ */
+export function payonifyGateFor(
+  env: Env,
+  userId: string,
+  switchProvider: "paynow" | "payonify" = "paynow",
+): GateResult {
+  const gate = payonifyServerGate(env);
+  if (!gate.ok) return gate;
+  if (switchProvider === "payonify" || isPayonifyTester(env, userId)) return gate;
+  return { ok: false, reason: "not_a_tester" };
+}
+
+/** The payment switch as the database reports it. Anything unreadable means Paynow. */
+export async function readPaymentSwitch(db: RpcDb): Promise<"paynow" | "payonify"> {
+  try {
+    const { data } = await db.rpc("launch_switches", {});
+    return (data as { paymentProvider?: string } | null)?.paymentProvider === "payonify"
+      ? "payonify"
+      : "paynow";
+  } catch {
+    return "paynow";
+  }
 }
 
 // Minimal view of the service-role Supabase client used here.
@@ -108,13 +139,14 @@ async function recordEvent(
   objectId: string | null,
   paymentId: string | null,
   outcome: string,
+  livemode = false,
 ): Promise<{ ok: boolean; outcome: string }> {
   const { data, error } = await db.rpc("record_payonify_event", {
     _event_id: eventId,
     _event_type: eventType,
     _object_id: objectId,
     _payment_id: paymentId,
-    _livemode: false,
+    _livemode: livemode,
     _outcome: outcome,
   });
   if (error) return { ok: false, outcome: "db_error" };
@@ -145,7 +177,14 @@ export async function handlePayonifyWebhook(
   const secret = deps.env["PAYONIFY_WEBHOOK_SECRET"]?.trim();
   if (!secret) return { status: 503, body: { error: "webhook_secret_not_configured" } };
 
-  const event = await verifyPayonifyWebhook(rawBody, signatureHeader, secret, deps.nowSeconds);
+  const live = gate.mode === "live";
+  const event = await verifyPayonifyWebhook(
+    rawBody,
+    signatureHeader,
+    secret,
+    deps.nowSeconds,
+    live,
+  );
   if (!event) return { status: 400, body: { error: "invalid_signature" } };
 
   const obj = event.data.object as { id?: unknown };
@@ -160,6 +199,7 @@ export async function handlePayonifyWebhook(
       objectId,
       null,
       "recorded_unhandled",
+      live,
     );
     return r.ok
       ? { status: 200, body: { received: true, outcome: r.outcome } }
@@ -167,7 +207,7 @@ export async function handlePayonifyWebhook(
   }
 
   if (!objectId) {
-    const r = await recordEvent(deps.db, event.id, event.type, null, null, "no_charge_id");
+    const r = await recordEvent(deps.db, event.id, event.type, null, null, "no_charge_id", live);
     return r.ok
       ? { status: 200, body: { received: true, outcome: r.outcome } }
       : { status: 500, body: { error: "db_error" } };
@@ -182,21 +222,30 @@ export async function handlePayonifyWebhook(
   }
   const facts = chargeFacts(charge);
 
-  if (facts.id !== objectId || facts.livemode !== false) {
+  if (facts.id !== objectId || facts.livemode !== live) {
     const r = await recordEvent(
       deps.db,
       event.id,
       event.type,
       objectId,
       null,
-      "refused_mismatch_or_live",
+      "refused_mismatch_or_mode",
+      live,
     );
     return r.ok
       ? { status: 200, body: { received: true, outcome: r.outcome } }
       : { status: 500, body: { error: "db_error" } };
   }
   if (!isUuid(facts.conzPaymentId)) {
-    const r = await recordEvent(deps.db, event.id, event.type, objectId, null, "no_conz_payment");
+    const r = await recordEvent(
+      deps.db,
+      event.id,
+      event.type,
+      objectId,
+      null,
+      "no_conz_payment",
+      live,
+    );
     return r.ok
       ? { status: 200, body: { received: true, outcome: r.outcome } }
       : { status: 500, body: { error: "db_error" } };
@@ -205,7 +254,15 @@ export async function handlePayonifyWebhook(
   const applied = await applyPayonifyCharge(deps.db, facts.conzPaymentId, "ipn", event.id, facts);
   if (!applied.ok) {
     if (applied.notFound) {
-      const r = await recordEvent(deps.db, event.id, event.type, objectId, null, "unknown_payment");
+      const r = await recordEvent(
+        deps.db,
+        event.id,
+        event.type,
+        objectId,
+        null,
+        "unknown_payment",
+        live,
+      );
       return r.ok
         ? { status: 200, body: { received: true, outcome: r.outcome } }
         : { status: 500, body: { error: "db_error" } };
@@ -213,4 +270,105 @@ export async function handlePayonifyWebhook(
     return { status: 500, body: { error: "db_error" } };
   }
   return { status: 200, body: { received: true, outcome: applied.outcome } };
+}
+
+// --- Starting a charge ---------------------------------------------------------------------
+
+export type StartRow = {
+  userId: string;
+  jobId: string | null;
+  type: "escrow" | "topup";
+  amount: number;
+};
+
+export type StartOutcome =
+  | { ok: true; paymentId: string; status: string | null }
+  | {
+      ok: false;
+      error:
+        | "other_payment_open"
+        | "payment_create_failed"
+        | "payment_declined"
+        | "payment_status_unknown";
+      paymentId?: string;
+      /** A sentence the database wrote for the user (e.g. top-up limits), shown as is. */
+      message?: string;
+    };
+
+/**
+ * Records the payment BEFORE calling Payonify (so a crash mid-call leaves a trace), creates the
+ * EcoCash charge, keeps the charge id, and applies Payonify's reply through the guarded function.
+ * Only a clear refusal closes the payment; an unclear failure leaves it open for a status check
+ * or the webhook, and the charge is never retried blindly (Payonify documents no idempotency).
+ */
+export async function startPayonifyCharge(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service-role client; 0120 columns are not in the generated types yet
+  db: any,
+  gate: { cfg: PayonifyConfig; mode: PayonifyMode },
+  row: StartRow,
+  charge: { amountMinor: number; mobileNumber: string; description: string },
+  deps: { createCharge?: typeof createEcocashCharge } = {},
+): Promise<StartOutcome> {
+  const { data: payment, error } = await db
+    .from("payments")
+    .insert({
+      user_id: row.userId,
+      job_id: row.jobId,
+      type: row.type,
+      amount: row.amount,
+      currency: "USD",
+      method: "payonify",
+      status: "initiated",
+      provider: "payonify",
+      provider_livemode: gate.mode === "live",
+    })
+    .select("id")
+    .single();
+  if (error?.code === "23505") return { ok: false, error: "other_payment_open" }; // a parallel tap won
+  if (error?.code === "P0001") {
+    return { ok: false, error: "payment_create_failed", message: error.message };
+  }
+  if (error || !payment) return { ok: false, error: "payment_create_failed" };
+
+  try {
+    const created = await (deps.createCharge ?? createEcocashCharge)(gate.cfg, {
+      amountMinor: charge.amountMinor,
+      currency: "usd",
+      mobileNumber: charge.mobileNumber,
+      description: charge.description,
+      metadata: row.jobId
+        ? { conz_payment_id: payment.id, job_id: row.jobId }
+        : { conz_payment_id: payment.id, kind: row.type },
+    });
+    const facts = chargeFacts(created);
+    // The charge we just created is ours: keep its id even if a check below rejects the
+    // reply, so a status check or an admin can always find it at Payonify.
+    if (facts.id) {
+      await db.from("payments").update({ provider_reference: facts.id }).eq("id", payment.id);
+    }
+    const applied = await applyPayonifyCharge(db, payment.id, "initiate", null, facts);
+    if (!applied.ok) return { ok: false, error: "payment_status_unknown", paymentId: payment.id };
+    return { ok: true, paymentId: payment.id, status: applied.status };
+  } catch (err) {
+    const detail =
+      err instanceof PayonifyError ? `${err.status} ${err.code ?? ""}`.trim() : "unexpected error";
+    if (isDefinitiveRejection(err)) {
+      // Payonify answered and refused: nothing was created, so the attempt is closed.
+      await db.from("payments").update({ status: "failed" }).eq("id", payment.id);
+      await db.rpc("record_payment_event", {
+        _payment_id: payment.id,
+        _source: "initiate",
+        _outcome: "provider_rejected",
+        _detail: detail,
+      });
+      return { ok: false, error: "payment_declined", paymentId: payment.id };
+    }
+    await db.rpc("record_payment_event", {
+      _payment_id: payment.id,
+      _source: "initiate",
+      _outcome: "initiate_unclear",
+      _detail: detail,
+    });
+    return { ok: false, error: "payment_status_unknown", paymentId: payment.id };
+  }
 }

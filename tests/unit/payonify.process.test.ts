@@ -4,6 +4,8 @@ import {
   payonifyGateFor,
   payonifyServerGate,
   PRODUCTION_SUPABASE_REF,
+  readPaymentSwitch,
+  startPayonifyCharge,
   type RpcDb,
 } from "@/lib/payonify.process.server";
 import {
@@ -59,14 +61,25 @@ function fakeDb(
 }
 
 describe("gate", () => {
-  it("is off unless PAYONIFY_MODE=test", () => {
-    expect(payonifyServerGate({ ...ENV, PAYONIFY_MODE: undefined })).toEqual({
-      ok: false,
-      reason: "disabled",
-    });
+  it("is off unless PAYONIFY_MODE is test or live", () => {
+    for (const mode of [undefined, "", "on", "LIVE"])
+      expect(payonifyServerGate({ ...ENV, PAYONIFY_MODE: mode })).toEqual({
+        ok: false,
+        reason: "disabled",
+      });
+  });
+  it("live mode needs live keys, and may use the production database", () => {
+    const live = {
+      ...ENV,
+      PAYONIFY_MODE: "live",
+      PAYONIFY_PUBLISHABLE_KEY: "pk_live_x",
+      PAYONIFY_SECRET_KEY: "sk_live_x",
+      SUPABASE_URL: `https://${PRODUCTION_SUPABASE_REF}.supabase.co`,
+    };
+    expect(payonifyServerGate(live)).toMatchObject({ ok: true, mode: "live" });
     expect(payonifyServerGate({ ...ENV, PAYONIFY_MODE: "live" })).toEqual({
       ok: false,
-      reason: "disabled",
+      reason: "bad_keys",
     });
   });
   it("is off without keys, and refuses live keys", () => {
@@ -102,6 +115,25 @@ describe("gate", () => {
         "aaaaaaaa-0000-4000-8000-000000000001",
       ).ok,
     ).toBe(false);
+  });
+  it("offers it to everyone once the payment switch is on Payonify", () => {
+    const stranger = "cccccccc-0000-4000-8000-000000000003";
+    expect(payonifyGateFor(ENV, stranger, "paynow").ok).toBe(false);
+    expect(payonifyGateFor(ENV, stranger, "payonify").ok).toBe(true);
+    // ...but never when the server itself isn't set up for Payonify.
+    expect(payonifyGateFor({ ...ENV, PAYONIFY_MODE: "" }, stranger, "payonify").ok).toBe(false);
+  });
+  it("reads the switch from the database, falling back to Paynow", async () => {
+    const rpc = (data: unknown, fail = false) => ({
+      rpc: async () => {
+        if (fail) throw new Error("down");
+        return { data, error: null };
+      },
+    });
+    expect(await readPaymentSwitch(rpc({ paymentProvider: "payonify" }))).toBe("payonify");
+    expect(await readPaymentSwitch(rpc({ paymentProvider: "paynow" }))).toBe("paynow");
+    expect(await readPaymentSwitch(rpc({}))).toBe("paynow");
+    expect(await readPaymentSwitch(rpc(null, true))).toBe("paynow");
   });
 });
 
@@ -315,6 +347,128 @@ describe("webhook", () => {
     expect(calls[0]).toMatchObject({
       fn: "record_payonify_event",
       args: { _event_id: "evt_t", _event_type: "transfer.succeeded", _object_id: "tr_1" },
+    });
+  });
+});
+
+describe("live webhooks", () => {
+  const LIVE = {
+    ...ENV,
+    PAYONIFY_MODE: "live",
+    PAYONIFY_PUBLISHABLE_KEY: "pk_live_unit",
+    PAYONIFY_SECRET_KEY: "sk_live_unit",
+  };
+  const ev = (livemode: unknown) => ({
+    id: "evt_live",
+    type: "charge.succeeded",
+    object: "event",
+    created: NOW,
+    livemode,
+    data: { object: { id: "ch_1" } },
+  });
+  it("accepts a live event and a live charge in live mode", async () => {
+    const { raw, header } = await signedEvent(ev("true"));
+    const { db, calls } = fakeDb({ apply_payonify_charge: { data: { outcome: "credited" } } });
+    const r = await handlePayonifyWebhook(raw, header, {
+      env: LIVE,
+      db,
+      nowSeconds: NOW,
+      fetchCharge: async () => charge({ livemode: true }),
+    });
+    expect(r.status).toBe(200);
+    expect(calls[0].args).toMatchObject({ _livemode: true });
+  });
+  it("refuses a test event in live mode", async () => {
+    const { raw, header } = await signedEvent(ev(false));
+    const { db } = fakeDb();
+    expect(
+      (await handlePayonifyWebhook(raw, header, { env: LIVE, db, nowSeconds: NOW })).status,
+    ).toBe(400);
+  });
+});
+
+describe("starting a charge", () => {
+  // A tiny stand-in for the service-role client: records inserts/updates and rpc calls.
+  function chain(insertResult: { data: unknown; error: unknown }) {
+    const log: string[] = [];
+    const db = {
+      from: () => ({
+        insert: (row: Record<string, unknown>) => {
+          log.push(`insert ${row.type} ${row.provider} livemode=${row.provider_livemode}`);
+          return { select: () => ({ single: async () => insertResult }) };
+        },
+        update: (patch: Record<string, unknown>) => ({
+          eq: async () => {
+            log.push(`update ${JSON.stringify(patch)}`);
+            return { error: null };
+          },
+        }),
+      }),
+      rpc: async (fn: string, args: Record<string, unknown>) => {
+        log.push(`rpc ${fn} ${String(args._outcome ?? args._source ?? "")}`);
+        return { data: { outcome: "pending_no_change", status: "initiated" }, error: null };
+      },
+    };
+    return { db, log };
+  }
+  const gate = {
+    cfg: { publishableKey: "pk_test_x", secretKey: "sk_test_x" },
+    mode: "test" as const,
+  };
+  const row = { userId: "u", jobId: null, type: "topup" as const, amount: 10 };
+  const ch = { amountMinor: 1000, mobileNumber: "0772111111", description: "ConZ wallet top-up" };
+
+  it("records the payment first, keeps the charge id, then applies the reply", async () => {
+    const { db, log } = chain({ data: { id: PAY }, error: null });
+    const createCharge = vi.fn(async () => charge({ status: "pending" }));
+    const r = await startPayonifyCharge(db, gate, row, ch, { createCharge });
+    expect(r).toEqual({ ok: true, paymentId: PAY, status: "initiated" });
+    expect(log).toEqual([
+      "insert topup payonify livemode=false",
+      'update {"provider_reference":"ch_1"}',
+      "rpc apply_payonify_charge initiate",
+    ]);
+    expect(createCharge.mock.calls[0][1]).toMatchObject({
+      metadata: { conz_payment_id: PAY, kind: "topup" },
+    });
+  });
+  it("passes on the database's own top-up limit message", async () => {
+    const { db } = chain({
+      data: null,
+      error: { code: "P0001", message: "Your ConZ credit can hold at most $150." },
+    });
+    const createCharge = vi.fn();
+    expect(await startPayonifyCharge(db, gate, row, ch, { createCharge })).toMatchObject({
+      ok: false,
+      message: "Your ConZ credit can hold at most $150.",
+    });
+    expect(createCharge).not.toHaveBeenCalled();
+  });
+  it("closes the payment only when Payonify clearly refused", async () => {
+    const refused = chain({ data: { id: PAY }, error: null });
+    const r1 = await startPayonifyCharge(refused.db, gate, row, ch, {
+      createCharge: async () => {
+        throw new PayonifyError("bad number", 400, "invalid_request");
+      },
+    });
+    expect(r1).toMatchObject({ ok: false, error: "payment_declined" });
+    expect(refused.log).toContain('update {"status":"failed"}');
+
+    const unclear = chain({ data: { id: PAY }, error: null });
+    const r2 = await startPayonifyCharge(unclear.db, gate, row, ch, {
+      createCharge: async () => {
+        throw new PayonifyError("timeout", 0, "network_error");
+      },
+    });
+    expect(r2).toMatchObject({ ok: false, error: "payment_status_unknown", paymentId: PAY });
+    expect(unclear.log.some((l) => l.includes("failed"))).toBe(false);
+    expect(unclear.log).toContain("rpc record_payment_event initiate_unclear");
+  });
+  it("refuses a second open attempt (another tap won the race)", async () => {
+    const { db } = chain({ data: null, error: { code: "23505", message: "duplicate" } });
+    expect(await startPayonifyCharge(db, gate, row, ch, { createCharge: vi.fn() })).toMatchObject({
+      ok: false,
+      error: "other_payment_open",
     });
   });
 });

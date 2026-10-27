@@ -34,8 +34,8 @@ import {
 import { useNow } from "@/hooks/use-now";
 import { useServerFn } from "@tanstack/react-start";
 import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
-import { payonifyAvailability } from "@/lib/payonify.functions";
-import { PayonifyEscrowPay } from "@/components/payments/PayonifyEscrowPay";
+import { PayonifyPay } from "@/components/payments/PayonifyPay";
+import { ecocashDetail, ecocashLabel, usePaymentOptions } from "@/components/payments/usePaymentOptions";
 import { friendlyPaymentError } from "@/lib/paymentErrors";
 import { ShieldCheck } from "lucide-react";
 import { bookAgainSearch } from "@/lib/book-again";
@@ -3285,16 +3285,12 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
   const { job, id } = ctx;
   const d = useAcceptedDriver(ctx);
   const total = Number(job.final_price ?? job.budget);
-  // Payonify (test) is offered only when the server says this account may use it.
-  const checkPayonify = useServerFn(payonifyAvailability);
-  const { data: payonify } = useQuery({
-    queryKey: ["payonify-availability"],
-    queryFn: () => checkPayonify(),
-    staleTime: 5 * 60_000,
-    retry: false,
-  });
-  const payonifyOn = payonify?.available === true;
-  const [provider, setProvider] = useState<"paynow" | "payonify">("paynow");
+  // Which ways to pay the server offers (Paynow, EcoCash through Payonify, or both).
+  const options = usePaymentOptions();
+  const payonifyOn = options.payonify;
+  const [choice, setChoice] = useState<"paynow" | "payonify">("paynow");
+  // Once payments move to Payonify, Paynow is no longer an option.
+  const provider = options.paynow ? choice : "payonify";
   return (
     <CzScreen>
       <CzHeader title="Confirm & pay" backTo="/jobs" />
@@ -3338,22 +3334,29 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
 
         <div className="space-y-2" role="radiogroup" aria-label="Pay with">
           <div className="text-sm font-semibold text-cz-muted">Pay with</div>
-          <PayOption
-            selected={provider === "paynow"}
-            onSelect={() => setProvider("paynow")}
-            title="Paynow"
-            detail="Choose EcoCash, card or another method on Paynow's secure page."
-          />
+          {options.paynow && (
+            <PayOption
+              selected={provider === "paynow"}
+              onSelect={() => setChoice("paynow")}
+              title="Paynow"
+              detail="Choose EcoCash, card or another method on Paynow's secure page."
+            />
+          )}
           {payonifyOn && (
             <PayOption
               selected={provider === "payonify"}
-              onSelect={() => setProvider("payonify")}
-              title="EcoCash (Payonify test)"
-              detail="Test mode for listed testers only. Use a Payonify test number; no real money moves."
+              onSelect={() => setChoice("payonify")}
+              title={ecocashLabel(options.payonifyMode)}
+              detail={ecocashDetail(options.payonifyMode)}
             />
           )}
           {payonifyOn && provider === "payonify" && (
-            <PayonifyEscrowPay jobId={id} totalLabel={usd2(total)} onPaid={ctx.onEscrowPaid} />
+            <PayonifyPay target={{ kind: "escrow", jobId: id }} totalLabel={usd2(total)} onPaid={ctx.onEscrowPaid} />
+          )}
+          {!options.paynow && !payonifyOn && options.loaded && (
+            <p className="text-sm text-cz-muted" role="status">
+              Online payments are paused right now. Please try again later or contact support.
+            </p>
           )}
         </div>
 
@@ -3361,7 +3364,7 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
       </div>
 
       <footer className="sticky bottom-0 z-20 space-y-2.5 border-t border-cz-border bg-cz-surface px-5 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))]">
-        {provider === "paynow" && (
+        {provider === "paynow" && options.paynow && (
           <>
             <div id="tour-next-steps">
               <CzButton onClick={ctx.payEscrow} disabled={ctx.payingEscrow}>

@@ -4,14 +4,15 @@ import { Loader2 } from "lucide-react";
 import { CzButton } from "@/components/redesign";
 import {
   initiatePayonifyEscrowPayment,
+  initiatePayonifyTopup,
   refreshPayonifyPayment,
   type PayonifyPaymentState,
 } from "@/lib/payonify.functions";
 import { friendlyPaymentError } from "@/lib/paymentErrors";
 
-// Con Z Pay through EcoCash (Payonify, TEST MODE). Shown only to listed tester accounts
-// (payonifyAvailability). The screen never decides a payment is paid: it shows what the
-// server reports, and "paid" only after the server applied Payonify's own record.
+// Pay through EcoCash (Payonify): Con Z Pay for a job, or a driver wallet top-up. Shown only
+// when the server offers it (paymentOptions). The screen never decides a payment is paid: it
+// shows what the server reports, and "paid" only after the server applied Payonify's record.
 
 type Phase =
   | { kind: "idle" }
@@ -23,16 +24,21 @@ type Phase =
 const POLL_EVERY_MS = 6_000;
 const POLL_FOR_MS = 3 * 60_000;
 
-export function PayonifyEscrowPay({
-  jobId,
+export type PayonifyTarget = { kind: "escrow"; jobId: string } | { kind: "topup"; amount: number };
+
+export function PayonifyPay({
+  target,
   totalLabel,
   onPaid,
+  disabled = false,
 }: {
-  jobId: string;
+  target: PayonifyTarget;
   totalLabel: string;
   onPaid: () => void;
+  disabled?: boolean;
 }) {
-  const start = useServerFn(initiatePayonifyEscrowPayment);
+  const startEscrow = useServerFn(initiatePayonifyEscrowPayment);
+  const startTopup = useServerFn(initiatePayonifyTopup);
   const refresh = useServerFn(refreshPayonifyPayment);
   const [number, setNumber] = useState("");
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
@@ -57,7 +63,10 @@ export function PayonifyEscrowPay({
     busy.current = true;
     setPhase({ kind: "starting" });
     try {
-      const res = await start({ data: { jobId, mobileNumber: number } });
+      const res =
+        target.kind === "escrow"
+          ? await startEscrow({ data: { jobId: target.jobId, mobileNumber: number } })
+          : await startTopup({ data: { amount: target.amount, mobileNumber: number } });
       if (res.ok) settle(res.state, res.paymentId);
       else if (res.error === "already_paid") onPaid();
       else if (res.error === "payment_status_unknown" && res.paymentId)
@@ -70,7 +79,7 @@ export function PayonifyEscrowPay({
       else
         setPhase({
           kind: "error",
-          message: friendlyPaymentError(res.error),
+          message: friendlyPaymentError(res.message ?? res.error),
           paymentId: res.paymentId,
         });
     } catch (err) {
@@ -154,7 +163,10 @@ export function PayonifyEscrowPay({
           {phase.message}
         </p>
       )}
-      <CzButton onClick={pay} disabled={starting || number.replace(/\D/g, "").length < 9}>
+      <CzButton
+        onClick={pay}
+        disabled={disabled || starting || number.replace(/\D/g, "").length < 9}
+      >
         {starting ? <Loader2 className="w-5 h-5 animate-spin" /> : `Pay ${totalLabel} with EcoCash`}
       </CzButton>
     </div>
