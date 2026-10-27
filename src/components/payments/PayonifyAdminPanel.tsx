@@ -101,6 +101,11 @@ export function PayonifyAdminPanel({ canSwitch = false }: { canSwitch?: boolean 
               : `Payonify is off here: ${REASON_LABEL[data.serverReason ?? ""] ?? data.serverReason}.`}{" "}
           Refunds for Payonify payments are made in the Payonify dashboard.
         </p>
+        {(data.serverMissing ?? []).length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            Empty on this deployment: {(data.serverMissing ?? []).join(", ")}.
+          </p>
+        )}
         {canSwitch && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Button

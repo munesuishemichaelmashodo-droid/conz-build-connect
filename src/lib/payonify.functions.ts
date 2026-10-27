@@ -330,6 +330,8 @@ export type PayonifyAdminOverview = {
   /** Mode this deployment is configured for, or why Payonify is off here. */
   serverMode: "test" | "live" | null;
   serverReason: string | null;
+  /** Names of Payonify settings that are empty here (no values). */
+  serverMissing: string[];
   /** The payment switch: which provider takes new payments. */
   switchProvider: "paynow" | "payonify";
   payments: Array<{
@@ -363,11 +365,13 @@ export const adminPayonifyOverview = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<PayonifyAdminOverview> => {
     const db = await requireAdmin(context.userId);
-    const { payonifyServerGate, readPaymentSwitch } = await import("@/lib/payonify.process.server");
+    const { payonifyMissingSettings, payonifyServerGate, readPaymentSwitch } =
+      await import("@/lib/payonify.process.server");
     const gate = payonifyServerGate(process.env);
     const enabledHere = gate.ok;
     const serverMode = gate.ok ? gate.mode : null;
     const serverReason = gate.ok ? null : gate.reason;
+    const serverMissing = payonifyMissingSettings(process.env);
     const switchProvider = await readPaymentSwitch(db);
     const pays = await db
       .from("payments")
@@ -383,6 +387,7 @@ export const adminPayonifyOverview = createServerFn({ method: "GET" })
         enabledHere,
         serverMode,
         serverReason,
+        serverMissing,
         switchProvider,
         payments: [],
         events: [],
@@ -404,6 +409,7 @@ export const adminPayonifyOverview = createServerFn({ method: "GET" })
       enabledHere,
       serverMode,
       serverReason,
+      serverMissing,
       switchProvider,
       payments: pays.data ?? [],
       events: events.data ?? [],

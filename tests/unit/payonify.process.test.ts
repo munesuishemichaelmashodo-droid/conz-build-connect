@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   handlePayonifyWebhook,
   payonifyGateFor,
+  payonifyMissingSettings,
   payonifyServerGate,
   PRODUCTION_SUPABASE_REF,
   readPaymentSwitch,
@@ -470,5 +471,19 @@ describe("starting a charge", () => {
       ok: false,
       error: "other_payment_open",
     });
+  });
+});
+
+describe("payonifyMissingSettings", () => {
+  it("lists empty settings by name only", () => {
+    expect(payonifyMissingSettings(ENV)).toEqual([]);
+    expect(
+      payonifyMissingSettings({
+        ...ENV,
+        PAYONIFY_PUBLISHABLE_KEY: " ",
+        PAYONIFY_WEBHOOK_SECRET: undefined,
+      }),
+    ).toEqual(["PAYONIFY_PUBLISHABLE_KEY", "PAYONIFY_WEBHOOK_SECRET"]);
+    expect(payonifyMissingSettings({})).toHaveLength(4);
   });
 });

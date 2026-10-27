@@ -42,6 +42,20 @@ export type GateResult =
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isUuid = (v: unknown): v is string => typeof v === "string" && UUID_RE.test(v);
 
+/**
+ * Names (never values) of the settings Payonify needs that are empty on this deployment, so
+ * the admin panel can say exactly what to add.
+ */
+export function payonifyMissingSettings(env: Env): string[] {
+  const names = [
+    "PAYONIFY_MODE",
+    "PAYONIFY_PUBLISHABLE_KEY",
+    "PAYONIFY_SECRET_KEY",
+    "PAYONIFY_WEBHOOK_SECRET",
+  ];
+  return names.filter((n) => !(env[n] ?? "").trim());
+}
+
 /** Server-side switch for the whole integration (webhook included). */
 export function payonifyServerGate(env: Env): GateResult {
   const raw = (env["PAYONIFY_MODE"] ?? "").trim();
