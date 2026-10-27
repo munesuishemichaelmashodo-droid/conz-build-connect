@@ -35,7 +35,7 @@ export function stockStatusCopy(status: unknown): StockCopy {
       return {
         title: "Availability not yet confirmed",
         detail:
-          "No stock is recorded for this supplier. Your price and route are real; we confirm the supply before loading and tell you when it is confirmed.",
+          "No stock is recorded for this supplier. The route is measured on real roads and the price is an estimate; we confirm the supply before loading and tell you when it is confirmed.",
         tone: "warn",
       };
   }

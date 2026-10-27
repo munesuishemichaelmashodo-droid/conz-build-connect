@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { OfferMessage } from "@/components/redesign/ProposedSource";
 import { ShieldCheck, Star } from "lucide-react";
 import { mmss, useSecondsLeft } from "@/components/redesign/rpc";
 import { levelInfo } from "@/lib/domain";
@@ -62,6 +63,7 @@ export function OfferCard({
   footer,
   kmToPickup,
   deliveryKm,
+  driverArranged = false,
 }: {
   bid: OfferBid;
   /** The one filled Choose button on the screen. */
@@ -75,6 +77,8 @@ export function OfferCard({
   kmToPickup?: number | null;
   /** Pickup → delivery road distance, for the estimated time at the site. */
   deliveryKm?: number | null;
+  /** No listed supplier: show a "Loading at:" line as the driver's proposed source. */
+  driverArranged?: boolean;
 }) {
   const secondsLeft = useSecondsLeft(bid.expires_at);
   const expired = secondsLeft === 0;
@@ -183,7 +187,7 @@ export function OfferCard({
       </dl>
 
       <div className="space-y-3 px-4 pb-4 pt-3">
-        {bid.message && <p className="text-sm text-cz-muted">"{bid.message}"</p>}
+        <OfferMessage message={bid.message} driverArranged={driverArranged} />
 
         {bid.counter_status === "countered" && (
           <div className="rounded-xl bg-cz-amber-tint px-3 py-2.5 text-[13px]">
