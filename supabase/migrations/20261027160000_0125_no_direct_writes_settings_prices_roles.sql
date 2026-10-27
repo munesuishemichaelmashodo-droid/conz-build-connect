@@ -1,6 +1,6 @@
 -- 0125 — no direct client writes to settings, prices or roles.
 --
--- Found 27/10 (read-only check of production): system_settings and material_prices have an RLS policy
+-- Found 27/10 (read-only check of production): system_settings, material_prices and small_load_settings have an RLS policy
 -- "ALL for super_admin", and user_roles has INSERT/UPDATE/DELETE policies for super_admin, with table grants
 -- to authenticated. A signed-in super admin session could therefore write these tables straight through the
 -- API: change the commission rate, the payment switch, escrow/withdrawal switches and limits, prices, or grant
@@ -15,3 +15,4 @@ revoke insert, update, delete on table public.system_settings       from anon, a
 revoke insert, update, delete on table public.material_prices        from anon, authenticated;
 revoke insert, update, delete on table public.material_price_buckets from anon, authenticated;
 revoke insert, update, delete on table public.user_roles             from anon, authenticated;
+revoke insert, update, delete on table public.small_load_settings    from anon, authenticated;  -- minimum trip charge etc.

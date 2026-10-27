@@ -1,6 +1,6 @@
 -- 0125: a super admin session cannot write settings, prices or roles directly; the audited functions still work.
 begin;
-select plan(7);
+select plan(8);
 select set_config('t.sup',  tests.create_user('dw_sup', array['super_admin'])::text, true);
 select set_config('t.cust', tests.create_user('dw_cust')::text, true);
 
@@ -13,6 +13,7 @@ select throws_ok($$insert into public.system_settings (key, value) values ('paym
 select throws_ok($$update public.material_prices set demand_multiplier = 3 where material = 'gravel'$$,
   '42501', null, '... or change a material price directly');
 select throws_ok($$delete from public.material_price_buckets$$, '42501', null, '... or delete bucket prices');
+select throws_ok($$update public.small_load_settings set minimum_trip_charge = 0$$, '42501', null, '... or the minimum trip charge');
 select throws_ok(format($$insert into public.user_roles (user_id, role) values (%L, 'admin')$$, current_setting('t.cust')),
   '42501', null, '... or make someone an admin directly');
 
