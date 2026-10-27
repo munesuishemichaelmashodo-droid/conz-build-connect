@@ -156,7 +156,9 @@ function WalletPage() {
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("payments")
-        .select("id,amount,status,paid_at,created_at")
+        // "*" so awaiting_settlement_since (0116) is included once it exists,
+        // without breaking against a database that doesn't have it yet.
+        .select("*")
         .eq("user_id", userId!)
         .eq("type", "topup")
         .order("created_at", { ascending: false })
@@ -421,9 +423,16 @@ function WalletPage() {
                     <div className="text-xs text-muted-foreground">
                       {new Date(p.paid_at ?? p.created_at).toLocaleString()} · {PAYNOW_STATUS[p.status] ?? p.status}
                     </div>
-                    {p.status === "initiated" && (
-                      <div className="text-xs text-muted-foreground">Your wallet is credited only once Paynow confirms payment.</div>
-                    )}
+                    {p.status === "initiated" &&
+                      ((p as { awaiting_settlement_since?: string | null })
+                        .awaiting_settlement_since ? (
+                        <div className="text-xs text-muted-foreground">
+                          Paid. Waiting for Paynow to release it to Con Z; we add it to your credit
+                          as soon as they do.
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground">Your wallet is credited only once Paynow confirms payment.</div>
+                      ))}
                   </div>
                   <div className={cn("text-sm font-display font-bold", p.status === "paid" || p.status === "released" ? "text-success" : "text-muted-foreground")}>
                     {money(Number(p.amount))}
