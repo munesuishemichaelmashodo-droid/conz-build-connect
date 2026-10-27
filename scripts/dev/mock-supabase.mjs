@@ -147,7 +147,10 @@ const db = {
     { key: "diesel_price_per_liter", value: 1.87 }, // production value 26/10/2026
     { key: "escrow_enabled", value: false },
     { key: "withdrawals_enabled", value: false },
+    // Quotation requests are off in production until the owner turns them on; MOCK_SOURCING=1 shows them here.
+    ...(process.env.MOCK_SOURCING === "1" ? [{ key: "sourcing_requests_enabled", value: true }] : []),
   ],
+  material_sourcing_requests: [],
   jobs: [
     {
       id: "00000000-0000-4000-8000-00000000a001",
@@ -338,6 +341,31 @@ const db = {
 
 // --- RPCs (answers shaped like the real functions; values are synthetic) --------
 const rpc = {
+  // Shaped like the live RPC (0088): customers only, idempotent on the key, returns the id.
+  create_material_sourcing_request: (a, me) => {
+    if (!me) return null;
+    const dup = db.material_sourcing_requests.find(
+      (r) => r.customer_id === me.id && a.p_idempotency_key && r.idempotency_key === a.p_idempotency_key,
+    );
+    if (dup) return dup.id;
+    const row = {
+      id: randomUUID(),
+      customer_id: me.id,
+      material: a.p_material,
+      quantity_m3: a.p_quantity_m3,
+      delivery_address: a.p_delivery_address,
+      delivery_lat: a.p_delivery_lat,
+      delivery_lng: a.p_delivery_lng,
+      preferred_date: a.p_preferred_date,
+      notes: a.p_notes,
+      status: "requested",
+      idempotency_key: a.p_idempotency_key,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    db.material_sourcing_requests.push(row);
+    return row.id;
+  },
   launch_switches: () => ({
     escrowEnabled: false,
     withdrawalsEnabled: false,
