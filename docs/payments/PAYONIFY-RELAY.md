@@ -17,7 +17,7 @@ called by any route, job, wallet or commission code. No database change, no live
 | Fees | `net_amount` = what the driver receives after the transfer fee; who pays the fee is a project setting (us, recipient, split) |
 | Reversal | `POST /v1/reversals {transfer, reason}` → `processing` → `reversal.succeeded/failed`. Full amount, once, only after `succeeded`; our commission is reversed too. Money returns to our balance — **it does not refund the customer** (that is `POST /v1/refunds` on the charge) |
 | Webhooks | `Payonify-Signature: t=…,v1=…`, HMAC-SHA256 of `t.rawBody`, 5-minute tolerance, up to 10 attempts, may repeat — dedupe by event `id` |
-| Test numbers | `772111111`/`772111112` succeed; `772111113` can't receive; `772111114` times out; `772111116` unregistered |
+| Test numbers | Charges (collecting from a customer): EcoCash `771111111` succeeds (~8 s), `771111112` succeeds (~30 s), `771111113` fails, `771111114` never completes; OneMoney `713111111`/`713111112` succeed, `713111113` fails. Payouts and transfers: `772111111`/`772111112` succeed; `772111113` insufficient balance; `772111114` timeout; `772111115` no such number; `772111116` unregistered. (docs.payonify.com/llms.txt, checked 27/10) |
 | Access | Relay must be ticked when the project is created; approved businesses only (not sole traders); live URL reviewed; Payout API listed under Enterprise |
 
 **Not documented (ask Payonify, don't assume):** idempotency for `POST /v1/transfers` and charges; the

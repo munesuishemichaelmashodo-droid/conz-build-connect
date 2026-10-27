@@ -25,5 +25,5 @@ export const ecocashLabel = (mode: PaymentOptions["payonifyMode"]) =>
 
 export const ecocashDetail = (mode: PaymentOptions["payonifyMode"]) =>
   mode === "test"
-    ? "Test mode: use a Payonify test number. No real money moves."
+    ? "Test mode: use 0771 111 111 (succeeds) or 0771 111 113 (fails). No real money moves."
     : "Enter your EcoCash number, then approve the payment on your phone with your PIN.";

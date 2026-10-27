@@ -92,6 +92,8 @@ Nothing is configured anywhere yet. No keys were created, used or stored in this
   `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (all staging), `PAYONIFY_MODE=test`,
   `PAYONIFY_PUBLISHABLE_KEY` (`pk_test_`), `PAYONIFY_SECRET_KEY` (`sk_test_`), `PAYONIFY_WEBHOOK_SECRET`,
   `PAYONIFY_TESTER_USER_IDS`. A change only takes effect after a new preview build.
+- Test EcoCash numbers for paying: `0771111111` succeeds (~8 s), `0771111113` fails. `0772…` numbers are for payouts
+  only: a charge to `0772111111` fails. Verified 27/10: $10 Con Z Pay on the test site went to `paid` with `0771111111`.
 - Admin → Approvals → "Payments provider" shows whether Payonify is on here and names any empty setting.
 - Staging test accounts (passwords are not kept in git): `test-customer@example.com`,
   `test-driver@example.com`, `qa-admin@example.com` (super admin, staging only).
