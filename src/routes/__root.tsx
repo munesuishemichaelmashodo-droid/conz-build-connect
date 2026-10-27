@@ -10,6 +10,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { recoverFromStaleBuild } from "../lib/stale-build";
 import appCss from "../styles.css?url";
 import "../lib/fonts";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -52,6 +53,8 @@ function ErrorComponent({ error: rawError, reset }: { error: unknown; reset: () 
   console.error(error);
   const router = useRouter();
   useEffect(() => {
+    // A tab left open across a release can't load the new page files: reload once instead.
+    if (recoverFromStaleBuild(error)) return;
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
   return (
