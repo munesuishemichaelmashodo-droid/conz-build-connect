@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { DriverPayoutsCard } from "@/components/payments/DriverPayoutsCard";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -356,6 +357,8 @@ function WalletPage() {
         </p>
         )}
       </motion.div>
+
+      {userId && <DriverPayoutsCard userId={userId} hasPin={!!hasPin} />}
 
       <div className="mt-5 flex gap-1 rounded-xl bg-muted p-1" role="tablist" aria-label="Wallet sections">
         {(["summary", "requests", "history"] as const).map((t) => (
