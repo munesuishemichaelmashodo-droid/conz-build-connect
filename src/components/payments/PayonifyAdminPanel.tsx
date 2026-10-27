@@ -101,6 +101,18 @@ export function PayonifyAdminPanel({ canSwitch = false }: { canSwitch?: boolean 
               : `Payonify is off here: ${REASON_LABEL[data.serverReason ?? ""] ?? data.serverReason}.`}{" "}
           Refunds for Payonify payments are made in the Payonify dashboard.
         </p>
+        {data.relayBalance && data.relayBalance.length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            Payonify balance:{" "}
+            {data.relayBalance
+              .map(
+                (b) =>
+                  `${b.provider} ${b.currency.toUpperCase()} $${b.available.toFixed(2)} available, $${b.pending.toFixed(2)} still settling`,
+              )
+              .join("; ")}
+            . Driver payouts can only use the available part.
+          </p>
+        )}
         {(data.serverMissing ?? []).length > 0 && (
           <p className="text-sm text-muted-foreground">
             Empty on this deployment: {(data.serverMissing ?? []).join(", ")}.

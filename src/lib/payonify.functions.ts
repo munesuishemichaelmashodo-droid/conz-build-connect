@@ -334,6 +334,13 @@ export type PayonifyAdminOverview = {
   serverMissing: string[];
   /** The payment switch: which provider takes new payments. */
   switchProvider: "paynow" | "payonify";
+  /** Relay balance for this deployment's mode (dollars), or null when unavailable. */
+  relayBalance: Array<{
+    provider: string;
+    currency: string;
+    available: number;
+    pending: number;
+  }> | null;
   payments: Array<{
     id: string;
     job_id: string | null;
@@ -373,6 +380,20 @@ export const adminPayonifyOverview = createServerFn({ method: "GET" })
     const serverReason = gate.ok ? null : gate.reason;
     const serverMissing = payonifyMissingSettings(process.env);
     const switchProvider = await readPaymentSwitch(db);
+    let relayBalance: PayonifyAdminOverview["relayBalance"] = null;
+    if (gate.ok) {
+      try {
+        const { getRelayBalance } = await import("@/lib/payonify.server");
+        relayBalance = ((await getRelayBalance(gate.cfg)).balances ?? []).map((b) => ({
+          provider: b.provider,
+          currency: b.currency,
+          available: Number(b.available) / 100,
+          pending: Number(b.pending) / 100,
+        }));
+      } catch {
+        relayBalance = null; // Relay not enabled or Payonify unreachable
+      }
+    }
     const pays = await db
       .from("payments")
       .select(
@@ -389,6 +410,7 @@ export const adminPayonifyOverview = createServerFn({ method: "GET" })
         serverReason,
         serverMissing,
         switchProvider,
+        relayBalance,
         payments: [],
         events: [],
         history: [],
@@ -411,6 +433,7 @@ export const adminPayonifyOverview = createServerFn({ method: "GET" })
       serverReason,
       serverMissing,
       switchProvider,
+      relayBalance,
       payments: pays.data ?? [],
       events: events.data ?? [],
       history: history.data ?? [],

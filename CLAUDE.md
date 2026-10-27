@@ -322,6 +322,10 @@ Still open: repair `schema_migrations` for 0077–0108 before any `supabase db p
   production is never used for Payonify tests. The Vercel preview for this branch uses Preview variables scoped to
   `payments/payonify-relay` (Supabase URL/keys for staging, `PAYONIFY_MODE=test`, test keys). `VITE_*` values are
   baked in at build time, so changing them needs a new preview build.
+- `0121_driver_auto_payouts` (owner decision 27/10: auto-pay drivers): Payonify-paid Con Z Pay earnings go
+  straight to the driver's EcoCash via Relay (`driver_payouts`, `payonify.payouts.server.ts`, cron
+  `payonify-payouts` + `/api/internal/payonify-payouts`). Applied to staging only; undo in `supabase/rollbacks/`.
+  Details: `docs/payments/PAYONIFY-INTEGRATION.md` ("Automatic driver payouts"). pgTAP 530.
 
 ## 26/10/2026 — release review (branch `release/integration-review`, read-only checks)
 

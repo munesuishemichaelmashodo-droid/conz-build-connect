@@ -98,6 +98,27 @@ Nothing is configured anywhere yet. No keys were created, used or stored in this
 - Staging test accounts (passwords are not kept in git): `test-customer@example.com`,
   `test-driver@example.com`, `qa-admin@example.com` (super admin, staging only).
 
+### Automatic driver payouts (0121, owner decision 27/10: "Auto-pay to EcoCash")
+
+- When a **Payonify-paid** Con Z Pay job is released (customer's PIN), the driver's share (price minus 7%)
+  is credited to the wallet as before and immediately moved into a `driver_payouts` row: wallet transaction
+  + balanced ledger entry (`withdrawal_paid`). Paynow-paid Con Z Pay is unchanged (stays in the wallet).
+- The server sends it with Payonify Relay (`POST /v1/transfers`, EcoCash only) to the driver's payout number
+  (Wallet → Con Z Pay earnings; changing it needs the withdrawal PIN when one is set). The driver gets exactly
+  their share; ConZ's commission is not sent (`application_fee_amount` 0) and stays in the Payonify balance.
+  Check in sandbox what `application_fee_amount` does before using it.
+- Every attempt for one payout reuses its `Idempotency-Key`. Outcomes: `succeeded`; `insufficient_funds`
+  (customer's money still settling) and Relay set-up errors wait and retry; a refused recipient returns the
+  money to the wallet (`returned`); timeouts stay `sending` and retry with the same key. A super admin can
+  "Send again" a returned payout (step-up + reason).
+- Sent immediately after the PIN is confirmed, then every 5 minutes by pg_cron → `/api/internal/payonify-payouts`.
+  Needs `PAYONIFY_PAYOUTS_SECRET` (32+ chars) in Vercel and the same value + URL in `app_secrets`
+  (`payonify_payouts_secret`, `payonify_payouts_url`). Results also arrive by the `transfer.*` webhook.
+- Test numbers for payouts: `0772111111` succeeds; `0772111113`–`0772111116` fail (see the Relay table).
+- Verified 27/10 on the test site: $10 Con Z Pay paid with `0771111111` → driver confirmed the PIN → $9.30
+  payout created and sent at once → Payonify answered `insufficient_funds` (charge still settling) → queued
+  to retry in 60 minutes. Nothing was debited twice; the wallet and ledger stayed balanced.
+
 ## 3. Switch-over day (owner steps, in order)
 
 1. **Before:** company bank account, Payonify KYC approved, Relay activated, live keys issued.
