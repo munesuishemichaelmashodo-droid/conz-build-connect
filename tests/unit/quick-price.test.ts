@@ -309,3 +309,35 @@ describe("9: booking uses the inputs on screen", () => {
     });
   });
 });
+
+describe("price-check wording and breakdown", () => {
+  it("never calls an estimate a confirmed price and says when money moves", async () => {
+    const { quickPriceCopy } = await import("@/lib/quick-price");
+    const s = quickPriceCopy("supplier");
+    expect(s.cta).toBe("Book this delivery");
+    expect(s.note).toMatch(/not a confirmed driver offer/);
+    expect(s.note).toMatch(/Nothing is charged until you accept an offer/);
+    const o = quickPriceCopy("open");
+    expect(o.cta).toBe("Request driver offers");
+    expect(o.next).toMatch(/doesn't charge you/);
+    expect(`${s.next} ${s.note} ${o.next}`).not.toMatch(
+      /verified supplier|guaranteed|confirmed price/i,
+    );
+  });
+
+  it("shows material + delivery only when they add up to the estimate", async () => {
+    const { offerBreakdown } = await import("@/lib/quick-price");
+    expect(offerBreakdown({ offer: 250, materialCost: 180, transportCost: 68, step: 10 })).toEqual({
+      material: 180,
+      delivery: 68,
+    });
+    // A minimum charge lifted the total: the parts would contradict it, so no breakdown.
+    expect(
+      offerBreakdown({ offer: 300, materialCost: 120, transportCost: 60, step: 10 }),
+    ).toBeNull();
+    // Market-priced loads have no split.
+    expect(
+      offerBreakdown({ offer: 900, materialCost: null, transportCost: null, step: 20 }),
+    ).toBeNull();
+  });
+});
