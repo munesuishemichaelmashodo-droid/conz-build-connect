@@ -2,8 +2,8 @@
 
 How it works today (migration 0111, live since 23/10/2026):
 
-- Money, role and price actions (approving payouts and top-ups, refunds, changing roles, commission, the payment
-  switch, and, once 0124 is applied, material prices) need a **recent Google sign-in**: within the last 12 hours,
+- Money, role and price actions (approving payouts and top-ups, refunds, changing roles, commission; once
+  their changes are live, also the payment switch (PR #38) and material prices (0124)) need a **recent Google sign-in**: within the last 12 hours,
   on an admin account that has Google linked. A password sign-in alone is not enough for these actions.
 - Only the two listed owners can ever be super admin (`super_admin_owners`; adding one is a database-only step).
 - An admin account cannot be linked to a Google account with a different email.
