@@ -318,6 +318,10 @@ Still open: repair `schema_migrations` for 0077–0108 before any `supabase db p
   starts nothing new.
 - Webhook `POST /api/payonify/webhook` re-fetches the charge before applying it. Write-up, settings, switch-over
   steps and blockers: `docs/payments/PAYONIFY-INTEGRATION.md`.
+- Test environment (27/10): Supabase project `conz-staging` (`fpckydgssuefzzxivvig`), loaded from git at a pinned commit;
+  production is never used for Payonify tests. The Vercel preview for this branch uses Preview variables scoped to
+  `payments/payonify-relay` (Supabase URL/keys for staging, `PAYONIFY_MODE=test`, test keys). `VITE_*` values are
+  baked in at build time, so changing them needs a new preview build.
 
 ## 26/10/2026 — release review (branch `release/integration-review`, read-only checks)
 
