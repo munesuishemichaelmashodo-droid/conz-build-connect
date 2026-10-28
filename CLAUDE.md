@@ -317,3 +317,17 @@ Full evidence and plan: `docs/release/RELEASE-READINESS-2026-10-26.md`. Correcti
 - Pomona Stone Quarries and Davis Granite are "verified" **locations** (public-source seeds 0050/0054), not partners.
 - Quotation requests (0087/0088 backend, live, 0 rows) are reachable again only behind
   `system_settings.sourcing_requests_enabled = true` (off by default).
+
+## 28/10/2026 — released (owner: "merge and deploy all the fixes")
+
+Pushed to `main` as `eced140` (Vercel deployed); then applied live via `execute_sql` and recorded:
+`0122` (20261027130000) admin sign-in alerts not to the signer, max once / 30 min per admin;
+`0123` (20261027140000) `admin_price_accuracy()` + Settings card "How close are our estimates?";
+`0124` (20261027150000) material/bucket price setters = super admin + `require_aal2()`;
+`0125` (20261027160000) no INSERT/UPDATE/DELETE for anon/authenticated on system_settings, material_prices,
+material_price_buckets, user_roles, small_load_settings (all writers are SECURITY DEFINER; app never writes them).
+Undo scripts in `supabase/rollbacks/`. Same release: reload once on stale-build chunk errors, separate dispute lists for
+customers/drivers, price-check copy ("Book this delivery" / "Request driver offers", material + delivery split only when
+it adds up), driver copy no longer promises withdrawals while paused. Live checks after applying: functions/grants as
+intended, public price check returns its guide range. Owner guide: `docs/security/ADMIN-GOOGLE-SIGNIN-GUIDE.md`.
+Not in this release: PR #38 (Payonify + 0120/0121), 0103 (still not applied).
