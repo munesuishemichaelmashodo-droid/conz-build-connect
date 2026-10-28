@@ -339,6 +339,20 @@ const db = {
   })),
 };
 
+// Sample live truck position for the in-progress job (a002), between Pomona and Belvedere.
+// MOCK_LIVE_MINUTES_AGO=20 shows the "not live" (stale) state.
+db.driver_locations = [
+  {
+    job_id: "00000000-0000-4000-8000-00000000a002",
+    driver_id: ID.driver2,
+    lat: -17.7905,
+    lng: 31.0472,
+    heading: 225,
+    accuracy: 12,
+    updated_at: minutesAgo(Number(process.env.MOCK_LIVE_MINUTES_AGO ?? 0)),
+  },
+];
+
 // --- RPCs (answers shaped like the real functions; values are synthetic) --------
 const rpc = {
   // Shaped like the live RPC (0088): customers only, idempotent on the key, returns the id.
