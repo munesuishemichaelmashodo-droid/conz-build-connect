@@ -1,27 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 import { supabase } from "@/integrations/supabase/client";
 import { materialLabel, type MaterialCategory } from "@/lib/domain";
-import { DocketPanel, DocketRow, JobStamp, LogoLockup, Milestones, Notice, StatusStamp } from "@/components/ds";
+import {
+  DocketPanel,
+  DocketRow,
+  JobStamp,
+  LogoLockup,
+  Milestones,
+  Notice,
+  StatusStamp,
+} from "@/components/ds";
 import { czButtonClass } from "@/components/redesign";
 import { PUBLIC_STEPS, publicStepsDone } from "@/lib/status-stamp";
-import { RouteMap } from "@/components/RouteMap";
-import {
-  Clock,
-  Loader2,
-  MapPin,
-  Navigation2,
-  Receipt,
-} from "lucide-react";
+import { LiveDeliveryMap } from "@/components/tracking/LiveDeliveryMap";
+import { Clock, Loader2, MapPin, Navigation2, Receipt } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { getPublicPod, type PodResult } from "@/lib/pod.functions";
 import { money } from "@/lib/domain";
 import { useState } from "react";
-import { CARTO_VOYAGER_TILES } from "@/lib/map-tiles";
 import { locationDisplay, locationState, publicTrackSignal } from "@/lib/delivery-docket";
 import { useNow } from "@/hooks/use-now";
 
@@ -104,7 +101,12 @@ async function downloadReceiptPdf(pod: NonNullable<PodResult>) {
   row("Material", `${materialLabelText} — ${pod.quantityM3} m³`);
   if (pod.deliveryAddress) row("Delivered to", pod.deliveryAddress);
   if (pod.driverName) row("Driver", pod.driverName);
-  row("Payment method", pod.paymentMethod === "escrow" ? "Con Z Pay (held & released on confirmation)" : "Paid directly to driver");
+  row(
+    "Payment method",
+    pod.paymentMethod === "escrow"
+      ? "Con Z Pay (held & released on confirmation)"
+      : "Paid directly to driver",
+  );
   if (pod.completedAt) row("Completed", new Date(pod.completedAt).toLocaleString());
   y += 8;
   doc.line(marginX, y, rightX, y);
@@ -155,12 +157,15 @@ async function downloadReceiptPdf(pod: NonNullable<PodResult>) {
   doc.line(marginX, 760, rightX, 760);
   doc.setFontSize(8);
   doc.setTextColor(150);
-  doc.text("Navysky Innovations (Private) Limited, trading as Con Z  ·  conz.co.zw  ·  navyskyinnovations@gmail.com", marginX, 774);
+  doc.text(
+    "Navysky Innovations (Private) Limited, trading as Con Z  ·  conz.co.zw  ·  navyskyinnovations@gmail.com",
+    marginX,
+    774,
+  );
   doc.text("This is a computer-generated receipt and requires no signature.", marginX, 786);
 
   doc.save(`${pod.receiptNo}.pdf`);
 }
-
 
 // Public, login-free live tracking page.
 // Access is gated by the job's unguessable tracking_token (the URL itself is the key).
@@ -182,32 +187,14 @@ type TrackPayload = {
   delivery_lng: number | null;
   preferred_date: string | null;
   driver_name: string | null;
-  live: { lat: number; lng: number; updated_at: string } | null;
+  live: { lat: number; lng: number; updated_at: string; heading?: number | null } | null;
+  /** 0126: step times and the line driven since loading (absent before 0126). */
+  times?: { loaded_at: string | null; arrived_at: string | null; delivered_at: string | null };
+  trail?: [number, number][] | null;
 };
 
-const truckIcon = L.divIcon({
-  className: "",
-  html: `<div style="background:var(--cz-amber);color:var(--cz-amber-ink);width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px">🚚</div>`,
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-});
-
-const destIcon = L.divIcon({
-  className: "",
-  html: `<div style="background:#16a34a;color:white;width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><span style="transform:rotate(45deg);font-size:12px">📍</span></div>`,
-  iconSize: [26, 26],
-  iconAnchor: [13, 26],
-});
-
-// Pans the map to follow the truck without remounting it —
-// avoids the tile-reload flash on every 15s poll.
-function Follow({ lat, lng }: { lat: number; lng: number }) {
-  const map = useMap();
-  useEffect(() => {
-    map.setView([lat, lng]);
-  }, [lat, lng, map]);
-  return null;
-}
+const clock = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null;
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -255,7 +242,10 @@ function PublicTrackPage() {
   if (isLoading) {
     return (
       <Shell>
-        <div role="status" className="flex items-center justify-center gap-2 py-16 text-sm text-cz-muted">
+        <div
+          role="status"
+          className="flex items-center justify-center gap-2 py-16 text-sm text-cz-muted"
+        >
           <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Loading tracking…
         </div>
       </Shell>
@@ -279,14 +269,27 @@ function PublicTrackPage() {
           <MapPin aria-hidden className="mx-auto h-6 w-6 text-cz-muted" />
           <h1 className="text-lg font-semibold">Tracking link not found</h1>
           <p className="text-sm text-cz-muted">
-            This tracking link is invalid or the job was removed. Ask the sender to share a fresh link.
+            This tracking link is invalid or the job was removed. Ask the sender to share a fresh
+            link.
           </p>
         </div>
       </Shell>
     );
   }
 
+  if (data.status === "cancelled") {
+    return (
+      <Shell>
+        <Notice tone="info" title="This delivery was cancelled">
+          Nothing more will happen on this link.
+        </Notice>
+      </Shell>
+    );
+  }
+
   const driverFirst = data.driver_name?.trim().split(" ")[0] ?? null;
+  const loadedAt = clock(data.times?.loaded_at);
+  const arrivedAt = clock(data.times?.arrived_at);
   const destination =
     data.delivery_lat != null && data.delivery_lng != null
       ? { lat: Number(data.delivery_lat), lng: Number(data.delivery_lng) }
@@ -308,12 +311,20 @@ function PublicTrackPage() {
       >
         {data.status !== "cancelled" && (
           <div className="px-4 py-4">
-            <Milestones label="Delivery progress" steps={PUBLIC_STEPS} done={publicStepsDone(data.status)} />
+            <Milestones
+              label="Delivery progress"
+              steps={PUBLIC_STEPS}
+              done={publicStepsDone(data.status)}
+            />
           </div>
         )}
         {data.delivery_address && <DocketRow label="Deliver to">{data.delivery_address}</DocketRow>}
         {data.preferred_date && <DocketRow label="Preferred date">{data.preferred_date}</DocketRow>}
         {driverFirst && <DocketRow label="Driver">{driverFirst}</DocketRow>}
+        {loadedAt && <DocketRow label="Loaded">{loadedAt}</DocketRow>}
+        {arrivedAt && data.status !== "completed" && (
+          <DocketRow label="Arrived at the site">{arrivedAt}</DocketRow>
+        )}
       </DocketPanel>
 
       {data.status === "cancelled" ? (
@@ -348,7 +359,9 @@ function PublicTrackPage() {
                 {pod.paymentMethod === "escrow" ? "Con Z Pay" : "Direct to driver"}
               </DocketRow>
               {pod.completedAt && (
-                <DocketRow label="Completed">{new Date(pod.completedAt).toLocaleString()}</DocketRow>
+                <DocketRow label="Completed">
+                  {new Date(pod.completedAt).toLocaleString()}
+                </DocketRow>
               )}
               {pod.driverName && <DocketRow label="Driver">{pod.driverName}</DocketRow>}
               {(pod.pickupPhotos.length > 0 || pod.deliveryPhotos.length > 0) && (
@@ -370,7 +383,9 @@ function PublicTrackPage() {
                         alt="The load at delivery"
                         className="aspect-square w-full rounded-lg border border-cz-border object-cover"
                       />
-                      <figcaption className="text-center text-xs text-cz-muted">Delivered</figcaption>
+                      <figcaption className="text-center text-xs text-cz-muted">
+                        Delivered
+                      </figcaption>
                     </figure>
                   )}
                 </div>
@@ -409,7 +424,7 @@ function PublicTrackPage() {
             title={
               <span className="inline-flex items-center gap-2">
                 <Navigation2 aria-hidden className="h-4 w-4 text-cz-muted" />
-                {shown.live ? "Live driver location" : live ? "Last known location" : "Driver location"}
+                Where is my delivery?
               </span>
             }
             stamp={
@@ -424,58 +439,55 @@ function PublicTrackPage() {
               ) : null
             }
           >
+            {(live || destination) && (
+              <LiveDeliveryMap
+                truck={
+                  live
+                    ? { lat: Number(live.lat), lng: Number(live.lng), updatedAt: live.updated_at }
+                    : null
+                }
+                live={shown.live}
+                destination={destination}
+                driverName={driverFirst}
+                heading={live?.heading ?? null}
+                trail={data.trail ?? null}
+              />
+            )}
             {live ? (
-              <>
-                <div className="h-64 w-full">
-                  <MapContainer
-                    center={[live.lat, live.lng]}
-                    zoom={15}
-                    scrollWheelZoom={false}
-                    style={{ height: "100%", width: "100%" }}
-                  >
-                    <Follow lat={live.lat} lng={live.lng} />
-                    <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    url={CARTO_VOYAGER_TILES}
-                    subdomains="abcd"
-                    maxZoom={20}
-                  />
-                    <Marker position={[live.lat, live.lng]} icon={truckIcon} title="Truck location">
-                      <Popup>
-                        {shown.live ? "Updated" : "Last update"} {lastUpdate ?? "unknown"}
-                      </Popup>
-                    </Marker>
-                    {destination && (
-                      <Marker position={[destination.lat, destination.lng]} icon={destIcon} title="Delivery point" />
-                    )}
-                  </MapContainer>
-                </div>
-                {shown.live ? (
-                  <div className="flex justify-between gap-3 px-4 py-2.5 text-xs text-cz-muted">
-                    <span>Refreshes every 15 seconds</span>
-                    <span>Updated {new Date(live.updated_at).toLocaleTimeString()}</span>
-                  </div>
-                ) : (
-                  <p role="status" className="flex items-start gap-2 px-4 py-2.5 text-sm text-cz-text">
-                    <Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-cz-warn-text" />
-                    <span>{shown.staleNote}</span>
-                  </p>
-                )}
-              </>
+              shown.live ? (
+                <p className="px-4 py-2.5 text-xs text-cz-muted">
+                  Updated {lastUpdate}. This page refreshes every 15 seconds. Times are estimates
+                  for a loaded truck.
+                </p>
+              ) : (
+                <p
+                  role="status"
+                  className="flex items-start gap-2 px-4 py-2.5 text-sm text-cz-text"
+                >
+                  <Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-cz-warn-text" />
+                  <span>{shown.staleNote}</span>
+                </p>
+              )
             ) : (
               <p className="px-4 py-3 text-sm text-cz-muted">
-                {driverFirst ?? "The driver"} isn't sharing their live location right now. This page
-                refreshes automatically and the truck appears here when they do.
+                {destination ? "The pin shows the delivery site. " : ""}
+                {driverFirst ?? "The driver"} isn&apos;t sharing their live location right now. The
+                truck appears on the map when they do.
               </p>
             )}
+            {destination && (
+              <div className="border-t border-cz-border px-4 py-3">
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${destination.lat},${destination.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-cz-text underline underline-offset-4"
+                >
+                  <MapPin aria-hidden className="h-4 w-4" /> Open the delivery site in Google Maps
+                </a>
+              </div>
+            )}
           </DocketPanel>
-
-          {live && shown.live && destination && (
-            <RouteMap
-              driverLocation={{ lat: live.lat, lng: live.lng }}
-              initialDestination={destination}
-            />
-          )}
         </>
       )}
     </Shell>

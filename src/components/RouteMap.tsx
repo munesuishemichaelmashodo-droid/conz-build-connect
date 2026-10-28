@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { shouldRefreshRoute } from "@/lib/live-map";
 import { MapContainer, TileLayer, Marker, Polyline, Popup, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -80,6 +81,7 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
   const [destination, setDestination] = useState<{ lat: number; lng: number } | null>(initialDestination);
   const [route, setRoute] = useState<RouteResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const lastAsk = useRef<{ from: { lat: number; lng: number }; at: number; dest: string } | null>(null);
 
   // A real delivery address is already fixed on the job in every actual use
   // of this component (customer tracking, driver navigation, public
@@ -102,6 +104,7 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
       setRoute(r);
       onRoute?.(r);
     } catch (e: any) {
+      lastAsk.current = null; // try again on the next position update
       console.error("Route fetch failed:", e);
       toast.error(e?.message ?? "Could not calculate route");
     } finally {
@@ -113,8 +116,13 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
   // never fires when the destination is locked (the normal case for every
   // real job) — so Route & ETA silently never populated. Auto-fetch here
   // instead, debounced so live GPS updates during tracking don't spam OSRM.
+  // Re-ask only after the truck has moved ~250 m or 3 minutes passed (free route server).
   useEffect(() => {
     if (!destination) return;
+    const destKey = `${destination.lat},${destination.lng}`;
+    const prev = lastAsk.current && lastAsk.current.dest === destKey ? lastAsk.current : null;
+    if (!shouldRefreshRoute(prev, driverLocation, Date.now())) return;
+    lastAsk.current = { from: { ...driverLocation }, at: Date.now(), dest: destKey };
     const t = setTimeout(() => { void fetchRoute(destination); }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps

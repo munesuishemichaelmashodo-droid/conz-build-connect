@@ -332,3 +332,21 @@ it adds up), driver copy no longer promises withdrawals while paused. Live check
 intended, public price check returns its guide range. Owner guide: `docs/security/ADMIN-GOOGLE-SIGNIN-GUIDE.md`.
 Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multiplier = super admin + `require_aal2()`
 (undo: `supabase/rollbacks/20261012350000_0103_rollback.sql`). Not in this release: PR #38 (Payonify + 0120/0121).
+
+## 28/10/2026 — shared tracking map + security sweep (branch `design/public-tracking-map`)
+
+- Shared tracking link `/track/$token`: one map (`src/components/tracking/LiveDeliveryMap.tsx`) instead of two;
+  truck ETA = car time × 1.4 (`src/lib/live-map.ts`); route re-asked only after 250 m / 3 min (also in
+  `RouteMap`). Review and free-service limits: `docs/design/PUBLIC-TRACKING-MAP.md` (CARTO commercial free tier
+  = 1M tiles/month from 1 Dec 2026; OSRM demo server also drives quote road distance).
+- `0126_public_tracking_details` (20261028100000) — **NOT applied**: step times, heading, trail since loading,
+  cancelled → `{"status":"cancelled"}`. No DROP. Deploy the app first. pgTAP 580.
+- No-login server functions (`getRoute`, geocode) refuse non-Zimbabwe coordinates and are rate-limited per
+  address (`src/lib/public-guard*`). Unused `src/lib/api/example.functions.ts` removed.
+- Security sweep (read-only, 28/10): **0114, 0115, 0119 are on `main` but NOT live** (no trigger/constraint/policy
+  changes live; live `handle_new_user` and `driver_profiles_guard_direct_write` still equal the 0115 rollback
+  definitions, so 0115 applies cleanly). 0114/0115 contain DROP POLICY (SQL editor, or the MCP hangs).
+  Demo edge functions `quick-responder` (spends the ORS key for anyone with the public key) and
+  `smooth-handler` (hello world) are still deployed and unused by the app. Advisor: 2 search_path warnings (fixed
+  by 0115), `driver_public_profiles` SECURITY DEFINER view (intentional), `pg_net` in public, leaked-password
+  protection off (owner setting).

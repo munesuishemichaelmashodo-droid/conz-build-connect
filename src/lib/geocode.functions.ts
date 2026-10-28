@@ -27,7 +27,12 @@ const ZW_VIEWBOX = "25.2,-15.6,33.1,-22.5";
 
 type BoundingBox = [number, number, number, number];
 type GeocodeResult = { label: string; lat: number; lng: number; bbox?: BoundingBox };
-type OsmRow = { display_name: string; lat: string; lon: string; boundingbox?: [string, string, string, string] };
+type OsmRow = {
+  display_name: string;
+  lat: string;
+  lon: string;
+  boundingbox?: [string, string, string, string];
+};
 
 function parseBbox(bb?: [string, string, string, string]): BoundingBox | undefined {
   if (!bb) return undefined;
@@ -37,7 +42,12 @@ function parseBbox(bb?: [string, string, string, string]): BoundingBox | undefin
 function mapRows(rows: OsmRow[]): GeocodeResult[] {
   return rows
     .filter((d) => d && d.lat && d.lon)
-    .map((d) => ({ label: d.display_name, lat: parseFloat(d.lat), lng: parseFloat(d.lon), bbox: parseBbox(d.boundingbox) }));
+    .map((d) => ({
+      label: d.display_name,
+      lat: parseFloat(d.lat),
+      lng: parseFloat(d.lon),
+      bbox: parseBbox(d.boundingbox),
+    }));
 }
 
 async function nominatimSearch(q: string, limit: number): Promise<GeocodeResult[]> {
@@ -56,11 +66,15 @@ async function nominatimSearch(q: string, limit: number): Promise<GeocodeResult[
 }
 
 export const searchAddressServer = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ query: z.string(), limit: z.number().optional() }))
+  .inputValidator(
+    z.object({ query: z.string().max(200), limit: z.number().int().min(1).max(10).optional() }),
+  )
   .handler(async ({ data }): Promise<GeocodeResult[]> => {
     const q = data.query.trim();
     const limit = data.limit ?? 6;
     if (q.length < 3) return [];
+    const { guardGeocodeRequest } = await import("@/lib/public-guard.server");
+    guardGeocodeRequest();
 
     const key = process.env["LOCATIONIQ_API_KEY"]?.trim();
 
@@ -77,16 +91,24 @@ export const searchAddressServer = createServerFn({ method: "GET" })
         url.searchParams.set("addressdetails", "1");
         url.searchParams.set("dedupe", "1");
 
-        const res = await fetch(url.toString(), { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8000) });
+        const res = await fetch(url.toString(), {
+          headers: { Accept: "application/json" },
+          signal: AbortSignal.timeout(8000),
+        });
         if (res.ok) {
           return mapRows((await res.json()) as OsmRow[]);
         }
         // Bad key / quota / autocomplete-not-on-plan / outage: log the real
         // reason and fall through to Nominatim instead of returning nothing.
         const body = await res.text().catch(() => "");
-        console.error(`[geocode] LocationIQ search HTTP ${res.status} for "${q}": ${body.slice(0, 200)}`);
+        console.error(
+          `[geocode] LocationIQ search HTTP ${res.status} for "${q}": ${body.slice(0, 200)}`,
+        );
       } catch (err) {
-        console.error(`[geocode] LocationIQ search threw for "${q}":`, err instanceof Error ? err.message : err);
+        console.error(
+          `[geocode] LocationIQ search threw for "${q}":`,
+          err instanceof Error ? err.message : err,
+        );
       }
     }
 
@@ -94,7 +116,10 @@ export const searchAddressServer = createServerFn({ method: "GET" })
     try {
       return await nominatimSearch(q, limit);
     } catch (err) {
-      console.error(`[geocode] nominatim search threw for "${q}":`, err instanceof Error ? err.message : err);
+      console.error(
+        `[geocode] nominatim search threw for "${q}":`,
+        err instanceof Error ? err.message : err,
+      );
       return [];
     }
   });
@@ -102,6 +127,8 @@ export const searchAddressServer = createServerFn({ method: "GET" })
 export const reverseGeocodeServer = createServerFn({ method: "GET" })
   .inputValidator(z.object({ lat: z.number(), lng: z.number() }))
   .handler(async ({ data }): Promise<string | null> => {
+    const { guardGeocodeRequest } = await import("@/lib/public-guard.server");
+    guardGeocodeRequest({ lat: data.lat, lng: data.lng });
     const key = process.env["LOCATIONIQ_API_KEY"]?.trim();
 
     if (key) {
@@ -114,7 +141,10 @@ export const reverseGeocodeServer = createServerFn({ method: "GET" })
         url.searchParams.set("zoom", "18");
         url.searchParams.set("addressdetails", "1");
 
-        const res = await fetch(url.toString(), { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8000) });
+        const res = await fetch(url.toString(), {
+          headers: { Accept: "application/json" },
+          signal: AbortSignal.timeout(8000),
+        });
         if (res.ok) {
           const row = (await res.json()) as { display_name?: string };
           return row?.display_name ?? null;
@@ -122,14 +152,20 @@ export const reverseGeocodeServer = createServerFn({ method: "GET" })
         const body = await res.text().catch(() => "");
         console.error(`[geocode] LocationIQ reverse HTTP ${res.status}: ${body.slice(0, 200)}`);
       } catch (err) {
-        console.error("[geocode] LocationIQ reverse threw:", err instanceof Error ? err.message : err);
+        console.error(
+          "[geocode] LocationIQ reverse threw:",
+          err instanceof Error ? err.message : err,
+        );
       }
     }
 
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${data.lat}&lon=${data.lng}&zoom=18&addressdetails=1`,
-        { headers: { Accept: "application/json", "User-Agent": NOMINATIM_UA }, signal: AbortSignal.timeout(8000) },
+        {
+          headers: { Accept: "application/json", "User-Agent": NOMINATIM_UA },
+          signal: AbortSignal.timeout(8000),
+        },
       );
       if (!res.ok) {
         console.error(`[geocode] nominatim reverse HTTP ${res.status}`);
