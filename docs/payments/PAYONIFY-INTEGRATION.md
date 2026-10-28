@@ -130,6 +130,33 @@ Before the switch nothing changes (Paynow first, EcoCash for listed testers).
   payout created and sent at once → Payonify answered `insufficient_funds` (charge still settling) → queued
   to retry in 60 minutes. Nothing was debited twice; the wallet and ledger stayed balanced.
 
+## 2b. How Relay money moves (official docs, read 28/10/2026)
+
+Sources: docs.payonify.com/relay (modified 10/09/2026), /api/transfers, /errors, /webhooks, /llms.txt.
+Class: **Documented** unless marked; nothing here is confirmed for ConZ's account by Payonify yet.
+
+| Topic | What the docs say | Class |
+| --- | --- | --- |
+| Balance pools | Money is held per provider and per currency (EcoCash USD, EcoCash ZWG). EcoCash money pays out on EcoCash. | Documented |
+| States | `pending` = still in "a short hold" after collection; `available` = can be transferred or refunded; `reserved` = held for transfers in flight, returned to available if one fails. | Documented |
+| Hold length | Not stated anywhere ("short hold", "maturation hold"). | **Unknown** |
+| Test-mode maturation | Not stated whether test money ever becomes available, or how to add test balance. | **Unknown** |
+| `insufficient_funds` | "The transfer or refund amount exceeds the available funds currently held for the merchant." Pending money does not count. | Documented |
+| Transfer `amount` | What the recipient gets; must be at least Payonify's processing fee. Who pays the transfer fee (ConZ, driver, split) is a project setting; `net_amount` shows what arrives. | Documented |
+| `application_fee_amount` | ConZ's commission, credited to the Payonify account when the transfer succeeds. Whether it is drawn from available funds on top of `amount` is not spelled out; ConZ sends 0 and keeps its 7% as the part of the charge it does not transfer. | Documented / unclear |
+| Refunds on Relay | Paid from available funds too. | Documented |
+| Reversals | Only a succeeded, settled transfer; full amount, once; commission comes back too. | Documented |
+| Eligibility | Relay only for approved businesses (not sole traders); can only be ticked when the project is created; live payouts need a relay payout merchant with B2C enabled (`channel_partner_not_found`, `b2c_not_allowed`). | Documented |
+| Cards | Visa/Mastercard only through Checkout Sessions; "a relay project can only collect on the rails it can pay out from", so a Relay project cannot take cards. | Documented |
+| Webhooks | `transfer.succeeded` / `transfer.failed`; 10 attempts with backoff up to ~17 min; signature header `Payonify-Signature: t=…,v1=…`. | Documented |
+| Test numbers | Charges 771111111 ok, 771111113 fail, 771111114 never completes; transfers 772111111/2 ok, 772111113/4/6 fail. | Documented |
+
+What this means for the stuck $9.30 test payout (staging, 28/10): Payonify answers `insufficient_funds` because the
+test money is still `pending`. The code waits and retries hourly, which is correct. It can only go through once
+Payonify moves test money to `available`, which their docs don't describe. No webhook has reached the test site
+(0 rows in `payonify_webhook_events`); the endpoint answers (400 without a signature), so the test project's webhook
+URL is probably not set to `https://conz-build-connect-git-payments-payonify-relay-con-z.vercel.app/api/payonify/webhook`.
+
 ## 3. Switch-over day (owner steps, in order)
 
 1. **Before:** company bank account, Payonify KYC approved, Relay activated, live keys issued.
@@ -179,15 +206,15 @@ Android. No payment was made.
 - [ ] Owner approves merging PR #38 and applying 0120.
 - [ ] §3 steps 3–5: live settings, webhook, $1 live test.
 - [ ] §3 step 6: the switch.
-- [ ] Payouts to drivers through Relay: not built (see §6).
+- [ ] Payouts to drivers through Relay: built (0121); one test transfer must succeed first (see §2b).
 
 ## 6. Blockers and open items
 
 | Item | Type | Detail |
 | --- | --- | --- |
 | Bank account + KYC + Relay + live keys | Owner / Payonify | Needed before any live use |
-| No non-production database for a sandbox run | Infrastructure | Optional; free plan has no room for a third project |
-| Payouts to drivers | Not built | Con Z Pay release still credits the driver's ConZ wallet; withdrawals stay manual. Paying out by Relay transfer needs a payout table, the 24 h hold and a fee decision |
+| Non-production database | Done | Staging project `conz-staging` used for all sandbox runs |
+| Payouts to drivers | Built (0121), not yet proven | Waiting for test money to become available (see 2b); hold length unknown |
 | Refunds | Manual | In the Payonify dashboard, then recorded in Money approvals |
 | Ledger label | Accountant | Payonify money posts to the existing `paynow_clearing` account; a separate account is a small follow-up |
 | Pending charge that never resolves | Provider docs | Undocumented whether an ignored EcoCash prompt becomes `failed`. Such a payment blocks a new attempt for that job/top-up until Payonify reports it or an admin uses "Check with Payonify" |
