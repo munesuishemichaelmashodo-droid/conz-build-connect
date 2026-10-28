@@ -469,7 +469,7 @@ function JobDetail() {
     const { error } = await supabase.rpc("accept_bid", { _bid_id: bidId });
     if (error) {
       if (/insufficient wallet balance/i.test(error.message)) {
-        return toast.error("This driver can no longer accept — ask them to top up, or accept another bid.");
+        return toast.error("This driver can no longer accept — ask them to top up, or accept another offer.");
       }
       return toast.error(error.message);
     }
@@ -913,7 +913,7 @@ function JobDetail() {
             }
           >
             {!bids?.length ? (
-              <p className="text-sm text-muted-foreground">No bids yet. Drivers are checking your request.</p>
+              <p className="text-sm text-muted-foreground">No offers yet. Drivers are checking your request.</p>
             ) : (
               <div className="space-y-2">
                 {(job.status === "open" ? bids : bids.filter((b: any) => b.status === "accepted")).map((b: any, bIdx: number) => (
@@ -1019,8 +1019,8 @@ function JobDetail() {
                 {job.status !== "open" && bids.filter((b: any) => b.status === "rejected").length > 0 && (
                   <p className="text-xs text-muted-foreground italic px-1">
                     {bids.filter((b: any) => b.status === "rejected").length === 1
-                      ? "1 other bid was not selected."
-                      : `${bids.filter((b: any) => b.status === "rejected").length} other bids were not selected.`}
+                      ? "1 other offer was not selected."
+                      : `${bids.filter((b: any) => b.status === "rejected").length} other offers were not selected.`}
                   </p>
                 )}
               </div>

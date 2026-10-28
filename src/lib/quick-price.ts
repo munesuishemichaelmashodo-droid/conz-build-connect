@@ -155,3 +155,41 @@ export function quickPriceStage(input: {
     prompt: "We'll find a listed supplier near this point and price the road trip.",
   };
 }
+
+/**
+ * Words under a price-check result. "supplier": a listed supplier covers the site, so there is an
+ * estimate; "open": no listed supplier, so drivers arrange the material and there is only a guide range.
+ * Nothing here may promise a confirmed price, a supplier's availability, or a charge-free flow beyond
+ * what the app does (posting a request charges nothing; money moves only after an offer is accepted).
+ */
+export function quickPriceCopy(kind: "supplier" | "open") {
+  return kind === "supplier"
+    ? {
+        cta: "Book this delivery",
+        next: "Free account. Your material, load and address carry over, and you check everything before posting. Posting a request doesn't charge you.",
+        note: "This is an estimate, not a confirmed driver offer. Drivers send their own prices and you see each driver's total before you accept. Nothing is charged until you accept an offer.",
+      }
+    : {
+        cta: "Request driver offers",
+        next: "Free account. Your material, load and address carry over. Posting a request doesn't charge you; drivers send offers you can accept or ignore.",
+        note: null,
+      };
+}
+
+/**
+ * Material + delivery split, shown only when it adds up to the estimate (within its rounding step).
+ * A minimum charge or market-based price can make the parts differ from the total; then nothing is shown
+ * rather than a breakdown that contradicts the headline number.
+ */
+export function offerBreakdown(offer: {
+  offer: number;
+  materialCost: number | null;
+  transportCost: number | null;
+  step?: number;
+}): { material: number; delivery: number } | null {
+  const m = Number(offer.materialCost);
+  const t = Number(offer.transportCost);
+  if (!(m > 0) || !(t > 0)) return null;
+  const tolerance = Math.max(Number(offer.step) || 0, 1);
+  return Math.abs(m + t - offer.offer) <= tolerance ? { material: m, delivery: t } : null;
+}

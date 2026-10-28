@@ -18,6 +18,8 @@ import {
   createLatestRequestGate,
   currentQuickPrice,
   quickPriceBookingPath,
+  offerBreakdown,
+  quickPriceCopy,
   quickPriceErrorMessage,
   quickPriceSignature,
   quickPriceStage,
@@ -172,9 +174,7 @@ export function QuickPrice({ titleAs = "h2" }: { titleAs?: "h1" | "h2" }) {
             search={{ mode: "register", role: "customer", next: bookPath } as never}
             className={czButtonClass("primary")}
           >
-            {current.offer && !current.offer.openRequest
-              ? "Continue to booking"
-              : "Request driver bids"}
+            {quickPriceCopy(current.offer && !current.offer.openRequest ? "supplier" : "open").cta}
           </Link>
         ) : (
           <button
@@ -204,9 +204,7 @@ export function QuickPrice({ titleAs = "h2" }: { titleAs?: "h1" | "h2" }) {
         )}
         {(current?.offer || current?.awaiting) && (
           <p className="-mt-2 text-center text-sm text-cz-muted">
-            {current.offer && !current.offer.openRequest
-              ? "Create your account, then review your delivery details before posting. Posting doesn't charge you."
-              : "Create your account and your material, load and address carry over. Posting doesn't charge you."}
+            {quickPriceCopy(current.offer && !current.offer.openRequest ? "supplier" : "open").next}
           </p>
         )}
         {current?.offer?.openRequest && (
@@ -228,6 +226,7 @@ export function QuickPrice({ titleAs = "h2" }: { titleAs?: "h1" | "h2" }) {
 }
 
 function PriceResult({ offer, quantity }: { offer: OfferResult; quantity: number }) {
+  const breakdown = offerBreakdown(offer);
   return (
     <div className="rounded-xl border border-cz-border bg-cz-bg" aria-live="polite">
       <div className="px-4 pb-3 pt-4">
@@ -237,6 +236,11 @@ function PriceResult({ offer, quantity }: { offer: OfferResult; quantity: number
         <DocketRow label="Likely range">
           {money(offer.min)} to {money(offer.max)}
         </DocketRow>
+        {breakdown && (
+          <DocketRow label="Includes">
+            Material about {money(breakdown.material)} + delivery about {money(breakdown.delivery)}
+          </DocketRow>
+        )}
         <DocketRow label="Load">
           {quantity} m³ {offer.label.toLowerCase()}
           {offer.tripCount > 1 && (
@@ -253,8 +257,7 @@ function PriceResult({ offer, quantity }: { offer: OfferResult; quantity: number
         )}
       </div>
       <p className="border-t border-cz-border px-4 py-3 text-sm leading-snug text-cz-muted">
-        This is an estimate, not a confirmed price. Drivers send their own offers, so the price you
-        accept can differ. You see each total before you accept, and nothing is charged until then.
+        {quickPriceCopy("supplier").note}
       </p>
     </div>
   );
