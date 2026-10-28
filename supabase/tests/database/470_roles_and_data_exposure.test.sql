@@ -2,7 +2,7 @@
 -- supplier contact details are not public; profile policies consolidated without
 -- widening access; fixed search_path on two functions.
 begin;
-select plan(29);
+select plan(30);
 
 select set_config('t.cust',  tests.create_user('rx_cust')::text, true);
 select set_config('t.cust2', tests.create_user('rx_cust2')::text, true);
@@ -48,7 +48,8 @@ select is((select verification_status::text from public.driver_profiles where us
 select tests.login_as(current_setting('t.cust')::uuid);
 select throws_ok($$insert into public.user_roles (user_id, role) values (auth.uid(), 'admin')$$, '42501', null,
   'A user cannot insert an admin role for themselves');
-update public.user_roles set role = 'super_admin' where user_id = auth.uid();  -- RLS: 0 rows
+select throws_ok($$update public.user_roles set role = 'super_admin' where user_id = auth.uid()$$, '42501', null,
+  'A user cannot update their own role (0125: no direct writes)');
 select tests.as_owner();
 select ok(not public.has_role(current_setting('t.cust')::uuid, 'super_admin'),
   'A user cannot turn their own role into super admin');

@@ -1,6 +1,7 @@
 import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
 import { kickJobPayout } from "@/lib/payonify.functions";
 import { DISPUTE_OPTIONS, disputeOption, disputeReason, MIN_DISPUTE_EXPLANATION, type DisputeSide } from "@/lib/dispute-options";
+import { useLaunchSwitches } from "@/lib/launch-switches";
 import { serverNow, syncServerClock } from "@/lib/server-clock";
 import { commissionFee, earnings, fuelEstimate } from "@/lib/driver-economics";
 import { composeOfferMessage, isDriverArranged, MAX_SOURCE_LENGTH, parseOfferMessage } from "@/lib/proposed-source";
@@ -473,7 +474,7 @@ function JobDetail() {
     const { error } = await supabase.rpc("accept_bid", { _bid_id: bidId });
     if (error) {
       if (/insufficient wallet balance/i.test(error.message)) {
-        return toast.error("This driver can no longer accept — ask them to top up, or accept another bid.");
+        return toast.error("This driver can no longer accept — ask them to top up, or accept another offer.");
       }
       return toast.error(error.message);
     }
@@ -737,7 +738,7 @@ function JobDetail() {
                     </>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Waiting for the customer to pay through Con Z Pay before you're guaranteed payment on delivery.
+                      Waiting for the customer to pay into Con Z Pay. Once they do, the money is held for you and released when they confirm delivery with their PIN.
                     </p>
                   )}
                 </div>
@@ -923,7 +924,7 @@ function JobDetail() {
             }
           >
             {!bids?.length ? (
-              <p className="text-sm text-muted-foreground">No bids yet. Drivers are checking your request.</p>
+              <p className="text-sm text-muted-foreground">No offers yet. Drivers are checking your request.</p>
             ) : (
               <div className="space-y-2">
                 {(job.status === "open" ? bids : bids.filter((b: any) => b.status === "accepted")).map((b: any, bIdx: number) => (
@@ -1029,8 +1030,8 @@ function JobDetail() {
                 {job.status !== "open" && bids.filter((b: any) => b.status === "rejected").length > 0 && (
                   <p className="text-xs text-muted-foreground italic px-1">
                     {bids.filter((b: any) => b.status === "rejected").length === 1
-                      ? "1 other bid was not selected."
-                      : `${bids.filter((b: any) => b.status === "rejected").length} other bids were not selected.`}
+                      ? "1 other offer was not selected."
+                      : `${bids.filter((b: any) => b.status === "rejected").length} other offers were not selected.`}
                   </p>
                 )}
               </div>
@@ -2824,7 +2825,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
 
           {ctx.isEscrow && !ctx.escrowPaid && (
             <HintBox tone="warn" icon={<ShieldCheck className="w-4 h-4" />}>
-              Waiting for the customer to pay through Con Z Pay before you're guaranteed payment on delivery.
+              Waiting for the customer to pay into Con Z Pay. Once they do, the money is held for you and released when they confirm delivery with their PIN.
             </HintBox>
           )}
 
@@ -2988,6 +2989,7 @@ const NEXT_LEVEL: Record<string, string> = { bronze: "silver", silver: "gold", g
 
 /** D5 · Paid / delivery complete. */
 function DriverPaid({ ctx }: { ctx: JobScreenCtx }) {
+  const launch = useLaunchSwitches();
   const { job, id } = ctx;
   const { other } = useJobContact(job, false);
   // Same query + cache key as the driver dashboard's profile read.
@@ -3037,7 +3039,9 @@ function DriverPaid({ ctx }: { ctx: JobScreenCtx }) {
           )}
           <p className="text-[13px] text-cz-muted">
             {ctx.isEscrow
-              ? "Released from Con Z Pay into your wallet. Withdraw to EcoCash or bank anytime."
+              ? launch.withdrawalsEnabled
+                ? "Released from Con Z Pay into your wallet. Withdraw it from Wallet when you're ready."
+                : "Released from Con Z Pay into your wallet. Withdrawals are paused for now: contact support and we'll pay it out to you."
               : "Paid to you directly by the customer. The Con Z fee comes off your wallet balance."}
           </p>
           <p className="text-[11px] text-cz-faint">All amounts in USD</p>
