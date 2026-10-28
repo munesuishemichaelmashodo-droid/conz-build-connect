@@ -42,7 +42,9 @@ export function PayonifyAdminPanel({ canSwitch = false }: { canSwitch?: boolean 
     const to = onPayonify ? "paynow" : "payonify";
     const reason = window.prompt(
       to === "payonify"
-        ? "Move new EcoCash payments (Con Z Pay and top-ups) to Payonify. Paynow stays on for cards only. Reason:"
+        ? data.cardsAfterSwitch
+          ? "Move new EcoCash payments (Con Z Pay and top-ups) to Payonify. Paynow stays on for cards only. Reason:"
+          : "Move all new payments (Con Z Pay and top-ups) to Payonify. Paynow stops taking new payments, so cards won't be offered. Reason:"
         : "Move all new payments back to Paynow. Reason:",
     );
     if (!reason) return;
@@ -93,8 +95,14 @@ export function PayonifyAdminPanel({ canSwitch = false }: { canSwitch?: boolean 
         <p className="text-sm">
           {onPayonify ? (
             <>
-              New payments: <strong>EcoCash through Payonify</strong>, and{" "}
-              <strong>cards through Paynow</strong> (Payonify Relay takes EcoCash only).
+              New payments: <strong>EcoCash through Payonify</strong>
+              {data.cardsAfterSwitch ? (
+                <>
+                  , and <strong>cards through Paynow</strong> (Payonify Relay takes EcoCash only).
+                </>
+              ) : (
+                <>. Paynow takes no new payments, so cards are not offered.</>
+              )}
             </>
           ) : (
             <>

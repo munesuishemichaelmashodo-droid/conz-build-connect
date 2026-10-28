@@ -4,6 +4,8 @@ import {
   payonifyGateFor,
   payonifyMissingSettings,
   payonifyServerGate,
+  paynowAllowed,
+  paynowCardsAfterSwitch,
   PRODUCTION_SUPABASE_REF,
   readPaymentSwitch,
   startPayonifyCharge,
@@ -519,5 +521,17 @@ describe("payonifyMissingSettings", () => {
       }),
     ).toEqual(["PAYONIFY_PUBLISHABLE_KEY", "PAYONIFY_WEBHOOK_SECRET"]);
     expect(payonifyMissingSettings({})).toHaveLength(4);
+  });
+});
+
+describe("Paynow after the switch to Payonify", () => {
+  it("keeps Paynow while the switch is on Paynow", () => {
+    expect(paynowAllowed({}, "paynow")).toBe(true);
+  });
+  it("stops Paynow after the switch unless cards are explicitly kept on", () => {
+    expect(paynowCardsAfterSwitch({})).toBe(false);
+    expect(paynowAllowed({}, "payonify")).toBe(false);
+    expect(paynowAllowed({ PAYNOW_CARDS_AFTER_SWITCH: "yes" }, "payonify")).toBe(false);
+    expect(paynowAllowed({ PAYNOW_CARDS_AFTER_SWITCH: " ON " }, "payonify")).toBe(true);
   });
 });

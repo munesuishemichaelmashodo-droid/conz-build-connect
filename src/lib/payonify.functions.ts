@@ -55,8 +55,8 @@ export type PaymentOptions = {
   /** Paynow may start new payments. */
   paynow: boolean;
   /**
-   * After the switch to Payonify, Paynow stays on for cards only (Payonify Relay is EcoCash only):
-   * it is shown as "Card (Visa / Mastercard)" and EcoCash goes first.
+   * After the switch to Payonify, Paynow is off unless PAYNOW_CARDS_AFTER_SWITCH=on; then it is
+   * shown as "Card (Visa / Mastercard)" and EcoCash goes first.
    */
   paynowAsCard: boolean;
   /** Payonify may start new payments for this user. */
@@ -69,12 +69,13 @@ export type PaymentOptions = {
 export const paymentOptions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<PaymentOptions> => {
-    const { payonifyGateFor, readPaymentSwitch } = await import("@/lib/payonify.process.server");
+    const { payonifyGateFor, readPaymentSwitch, paynowAllowed } =
+      await import("@/lib/payonify.process.server");
     const db = await adminDb();
     const provider = await readPaymentSwitch(db);
     const gate = payonifyGateFor(process.env, context.userId, provider);
     const { getPaynowCredentials } = await import("@/lib/paynow.server");
-    const paynowConfigured = !!getPaynowCredentials();
+    const paynowConfigured = !!getPaynowCredentials() && paynowAllowed(process.env, provider);
     return {
       paynow: paynowConfigured,
       paynowAsCard: paynowConfigured && provider === "payonify",
@@ -342,6 +343,8 @@ export type PayonifyAdminOverview = {
   serverMissing: string[];
   /** The payment switch: which provider takes new payments. */
   switchProvider: "paynow" | "payonify";
+  /** After the switch, Paynow still takes cards (PAYNOW_CARDS_AFTER_SWITCH=on). Off by default. */
+  cardsAfterSwitch: boolean;
   /** Relay balance for this deployment's mode (dollars), or null when unavailable. */
   relayBalance: Array<{
     provider: string;
@@ -380,8 +383,12 @@ export const adminPayonifyOverview = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<PayonifyAdminOverview> => {
     const db = await requireAdmin(context.userId);
-    const { payonifyMissingSettings, payonifyServerGate, readPaymentSwitch } =
-      await import("@/lib/payonify.process.server");
+    const {
+      payonifyMissingSettings,
+      payonifyServerGate,
+      readPaymentSwitch,
+      paynowCardsAfterSwitch,
+    } = await import("@/lib/payonify.process.server");
     const gate = payonifyServerGate(process.env);
     const enabledHere = gate.ok;
     const serverMode = gate.ok ? gate.mode : null;
@@ -418,6 +425,7 @@ export const adminPayonifyOverview = createServerFn({ method: "GET" })
         serverReason,
         serverMissing,
         switchProvider,
+        cardsAfterSwitch: paynowCardsAfterSwitch(process.env),
         relayBalance,
         payments: [],
         events: [],
@@ -441,6 +449,7 @@ export const adminPayonifyOverview = createServerFn({ method: "GET" })
       serverReason,
       serverMissing,
       switchProvider,
+      cardsAfterSwitch: paynowCardsAfterSwitch(process.env),
       relayBalance,
       payments: pays.data ?? [],
       events: events.data ?? [],

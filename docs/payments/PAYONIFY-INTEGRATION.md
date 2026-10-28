@@ -98,13 +98,15 @@ Nothing is configured anywhere yet. No keys were created, used or stored in this
 - Staging test accounts (passwords are not kept in git): `test-customer@example.com`,
   `test-driver@example.com`, `qa-admin@example.com` (super admin, staging only).
 
-### Cards after the switch (owner decision 28/10/2026)
+### Cards after the switch (off by default; owner decision 28/10/2026)
 
-Payonify Relay collects and pays out on **EcoCash only** (docs.payonify.com/relay: "Relay runs on EcoCash only for
-now"; other wallets "will follow"; the standard Payouts API lists OneMoney as "Coming Soon"; no cards or bank payouts).
-So after the switch, **Paynow stays on for cards**: customers see "EcoCash" first (Payonify, driver paid automatically)
-and "Card (Visa / Mastercard)" second (Paynow's page; the driver's share goes to the ConZ wallet as before). Paynow
-only shows cards if the ConZ Paynow merchant account has Visa/Mastercard enabled (check in the Paynow dashboard).
+The point of moving to Payonify is that ConZ stops holding customer money: Payonify holds it and pays the driver's
+EcoCash directly. Payonify Relay is **EcoCash only** (docs.payonify.com/relay; other wallets "will follow"; no cards
+or bank payouts). Card money through Paynow would land in ConZ's own Paynow account and drivers' ConZ wallets, which
+is the holding-money problem again. So **after the switch Paynow takes no new payments** (EcoCash only), unless
+`PAYNOW_CARDS_AFTER_SWITCH=on` is set on the deployment. With it on, customers see "EcoCash" first and
+"Card (Visa / Mastercard)" (Paynow) second, and card payments work as today (driver's share to the ConZ wallet).
+Turn it on only as a deliberate business decision. Preferred route to cards: Payonify adding them to Relay.
 Before the switch nothing changes (Paynow first, EcoCash for listed testers).
 
 ### Automatic driver payouts (0121, owner decision 27/10: "Auto-pay to EcoCash")

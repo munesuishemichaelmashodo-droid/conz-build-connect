@@ -96,6 +96,18 @@ export function payonifyGateFor(
   return { ok: false, reason: "not_a_tester" };
 }
 
+/**
+ * After the switch to Payonify, may Paynow still take card payments? Off unless
+ * PAYNOW_CARDS_AFTER_SWITCH=on. Off keeps the point of the switch: Payonify holds the money and
+ * pays drivers, so customer money no longer lands in ConZ's own Paynow account and wallets.
+ */
+export const paynowCardsAfterSwitch = (env: Env) =>
+  (env["PAYNOW_CARDS_AFTER_SWITCH"] ?? "").trim().toLowerCase() === "on";
+
+/** May Paynow start a new payment, given the payment switch? */
+export const paynowAllowed = (env: Env, switchProvider: "paynow" | "payonify") =>
+  switchProvider === "paynow" || paynowCardsAfterSwitch(env);
+
 /** The payment switch as the database reports it. Anything unreadable means Paynow. */
 export async function readPaymentSwitch(db: RpcDb): Promise<"paynow" | "payonify"> {
   try {
