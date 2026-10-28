@@ -334,7 +334,14 @@ function MaterialPriceRow({
       _reason: reason.trim(),
     });
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      // 0124: price changes need a super admin with a recent Google sign-in.
+      return isMfaRequiredError(error)
+        ? toast.error(readableRpcError(error), {
+            action: { label: STEP_UP_ACTION_LABEL, onClick: () => void startStepUp() },
+          })
+        : toast.error(readableRpcError(error));
+    }
     toast.success(`${material.label} price updated`);
     setReason("");
     setOpen(false);
@@ -523,7 +530,14 @@ function BucketPriceRow({
       _reason: reason.trim(),
     });
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      // 0124: price changes need a super admin with a recent Google sign-in.
+      return isMfaRequiredError(error)
+        ? toast.error(readableRpcError(error), {
+            action: { label: STEP_UP_ACTION_LABEL, onClick: () => void startStepUp() },
+          })
+        : toast.error(readableRpcError(error));
+    }
     toast.success(`${materialLabel} — ${bucketM3}m³ price updated`);
     setReason("");
     setOpen(false);
