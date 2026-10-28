@@ -308,7 +308,7 @@ Still open: repair `schema_migrations` for 0077–0108 before any `supabase db p
 ## 26/10/2026 — release review (branch `release/integration-review`, read-only checks)
 
 Full evidence and plan: `docs/release/RELEASE-READINESS-2026-10-26.md`. Corrections to the notes above:
-- **0103 was never applied.** Production's `admin_set_demand_multiplier` accepts any admin with no step-up, and
+- **0103 was never applied** (applied 28/10, see below). Production's `admin_set_demand_multiplier` accepts any admin with no step-up, and
   `admin_set_diesel_price` runs the 0100 body. Apply 0103 (owner approval); the settings screen already handles step-up.
 - 0079: `find_next_loads_for_driver` differs from git by one token (live-only edit); the other 0079 functions match.
 - The history gap is 0072–0108: 0072–0076 and 0098 are recorded under different versions than the git files. Repair
@@ -330,4 +330,5 @@ Undo scripts in `supabase/rollbacks/`. Same release: reload once on stale-build 
 customers/drivers, price-check copy ("Book this delivery" / "Request driver offers", material + delivery split only when
 it adds up), driver copy no longer promises withdrawals while paused. Live checks after applying: functions/grants as
 intended, public price check returns its guide range. Owner guide: `docs/security/ADMIN-GOOGLE-SIGNIN-GUIDE.md`.
-Not in this release: PR #38 (Payonify + 0120/0121), 0103 (still not applied).
+Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multiplier = super admin + `require_aal2()`
+(undo: `supabase/rollbacks/20261012350000_0103_rollback.sql`). Not in this release: PR #38 (Payonify + 0120/0121).
