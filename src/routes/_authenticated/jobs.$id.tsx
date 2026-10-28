@@ -43,7 +43,7 @@ import { useNow } from "@/hooks/use-now";
 import { useServerFn } from "@tanstack/react-start";
 import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
 import { PayonifyPay } from "@/components/payments/PayonifyPay";
-import { ecocashDetail, ecocashLabel, usePaymentOptions } from "@/components/payments/usePaymentOptions";
+import { defaultPayChoice, ecocashDetail, ecocashLabel, paynowDetail, paynowLabel, usePaymentOptions } from "@/components/payments/usePaymentOptions";
 import { friendlyPaymentError } from "@/lib/paymentErrors";
 import { ShieldCheck } from "lucide-react";
 import { bookAgainSearch } from "@/lib/book-again";
@@ -3415,9 +3415,10 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
   // Which ways to pay the server offers (Paynow, EcoCash through Payonify, or both).
   const options = usePaymentOptions();
   const payonifyOn = options.payonify;
-  const [choice, setChoice] = useState<"paynow" | "payonify">("paynow");
-  // Once payments move to Payonify, Paynow is no longer an option.
-  const provider = options.paynow ? choice : "payonify";
+  const [choice, setChoice] = useState<"paynow" | "payonify" | null>(null);
+  // EcoCash first once it runs through Payonify; Paynow then stays on for cards.
+  const picked = choice ?? defaultPayChoice(options);
+  const provider = options.paynow ? picked : "payonify";
   return (
     <CzScreen>
       <CzHeader title="Confirm & pay" backTo="/jobs" />
@@ -3461,12 +3462,12 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
 
         <div className="space-y-2" role="radiogroup" aria-label="Pay with">
           <div className="text-sm font-semibold text-cz-muted">Pay with</div>
-          {options.paynow && (
+          {!options.paynowAsCard && options.paynow && (
             <PayOption
               selected={provider === "paynow"}
               onSelect={() => setChoice("paynow")}
-              title="Paynow"
-              detail="Choose EcoCash, card or another method on Paynow's secure page."
+              title={paynowLabel(options)}
+              detail={paynowDetail(options)}
             />
           )}
           {payonifyOn && (
@@ -3475,6 +3476,14 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
               onSelect={() => setChoice("payonify")}
               title={ecocashLabel(options.payonifyMode)}
               detail={ecocashDetail(options.payonifyMode)}
+            />
+          )}
+          {options.paynowAsCard && options.paynow && (
+            <PayOption
+              selected={provider === "paynow"}
+              onSelect={() => setChoice("paynow")}
+              title={paynowLabel(options)}
+              detail={paynowDetail(options)}
             />
           )}
           {payonifyOn && provider === "payonify" && (
@@ -3495,7 +3504,7 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
           <>
             <div id="tour-next-steps">
               <CzButton onClick={ctx.payEscrow} disabled={ctx.payingEscrow}>
-                {ctx.payingEscrow ? <Loader2 className="w-5 h-5 animate-spin" /> : `Pay ${usd2(total)} with Paynow`}
+                {ctx.payingEscrow ? <Loader2 className="w-5 h-5 animate-spin" /> : options.paynowAsCard ? `Pay ${usd2(total)} by card` : `Pay ${usd2(total)} with Paynow`}
               </CzButton>
             </div>
             <p className="text-center text-xs text-cz-faint">Secured by Paynow · All amounts in USD</p>

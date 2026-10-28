@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { initiatePaynowTopup, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
 import { friendlyPaymentError, topupAmountError } from "@/lib/paymentErrors";
 import { PayonifyPay } from "@/components/payments/PayonifyPay";
-import { ecocashDetail, ecocashLabel, usePaymentOptions } from "@/components/payments/usePaymentOptions";
+import { defaultPayChoice, ecocashDetail, ecocashLabel, paynowDetail, paynowLabel, usePaymentOptions } from "@/components/payments/usePaymentOptions";
 import {
   Wallet as WalletIcon,
   Fuel,
@@ -665,8 +665,8 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
   const { userId } = useAuth();
   // Paynow, EcoCash through Payonify, or both, as the server offers them.
   const options = usePaymentOptions();
-  const [choice, setChoice] = useState<"paynow" | "payonify">("paynow");
-  const provider = options.paynow ? choice : "payonify";
+  const [choice, setChoice] = useState<"paynow" | "payonify" | null>(null);
+  const provider = options.paynow ? (choice ?? defaultPayChoice(options)) : "payonify";
   const onEcocashPaid = () => {
     for (const key of ["wallet", "wallet-tx", "topups", "paynow-topups"])
       qc.invalidateQueries({ queryKey: [key, userId] });
@@ -739,7 +739,7 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
 
           {options.paynow && options.payonify && (
             <div role="radiogroup" aria-label="Pay with" className="grid grid-cols-2 gap-2">
-              {(["paynow", "payonify"] as const).map((p) => (
+              {(options.paynowAsCard ? (["payonify", "paynow"] as const) : (["paynow", "payonify"] as const)).map((p) => (
                 <button
                   key={p}
                   type="button"
@@ -751,7 +751,7 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
                     provider === p ? "border-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "border-input",
                   )}
                 >
-                  {p === "paynow" ? "Paynow" : ecocashLabel(options.payonifyMode)}
+                  {p === "paynow" ? paynowLabel(options) : ecocashLabel(options.payonifyMode)}
                 </button>
               ))}
             </div>
@@ -764,7 +764,11 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
                 <Zap className="w-4 h-4" />
               </div>
               <div className="text-[12px] text-muted-foreground leading-snug">
-                Pay via <span className="font-semibold text-foreground">EcoCash, OneMoney, ZIPIT, bank transfer, Visa or Mastercard</span> on Paynow's secure checkout.
+                {options.paynowAsCard ? (
+                  <>Pay by <span className="font-semibold text-foreground">Visa or Mastercard</span> on Paynow's secure checkout.</>
+                ) : (
+                  <>Pay via <span className="font-semibold text-foreground">EcoCash, OneMoney, ZIPIT, bank transfer, Visa or Mastercard</span> on Paynow's secure checkout.</>
+                )}
               </div>
             </div>
 

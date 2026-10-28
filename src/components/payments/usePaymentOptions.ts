@@ -17,8 +17,22 @@ export function usePaymentOptions(): PaymentOptions & { loaded: boolean } {
   });
   return data
     ? { ...data, loaded: true }
-    : { paynow: true, payonify: false, payonifyMode: null, loaded: false };
+    : { paynow: true, paynowAsCard: false, payonify: false, payonifyMode: null, loaded: false };
 }
+
+/** Paynow's name on the payment screens: the card option once EcoCash runs through Payonify. */
+export const paynowLabel = (o: Pick<PaymentOptions, "paynowAsCard">) =>
+  o.paynowAsCard ? "Card (Visa / Mastercard)" : "Paynow";
+
+export const paynowDetail = (o: Pick<PaymentOptions, "paynowAsCard">) =>
+  o.paynowAsCard
+    ? "Pay by Visa or Mastercard on Paynow's secure page."
+    : "Choose EcoCash, card or another method on Paynow's secure page.";
+
+/** Which option starts selected: EcoCash once it is the main way to pay, otherwise Paynow. */
+export const defaultPayChoice = (
+  o: Pick<PaymentOptions, "paynow" | "paynowAsCard" | "payonify">,
+) => (o.payonify && (o.paynowAsCard || !o.paynow) ? ("payonify" as const) : ("paynow" as const));
 
 export const ecocashLabel = (mode: PaymentOptions["payonifyMode"]) =>
   mode === "test" ? "EcoCash (Payonify test)" : "EcoCash";

@@ -52,8 +52,13 @@ async function adminDb() {
 }
 
 export type PaymentOptions = {
-  /** Paynow may start new payments (the switch is on Paynow). */
+  /** Paynow may start new payments. */
   paynow: boolean;
+  /**
+   * After the switch to Payonify, Paynow stays on for cards only (Payonify Relay is EcoCash only):
+   * it is shown as "Card (Visa / Mastercard)" and EcoCash goes first.
+   */
+  paynowAsCard: boolean;
   /** Payonify may start new payments for this user. */
   payonify: boolean;
   /** "test" shows the test label; null when Payonify is not offered. */
@@ -68,8 +73,11 @@ export const paymentOptions = createServerFn({ method: "GET" })
     const db = await adminDb();
     const provider = await readPaymentSwitch(db);
     const gate = payonifyGateFor(process.env, context.userId, provider);
+    const { getPaynowCredentials } = await import("@/lib/paynow.server");
+    const paynowConfigured = !!getPaynowCredentials();
     return {
-      paynow: provider === "paynow",
+      paynow: paynowConfigured,
+      paynowAsCard: paynowConfigured && provider === "payonify",
       payonify: gate.ok,
       payonifyMode: gate.ok ? gate.mode : null,
     };
