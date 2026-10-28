@@ -81,7 +81,7 @@ legal/accounting sign-off on holding customer funds.
    server code. Check: EcoCash prompts on the phone (inline charge) work inside the WebView; any redirect/return
    URL is on `www.conz.co.zw` (the allowed origin); no external browser hand-off loses the session.
 10. **Tests.** Unit (signature, amounts in cents, fee gross-up), pgTAP (state machine, unique intents, duplicate
-    events, out-of-order events, refund vs reversal), sandbox runs with Payonify's test numbers (`772111111`
+    events, out-of-order events, refund vs reversal), sandbox runs with Payonify's test numbers (charges: `771111111` success, `771111113` failed; transfers: `772111111`
     success, `772111113` cannot receive, `772111114` timeout) — only after Payonify activates Relay on the project.
 
 ## 4. Cutover (when approved)

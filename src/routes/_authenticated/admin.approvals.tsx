@@ -7,6 +7,8 @@ import { ShieldCheck, Undo2, HandCoins, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { money } from "@/lib/domain";
 import { useAuth } from "@/lib/auth";
+import { PayonifyAdminPanel } from "@/components/payments/PayonifyAdminPanel";
+import { DriverPayoutsAdmin } from "@/components/payments/DriverPayoutsAdmin";
 import { isMfaRequiredError, readableRpcError, STEP_UP_ACTION_LABEL, startStepUp } from "@/lib/mfa";
 
 // Super-admin work queues for money that needs a human (audit F2 / F5):
@@ -153,13 +155,16 @@ function AdminApprovals() {
 
   return (
     <div className="space-y-6">
+      <PayonifyAdminPanel canSwitch={isSuper} />
+      <DriverPayoutsAdmin canRetry={isSuper} />
       <section className="space-y-3">
         <h2 className="font-semibold text-sm flex items-center gap-2">
           <Undo2 className="w-4 h-4" /> Escrow refunds due ({dueRefunds.length})
         </h2>
         <p className="text-xs text-muted-foreground">
-          Refund each payment in the Paynow merchant portal first, then record the Paynow refund
-          reference here. Nothing is credited to in-app wallets.
+          Refund each payment in the Paynow merchant portal first (Payonify test payments: the
+          Payonify dashboard), then record the refund reference here. Nothing is credited to in-app
+          wallets.
         </p>
         {(refunds ?? []).length === 0 ? (
           <EmptyState

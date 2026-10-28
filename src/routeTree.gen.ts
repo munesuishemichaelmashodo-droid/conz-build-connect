@@ -56,6 +56,8 @@ import { Route as AuthenticatedJobsIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedJobsIdRouteImport } from './routes/_authenticated/jobs.$id'
 import { Route as AuthenticatedJobsNewRouteImport } from './routes/_authenticated/jobs.new'
 import { Route as ApiInternalPaynowReconcileRouteImport } from './routes/api/internal/paynow-reconcile'
+import { Route as ApiInternalPayonifyPayoutsRouteImport } from './routes/api/internal/payonify-payouts'
+import { Route as ApiPayonifyWebhookRouteImport } from './routes/api/payonify/webhook'
 import { Route as ApiPublicPaynowIpnRouteImport } from './routes/api/public/paynow-ipn'
 
 const IndexRoute = IndexRouteImport.update({
@@ -310,6 +312,17 @@ const ApiInternalPaynowReconcileRoute =
     path: '/api/internal/paynow-reconcile',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiInternalPayonifyPayoutsRoute =
+  ApiInternalPayonifyPayoutsRouteImport.update({
+    id: '/api/internal/payonify-payouts',
+    path: '/api/internal/payonify-payouts',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPayonifyWebhookRoute = ApiPayonifyWebhookRouteImport.update({
+  id: '/api/payonify/webhook',
+  path: '/api/payonify/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPaynowIpnRoute = ApiPublicPaynowIpnRouteImport.update({
   id: '/api/public/paynow-ipn',
   path: '/api/public/paynow-ipn',
@@ -360,6 +373,8 @@ export interface FileRoutesByFullPath {
   '/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/jobs/new': typeof AuthenticatedJobsNewRoute
   '/api/internal/paynow-reconcile': typeof ApiInternalPaynowReconcileRoute
+  '/api/internal/payonify-payouts': typeof ApiInternalPayonifyPayoutsRoute
+  '/api/payonify/webhook': typeof ApiPayonifyWebhookRoute
   '/api/public/paynow-ipn': typeof ApiPublicPaynowIpnRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/customer/': typeof AuthenticatedCustomerIndexRoute
@@ -407,6 +422,8 @@ export interface FileRoutesByTo {
   '/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/jobs/new': typeof AuthenticatedJobsNewRoute
   '/api/internal/paynow-reconcile': typeof ApiInternalPaynowReconcileRoute
+  '/api/internal/payonify-payouts': typeof ApiInternalPayonifyPayoutsRoute
+  '/api/payonify/webhook': typeof ApiPayonifyWebhookRoute
   '/api/public/paynow-ipn': typeof ApiPublicPaynowIpnRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/customer': typeof AuthenticatedCustomerIndexRoute
@@ -458,6 +475,8 @@ export interface FileRoutesById {
   '/_authenticated/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/_authenticated/jobs/new': typeof AuthenticatedJobsNewRoute
   '/api/internal/paynow-reconcile': typeof ApiInternalPaynowReconcileRoute
+  '/api/internal/payonify-payouts': typeof ApiInternalPayonifyPayoutsRoute
+  '/api/payonify/webhook': typeof ApiPayonifyWebhookRoute
   '/api/public/paynow-ipn': typeof ApiPublicPaynowIpnRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/customer/': typeof AuthenticatedCustomerIndexRoute
@@ -509,6 +528,8 @@ export interface FileRouteTypes {
     | '/jobs/$id'
     | '/jobs/new'
     | '/api/internal/paynow-reconcile'
+    | '/api/internal/payonify-payouts'
+    | '/api/payonify/webhook'
     | '/api/public/paynow-ipn'
     | '/admin/'
     | '/customer/'
@@ -556,6 +577,8 @@ export interface FileRouteTypes {
     | '/jobs/$id'
     | '/jobs/new'
     | '/api/internal/paynow-reconcile'
+    | '/api/internal/payonify-payouts'
+    | '/api/payonify/webhook'
     | '/api/public/paynow-ipn'
     | '/admin'
     | '/customer'
@@ -606,6 +629,8 @@ export interface FileRouteTypes {
     | '/_authenticated/jobs/$id'
     | '/_authenticated/jobs/new'
     | '/api/internal/paynow-reconcile'
+    | '/api/internal/payonify-payouts'
+    | '/api/payonify/webhook'
     | '/api/public/paynow-ipn'
     | '/_authenticated/admin/'
     | '/_authenticated/customer/'
@@ -629,6 +654,8 @@ export interface RootRouteChildren {
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiInternalPaynowReconcileRoute: typeof ApiInternalPaynowReconcileRoute
+  ApiInternalPayonifyPayoutsRoute: typeof ApiInternalPayonifyPayoutsRoute
+  ApiPayonifyWebhookRoute: typeof ApiPayonifyWebhookRoute
   ApiPublicPaynowIpnRoute: typeof ApiPublicPaynowIpnRoute
 }
 
@@ -963,6 +990,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiInternalPaynowReconcileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/internal/payonify-payouts': {
+      id: '/api/internal/payonify-payouts'
+      path: '/api/internal/payonify-payouts'
+      fullPath: '/api/internal/payonify-payouts'
+      preLoaderRoute: typeof ApiInternalPayonifyPayoutsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/payonify/webhook': {
+      id: '/api/payonify/webhook'
+      path: '/api/payonify/webhook'
+      fullPath: '/api/payonify/webhook'
+      preLoaderRoute: typeof ApiPayonifyWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/paynow-ipn': {
       id: '/api/public/paynow-ipn'
       path: '/api/public/paynow-ipn'
@@ -1082,6 +1123,8 @@ const rootRouteChildren: RootRouteChildren = {
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiInternalPaynowReconcileRoute: ApiInternalPaynowReconcileRoute,
+  ApiInternalPayonifyPayoutsRoute: ApiInternalPayonifyPayoutsRoute,
+  ApiPayonifyWebhookRoute: ApiPayonifyWebhookRoute,
   ApiPublicPaynowIpnRoute: ApiPublicPaynowIpnRoute,
 }
 export const routeTree = rootRouteImport

@@ -1,4 +1,5 @@
 import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
+import { kickJobPayout } from "@/lib/payonify.functions";
 import { DISPUTE_OPTIONS, disputeOption, disputeReason, MIN_DISPUTE_EXPLANATION, type DisputeSide } from "@/lib/dispute-options";
 import { useLaunchSwitches } from "@/lib/launch-switches";
 import { serverNow, syncServerClock } from "@/lib/server-clock";
@@ -41,6 +42,8 @@ import {
 import { useNow } from "@/hooks/use-now";
 import { useServerFn } from "@tanstack/react-start";
 import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
+import { PayonifyPay } from "@/components/payments/PayonifyPay";
+import { defaultPayChoice, ecocashDetail, ecocashLabel, paynowDetail, paynowLabel, usePaymentOptions } from "@/components/payments/usePaymentOptions";
 import { friendlyPaymentError } from "@/lib/paymentErrors";
 import { ShieldCheck } from "lucide-react";
 import { bookAgainSearch } from "@/lib/book-again";
@@ -387,6 +390,7 @@ function JobDetail() {
   const [payingEscrow, setPayingEscrow] = useState(false);
   // Blocks a second "confirm delivery" tap while the first is still in flight.
   const completingRef = useRef(false);
+  const runKickPayout = useServerFn(kickJobPayout);
 
   const isEscrow = job?.payment_method === "escrow";
   const { data: escrowPayment } = useQuery({
@@ -533,6 +537,8 @@ function JobDetail() {
       }
       toast.success(outcome.already ? "This delivery was already confirmed." : "Delivery confirmed.");
       qc.invalidateQueries({ queryKey: ["job", id] });
+      // Con Z Pay via Payonify: send the driver's payout now rather than at the next scheduled run.
+      if (isEscrow) void runKickPayout({ data: { jobId: id } }).catch(() => undefined);
     } catch (err) {
       toast.error(friendlyPaymentError(err));
     } finally {
@@ -596,6 +602,10 @@ function JobDetail() {
     escrowPaid,
     payingEscrow,
     payEscrow,
+    onEscrowPaid: () => {
+      qc.invalidateQueries({ queryKey: ["escrow-payment", id] });
+      toast.success("Payment confirmed — held safely until delivery is confirmed.");
+    },
     acceptBid,
     counterBid,
     acceptCounter,
@@ -1872,6 +1882,7 @@ function SignedProofPhoto({ path, alt }: { path: string; alt: string }) {
 function DeliveryPinEntry({ jobId, onConfirmed }: { jobId: string; onConfirmed: () => void }) {
   const [pin, setPin] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const runKickPayout = useServerFn(kickJobPayout);
 
   const submit = async () => {
     if (pin.trim().length < 4) return toast.error("Enter the code the customer gave you");
@@ -1895,6 +1906,8 @@ function DeliveryPinEntry({ jobId, onConfirmed }: { jobId: string; onConfirmed: 
     }
     toast.success("Delivery confirmed. The job is settled.");
     setPin("");
+    // Con Z Pay via Payonify: send the driver's payout now (no-op for other jobs).
+    void runKickPayout({ data: { jobId } }).catch(() => undefined);
     onConfirmed();
   };
 
@@ -2223,6 +2236,8 @@ type JobScreenCtx = {
   escrowPaid: boolean;
   payingEscrow: boolean;
   payEscrow: () => void;
+  /** Re-reads the payment from the server after Payonify reports it paid. */
+  onEscrowPaid: () => void;
   acceptBid: (bidId: string) => void;
   counterBid: (bidId: string, price: number) => void;
   acceptCounter: (bidId: string) => void;
@@ -3365,11 +3380,45 @@ function useAcceptedDriver(ctx: JobScreenCtx) {
   };
 }
 
+function PayOption({ selected, onSelect, title, detail }: { selected: boolean; onSelect: () => void; title: string; detail: string }) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onSelect}
+      className={cn(
+        "flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left",
+        selected ? "border-[1.5px] border-cz-amber bg-cz-amber-tint" : "border border-cz-border bg-cz-surface",
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "w-5 h-5 rounded-full bg-cz-bg shrink-0",
+          selected ? "border-[6px] border-cz-amber" : "border-2 border-cz-border",
+        )}
+      />
+      <div className="min-w-0">
+        <div className="font-semibold">{title}</div>
+        <div className="text-[13px] text-cz-muted">{detail}</div>
+      </div>
+    </button>
+  );
+}
+
 /** C4 · Confirm & pay (Con Z Pay jobs only, after a driver is chosen). */
 function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTracking: () => void }) {
   const { job, id } = ctx;
   const d = useAcceptedDriver(ctx);
   const total = Number(job.final_price ?? job.budget);
+  // Which ways to pay the server offers (Paynow, EcoCash through Payonify, or both).
+  const options = usePaymentOptions();
+  const payonifyOn = options.payonify;
+  const [choice, setChoice] = useState<"paynow" | "payonify" | null>(null);
+  // EcoCash first once it runs through Payonify; Paynow then stays on for cards.
+  const picked = choice ?? defaultPayChoice(options);
+  const provider = options.paynow ? picked : "payonify";
   return (
     <CzScreen>
       <CzHeader title="Confirm & pay" backTo="/jobs" />
@@ -3411,27 +3460,56 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
           our team reviews it before any money moves.
         </HintBox>
 
-        <div className="space-y-2">
+        <div className="space-y-2" role="radiogroup" aria-label="Pay with">
           <div className="text-sm font-semibold text-cz-muted">Pay with</div>
-          <div className="flex items-center gap-3 rounded-xl border-[1.5px] border-cz-amber bg-cz-amber-tint px-4 py-3.5">
-            <span aria-hidden className="w-5 h-5 rounded-full border-[6px] border-cz-amber bg-cz-bg shrink-0" />
-            <div className="min-w-0">
-              <div className="font-semibold">Paynow</div>
-              <div className="text-[13px] text-cz-muted">Choose EcoCash, card or another method on Paynow's secure page.</div>
-            </div>
-          </div>
+          {!options.paynowAsCard && options.paynow && (
+            <PayOption
+              selected={provider === "paynow"}
+              onSelect={() => setChoice("paynow")}
+              title={paynowLabel(options)}
+              detail={paynowDetail(options)}
+            />
+          )}
+          {payonifyOn && (
+            <PayOption
+              selected={provider === "payonify"}
+              onSelect={() => setChoice("payonify")}
+              title={ecocashLabel(options.payonifyMode)}
+              detail={ecocashDetail(options.payonifyMode)}
+            />
+          )}
+          {options.paynowAsCard && options.paynow && (
+            <PayOption
+              selected={provider === "paynow"}
+              onSelect={() => setChoice("paynow")}
+              title={paynowLabel(options)}
+              detail={paynowDetail(options)}
+            />
+          )}
+          {payonifyOn && provider === "payonify" && (
+            <PayonifyPay target={{ kind: "escrow", jobId: id }} totalLabel={usd2(total)} onPaid={ctx.onEscrowPaid} />
+          )}
+          {!options.paynow && !payonifyOn && options.loaded && (
+            <p className="text-sm text-cz-muted" role="status">
+              Online payments are paused right now. Please try again later or contact support.
+            </p>
+          )}
         </div>
 
         <ContactCard ctx={ctx} role="driver" subtitle={`${materialLabel(job.material as any, job.custom_material)} · ${Number(job.quantity_m3)} m³`} />
       </div>
 
       <footer className="sticky bottom-0 z-20 space-y-2.5 border-t border-cz-border bg-cz-surface px-5 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))]">
-        <div id="tour-next-steps">
-          <CzButton onClick={ctx.payEscrow} disabled={ctx.payingEscrow}>
-            {ctx.payingEscrow ? <Loader2 className="w-5 h-5 animate-spin" /> : `Pay ${usd2(total)} with Paynow`}
-          </CzButton>
-        </div>
-        <p className="text-center text-xs text-cz-faint">Secured by Paynow · All amounts in USD</p>
+        {provider === "paynow" && options.paynow && (
+          <>
+            <div id="tour-next-steps">
+              <CzButton onClick={ctx.payEscrow} disabled={ctx.payingEscrow}>
+                {ctx.payingEscrow ? <Loader2 className="w-5 h-5 animate-spin" /> : options.paynowAsCard ? `Pay ${usd2(total)} by card` : `Pay ${usd2(total)} with Paynow`}
+              </CzButton>
+            </div>
+            <p className="text-center text-xs text-cz-faint">Secured by Paynow · All amounts in USD</p>
+          </>
+        )}
         <div className="grid grid-cols-2 gap-2.5">
           <CzButton kind="ghost" size="sm" onClick={onViewTracking}>View tracking</CzButton>
           {ctx.showCancel ? (

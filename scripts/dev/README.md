@@ -51,7 +51,9 @@ The stand-in has one synthetic verified supply site for sand, dust, crusher run,
 gravel and stones. Its sample offers expire 25 minutes after it starts; restart it for
 fresh ones.
 `MOCK_SMS=off node scripts/dev/mock-supabase.mjs` makes phone verification report
-"not configured".
+"not configured". `MOCK_PAYMENT_PROVIDER=payonify` shows the screens after the payment switch
+is moved to Payonify (with `PAYONIFY_MODE`/test keys set on `npm run dev`; fake keys are enough
+to see the screens, nothing is charged until a Pay button is pressed).
 
 ## 3. Check they are healthy
 
