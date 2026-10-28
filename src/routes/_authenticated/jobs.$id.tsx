@@ -1,4 +1,5 @@
 import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
+import { DISPUTE_OPTIONS, disputeOption, disputeReason, MIN_DISPUTE_EXPLANATION, type DisputeSide } from "@/lib/dispute-options";
 import { serverNow, syncServerClock } from "@/lib/server-clock";
 import { commissionFee, earnings, fuelEstimate } from "@/lib/driver-economics";
 import { composeOfferMessage, isDriverArranged, MAX_SOURCE_LENGTH, parseOfferMessage } from "@/lib/proposed-source";
@@ -894,6 +895,7 @@ function JobDetail() {
                   <RaiseDisputeDialog
                     jobId={id}
                     against={isOwner ? job.driver_id : job.customer_id}
+                    side={isOwner ? "customer" : "driver"}
                   />
                 </div>
               )}
@@ -2033,36 +2035,41 @@ function CancelJobDialog({ jobId, status, onCancelled }: { jobId: string; status
   );
 }
 
-const DISPUTE_TYPES: { value: "wrong_quantity" | "damage" | "no_show" | "payment_issue" | "conduct" | "other"; label: string }[] = [
-  { value: "wrong_quantity", label: "Wrong quantity delivered" },
-  { value: "damage", label: "Damaged material" },
-  { value: "no_show", label: "Driver didn't show up" },
-  { value: "payment_issue", label: "Payment issue" },
-  { value: "conduct", label: "Bad conduct or behavior" },
-  { value: "other", label: "Something else" },
-];
-
-function RaiseDisputeDialog({ jobId, against, label }: { jobId: string; against: string | null; label?: string }) {
+function RaiseDisputeDialog({
+  jobId,
+  against,
+  side,
+  label,
+}: {
+  jobId: string;
+  against: string | null;
+  side: DisputeSide;
+  label?: string;
+}) {
   const [open, setOpen] = useState(false);
-  const [category, setCategory] = useState<typeof DISPUTE_TYPES[number]["value"]>("wrong_quantity");
+  const [choice, setChoice] = useState<string | null>(null);
   const [explanation, setExplanation] = useState("");
   const [loading, setLoading] = useState(false);
+  const options = DISPUTE_OPTIONS[side];
 
   const submit = async () => {
-    if (explanation.trim().length < 5) return toast.error("Please explain what happened.");
+    const option = choice ? disputeOption(side, choice) : null;
+    if (!option) return toast.error("Choose what the problem is.");
+    if (explanation.trim().length < MIN_DISPUTE_EXPLANATION)
+      return toast.error(`Please explain what happened (at least ${MIN_DISPUTE_EXPLANATION} characters).`);
     if (!against) return toast.error("Cannot identify the other party yet.");
     setLoading(true);
-    const label = DISPUTE_TYPES.find((t) => t.value === category)?.label ?? category;
     const { error } = await supabase.rpc("raise_dispute", {
       _job_id: jobId,
       _against: against,
-      _category: category,
-      _reason: `${label}: ${explanation.trim()}`,
+      _category: option.category,
+      _reason: disputeReason(option, explanation),
     });
     setLoading(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Dispute submitted. Our team will review it.");
     setOpen(false);
+    setChoice(null);
     setExplanation("");
   };
 
@@ -2081,19 +2088,28 @@ function RaiseDisputeDialog({ jobId, against, label }: { jobId: string; against:
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          <div>
-            <Label htmlFor="dcat">Type of issue</Label>
-            <select
-              id="dcat"
-              value={category}
-              onChange={(e) => setCategory(e.target.value as any)}
-              className="w-full mt-1 rounded-md border bg-background px-3 py-2 text-sm"
-            >
-              {DISPUTE_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-          </div>
+          <fieldset>
+            <legend className="text-sm font-medium">What's the problem?</legend>
+            <div role="radiogroup" aria-label="What's the problem?" className="mt-2 space-y-1.5">
+              {options.map((o) => {
+                const selected = choice === o.id;
+                return (
+                  <button
+                    key={o.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setChoice(o.id)}
+                    className={`w-full rounded-xl border px-3 py-2.5 text-left text-sm ${
+                      selected ? "border-primary bg-primary/10 font-semibold" : "border-border bg-background"
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
           <div>
             <Label htmlFor="dexp">What happened?</Label>
             <Textarea
@@ -2943,7 +2959,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
           <ShareTrackingButton ctx={ctx} />
           {ctx.showDispute && (
             <div id="tour-dispute">
-              <RaiseDisputeDialog jobId={id} against={job.customer_id} label="Report an issue" />
+              <RaiseDisputeDialog jobId={id} against={job.customer_id} side="driver" label="Report an issue" />
             </div>
           )}
         </div>
@@ -3054,7 +3070,7 @@ function DriverPaid({ ctx }: { ctx: JobScreenCtx }) {
           </Link>
           {ctx.showDispute && (
             <div id="tour-dispute">
-              <RaiseDisputeDialog jobId={id} against={job.customer_id} label="Report an issue" />
+              <RaiseDisputeDialog jobId={id} against={job.customer_id} side="driver" label="Report an issue" />
             </div>
           )}
         </div>
@@ -3704,7 +3720,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
         <div className="space-y-2.5">
           {ctx.showDispute && (
             <div id="tour-dispute">
-              <RaiseDisputeDialog jobId={id} against={job.driver_id} label="Report a problem" />
+              <RaiseDisputeDialog jobId={id} against={job.driver_id} side="customer" label="Report a problem" />
             </div>
           )}
           {ctx.showCancel && <CancelJobDialog jobId={id} status={job.status} onCancelled={ctx.onCancelled} />}
@@ -3793,7 +3809,7 @@ function CustomerDelivered({ ctx }: { ctx: JobScreenCtx }) {
           </Link>
           {ctx.showDispute && (
             <div id="tour-dispute">
-              <RaiseDisputeDialog jobId={id} against={job.driver_id} label="Report a problem" />
+              <RaiseDisputeDialog jobId={id} against={job.driver_id} side="customer" label="Report a problem" />
             </div>
           )}
         </div>
