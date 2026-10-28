@@ -190,6 +190,15 @@ const db = {
       delivery_address: "Harward Road, Belvedere, Harare, Zimbabwe",
       delivery_lat: -17.8322,
       delivery_lng: 31.0181,
+      pickup_photo_taken_at: minutesAgo(25),
+      sample_trail: [
+        [-17.758, 31.078],
+        [-17.7625, 31.0731],
+        [-17.7688, 31.0664],
+        [-17.7751, 31.0602],
+        [-17.7823, 31.0541],
+        [-17.7871, 31.0503],
+      ],
       created_at: hoursAgo(30),
       tracking_token: randomUUID(),
     },
@@ -410,6 +419,8 @@ const rpc = {
   get_public_tracking: ({ _token }) => {
     const j = db.jobs.find((x) => x.tracking_token === _token);
     if (!j) return null;
+    // 0126: a cancelled link says only that.
+    if (j.status === "cancelled") return { status: "cancelled" };
     const loc = ["accepted", "in_progress"].includes(j.status)
       ? (db.driver_locations ?? []).find((l) => l.job_id === j.id)
       : null;
@@ -423,7 +434,21 @@ const rpc = {
       delivery_lng: j.delivery_lng ?? null,
       preferred_date: j.preferred_date ?? null,
       driver_name: db.profiles.find((x) => x.id === j.driver_id)?.full_name ?? null,
-      live: loc ? { lat: loc.lat, lng: loc.lng, updated_at: loc.updated_at } : null,
+      live: loc
+        ? {
+            lat: loc.lat,
+            lng: loc.lng,
+            heading: loc.heading == null ? null : (Math.round(loc.heading / 15) * 15) % 360,
+            updated_at: loc.updated_at,
+          }
+        : null,
+      // 0126 (sample): step times and the line driven since loading.
+      times: {
+        loaded_at: j.pickup_photo_taken_at ?? null,
+        arrived_at: j.driver_arrived_dropoff_at ?? null,
+        delivered_at: j.completed_at ?? null,
+      },
+      trail: j.status === "in_progress" ? (j.sample_trail ?? null) : null,
     };
   },
   count_available_verified_drivers: () => 2,

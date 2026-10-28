@@ -34,6 +34,11 @@ export const getRoute = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => RouteInput.parse(input))
   .handler(async ({ data }): Promise<RouteResult> => {
     const { startLat, startLng, destLat, destLng } = data;
+    const { guardRouteRequest } = await import("@/lib/public-guard.server");
+    guardRouteRequest([
+      { lat: startLat, lng: startLng },
+      { lat: destLat, lng: destLng },
+    ]);
     const url =
       `https://router.project-osrm.org/route/v1/driving/` +
       `${startLng},${startLat};${destLng},${destLat}` +
@@ -42,7 +47,10 @@ export const getRoute = createServerFn({ method: "POST" })
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(url, { signal: controller.signal, headers: { Accept: "application/json" } });
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: { Accept: "application/json" },
+      });
       clearTimeout(timeout);
       if (!res.ok) throw new Error(`OSRM HTTP ${res.status}`);
       const json = (await res.json()) as {
@@ -65,7 +73,10 @@ export const getRoute = createServerFn({ method: "POST" })
         source: "osrm",
       };
     } catch {
-      const distanceKm = haversineKm({ lat: startLat, lng: startLng }, { lat: destLat, lng: destLng });
+      const distanceKm = haversineKm(
+        { lat: startLat, lng: startLng },
+        { lat: destLat, lng: destLng },
+      );
       const etaMin = Math.max(5, Math.round((distanceKm / 40) * 60) + 15);
       return {
         distanceKm: Math.round(distanceKm * 10) / 10,

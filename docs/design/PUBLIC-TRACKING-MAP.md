@@ -34,12 +34,20 @@ Page: `/track/$token` (the link a customer shares; no login).
 Sources: carto.com/basemaps, carto.com/legal/basemap-terms, openfreemap.org,
 github.com/Project-OSRM/osrm-backend/wiki/Api-usage-policy, openrouteservice.org/plans.
 
-## Next steps that need a small database change (owner decision)
-`get_public_tracking` only returns the truck's lat/lng/time. Adding these (no personal data):
-1. **Times on the progress steps**: "Loaded 10:12", "Left the quarry 10:20", "Arrived 11:05"
-   (`loaded_at`/`started_at`/`driver_arrived_dropoff_at` already exist on jobs).
-2. **Truck direction** (`driver_locations.heading`) so the truck icon points the way it drives.
-3. **Distance already driven / trail since pickup** from `job_route_points` (admin-only today):
-   a thinned line, only while the job is in progress.
-Also: the link returns nothing for a cancelled job, so the page says "link not found" instead of
-"This delivery was cancelled" (the page already has that message; the function returns null).
+## Database part: 0126 (written and tested, apply after the app is deployed)
+`supabase/migrations/20261028100000_0126_public_tracking_details.sql`, undo in `supabase/rollbacks/`.
+`get_public_tracking` now also returns:
+1. **Step times**: loaded (pickup photo), arrived at the site, delivered. Shown as "Loaded 10:12" and
+   "Arrived at the site 11:05" on the page.
+2. **Truck direction** (`driver_locations.heading`, rounded to 15°): a small arrow on the truck.
+3. **Line driven since loading** (`job_route_points`, only while in progress, at most ~200 points,
+   ~11 m precision): a dotted line behind the truck.
+4. **Cancelled jobs** return `{"status":"cancelled"}` only, so the page says "This delivery was
+   cancelled" instead of "link not found".
+Never returned: pickup point, customer, prices, PIN, driver phone. pgTAP `580_public_tracking_details`
+(16 tests); `080` updated for the cancelled case. The app copes with 0126 missing (fields optional).
+
+## Abuse guard on the no-login endpoints
+`getRoute`, address search and reverse geocode now refuse coordinates outside Zimbabwe (plus a margin)
+and limit each address to 240 routes / 120 searches a minute per server instance (`src/lib/public-guard*`).
+Limits are high on purpose: mobile networks share one address between many phones.

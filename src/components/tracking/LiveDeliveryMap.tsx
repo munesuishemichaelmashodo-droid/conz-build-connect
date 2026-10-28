@@ -29,16 +29,25 @@ type Props = {
   live: boolean;
   destination: LatLng | null;
   driverName?: string | null;
+  /** Direction of travel in degrees (0 = north), when the database sends it (0126). */
+  heading?: number | null;
+  /** Line driven since loading, [lat, lng] pairs (0126). */
+  trail?: [number, number][] | null;
 };
 
-function truckIcon(live: boolean) {
+function truckIcon(live: boolean, heading: number | null) {
   const ring = live
     ? `<span class="cz-pulse-ring" style="position:absolute;inset:-7px;border-radius:14px;background:rgba(255,119,22,.30)"></span>`
     : "";
   const border = live ? "#FF7716" : "#8A847E";
+  // Small arrow outside the badge pointing the way the truck is driving.
+  const arrow =
+    live && heading != null
+      ? `<div style="position:absolute;inset:-14px;transform:rotate(${heading}deg)"><svg width="10" height="10" viewBox="0 0 10 10" style="position:absolute;left:50%;top:0;margin-left:-5px" aria-hidden="true"><path d="M5 0 L10 9 L5 7 L0 9 Z" fill="#FF7716" stroke="#010101" stroke-width="1"/></svg></div>`
+      : "";
   return L.divIcon({
     className: "",
-    html: `<div style="position:relative;width:38px;height:38px">${ring}<div style="position:relative;width:38px;height:38px;border-radius:11px;background:#010101;border:2px solid ${border};display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.45)${live ? "" : ";opacity:.85"}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${border}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7h12v9H2z"/><path d="M14 10h4l4 3.5V16h-8"/><circle cx="6" cy="17.5" r="1.8"/><circle cx="18" cy="17.5" r="1.8"/></svg></div></div>`,
+    html: `<div style="position:relative;width:38px;height:38px">${ring}${arrow}<div style="position:relative;width:38px;height:38px;border-radius:11px;background:#010101;border:2px solid ${border};display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.45)${live ? "" : ";opacity:.85"}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${border}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7h12v9H2z"/><path d="M14 10h4l4 3.5V16h-8"/><circle cx="6" cy="17.5" r="1.8"/><circle cx="18" cy="17.5" r="1.8"/></svg></div></div>`,
     iconSize: [38, 38],
     iconAnchor: [19, 19],
   });
@@ -104,7 +113,14 @@ function FitTrip({
 
 type Route = { coords: [number, number][]; distanceKm: number; carMin: number; source: string };
 
-export function LiveDeliveryMap({ truck, live, destination, driverName }: Props) {
+export function LiveDeliveryMap({
+  truck,
+  live,
+  destination,
+  driverName,
+  heading = null,
+  trail = null,
+}: Props) {
   const runGetRoute = useServerFn(getRoute);
   const dark = useDarkMode();
   const [route, setRoute] = useState<Route | null>(null);
@@ -165,16 +181,24 @@ export function LiveDeliveryMap({ truck, live, destination, driverName }: Props)
         ? "Waiting for a fresh location"
         : null;
 
+  const trailStartLat = trail?.[0]?.[0];
+  const trailStartLng = trail?.[0]?.[1];
   const points = useMemo(() => {
     const p: [number, number][] = [];
     if (truck) p.push([truck.lat, truck.lng]);
     if (destination) p.push([destination.lat, destination.lng]);
+    // Where the trip started (first point after loading), so the driven line is in view too.
+    if (trailStartLat != null && trailStartLng != null) p.push([trailStartLat, trailStartLng]);
     return p;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [truck?.lat, truck?.lng, destination?.lat, destination?.lng]);
+  }, [truck?.lat, truck?.lng, destination?.lat, destination?.lng, trailStartLat, trailStartLng]);
 
   const destIcon = useMemo(() => deliveryPinIcon(null), []);
-  const tIcon = useMemo(() => truckIcon(live), [live]);
+  const tIcon = useMemo(() => truckIcon(live, heading), [live, heading]);
+  const driven = useMemo<[number, number][]>(() => {
+    if (!trail || trail.length === 0) return [];
+    return truck ? [...trail, [truck.lat, truck.lng]] : trail;
+  }, [trail, truck]);
 
   const center = points[0];
   if (!center) return null;
@@ -210,6 +234,18 @@ export function LiveDeliveryMap({ truck, live, destination, driverName }: Props)
             subdomains="abcd"
             maxZoom={20}
           />
+          {driven.length > 1 && (
+            <Polyline
+              positions={driven}
+              pathOptions={{
+                color: dark ? "#9b948d" : "#6f6862",
+                weight: 4,
+                opacity: 0.8,
+                dashArray: "2 8",
+                lineCap: "round",
+              }}
+            />
+          )}
           {roadRoute && live && !atSite && (
             <>
               <Polyline

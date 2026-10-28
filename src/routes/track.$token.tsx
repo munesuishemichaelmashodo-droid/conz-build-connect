@@ -187,8 +187,14 @@ type TrackPayload = {
   delivery_lng: number | null;
   preferred_date: string | null;
   driver_name: string | null;
-  live: { lat: number; lng: number; updated_at: string } | null;
+  live: { lat: number; lng: number; updated_at: string; heading?: number | null } | null;
+  /** 0126: step times and the line driven since loading (absent before 0126). */
+  times?: { loaded_at: string | null; arrived_at: string | null; delivered_at: string | null };
+  trail?: [number, number][] | null;
 };
+
+const clock = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null;
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -271,7 +277,19 @@ function PublicTrackPage() {
     );
   }
 
+  if (data.status === "cancelled") {
+    return (
+      <Shell>
+        <Notice tone="info" title="This delivery was cancelled">
+          Nothing more will happen on this link.
+        </Notice>
+      </Shell>
+    );
+  }
+
   const driverFirst = data.driver_name?.trim().split(" ")[0] ?? null;
+  const loadedAt = clock(data.times?.loaded_at);
+  const arrivedAt = clock(data.times?.arrived_at);
   const destination =
     data.delivery_lat != null && data.delivery_lng != null
       ? { lat: Number(data.delivery_lat), lng: Number(data.delivery_lng) }
@@ -303,6 +321,10 @@ function PublicTrackPage() {
         {data.delivery_address && <DocketRow label="Deliver to">{data.delivery_address}</DocketRow>}
         {data.preferred_date && <DocketRow label="Preferred date">{data.preferred_date}</DocketRow>}
         {driverFirst && <DocketRow label="Driver">{driverFirst}</DocketRow>}
+        {loadedAt && <DocketRow label="Loaded">{loadedAt}</DocketRow>}
+        {arrivedAt && data.status !== "completed" && (
+          <DocketRow label="Arrived at the site">{arrivedAt}</DocketRow>
+        )}
       </DocketPanel>
 
       {data.status === "cancelled" ? (
@@ -427,6 +449,8 @@ function PublicTrackPage() {
                 live={shown.live}
                 destination={destination}
                 driverName={driverFirst}
+                heading={live?.heading ?? null}
+                trail={data.trail ?? null}
               />
             )}
             {live ? (

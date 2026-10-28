@@ -92,7 +92,8 @@ select is((select delivery_pin from public.jobs where id = current_setting('t.jo
 select tests.as_owner();
 update public.jobs set status = 'cancelled' where id = current_setting('t.job')::uuid;
 select tests.as_anon();
-select ok(public.get_public_tracking(current_setting('t.token_live')::uuid) is null, 'F8: tracking links stop for cancelled jobs');
+select is(public.get_public_tracking(current_setting('t.token_live')::uuid)::jsonb, '{"status": "cancelled"}'::jsonb,
+  'F8 + 0126: a cancelled job''s link shows only that it was cancelled');
 select tests.as_owner();
 update public.jobs set status = 'completed', completed_at = now() - interval '91 days' where id = current_setting('t.job')::uuid;
 select tests.as_anon();
