@@ -130,3 +130,8 @@ pre-change production definitions; app releases roll back by redeploying the pre
 3. After release: production smoke test (F1, F10).
 4. Owner settings S7, P-1; Paynow test (P-2).
 5. After the payments phase opens: P-3/4/5, #11, #18, then Payonify (PY-1).
+
+### Pricing finalization (02/11/2026)
+| ID | Item | Evidence | Status | Next action |
+| --- | --- | --- | --- | --- |
+| P-14 | Engine v1.4 (0127): trips per 20 m³, completed-job history, low includes delivery, safe fallbacks, fuel setter, completed accuracy view | pgTAP 590 (47) + full suite 55 files / 1259; unit 461; typecheck, lint:security, build | See CLAUDE.md 02/11 for live status | Owner: review material prices (13/08) |

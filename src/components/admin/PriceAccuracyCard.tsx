@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Target } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,18 +11,24 @@ type Rpc = (
   a: Record<string, unknown>,
 ) => PromiseLike<{ data: PriceAccuracyRow[] | null; error: { message: string } | null }>;
 
-/** How the price check's estimates compare with what customers actually accepted (0123). */
+/**
+ * How the price check's estimates compare with real prices. Two views (0127):
+ *  - completed deliveries (admin_price_accuracy_completed) — the advice comes only from these;
+ *  - customer accepted (admin_price_accuracy, 0123) — includes jobs still under way.
+ */
 export function PriceAccuracyCard() {
+  const [view, setView] = useState<"completed" | "accepted">("completed");
+  const rpcName = view === "completed" ? "admin_price_accuracy_completed" : "admin_price_accuracy";
   const { data, error, isLoading } = useQuery({
-    queryKey: ["admin-price-accuracy"],
+    queryKey: ["admin-price-accuracy", view],
     queryFn: async () => {
-      const r = await (supabase.rpc as unknown as Rpc)("admin_price_accuracy", { _days: 180 });
+      const r = await (supabase.rpc as unknown as Rpc)(rpcName, { _days: 180 });
       if (r.error) throw r.error;
       return r.data ?? [];
     },
     retry: false,
   });
-  if (error) return null; // older database without 0123, or not an admin
+  if (error && view === "accepted") return null; // older database, or not an admin
 
   return (
     <section
@@ -34,10 +41,38 @@ export function PriceAccuracyCard() {
           How close are our estimates?
         </h3>
       </div>
+      <div role="group" aria-label="Which jobs to compare" className="flex gap-2">
+        {(
+          [
+            ["completed", "Completed deliveries"],
+            ["accepted", "Customer accepted"],
+          ] as const
+        ).map(([v, label]) => (
+          <button
+            key={v}
+            type="button"
+            aria-pressed={view === v}
+            onClick={() => setView(v)}
+            className={
+              "min-h-11 rounded-full border px-3.5 text-sm font-semibold " +
+              (view === v ? "bg-foreground text-background" : "bg-card")
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <p className="text-sm text-muted-foreground">
-        Estimates customers saw when booking, against the price they accepted (last 180 days). Use
-        this to adjust the prices below. Nothing changes automatically.
+        {view === "completed"
+          ? "Estimates customers saw when booking, against the final price of delivered jobs (last 180 days)."
+          : "Estimates against the price customers agreed to, including jobs still under way (last 180 days). Shows acceptance, not delivered prices."}{" "}
+        Nothing changes automatically.
       </p>
+      {error && view === "completed" && (
+        <p className="text-sm text-muted-foreground">
+          Completed-delivery figures aren't available yet.
+        </p>
+      )}
       {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
       {!isLoading && (data ?? []).length === 0 && (
         <p className="text-sm text-muted-foreground">
@@ -61,9 +96,11 @@ export function PriceAccuracyCard() {
                 Typical estimate {money(Number(r.median_estimate))} · accepted{" "}
                 {money(Number(r.median_accepted))} · {r.within_15_pct} of {r.jobs} within 15%
               </div>
-              <div className={advice.tone === "ok" ? "text-cz-green-text" : "text-cz-amber-text"}>
-                {advice.text}
-              </div>
+              {view === "completed" ? (
+                <div className={advice.tone === "ok" ? "text-cz-green-text" : "text-cz-amber-text"}>
+                  {advice.text}
+                </div>
+              ) : null}
             </li>
           );
         })}

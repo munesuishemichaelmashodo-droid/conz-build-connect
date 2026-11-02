@@ -75,13 +75,17 @@ describe("fuelEstimate", () => {
     const bad = fuelEstimate({ ...base, litresPer100km: 500 });
     expect(bad.available && bad.litres).toBe((50 * DEFAULT_FUEL_L_PER_100KM) / 100);
   });
-  it("says why it can't estimate (route failure, no truck, no diesel price)", () => {
+  it("says why it can't estimate (route failure, no truck)", () => {
     expect(fuelEstimate({ ...base, routeKm: null }).available).toBe(false);
     expect(fuelEstimate({ ...base, routeKm: 0 }).available).toBe(false);
     expect(fuelEstimate({ ...base, trips: null }).available).toBe(false);
-    expect(fuelEstimate({ ...base, dieselPerLitre: null }).available).toBe(false);
-    expect(fuelEstimate({ ...base, dieselPerLitre: 0 }).available).toBe(false);
-    expect(fuelEstimate({ ...base, dieselPerLitre: 101 }).available).toBe(false);
+  });
+  it("uses the engine's $2.04 standard figure when no valid diesel price is saved (0127)", () => {
+    for (const d of [null, 0, 101, "abc"]) {
+      const f = fuelEstimate({ ...base, dieselPerLitre: d });
+      expect(f.available && f.cost).toBe(32.64); // 16 L × $2.04
+      expect(f.available && f.assumptions.join(" ")).toMatch(/standard figure/);
+    }
   });
   it("accepts any diesel price the admin setter allows (up to $100/L)", () => {
     const f = fuelEstimate({ ...base, dieselPerLitre: 12 });

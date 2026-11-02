@@ -10,7 +10,9 @@ create or replace function pg_temp.job(_est numeric, _final numeric, _status tex
 language plpgsql as $$
 declare _j uuid;
 begin
-  _j := tests.create_job(current_setting('t.cust')::uuid, 200, 'direct', 'gravel');
+  -- Budget = the engine's own recommendation, so the test doesn't depend on fixture prices.
+  _j := tests.create_job(current_setting('t.cust')::uuid,
+         (public.compute_material_offer('gravel', 12, 15)->>'offer')::numeric, 'direct', 'gravel');
   update public.jobs set pricing_breakdown = jsonb_build_object('recommended', _est),
          final_price = _final, driver_id = current_setting('t.drv')::uuid, status = _status::public.job_status
    where id = _j;

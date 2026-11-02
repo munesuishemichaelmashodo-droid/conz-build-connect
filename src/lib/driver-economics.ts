@@ -6,8 +6,10 @@
 //   - trips: tg_stamp_bid_capacity = ceil(quantity / truck capacity).
 // The fuel figure is an estimate with stated assumptions, not a cost guarantee.
 
-/** Engine default (0118 setting fuel_l_per_100km); shown to drivers as an assumption. */
-export const DEFAULT_FUEL_L_PER_100KM = 32;
+import { FUEL_FALLBACK_L_PER_100KM, resolveDiesel, resolveFuel } from "@/lib/pricing-assumptions";
+
+/** Engine default (0127: fuel_l_per_100km valid 10–80, else 32); shown to drivers as an assumption. */
+export const DEFAULT_FUEL_L_PER_100KM = FUEL_FALLBACK_L_PER_100KM;
 
 function toCents(dollars: number): number | null {
   if (!Number.isFinite(dollars) || dollars < 0) return null;
@@ -53,8 +55,9 @@ export function fuelEstimate(input: {
   routeKm: number | null | undefined;
   routeIsRoad: boolean;
   trips: number | null;
-  litresPer100km: number | null | undefined;
-  dieselPerLitre: number | null | undefined;
+  /** Raw settings; missing or invalid values use the engine's own defaults (0127). */
+  litresPer100km: unknown;
+  dieselPerLitre: unknown;
 }): FuelEstimate {
   const { routeKm, trips } = input;
   if (routeKm == null || !Number.isFinite(routeKm) || routeKm <= 0) {
@@ -65,15 +68,11 @@ export function fuelEstimate(input: {
   }
   if (trips == null || trips < 1)
     return { available: false, reason: "Choose a truck to work out the trips." };
-  const diesel = input.dieselPerLitre;
-  // Same bounds as admin_set_diesel_price and the engine (0 < price <= 100).
-  if (diesel == null || !Number.isFinite(diesel) || diesel <= 0 || diesel > 100) {
-    return { available: false, reason: "No diesel price is set." };
-  }
-  const lPer100 =
-    input.litresPer100km != null && input.litresPer100km > 0 && input.litresPer100km <= 100
-      ? input.litresPer100km
-      : DEFAULT_FUEL_L_PER_100KM;
+  // Same values and fallbacks as compute_material_offer: never a different diesel price.
+  const dieselA = resolveDiesel(input.dieselPerLitre);
+  const fuelA = resolveFuel(input.litresPer100km);
+  const diesel = dieselA.value;
+  const lPer100 = fuelA.value;
   const km = Math.round(routeKm * 2 * trips * 10) / 10;
   const litres = Math.round(((km * lPer100) / 100) * 10) / 10;
   const cost = Math.round(litres * diesel * 100) / 100;
@@ -84,8 +83,8 @@ export function fuelEstimate(input: {
     cost,
     assumptions: [
       `${trips} trip${trips === 1 ? "" : "s"}, there and back (${Math.round(routeKm)} km each way${input.routeIsRoad ? " by road" : ", straight line"})`,
-      `${lPer100} L per 100 km`,
-      `diesel $${diesel.toFixed(2)}/L`,
+      `${lPer100} L per 100 km${fuelA.source === "default" ? " (standard figure)" : ""}`,
+      `diesel $${diesel.toFixed(2)}/L${dieselA.source === "default" ? " (standard figure; no price saved)" : ""}`,
     ],
     excluded: [
       "the drive to the first pickup",
