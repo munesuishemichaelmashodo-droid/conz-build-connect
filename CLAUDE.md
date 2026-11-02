@@ -360,5 +360,12 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
   (super admin + `require_aal2` + reason + audit) and `admin_price_accuracy_completed`. Live engine before 0127:
   md5 `4b23d1de…` (= rollback file); after: `449eb457…`. Diesel stays $1.87 (owner). pgTAP 590; 360/490/550 updated
   for the intended changes. Undo: `supabase/rollbacks/20261102100000_0127_rollback.sql`.
+- **Released 02/11/2026 (owner-approved):** PR #42 merged as `1427899` (Vercel deployed; new chunks verified on
+  www.conz.co.zw). 0127 applied via `execute_sql` (statement bodies without comment-only lines) and recorded as
+  `20261102100000`; live `compute_material_offer` md5 `0bf44570…` (= the applied body; the git file body with comments
+  hashes `449eb457…`). Live checks: river sand 12 m³ / 15 km = $174 / $200 / $230; 20 m³ = 1 trip $320; 20.01 m³ =
+  2 trips $340; 25 m³ $420; 30 m³ $480; anon quote via the site's public key works; anon call to
+  `admin_set_fuel_assumptions` refused (401); diesel still 1.87, commission 7, no fuel/markup rows written.
+  Not verified live: the Settings fuel card with a real super-admin step-up, and a driver offer on a real job.
 - App: `src/lib/pricing-assumptions.ts` (same fallbacks as the engine) used by Settings and the driver fuel estimate;
   Settings card "Fuel use and long trips"; accuracy card has "Completed deliveries" / "Customer accepted".
