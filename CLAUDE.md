@@ -350,3 +350,15 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
   `smooth-handler` (hello world) are still deployed and unused by the app. Advisor: 2 search_path warnings (fixed
   by 0115), `driver_public_profiles` SECURITY DEFINER view (intentional), `pg_net` in public, leaked-password
   protection off (owner setting).
+
+## 02/11/2026 — pricing engine v1.4 (branch `pricing/finalize-v14`, owner-approved release)
+
+- `0127_pricing_engine_v14` (20261102100000), no DROP, writes no settings: trips = ceil(qty/20) for every size;
+  >20 m³ history from completed, undisputed, road-distance-comparable jobs (≥10 jobs, ≥3 drivers, median), else the
+  deterministic calculation; low (1–20 m³) = bucket min + one delivery fee (≤ recommended); non-numeric settings fall
+  back (diesel $2.04, fuel 32 within 10–80, allowance 1.87 within 1–3); new `admin_set_fuel_assumptions`
+  (super admin + `require_aal2` + reason + audit) and `admin_price_accuracy_completed`. Live engine before 0127:
+  md5 `4b23d1de…` (= rollback file); after: `449eb457…`. Diesel stays $1.87 (owner). pgTAP 590; 360/490/550 updated
+  for the intended changes. Undo: `supabase/rollbacks/20261102100000_0127_rollback.sql`.
+- App: `src/lib/pricing-assumptions.ts` (same fallbacks as the engine) used by Settings and the driver fuel estimate;
+  Settings card "Fuel use and long trips"; accuracy card has "Completed deliveries" / "Customer accepted".

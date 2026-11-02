@@ -1342,10 +1342,9 @@ function BidForm({
         .from("system_settings")
         .select("key,value")
         .in("key", ["diesel_price_per_liter", "fuel_l_per_100km"]);
-      const get = (k: string) => {
-        const v = Number((data ?? []).find((r: { key: string }) => r.key === k)?.value);
-        return Number.isFinite(v) ? v : null;
-      };
+      // Raw values: fuelEstimate applies the engine's own fallbacks (0127).
+      const get = (k: string): unknown =>
+        (data ?? []).find((r: { key: string }) => r.key === k)?.value ?? null;
       return { diesel: get("diesel_price_per_liter"), fuel: get("fuel_l_per_100km") };
     },
   });

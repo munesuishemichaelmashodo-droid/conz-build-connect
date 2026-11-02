@@ -64,3 +64,25 @@ Pilot (4 weeks, ~20 jobs):
 4. For every completed pilot job, compare the estimate with the accepted price (step 3.2 above,
    done by hand at first).
 5. Only then propose changes to bands, fuel use or the reference truck — through approval.
+
+## Engine v1.4 (0127, 02/11/2026)
+
+Supersedes the v1.3 notes above where they differ. Design: `docs/superpowers/specs/2026-11-02-pricing-finalization-design.md`.
+
+- **Trips (customer estimate):** `ceil(quantity / 20)` for every size; up to 20 m³ = 1 trip (unchanged), 20.01–40 m³ = 2.
+  The quote's `assumptions.tripRule` says so. A driver's own trips come from their registered truck (unchanged).
+- **Loads over 20 m³:** history only from completed jobs: final price set, quantity > 0, delivered quantity within 10%,
+  no dispute except a rejected one, quantity ±30%, road distance (`pricing_breakdown.distance_source` ≠ haversine)
+  within ±50% or both ≤ 10 km, last 6 months, one row per job. Used at ≥ 10 jobs and ≥ 3 drivers: median per m³ ×
+  quantity, all-in (`dataSource: completed_jobs`). Otherwise mid price per m³ × quantity + delivery fee × trips
+  (`reference_capacity`). Range ±15% either way.
+- **Lowest allowed budget (1–20 m³):** bucket minimum + the one delivery fee already in the recommended price, never
+  above recommended. Recommended and high unchanged. E.g. river sand 12 m³ at 15 km: $174 / $200 / $230 (low was $144).
+- **Assumptions:** diesel = saved value if 0 < x ≤ 100, else $2.04; fuel use 10–80 L/100 km else 32; long-haul allowance
+  1–3 else 1.87. A value that isn't a plain number falls back instead of failing the quote. The app uses the same rules
+  (`src/lib/pricing-assumptions.ts`). Production keeps diesel at $1.87 (owner, 02/11/2026).
+- **Admin:** `admin_set_fuel_assumptions` (super admin + `require_aal2` + bounds + reason + `admin_audit_log`);
+  Settings → "Fuel use and long trips". Accuracy card: "Completed deliveries" (`admin_price_accuracy_completed`, advice
+  from these only) and "Customer accepted" (`admin_price_accuracy`).
+- **Material prices:** unchanged (national, last reviewed 13/08/2026 — flagged as needing review; no supplier evidence
+  recorded). Supplier price overrides stay unused.
