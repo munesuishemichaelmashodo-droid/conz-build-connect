@@ -201,6 +201,9 @@ function Welcome() {
             >
               Sign up as a driver
             </Link>
+            <Link to="/open-jobs" className="mt-3 block text-sm font-semibold underline underline-offset-4">
+              See open delivery requests
+            </Link>
           </section>
         </main>
 

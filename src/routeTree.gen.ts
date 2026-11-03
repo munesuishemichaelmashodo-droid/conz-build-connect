@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as OauthCallbackRouteImport } from './routes/oauth-callback'
+import { Route as OpenJobsRouteImport } from './routes/open-jobs'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as QuoteRouteImport } from './routes/quote'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -83,6 +84,11 @@ const McpRoute = McpRouteImport.update({
 const OauthCallbackRoute = OauthCallbackRouteImport.update({
   id: '/oauth-callback',
   path: '/oauth-callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OpenJobsRoute = OpenJobsRouteImport.update({
+  id: '/open-jobs',
+  path: '/open-jobs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -340,6 +346,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/mcp': typeof McpRoute
   '/oauth-callback': typeof OauthCallbackRoute
+  '/open-jobs': typeof OpenJobsRoute
   '/privacy': typeof PrivacyRoute
   '/quote': typeof QuoteRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -392,6 +399,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/mcp': typeof McpRoute
   '/oauth-callback': typeof OauthCallbackRoute
+  '/open-jobs': typeof OpenJobsRoute
   '/privacy': typeof PrivacyRoute
   '/quote': typeof QuoteRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -444,6 +452,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/mcp': typeof McpRoute
   '/oauth-callback': typeof OauthCallbackRoute
+  '/open-jobs': typeof OpenJobsRoute
   '/privacy': typeof PrivacyRoute
   '/quote': typeof QuoteRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -498,6 +507,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/mcp'
     | '/oauth-callback'
+    | '/open-jobs'
     | '/privacy'
     | '/quote'
     | '/reset-password'
@@ -550,6 +560,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/mcp'
     | '/oauth-callback'
+    | '/open-jobs'
     | '/privacy'
     | '/quote'
     | '/reset-password'
@@ -601,6 +612,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/mcp'
     | '/oauth-callback'
+    | '/open-jobs'
     | '/privacy'
     | '/quote'
     | '/reset-password'
@@ -655,6 +667,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   McpRoute: typeof McpRoute
   OauthCallbackRoute: typeof OauthCallbackRoute
+  OpenJobsRoute: typeof OpenJobsRoute
   PrivacyRoute: typeof PrivacyRoute
   QuoteRoute: typeof QuoteRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -704,6 +717,13 @@ declare module '@tanstack/react-router' {
       path: '/oauth-callback'
       fullPath: '/oauth-callback'
       preLoaderRoute: typeof OauthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/open-jobs': {
+      id: '/open-jobs'
+      path: '/open-jobs'
+      fullPath: '/open-jobs'
+      preLoaderRoute: typeof OpenJobsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -1134,6 +1154,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   McpRoute: McpRoute,
   OauthCallbackRoute: OauthCallbackRoute,
+  OpenJobsRoute: OpenJobsRoute,
   PrivacyRoute: PrivacyRoute,
   QuoteRoute: QuoteRoute,
   ResetPasswordRoute: ResetPasswordRoute,
