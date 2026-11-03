@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- minimal fake Supabase client */
 import { describe, expect, it, vi } from "vitest";
 import { fetchOpenJob, fetchOpenJobs, isMissingFunction } from "@/lib/open-jobs";
 
