@@ -24,7 +24,7 @@ function TermsPage() {
         <header className="mt-6 mb-8">
           <div className="text-xs text-muted-foreground">Con Z Build Connect</div>
           <h1 className="font-display font-bold text-3xl tracking-tight">Terms and Conditions</h1>
-          <p className="text-xs text-muted-foreground mt-2">Last updated: 23 July 2026</p>
+          <p className="text-xs text-muted-foreground mt-2">Last updated: 3 November 2026</p>
         </header>
 
         <div className="prose prose-sm dark:prose-invert max-w-none space-y-6">
@@ -66,18 +66,45 @@ function TermsPage() {
             </ul>
           </Section>
 
-          <Section title="6. Commission and Payment Terms">
+          <Section title="6. Commission and Wallet">
             <p>
-              A flat platform commission of <b>7%</b> of the final job price is deducted from each
-              completed job and settled through the Driver's in-app wallet. The first completed job
-              for each newly verified Driver is exempt from commission under the platform's
-              first-job-free policy. Wallet top-ups, balances, and withdrawals are governed by the
-              in-app Wallet system and its associated security controls (including the withdrawal PIN
-              and lockout logic).
+              Registering, verification, browsing jobs and sending offers are free for Drivers. Con Z
+              charges a flat platform commission of <b>7%</b> of the full job price, including
+              materials and transport. When a Customer selects a Driver, Con Z reserves the
+              commission for that job from the Driver's wallet credit. The reservation is confirmed
+              against the job, it is not a fee for browsing or offering, and it is released if the job
+              is cancelled before the load is collected. The commission is earned when the delivery
+              is verified (see section 8). The first completed job for each newly verified Driver is
+              exempt from commission under the first-job-free policy.
+            </p>
+            <p>
+              Wallet top-ups, balances and withdrawals are governed by the in-app Wallet and its
+              security controls (including the withdrawal PIN and lockout logic). Money reserved for
+              commission cannot be withdrawn. Top-up and withdrawal methods may be limited or
+              unavailable while the Platform is launching, and are shown in the Wallet when open.
             </p>
           </Section>
 
-          <Section title="7. Cargo Liability">
+          <Section title="7. Payments Between Customer and Driver">
+            <p>
+              Unless the app shows that the Customer is paying through Con Z at checkout, the
+              Customer pays the Driver directly for the materials and delivery. In that case
+              Con Z does not receive, hold or guarantee the Customer's money, is not an escrow
+              provider, and does not guarantee any refund. Any deposit or advance payment is agreed
+              directly between the Customer and the Driver, and Con Z is not responsible for it. If a
+              payment through Con Z is offered, the terms shown at that checkout apply as well.
+            </p>
+          </Section>
+
+          <Section title="8. Delivery Verification">
+            <p>
+              A delivery counts as complete only after the Driver uploads a delivery photo and the
+              Customer's one-time delivery code is entered. Commission, referral rewards and points
+              are based on verified deliveries, not on a Driver marking a job complete.
+            </p>
+          </Section>
+
+          <Section title="9. Cargo Liability">
             <p>
               The Driver assumes full responsibility for the safe custody and transport of cargo from
               the point of loading to the point of delivery, and is <b>liable to the Customer for
@@ -87,17 +114,29 @@ function TermsPage() {
             </p>
           </Section>
 
-          <Section title="8. Prohibited Conduct">
+          <Section title="10. Prohibited Conduct">
             <ul className="list-disc pl-5 space-y-1">
               <li>Using the Platform for anything unlawful, fraudulent, or misleading.</li>
-              <li>Attempting to circumvent the platform's commission (e.g. off-platform payments).</li>
+              <li>Attempting to circumvent the platform's commission, for example by taking a job found through Con Z off the platform, sharing contact details to do so, or arranging repeat deliveries outside Con Z to avoid commission.</li>
               <li>Harassing, threatening, or discriminating against other users.</li>
               <li>Uploading false verification documents or impersonating another person.</li>
               <li>Interfering with the operation or security of the Platform.</li>
             </ul>
           </Section>
 
-          <Section title="9. Dispute Resolution">
+          <Section title="11. Ratings, Referrals and Points">
+            <p>
+              Customers and Drivers may rate each other after a delivery; ratings must be honest.
+              Referral rewards are paid only for qualifying activity (such as a referred person's
+              verified completed delivery), once, and Con Z may withhold or reverse rewards obtained
+              by self-referral, duplicate accounts or other abuse. If Con Z points are offered, they
+              are rewards with no cash value, cannot be transferred or withdrawn, do not change any
+              price or commission, and may be adjusted or reversed by Con Z where awarded in error or
+              by abuse. Reward values and eligibility may change.
+            </p>
+          </Section>
+
+          <Section title="12. Dispute Resolution">
             <p>
               Disagreements between Customers and Drivers (including cancellations, cargo damage, and
               service quality) must first be raised through the in-app dispute system. Con Z will
@@ -107,7 +146,7 @@ function TermsPage() {
             </p>
           </Section>
 
-          <Section title="10. Account Suspension and Termination">
+          <Section title="13. Account Suspension and Termination">
             <p>
               Con Z may suspend, restrict, or terminate any account for breach of these Terms,
               accumulated strikes under the cancellation and dispute policy, safety concerns, or
@@ -116,7 +155,7 @@ function TermsPage() {
             </p>
           </Section>
 
-          <Section title="11. Limitation of Liability">
+          <Section title="14. Limitation of Liability">
             <p>
               To the maximum extent permitted by Zimbabwean law, Con Z is not liable for any indirect,
               incidental, special, consequential, or punitive damages, or for any loss of profit,
@@ -126,7 +165,7 @@ function TermsPage() {
             </p>
           </Section>
 
-          <Section title="12. Changes to These Terms">
+          <Section title="15. Changes to These Terms">
             <p>
               We may update these Terms from time to time. Material changes will be brought to your
               attention through the Platform. Continued use after changes take effect constitutes
@@ -134,7 +173,7 @@ function TermsPage() {
             </p>
           </Section>
 
-          <Section title="13. Governing Law">
+          <Section title="16. Governing Law">
             <p>
               These Terms are governed by the laws of the Republic of Zimbabwe. The courts of
               Zimbabwe have exclusive jurisdiction over any dispute arising out of or in connection
@@ -142,7 +181,7 @@ function TermsPage() {
             </p>
           </Section>
 
-          <Section title="14. Contact">
+          <Section title="17. Contact">
             <p>
               For questions about these Terms, you can reach us at{" "}
               <b>navyskyinnovations@gmail.com</b> or <b>+263 77 777 0557</b>.
