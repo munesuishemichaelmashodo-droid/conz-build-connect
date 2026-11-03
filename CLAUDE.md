@@ -396,6 +396,6 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
   TRUNCATE/TRIGGER/REFERENCES; default privileges for new tables narrowed. Live check: anon_bad 0, auth_bad 0, authenticated
   INSERT kept on 38 tables, anon SELECT kept on 46.
 - PR #43 (0114/0115 without DROP) is merged; both are live and recorded. Do not reapply.
-- On `main` but NOT live: 0113, 0116 (PR #18, still open), 0120/0121 (PR #38), 0126? (live), 0129–0137 (privacy 0133 matters most).
+- On `main` but NOT live: 0113, 0116 (PR #18, still open), 0120/0121 (PR #38), 0129–0137 (privacy 0133 matters most).
 - Manual (no tool for it): delete demo edge functions `quick-responder` and `smooth-handler` (nothing in the repo uses them);
   turn on leaked-password protection (Auth settings); `pg_net` extension still in public.
