@@ -5,7 +5,7 @@ import { serverNow, syncServerClock } from "@/lib/server-clock";
 import { commissionFee, earnings, fuelEstimate } from "@/lib/driver-economics";
 import { composeOfferMessage, isDriverArranged, MAX_SOURCE_LENGTH, parseOfferMessage } from "@/lib/proposed-source";
 import { OfferMessage } from "@/components/redesign/ProposedSource";
-import { cancelPolicyText, customerCanCancel } from "@/lib/cancel-policy";
+import { ADMIN_CANCEL_REASON_MIN, adminCancelPolicyText, adminCanCancel, cancelPolicyText, customerCanCancel } from "@/lib/cancel-policy";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -560,7 +560,8 @@ function JobDetail() {
   const showDeliveryPinEntry = isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && !!job.delivery_photo_url;
   // Customers can cancel until the load is collected; after that cancel_job refuses and
   // "Report a problem" (a dispute) is the way to raise it.
-  const showCancel = isOwner && customerCanCancel(job.status);
+  const isAdminViewer = !isOwner && !isAssignedDriver && (is("admin") || is("super_admin"));
+  const showCancel = (isOwner && customerCanCancel(job.status)) || (isAdminViewer && adminCanCancel(job.status));
   const showActionSection = showRadar || showEscrowBanner || showBidForm || showPickupUpload || showDeliveryUpload || showDeliveryPinDisplay || showCompleteButton || showDeliveryPinEntry || showCancel;
 
   const showProofPhotos = !!(job.pickup_photo_url || job.delivery_photo_url);
@@ -607,6 +608,7 @@ function JobDetail() {
     showRadar,
     showCounterResponse,
     showCancel,
+    isAdminViewer,
     showDispute,
     showNextLoads,
     showBookAgain,
@@ -618,7 +620,7 @@ function JobDetail() {
     invalidateJob: () => qc.invalidateQueries({ queryKey: ["job", id] }),
     invalidateBids: () => qc.invalidateQueries({ queryKey: ["bids", id] }),
     invalidateRating: () => qc.invalidateQueries({ queryKey: ["my-rating", id, userId] }),
-    onCancelled: () => nav({ to: "/jobs" }),
+    onCancelled: () => nav({ to: isAdminViewer ? "/admin/jobs" : "/jobs" }),
   };
   if (isOwner) return <CustomerJobScreen ctx={ctx} />;
   if (!isOwner && (isAssignedDriver || (is("driver") && (job.status === "open" || !!myBid)))) {
@@ -825,7 +827,7 @@ function JobDetail() {
               )}
 
               {showCancel && (
-                <CancelJobDialog jobId={id} status={job.status} onCancelled={() => nav({ to: "/jobs" })} />
+                <CancelJobDialog jobId={id} status={job.status} asAdmin={isAdminViewer} onCancelled={() => nav({ to: isAdminViewer ? "/admin/jobs" : "/jobs" })} />
               )}
             </div>
           </Section>
@@ -1978,13 +1980,14 @@ function ProofUpload({ jobId, kind, label, hint, ctaLabel, onUploaded, beforeUpl
   );
 }
 
-function CancelJobDialog({ jobId, status, onCancelled }: { jobId: string; status: string; onCancelled: () => void }) {
+function CancelJobDialog({ jobId, status, onCancelled, asAdmin = false }: { jobId: string; status: string; onCancelled: () => void; asAdmin?: boolean }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
 
   // cancel_job charges no fee; it records a strike once a driver has accepted.
-  const policy = cancelPolicyText(status);
+  const policy = asAdmin ? adminCancelPolicyText(status) : cancelPolicyText(status);
+  const reasonOk = !asAdmin || reason.trim().length >= ADMIN_CANCEL_REASON_MIN;
 
   const tone = status === "open" ? "text-muted-foreground" : "text-warning";
 
@@ -2012,21 +2015,21 @@ function CancelJobDialog({ jobId, status, onCancelled }: { jobId: string; status
           <DialogDescription className={tone}>{policy}</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <Label htmlFor="cxr">Reason (optional)</Label>
+          <Label htmlFor="cxr">{asAdmin ? "Reason (required, shown to the customer and driver)" : "Reason (optional)"}</Label>
           <Textarea
             id="cxr"
             rows={3}
             maxLength={300}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="Tell us why you're cancelling"
+            placeholder={asAdmin ? "Why is this job being cancelled?" : "Tell us why you're cancelling"}
           />
         </div>
         <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="ghost" onClick={() => setOpen(false)} disabled={loading}>
             Keep job
           </Button>
-          <Button variant="destructive" onClick={submit} disabled={loading}>
+          <Button variant="destructive" onClick={submit} disabled={loading || !reasonOk}>
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm cancellation"}
           </Button>
         </DialogFooter>
@@ -2245,6 +2248,7 @@ type JobScreenCtx = {
   invalidateBids: () => void;
   invalidateRating: () => void;
   onCancelled: () => void;
+  isAdminViewer: boolean;
 };
 
 /** Per-job UI flag kept for the browser session (e.g. "I've arrived at
@@ -3276,7 +3280,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
 
         {ctx.showCancel && (
           <div id="tour-next-steps">
-            <CancelJobDialog jobId={id} status={job.status} onCancelled={ctx.onCancelled} />
+            <CancelJobDialog jobId={id} status={job.status} asAdmin={ctx.isAdminViewer} onCancelled={ctx.onCancelled} />
           </div>
         )}
       </BottomSheet>
@@ -3434,7 +3438,7 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
         <div className="grid grid-cols-2 gap-2.5">
           <CzButton kind="ghost" size="sm" onClick={onViewTracking}>View tracking</CzButton>
           {ctx.showCancel ? (
-            <CancelJobDialog jobId={id} status={job.status} onCancelled={ctx.onCancelled} />
+            <CancelJobDialog jobId={id} status={job.status} asAdmin={ctx.isAdminViewer} onCancelled={ctx.onCancelled} />
           ) : (
             <span />
           )}
@@ -3726,7 +3730,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
               <RaiseDisputeDialog jobId={id} against={job.driver_id} side="customer" label="Report a problem" />
             </div>
           )}
-          {ctx.showCancel && <CancelJobDialog jobId={id} status={job.status} onCancelled={ctx.onCancelled} />}
+          {ctx.showCancel && <CancelJobDialog jobId={id} status={job.status} asAdmin={ctx.isAdminViewer} onCancelled={ctx.onCancelled} />}
         </div>
       </BottomSheet>
     </CzScreen>
