@@ -101,8 +101,10 @@ select throws_ok($$select * from public.admin_list_supplier_contacts()$$, '42501
 -- 4. Profiles: consolidated policies, same access (S-4)
 -- ---------------------------------------------------------------------------
 select tests.as_owner();
-select is((select count(*)::int from pg_policy where polrelid = 'public.profiles'::regclass), 6,
-  'Six profile policies instead of nine');
+select is((select count(*)::int from pg_policy where polrelid = 'public.profiles'::regclass
+             and polname in ('Users read own profile', 'Job partners read each other')
+             and polroles = array['authenticated'::regrole]::oid[]), 2,
+  'Own-row and job-partner read policies are for signed-in users only');
 select tests.login_as(current_setting('t.cust2')::uuid);
 select is((select count(*)::int from public.profiles where id = auth.uid()), 1, 'A user reads their own profile');
 select is((select count(*)::int from public.profiles where id <> auth.uid()), 0, 'and no one else''s');

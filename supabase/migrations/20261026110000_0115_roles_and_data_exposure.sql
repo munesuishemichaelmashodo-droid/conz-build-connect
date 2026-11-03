@@ -3,8 +3,8 @@
 -- directly; supplier contact details not public; profile policies consolidated;
 -- fixed search_path on two functions.
 --
--- PREPARED, NOT APPLIED. Needs the owner's approval before production. Contains
--- DROP POLICY (the Supabase MCP tool hangs on DROP): apply in the SQL editor.
+-- Owner approved applying it (03/11/2026). No DROP statements: policies are renamed
+-- and changed in place, so it runs through the Supabase MCP tool.
 -- Undo: supabase/rollbacks/20261026110000_0115_rollback.sql (exact production
 -- definitions of 25/10/2026). Independent of 0113 and 0114.
 --
@@ -181,18 +181,32 @@ end $$;
 revoke all on function public.admin_list_supplier_contacts() from public, anon;
 grant execute on function public.admin_list_supplier_contacts() to authenticated;
 
--- S-4: profiles policies, same access, no duplicates --------------------------------
-drop policy if exists "Users can insert their own profile" on public.profiles;   -- dup of "Users insert own profile"
-drop policy if exists "Users can update their own profile" on public.profiles;   -- dup of "Users update own profile"
-drop policy if exists "Users can view own profile" on public.profiles;
-drop policy if exists "Users can view their own profile" on public.profiles;
-drop policy if exists "Users read own profile" on public.profiles;
-create policy "Users read own profile" on public.profiles
-  for select to authenticated using (auth.uid() = id);
-drop policy if exists "Users can view profiles of active job partners" on public.profiles;
-drop policy if exists "Job partners read each other" on public.profiles;
-create policy "Job partners read each other" on public.profiles
-  for select to authenticated
+-- S-4: profiles policies, same access ----------------------------------------------
+-- No DROP (the Supabase MCP tool can't run DROP without an approval pop-up): the own-row
+-- and job-partner read policies are renamed and limited to signed-in users in place.
+-- The three duplicates ("Users can insert their own profile", "Users can update their
+-- own profile", "Users can view their own profile") stay: each repeats a kept policy,
+-- so access is unchanged. Remove them in the SQL editor when convenient.
+do $$
+begin
+  if exists (select 1 from pg_policy where polrelid = 'public.profiles'::regclass
+              and polname = 'Users can view own profile')
+     and not exists (select 1 from pg_policy where polrelid = 'public.profiles'::regclass
+              and polname = 'Users read own profile') then
+    alter policy "Users can view own profile" on public.profiles rename to "Users read own profile";
+  end if;
+  if exists (select 1 from pg_policy where polrelid = 'public.profiles'::regclass
+              and polname = 'Users can view profiles of active job partners')
+     and not exists (select 1 from pg_policy where polrelid = 'public.profiles'::regclass
+              and polname = 'Job partners read each other') then
+    alter policy "Users can view profiles of active job partners" on public.profiles
+      rename to "Job partners read each other";
+  end if;
+end $$;
+alter policy "Users read own profile" on public.profiles
+  to authenticated using (auth.uid() = id);
+alter policy "Job partners read each other" on public.profiles
+  to authenticated
   using (exists (
     select 1 from public.jobs
      where jobs.status = any (array['accepted'::public.job_status, 'in_progress'::public.job_status])

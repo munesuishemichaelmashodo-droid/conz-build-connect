@@ -369,3 +369,22 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
   Not verified live: the Settings fuel card with a real super-admin step-up, and a driver offer on a real job.
 - App: `src/lib/pricing-assumptions.ts` (same fallbacks as the engine) used by Settings and the driver fuel estimate;
   Settings card "Fuel use and long trips"; accuracy card has "Completed deliveries" / "Customer accepted".
+
+## 03/11/2026 — 0114 + 0115 applied live (owner: "Go ahead", then "No drop but proceed")
+
+- The Supabase MCP approval pop-up for DROP timed out three times, so both files were rewritten without DROP
+  (branch `fix/0114-0115-no-drop`, commit `f8688e6`): policies are renamed and changed with `ALTER POLICY`. Same access.
+  pgTAP 1259/1259 locally; both undo scripts tested locally.
+- `0115` recorded `20261026110000`: sign-up gives driver/customer only (no hard-coded email); admins can't edit a
+  driver's approval fields directly (use `admin_set_driver_verification`); supplier contact columns hidden
+  (`admin_list_supplier_contacts()` for admins); "Users read own profile" / "Job partners read each other" for
+  signed-in users only; search_path fixed on the two sourcing functions. Three duplicate profile policies remain
+  (`Users can insert/update/view their own profile`, same access as kept ones): remove them in the SQL editor sometime.
+- `0114` recorded `20261026100000`: truck add/change by a driver sends them back to review and withdraws pending
+  offers; a job can only be given to a driver passing `is_verified_driver`; trucks readable only by their driver,
+  admins, and customers whose jobs got an offer with that truck.
+- Live function hashes equal the local build (whitespace-stripped md5): handle_new_user `a787bfd6…`,
+  driver_profiles_guard_direct_write `6d40220f…`, admin_list_supplier_contacts `4cdf5334…`,
+  tg_truck_change_needs_review `51a8a13c…`, tg_jobs_driver_must_be_verified `f4cf6f2c…`.
+- Next in the permissions plan: revoke TRUNCATE and anon write grants (new migration); owner deletes demo edge functions
+  `quick-responder`/`smooth-handler` and turns on leaked-password protection; repair schema_migrations 0072–0108.
