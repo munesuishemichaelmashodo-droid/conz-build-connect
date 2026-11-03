@@ -111,6 +111,12 @@ grant select on public.suppliers to anon, authenticated;
 
 drop policy if exists "Users read own profile" on public.profiles;
 drop policy if exists "Job partners read each other" on public.profiles;
+-- 0115 now keeps these three (no DROP), so clear them before re-creating the originals.
+drop policy if exists "Users can insert their own profile" on public.profiles;
+drop policy if exists "Users can update their own profile" on public.profiles;
+drop policy if exists "Users can view their own profile" on public.profiles;
+drop policy if exists "Users can view own profile" on public.profiles;
+drop policy if exists "Users can view profiles of active job partners" on public.profiles;
 create policy "Users can insert their own profile" on public.profiles
   for insert with check (auth.uid() = id);
 create policy "Users can update their own profile" on public.profiles

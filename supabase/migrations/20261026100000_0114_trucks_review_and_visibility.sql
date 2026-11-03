@@ -2,8 +2,8 @@
 -- 0114: truck changes need re-review; only approved drivers can be given a job;
 -- trucks are visible only where needed.
 --
--- PREPARED, NOT APPLIED. Needs the owner's approval before production. Contains
--- DROP POLICY (the Supabase MCP tool hangs on DROP): apply in the SQL editor.
+-- Owner approved applying it (03/11/2026). No DROP statements: the open read policy is
+-- renamed and narrowed in place, so it runs through the Supabase MCP tool.
 -- Undo: supabase/rollbacks/20261026100000_0114_rollback.sql.
 --
 -- Why (read-only checks on production, 25/10/2026):
@@ -30,7 +30,7 @@
 --      re-verification not overdue). One check covers all three acceptance paths and
 --      admin reassignment by any signed-in user. Removing a driver (driver_id -> null)
 --      and service-role/cron writes (no auth.uid()) are unaffected.
---   3. Trucks visibility: drop "Trucks readable by authenticated"; add admin read, and
+--   3. Trucks visibility: "Trucks readable by authenticated" becomes admin-only read, and
 --      customer read only for trucks used in offers on the customer's own jobs (what
 --      the job page shows). Drivers keep their own trucks ("Drivers manage own
 --      trucks"). Security-definer functions (dispatch, next loads) are unaffected.
@@ -121,17 +121,34 @@ create or replace trigger trg_jobs_driver_must_be_verified
   for each row execute function public.tg_jobs_driver_must_be_verified();
 
 -- 3. Trucks visibility ------------------------------------------------------------
-drop policy if exists "Trucks readable by authenticated" on public.trucks;
+-- No DROP: the open "Trucks readable by authenticated" policy is renamed to
+-- "Admins read trucks" and narrowed to admins in place.
+do $$
+begin
+  if exists (select 1 from pg_policy where polrelid = 'public.trucks'::regclass
+              and polname = 'Trucks readable by authenticated')
+     and not exists (select 1 from pg_policy where polrelid = 'public.trucks'::regclass
+              and polname = 'Admins read trucks') then
+    alter policy "Trucks readable by authenticated" on public.trucks rename to "Admins read trucks";
+  end if;
+  if not exists (select 1 from pg_policy where polrelid = 'public.trucks'::regclass
+              and polname = 'Admins read trucks') then
+    create policy "Admins read trucks" on public.trucks for select to authenticated using (false);
+  end if;
+  if not exists (select 1 from pg_policy where polrelid = 'public.trucks'::regclass
+              and polname = 'Customers read trucks offered on their jobs') then
+    create policy "Customers read trucks offered on their jobs" on public.trucks
+      for select to authenticated using (false);
+  end if;
+end $$;
 
-drop policy if exists "Admins read trucks" on public.trucks;
-create policy "Admins read trucks" on public.trucks
-  for select to authenticated
+alter policy "Admins read trucks" on public.trucks
+  to authenticated
   using (public.has_role(auth.uid(), 'admin'::public.app_role)
          or public.has_role(auth.uid(), 'super_admin'::public.app_role));
 
-drop policy if exists "Customers read trucks offered on their jobs" on public.trucks;
-create policy "Customers read trucks offered on their jobs" on public.trucks
-  for select to authenticated
+alter policy "Customers read trucks offered on their jobs" on public.trucks
+  to authenticated
   using (exists (
     select 1
       from public.bids b
