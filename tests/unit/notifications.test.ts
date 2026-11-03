@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { dayGroup, groupByDay, notificationCategory, notificationDestination } from "@/lib/notifications";
+import {
+  dayGroup,
+  groupByDay,
+  notificationCategory,
+  notificationDestination,
+} from "@/lib/notifications";
 
 describe("notification categories", () => {
   it("sorts types into Jobs, Payments, Verification and Account", () => {
@@ -32,14 +37,27 @@ describe("day groups (Africa/Harare)", () => {
 });
 
 describe("destinations", () => {
-  const n = (type: string, job_id: string | null = null) => ({ id: "1", type, job_id, created_at: "" });
+  const n = (type: string, job_id: string | null = null) => ({
+    id: "1",
+    type,
+    job_id,
+    created_at: "",
+  });
   it("opens the exact screen", () => {
     expect(notificationDestination(n("wallet_topup"))).toEqual({ to: "/wallet" });
     expect(notificationDestination(n("promo_credit"))).toEqual({ to: "/wallet" });
-    expect(notificationDestination(n("verification_submitted"))).toEqual({ to: "/admin/verifications" });
+    expect(notificationDestination(n("verification_submitted"))).toEqual({
+      to: "/admin/verifications",
+    });
     expect(notificationDestination(n("driver_verification"))).toEqual({ to: "/profile" });
-    expect(notificationDestination(n("new_message", "j1"))).toEqual({ to: "/chat/$jobId", params: { jobId: "j1" } });
-    expect(notificationDestination(n("bid_accepted", "j1"))).toEqual({ to: "/jobs/$id", params: { id: "j1" } });
+    expect(notificationDestination(n("new_message", "j1"))).toEqual({
+      to: "/chat/$jobId",
+      params: { jobId: "j1" },
+    });
+    expect(notificationDestination(n("bid_accepted", "j1"))).toEqual({
+      to: "/jobs/$id",
+      params: { id: "j1" },
+    });
     expect(notificationDestination(n("admin_signin"))).toBeNull();
   });
 });
