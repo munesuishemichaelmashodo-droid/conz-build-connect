@@ -1108,7 +1108,7 @@ function JobDetail() {
                   search={bookAgainSearch(job, { sameDriver: true }) ?? {}}
                   className="block w-full text-center rounded-xl bg-primary text-primary-foreground font-display font-bold py-3"
                 >
-                  Book this driver again
+                  Invite this driver to bid again
                 </Link>
               )}
             </div>
@@ -3868,7 +3868,7 @@ function CustomerDelivered({ ctx }: { ctx: JobScreenCtx }) {
               search={bookAgainSearch(job, { sameDriver: true }) ?? {}}
               className={czButtonClass("secondary", "md")}
             >
-              Book {d.first} again
+              Invite {d.first} to bid again
             </Link>
           )}
           {ctx.showReceipt && (

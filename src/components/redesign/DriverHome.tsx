@@ -240,7 +240,7 @@ export function DriverHome({
 
         <div className="flex items-center justify-between px-5 pt-5 pb-2.5">
           <h2 className="cz-display font-bold text-[22px]">
-            {shown.length} {shown.length === 1 ? "load" : "loads"} near you
+            {shown.length} open {shown.length === 1 ? "request" : "requests"}
           </h2>
           <span className="text-[13px] text-cz-muted flex items-center gap-1.5">
             <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-cz-green cz-blink" /> Updated
@@ -255,10 +255,10 @@ export function DriverHome({
           {shown.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-cz-border-strong p-8 text-center">
               <TipperIllustration className="mx-auto w-40 opacity-90" />
-              <p className="mt-3 font-semibold">No open loads right now</p>
+              <p className="mt-3 font-semibold">No open requests right now</p>
               <p className="text-sm text-cz-muted">
                 {filter === "all"
-                  ? "Stay online — we'll notify you when a new job is posted."
+                  ? "Go online and keep notifications on, and we'll tell you when a new request is posted. You decide which ones are worth an offer."
                   : "Try another material filter."}
               </p>
             </div>
@@ -291,7 +291,7 @@ export function DriverHome({
             to="/job-history"
             className="flex items-center justify-center gap-1 min-h-12 rounded-xl text-[15px] font-semibold text-cz-muted underline underline-offset-4 hover:bg-cz-surface-2"
           >
-            Job history & recent activity <ChevronRight className="w-4 h-4" />
+            Your completed work and history <ChevronRight className="w-4 h-4" />
           </Link>
 
           <div className="pt-2">

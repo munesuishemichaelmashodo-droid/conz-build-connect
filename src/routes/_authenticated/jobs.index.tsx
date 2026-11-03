@@ -139,7 +139,7 @@ function JobsPage() {
     <>
       <CzScreen className={isDriver !== isCustomer ? NAV_SPACE : "pb-8"}>
         <CzHeader
-          title={isDriver && !isCustomer ? "My jobs" : "Jobs"}
+          title={isDriver && !isCustomer ? "My jobs" : "My deliveries"}
           backTo={isDriver && !isCustomer ? "/driver" : "/customer"}
           right={
             <div className="flex items-center gap-0.5">
@@ -165,7 +165,7 @@ function JobsPage() {
               <p className="mt-3 font-semibold">No jobs yet</p>
               <p className="text-sm text-cz-muted">
                 {isCustomer
-                  ? "Post your first delivery request."
+                  ? "Post your first delivery request. Drivers send offers and you choose."
                   : "Check back soon for open requests."}
               </p>
             </div>
@@ -205,7 +205,7 @@ function JobsPage() {
                 </JobGroup>
               )}
               {past.length > 0 && (
-                <JobGroup title="Completed & cancelled">
+                <JobGroup title={isDriver && !isCustomer ? "Completed & cancelled" : "Past deliveries"}>
                   {past.map((j) => (
                     <JobRow key={j.id} j={j} />
                   ))}

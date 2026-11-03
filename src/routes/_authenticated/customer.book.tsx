@@ -387,7 +387,7 @@ function BookDelivery() {
             <div className="space-y-4">
               {search.driverId && (
                 <HintBox tone="green" icon={<CheckCircle2 className="w-4 h-4" />}>
-                  We'll notify your previous driver directly so they can bid first.
+                  We'll invite your previous driver to bid. Other verified drivers can bid too, and you choose.
                 </HintBox>
               )}
 
@@ -739,7 +739,7 @@ function BookDelivery() {
         <CzButton id="tour-book-confirm" data-tour="book-confirm" onClick={confirm} disabled={posting}>
           {posting ? <Loader2 className="w-5 h-5 animate-spin" /> : `Post job · ${usd(offer)}`}
         </CzButton>
-        <p className="text-center text-xs text-cz-muted">Approved drivers near you see your request and can send offers.</p>
+        <p className="text-center text-xs text-cz-muted">Verified drivers can see your request and send offers. You compare them and make the final choice.</p>
       </footer>
     </CzScreen>
   );

@@ -37,15 +37,40 @@ function useRedirectWhenSignedIn() {
 const STEPS = [
   {
     title: "Post your job",
-    body: "Pick the material, how many cubic metres, and drop a pin where the load should go.",
+    body: "One request instead of repeating the same details to different people: material, cubic metres and a pin where the load should go. Check an estimate first.",
   },
   {
     title: "Choose a driver",
-    body: "Drivers checked by Con Z send their offers. You see each total before you accept one.",
+    body: "Drivers checked by Con Z send offers. Compare each total, rating and truck, then make the final choice yourself.",
   },
   {
     title: "Track and confirm",
-    body: "Follow the job as it moves, then give the driver your delivery code once the load is down.",
+    body: "Follow the job as it moves, with the truck's location while the driver shares it. Messages and delivery photos stay on the job. Give the driver your delivery code once the load is down.",
+  },
+];
+
+// What a customer gets that a phone call or a WhatsApp thread does not. Every line describes something
+// the app does today. No promises about availability, lowest price, or guaranteed delivery.
+const WHY_CUSTOMERS = [
+  {
+    title: "One request, not many phone calls",
+    body: "Describe the delivery once. Verified drivers see it and send offers.",
+  },
+  {
+    title: "Know the likely price first",
+    body: "The price check gives a guide range before you commit. No account needed.",
+  },
+  {
+    title: "You choose",
+    body: "Compare offers by total price, driver rating, jobs done and truck. Nobody is assigned for you.",
+  },
+  {
+    title: "Everything about the delivery in one place",
+    body: "Address, chat, delivery photos and the delivery code stay together on the job.",
+  },
+  {
+    title: "Order again in a few taps",
+    body: "Reuse a past delivery. The price is always checked fresh, and you can invite the same driver to bid.",
   },
 ];
 
@@ -118,6 +143,20 @@ function Welcome() {
             </div>
           </section>
 
+          <section aria-labelledby="why-title" className="mt-10">
+            <h2 id="why-title" className="cz-display font-bold text-[24px]">
+              Why book on Con Z
+            </h2>
+            <ul className="mt-3 divide-y divide-cz-border border-y border-cz-border">
+              {WHY_CUSTOMERS.map((w) => (
+                <li key={w.title} className="py-3">
+                  <h3 className="text-[15px] font-semibold">{w.title}</h3>
+                  <p className="mt-0.5 text-sm leading-relaxed text-cz-muted">{w.body}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+
           <section aria-labelledby="materials-title" className="mt-10">
             <h2 id="materials-title" className="cz-display font-bold text-[24px]">
               What we deliver
@@ -179,9 +218,11 @@ function Welcome() {
               </h2>
             </div>
             <p className="mt-3 text-[15px] leading-relaxed text-cz-muted">
-              Find loads near you and offer your own price. Con Z takes 7% of each completed job,
-              and your first completed job is commission-free. You can start bidding once Con Z has
-              checked your:
+              See the load, the size and the delivery area before you offer, and set the price that
+              makes sense for your truck. Your completed jobs, ratings and earnings build a record
+              customers can see. Con Z commission is 7% of the full job value, materials and
+              transport included, and your first completed job has no commission. You can start
+              bidding once Con Z has checked your:
             </p>
             <ul className="mt-3 grid grid-cols-3 gap-2">
               {["ID", "Driver's licence", "Truck"].map((t) => (
@@ -201,7 +242,10 @@ function Welcome() {
             >
               Sign up as a driver
             </Link>
-            <Link to="/open-jobs" className="mt-3 block text-sm font-semibold underline underline-offset-4">
+            <Link
+              to="/open-jobs"
+              className="mt-3 block text-sm font-semibold underline underline-offset-4"
+            >
               See open delivery requests
             </Link>
           </section>
