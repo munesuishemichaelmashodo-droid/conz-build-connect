@@ -37,12 +37,18 @@ function AdminVerifications() {
           .in("driver_id", ids)
           .order("created_at", { ascending: true }),
       ]);
+      // Business-hours waiting time (0132). Missing until that migration is applied: show nothing then.
+      const { data: queue } = await (supabase.rpc as unknown as (f: string) => PromiseLike<{ data: { driver_id: string; business_hours: number; overdue: boolean }[] | null }>)(
+        "admin_verification_queue",
+      );
+      const qmap = new Map((queue ?? []).map((q) => [q.driver_id, q]));
       const pmap = new Map(profiles?.map((p) => [p.id, p]) ?? []);
       const tmap = new Map<string, NonNullable<typeof trucks>>();
       for (const t of trucks ?? []) tmap.set(t.driver_id, [...(tmap.get(t.driver_id) ?? []), t]);
       return (drivers ?? []).map((d) => ({
         ...d,
         profile: pmap.get(d.user_id),
+        wait: qmap.get(d.user_id),
         trucks: tmap.get(d.user_id) ?? [],
       }));
     },
@@ -116,6 +122,14 @@ function AdminVerifications() {
                   }
                 />
               </div>
+              {d.wait && d.verification_status === "pending" && (
+                <div
+                  className={`text-xs rounded-lg border p-2 ${d.wait.overdue ? "border-destructive/30 bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}
+                >
+                  Waiting {Number(d.wait.business_hours).toFixed(1)} business hours
+                  {d.wait.overdue ? ": past the 24-hour target. Please review (nothing happens automatically)." : " (target 24)."}
+                </div>
+              )}
               <div className="text-sm">
                 <span className="text-muted-foreground">National ID: </span>
                 <span className="font-mono">{d.national_id ?? "—"}</span>
