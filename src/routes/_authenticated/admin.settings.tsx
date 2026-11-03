@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { PriceAccuracyCard } from "@/components/admin/PriceAccuracyCard";
+import { LaunchSwitchesCard } from "@/components/admin/LaunchSwitchesCard";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -223,6 +224,8 @@ function AdminSettings() {
           <p className="text-xs text-muted-foreground text-center">Only super admins can change the diesel price.</p>
         )}
       </div>
+
+      <LaunchSwitchesCard isSuper={isSuper} />
 
       <div className="rounded-2xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
