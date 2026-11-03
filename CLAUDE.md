@@ -388,3 +388,14 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
   tg_truck_change_needs_review `51a8a13c…`, tg_jobs_driver_must_be_verified `f4cf6f2c…`.
 - Next in the permissions plan: revoke TRUNCATE and anon write grants (new migration); owner deletes demo edge functions
   `quick-responder`/`smooth-handler` and turns on leaked-password protection; repair schema_migrations 0072–0108.
+
+## 03/11/2026 — 0138 grants + merged work (branch `security/revoke-unneeded-grants`)
+
+- `0138_revoke_unneeded_table_grants` is **LIVE** (applied 03/11 via `execute_sql`, recorded `20261103200000`; undo in
+  `supabase/rollbacks/`). anon lost INSERT/UPDATE/DELETE/TRUNCATE/TRIGGER/REFERENCES on public tables; authenticated lost
+  TRUNCATE/TRIGGER/REFERENCES; default privileges for new tables narrowed. Live check: anon_bad 0, auth_bad 0, authenticated
+  INSERT kept on 38 tables, anon SELECT kept on 46.
+- PR #43 (0114/0115 without DROP) is merged; both are live and recorded. Do not reapply.
+- On `main` but NOT live: 0113, 0116 (PR #18, still open), 0120/0121 (PR #38), 0126? (live), 0129–0137 (privacy 0133 matters most).
+- Manual (no tool for it): delete demo edge functions `quick-responder` and `smooth-handler` (nothing in the repo uses them);
+  turn on leaked-password protection (Auth settings); `pg_net` extension still in public.
