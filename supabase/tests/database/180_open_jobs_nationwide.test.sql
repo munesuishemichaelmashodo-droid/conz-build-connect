@@ -24,8 +24,8 @@ update public.driver_profiles set verification_status = 'pending' where user_id 
 
 -- visibility is nationwide for verified drivers, near or far
 select tests.login_as(current_setting('t.far')::uuid);
-select is((select count(*)::int from public.jobs where id = current_setting('t.job')::uuid), 1,
-  'a verified driver ~370 km away still sees the job');
+select is((select count(*)::int from public.driver_open_job(current_setting('t.job')::uuid)), 1,
+  'a verified driver ~370 km away still sees the job (area only, 0133)');
 select is((select count(*)::int from public.driver_available_jobs() where id = current_setting('t.job')::uuid), 1,
   'and it is in their open-jobs list');
 select tests.login_as(current_setting('t.near')::uuid);

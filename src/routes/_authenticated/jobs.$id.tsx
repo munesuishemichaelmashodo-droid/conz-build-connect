@@ -5,6 +5,7 @@ import { serverNow, syncServerClock } from "@/lib/server-clock";
 import { commissionFee, earnings, fuelEstimate } from "@/lib/driver-economics";
 import { composeOfferMessage, isDriverArranged, MAX_SOURCE_LENGTH, parseOfferMessage } from "@/lib/proposed-source";
 import { OfferMessage } from "@/components/redesign/ProposedSource";
+import { fetchOpenJob } from "@/lib/open-jobs";
 import { ADMIN_CANCEL_REASON_MIN, adminCancelPolicyText, adminCanCancel, cancelPolicyText, customerCanCancel } from "@/lib/cancel-policy";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
@@ -238,7 +239,9 @@ function JobDetail() {
     queryFn: async () => {
       const { data, error } = await supabase.from("jobs").select("*").eq("id", id).maybeSingle();
       if (error) throw error;
-      return data;
+      if (data) return data;
+      // Not readable as a row: an unselected verified driver gets the area-only preview (0133).
+      return (await fetchOpenJob(supabase, id)) as typeof data;
     },
   });
 
@@ -662,6 +665,11 @@ function JobDetail() {
               <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
               <span>{job.delivery_address}</span>
             </div>
+            {job.status === "open" && !isOwner && !is("admin") && !is("super_admin") && (
+              <p className="mt-1 pl-6 text-xs text-muted-foreground">
+                Area only. The exact address and the customer's contact details are shared once you are selected.
+              </p>
+            )}
 
             {job.preferred_date && (
               <div className="mt-2 flex items-center gap-2 text-sm">
