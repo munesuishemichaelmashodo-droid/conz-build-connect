@@ -62,14 +62,14 @@ jobs:
 
       # The REAL Paynow callback code against the same local database (provider
       # mocked, fake key, no money). CONZ_REQUIRE_DB_TESTS makes a skip a failure.
-      - name: Paynow callback tests (local database, provider mocked)
+      - name: Paynow + Payonify callback tests (local database, providers mocked)
         env:
           CONZ_TEST_PG_HOST: 127.0.0.1
           CONZ_TEST_PG_DB: postgres
           CONZ_REQUIRE_DB_TESTS: "1"
           PGPORT: "55432"
           PGPASSWORD: postgres
-        run: npx vitest run tests/unit/paynow-ipn-db.test.ts
+        run: npx vitest run tests/unit/paynow-ipn-db.test.ts tests/unit/payonify-webhook-db.test.ts
 
       - name: Stop local Supabase
         if: always()

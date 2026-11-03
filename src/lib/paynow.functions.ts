@@ -27,6 +27,14 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service-role RPCs/tables added by 0073+ are not in the generated Supabase types yet
     const db = supabaseAdmin as any;
 
+    // Payment switch (0120): once a super admin moves payments to Payonify, Paynow starts no
+    // new payments (unless PAYNOW_CARDS_AFTER_SWITCH=on). If the switch can't be read, Paynow
+    // carries on as before.
+    const { readPaymentSwitch, paynowAllowed } = await import("@/lib/payonify.process.server");
+    if (!paynowAllowed(process.env, await readPaymentSwitch(db))) {
+      return { ok: false, error: "paynow_paused" };
+    }
+
     const { data: payment, error } = await db
       .from("payments")
       .insert({
@@ -113,6 +121,13 @@ export const initiateEscrowPayment = createServerFn({ method: "POST" })
     if (!(switches as { escrowEnabled?: boolean } | null)?.escrowEnabled) {
       return { ok: false, error: "escrow_unavailable" };
     }
+    {
+      const { paynowAllowed } = await import("@/lib/payonify.process.server");
+      const sw = (switches as { paymentProvider?: string } | null)?.paymentProvider;
+      if (!paynowAllowed(process.env, sw === "payonify" ? "payonify" : "paynow")) {
+        return { ok: false, error: "paynow_paused" };
+      }
+    }
 
     const { data: job } = await db
       .from("jobs")
@@ -129,12 +144,17 @@ export const initiateEscrowPayment = createServerFn({ method: "POST" })
 
     const { data: previous } = await db
       .from("payments")
-      .select("id, status, paynow_poll_url, created_at")
+      .select("id, status, method, paynow_poll_url, created_at")
       .eq("job_id", data.jobId)
       .eq("type", "escrow")
       .in("status", ["initiated", "paid", "released", "refund_due", "refunded"]);
     if ((previous ?? []).some((p: { status: string }) => p.status !== "initiated")) {
       return { ok: false, error: "already_paid" };
+    }
+    // An open attempt through another provider (Payonify test) may still be paid: never
+    // start a second charge for the same job alongside it.
+    if ((previous ?? []).some((p: { method: string | null }) => p.method !== "paynow")) {
+      return { ok: false, error: "other_payment_open" };
     }
     // A customer who started a Paynow payment, left, and taps Pay again may
     // actually have completed the first one. Check those attempts with

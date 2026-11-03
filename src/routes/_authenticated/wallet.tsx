@@ -1,10 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { DriverPayoutsCard } from "@/components/payments/DriverPayoutsCard";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { initiatePaynowTopup, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
 import { friendlyPaymentError, topupAmountError } from "@/lib/paymentErrors";
+import { PayonifyPay } from "@/components/payments/PayonifyPay";
+import { defaultPayChoice, ecocashDetail, ecocashLabel, paynowDetail, paynowLabel, usePaymentOptions } from "@/components/payments/usePaymentOptions";
 import {
   Wallet as WalletIcon,
   Fuel,
@@ -61,6 +64,7 @@ type PaynowTopup = {
   status: string;
   paid_at: string | null;
   created_at: string;
+  method?: string | null;
 };
 
 // Withdrawal payouts are manual: "approved" means the request was accepted and
@@ -156,7 +160,7 @@ function WalletPage() {
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("payments")
-        .select("id,amount,status,paid_at,created_at")
+        .select("id,amount,status,paid_at,created_at,method")
         .eq("user_id", userId!)
         .eq("type", "topup")
         .order("created_at", { ascending: false })
@@ -354,6 +358,8 @@ function WalletPage() {
         )}
       </motion.div>
 
+      {userId && <DriverPayoutsCard userId={userId} hasPin={!!hasPin} />}
+
       <div className="mt-5 flex gap-1 rounded-xl bg-muted p-1" role="tablist" aria-label="Wallet sections">
         {(["summary", "requests", "history"] as const).map((t) => (
           <button
@@ -417,12 +423,14 @@ function WalletPage() {
                     <ArrowDownLeft className="w-5 h-5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold">Top-up · Paynow</div>
+                    <div className="text-sm font-semibold">Top-up · {p.method === "payonify" ? "EcoCash" : "Paynow"}</div>
                     <div className="text-xs text-muted-foreground">
                       {new Date(p.paid_at ?? p.created_at).toLocaleString()} · {PAYNOW_STATUS[p.status] ?? p.status}
                     </div>
                     {p.status === "initiated" && (
-                      <div className="text-xs text-muted-foreground">Your wallet is credited only once Paynow confirms payment.</div>
+                      <div className="text-xs text-muted-foreground">
+                        Your wallet is credited only once {p.method === "payonify" ? "EcoCash" : "Paynow"} confirms payment.
+                      </div>
                     )}
                   </div>
                   <div className={cn("text-sm font-display font-bold", p.status === "paid" || p.status === "released" ? "text-success" : "text-muted-foreground")}>
@@ -653,6 +661,18 @@ function SummaryRow({ label, value, tone, hint }: { label: string; value: string
 function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [amount, setAmount] = useState<number>(50);
   const [submitting, setSubmitting] = useState(false);
+  const qc = useQueryClient();
+  const { userId } = useAuth();
+  // Paynow, EcoCash through Payonify, or both, as the server offers them.
+  const options = usePaymentOptions();
+  const [choice, setChoice] = useState<"paynow" | "payonify" | null>(null);
+  const provider = options.paynow ? (choice ?? defaultPayChoice(options)) : "payonify";
+  const onEcocashPaid = () => {
+    for (const key of ["wallet", "wallet-tx", "topups", "paynow-topups"])
+      qc.invalidateQueries({ queryKey: [key, userId] });
+    toast.success("Top-up confirmed — your wallet has been credited.");
+    onOpenChange(false);
+  };
   const presets = [10, 20, 50, 100];
 
   const submit = async () => {
@@ -678,7 +698,11 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
       <DialogContent className="max-w-sm rounded-3xl">
         <DialogHeader>
           <DialogTitle className="font-display">Top up wallet</DialogTitle>
-          <DialogDescription>Enter an amount — you'll be securely redirected to Paynow to complete payment.</DialogDescription>
+          <DialogDescription>
+            {provider === "paynow"
+              ? "Enter an amount — you'll be securely redirected to Paynow to complete payment."
+              : "Enter an amount and your EcoCash number, then approve the payment on your phone."}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -713,18 +737,65 @@ function TopUpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
             </div>
           </div>
 
-          <div className="rounded-2xl border p-3 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-primary/10 text-cz-amber-text flex items-center justify-center shrink-0">
-              <Zap className="w-4 h-4" />
+          {options.paynow && options.payonify && (
+            <div role="radiogroup" aria-label="Pay with" className="grid grid-cols-2 gap-2">
+              {(options.paynowAsCard ? (["payonify", "paynow"] as const) : (["paynow", "payonify"] as const)).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  role="radio"
+                  aria-checked={provider === p}
+                  onClick={() => setChoice(p)}
+                  className={cn(
+                    "h-11 rounded-lg text-sm font-semibold border",
+                    provider === p ? "border-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "border-input",
+                  )}
+                >
+                  {p === "paynow" ? paynowLabel(options) : ecocashLabel(options.payonifyMode)}
+                </button>
+              ))}
             </div>
-            <div className="text-[12px] text-muted-foreground leading-snug">
-              Pay via <span className="font-semibold text-foreground">EcoCash, OneMoney, ZIPIT, bank transfer, Visa or Mastercard</span> on Paynow's secure checkout.
-            </div>
-          </div>
+          )}
 
-          <Button onClick={submit} disabled={submitting} className="w-full h-12 rounded-xl">
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Pay with Paynow — {money(amount || 0)}</>}
-          </Button>
+          {provider === "paynow" && options.paynow && (
+            <>
+            <div className="rounded-2xl border p-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-primary/10 text-cz-amber-text flex items-center justify-center shrink-0">
+                <Zap className="w-4 h-4" />
+              </div>
+              <div className="text-[12px] text-muted-foreground leading-snug">
+                {options.paynowAsCard ? (
+                  <>Pay by <span className="font-semibold text-foreground">Visa or Mastercard</span> on Paynow's secure checkout.</>
+                ) : (
+                  <>Pay via <span className="font-semibold text-foreground">EcoCash, OneMoney, ZIPIT, bank transfer, Visa or Mastercard</span> on Paynow's secure checkout.</>
+                )}
+              </div>
+            </div>
+
+            <Button onClick={submit} disabled={submitting} className="w-full h-12 rounded-xl">
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Pay with Paynow — {money(amount || 0)}</>}
+            </Button>
+            </>
+          )}
+
+          {provider === "payonify" && options.payonify && (
+            <>
+              <p className="text-[12px] text-muted-foreground leading-snug">{ecocashDetail(options.payonifyMode)}</p>
+              <PayonifyPay
+                target={{ kind: "topup", amount }}
+                totalLabel={money(amount || 0)}
+                onPaid={onEcocashPaid}
+                disabled={!!topupAmountError(amount)}
+              />
+            </>
+          )}
+
+          {!options.paynow && !options.payonify && options.loaded && (
+            <p className="text-sm text-muted-foreground" role="status">
+              Top-ups are paused right now. Please try again later or contact support.
+            </p>
+          )}
+
           <p className="text-xs text-center text-muted-foreground">
             Your wallet is credited automatically once payment is confirmed.
           </p>

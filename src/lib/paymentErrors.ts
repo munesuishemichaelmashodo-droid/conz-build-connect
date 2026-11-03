@@ -33,6 +33,18 @@ const PAYNOW_CODES: Record<string, string> = {
   job_not_payable: "This job can't be paid for right now.",
   job_not_found: "We couldn't find that job.",
   not_your_job: "Only the customer who booked this job can pay for it.",
+  other_payment_open:
+    "Another payment for this job is still open. Finish it or wait for it to close before paying a different way.",
+  payonify_unavailable: "EcoCash payments are not available on this account right now.",
+  paynow_paused: "Paynow is no longer used for new payments. Pay with EcoCash instead.",
+  invalid_amount: "Enter an amount of at least $1.",
+  previous_attempt_unclear:
+    "We're still confirming your last payment attempt. Don't pay again yet — contact support if this doesn't clear.",
+  invalid_number: "Enter a valid EcoCash number, for example 077 123 4567.",
+  payment_declined:
+    "EcoCash payment could not be started. Nothing was charged. Check the number and try again.",
+  payment_status_unknown:
+    "We couldn't confirm the payment started. Don't pay again — tap Check status in a minute.",
 };
 
 export const GENERIC_PAYMENT_ERROR = "Something went wrong. Please try again.";
