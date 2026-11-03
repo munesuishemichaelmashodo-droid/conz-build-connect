@@ -1,0 +1,182 @@
+-- History repair, prepared 03/11/2026. NOT APPLIED. Metadata only: no schema change, no migration is run.
+-- Makes supabase_migrations.schema_migrations list exactly the versions of the files in supabase/migrations
+-- on main (148 versions; two files share 20260801202844). Run in one transaction. No DROP.
+-- Safety: aborts (nothing changes) unless production still has the 149 rows seen on 03/11, and unless the
+-- delete / insert counts are exactly 109 / 108. The old table is kept as schema_migrations_backup_20261103.
+-- Not marked as applied (not on main, not live): 0113, 0116, 0120, 0121, and 0128 until it is applied.
+-- 0079 is untouched: its live-only edit to find_next_loads_for_driver stays as it is.
+begin;
+do $$ begin
+  if (select count(*) from supabase_migrations.schema_migrations) <> 149 then
+    raise exception 'History changed since the 03/11 report; re-verify before repairing.';
+  end if;
+end $$;
+create table supabase_migrations.schema_migrations_backup_20261103 as table supabase_migrations.schema_migrations;
+create temp table _git_versions (version text primary key, name text) on commit drop;
+insert into _git_versions values
+  ('20260617113139', 'eea52ba6-2271-44ad-9b40-9cd68f7e25cd'),
+  ('20260617113209', '5f2cedff-eb72-4aa2-9ff5-a6c70836a676'),
+  ('20260618112526', '7c2c8b83-eb5e-473a-928a-1be28f25f196'),
+  ('20260619093848', '76ef9dae-a2f1-479f-90c3-307688dc336f'),
+  ('20260619095512', '8fb8f2c9-481e-4cee-bc4d-212f543fad3f'),
+  ('20260621111047', '59ecf1e8-5ebe-43ae-99cf-510570d88f82'),
+  ('20260621111800', '2310f572-3100-4531-a665-b688a8b6c4e3'),
+  ('20260702042514', '166e9081-5555-477b-af7d-d725a91acdd3'),
+  ('20260702213919', '564c604b-8999-4810-912e-2f6b4f224061'),
+  ('20260706072326', 'f457412f-0781-4a58-a21c-ae07e181abe2'),
+  ('20260707041553', 'b5c6a27b-d9eb-4512-8624-c73485d1c022'),
+  ('20260708094814', 'cd0efe98-48cf-4e09-b4a9-e21242618da6'),
+  ('20260710093606', 'bd1c3509-603d-4aee-9340-9ae8f78f0fa8'),
+  ('20260713060947', 'f9287724-6d12-4343-b25e-ca3f249a417e'),
+  ('20260713174041', '8f7a117e-b539-4541-adf2-a2b0aedc7855'),
+  ('20260714151534', '979779e6-c066-458b-a7a6-68eebb92f2b1'),
+  ('20260715072617', '38bda3df-9b20-492d-a326-2aa0c9773d27'),
+  ('20260721073647', '145b109d-1f94-43ad-8209-f6658e90bd05'),
+  ('20260721194720', 'f18c2a25-c6b2-475b-ac6d-81895f35b81b'),
+  ('20260722065945', 'e5afd4eb-5ab0-4372-bbe1-a2f1dac3c215'),
+  ('20260722071627', '499a8e70-adbc-48de-9086-06f115faa6d0'),
+  ('20260722072211', 'f0552be4-d451-4122-baee-be44adb47b30'),
+  ('20260723184338', '6548ac19-67bc-4b12-8432-f3cfe6b15bf8'),
+  ('20260723211658', '0038a221-d2a5-443a-9dc6-f0f3d7544033'),
+  ('20260723213127', 'eb548adf-2e54-4710-84f0-ee90b9af1cb4'),
+  ('20260725185041', '91dbf13a-9f45-42b5-a479-605871a90970'),
+  ('20260801202844', 'SUPERSEDED_BY_0007.sql.skip+a6c4a788-ff33-4290-a6eb-b7f7ca0dbebe'),
+  ('20260812054021', '0019_presence'),
+  ('20260812061500', '0020_create_chat_media_bucket'),
+  ('20260812063000', '0021_verified_badge_on_bids'),
+  ('20260812070000', '0022_gps_long_stop_anomaly'),
+  ('20260812073000', '0023_periodic_driver_reverification'),
+  ('20260812080000', '0024_fix_pricing_diesel_and_quantity_scaling'),
+  ('20260812090000', '0025_real_market_pricing'),
+  ('20260812091500', '0026_long_haul_uses_real_diesel_price'),
+  ('20260812093000', '0027_market_rate_history_view'),
+  ('20260812200000', '0028_expire_phone_visibility_after_job_closes'),
+  ('20260812210000', '0029_add_tipper_side_back_photos'),
+  ('20260812220000', '0031_scope_admin_revenue_to_today'),
+  ('20260813000000', '0032_fix_set_withdrawal_pin_upsert'),
+  ('20260813120000', '0033_fix_budget_validation_per_unit_pricing'),
+  ('20260813180000', '0034_reset_demand_multiplier_diesel_ui_bug'),
+  ('20260813999999', 'baseline_reconcile_with_live'),
+  ('20260814000000', '0035_notify_losing_bids_and_realtime_jobs_list'),
+  ('20260814190000', '0036_release_commission_hold_on_escrow_completion'),
+  ('20260815000000', '0036_market_driven_offer_above_max_bucket'),
+  ('20260816060000', '0037_extend_admin_mfa_step_up_to_older_functions'),
+  ('20260816070000', '0038_reconcile_referral_mfa_migrations'),
+  ('20260817033132', '0039_guided_tour_persistence'),
+  ('20260817999998', '0041_prune_driver_locations_24h'),
+  ('20260817999999', '0040_small_load_pricing_engine'),
+  ('20260818070000', '0042_grant_driver_role_on_verification'),
+  ('20260818080000', '0043_self_add_base_role'),
+  ('20260818090000', '0044_drop_duplicate_ratings_index'),
+  ('20260818100000', '0045_index_unindexed_foreign_keys'),
+  ('20260818110000', '0046_harden_function_search_paths'),
+  ('20260820080000', '0041_reference_truck_trip_pricing'),
+  ('20260820081500', '0042_reject_invalid_quantity_distance'),
+  ('20260820120000', '0044_authoritative_quote_distance'),
+  ('20260820140000', '0045_capacity_aware_bid_matching'),
+  ('20260821060000', '0046_multi_source_supply_foundation'),
+  ('20260821060100', '0047_resolve_material_source_candidates'),
+  ('20260821080000', '0049_source_identity_and_inventory_reservation'),
+  ('20260821101000', '0050_v1_seed_pomona'),
+  ('20260821103000', '0051_pomona_service_radius'),
+  ('20260821140000', '0052_driver_availability'),
+  ('20260821170000', '0053_supply_coverage_dashboard'),
+  ('20260821180000', '0054_bulawayo_davis_granite'),
+  ('20260821190000', '0055_regional_source_tier'),
+  ('20260821200000', '0056_next_load_matching'),
+  ('20260821210000', '0057_next_load_empty_km'),
+  ('20260822035921', '0052_guard_bid_insert_against_stale_job_state'),
+  ('20260822035932', '0053_dispatch_offer_accept_rejects_competing_bids'),
+  ('20260822040319', '0054_notify_customer_on_driver_assigned'),
+  ('20260823034400', '0058_require_real_evidence_for_photo_fields'),
+  ('20260823044500', '0059_device_tokens'),
+  ('20260829160815', 'fix_escrow_rpc_authorization'),
+  ('20260829161326', 'fix_hold_release_commission_authorization'),
+  ('20260829161624', 'revoke_wallet_available_and_claim_super_admin'),
+  ('20260829161907', 'fix_enforce_customer_strikes_authorization'),
+  ('20260917091657', 'drop_admin_mfa_requirement'),
+  ('20260925095048', '0060_driver_customer_mode_backend'),
+  ('20260925160846', '0061_remove_admin_mfa'),
+  ('20260925165036', '0062_offer_expiry_raise_price_nearby_trucks'),
+  ('20260930050611', '0063_audit_fixes_escrow_status_and_rpc_grants'),
+  ('20260930050820', '0064_tighten_driver_can_accept_for'),
+  ('20260930050916', '0065_driver_can_accept_for_null_check'),
+  ('20261004120000', '0066_insert_guards_and_trust_boundary'),
+  ('20261004120100', '0067_delivery_pin_hardening'),
+  ('20261004120200', '0068_admin_and_withdrawal_hardening'),
+  ('20261004120300', '0069_send_push_auth'),
+  ('20261004120400', '0070_views_and_grants'),
+  ('20261004181911', '0071_guard_triggers_security_invoker'),
+  ('20261007064938', 'lockdown_function_execute_grants'),
+  ('20261007065034', 'restrict_internal_functions_to_service_role'),
+  ('20261007071444', 'restore_prior_function_revokes'),
+  ('20261007210000', '0072_financial_numeric_integrity'),
+  ('20261007220000', '0073_payment_state_machine'),
+  ('20261007230000', '0074_escrow_refund_lifecycle'),
+  ('20261008000000', '0075_financial_request_immutability'),
+  ('20261008010000', '0076_admin_money_controls'),
+  ('20261008020000', '0077_kyc_protection'),
+  ('20261008030000', '0078_pin_lockout_that_counts'),
+  ('20261008040000', '0079_roles_and_job_visibility'),
+  ('20261008050000', '0080_pricing_input_integrity'),
+  ('20261008060000', '0081_account_deletion'),
+  ('20261008070000', '0082_ledger_and_reconciliation'),
+  ('20261008080000', '0083_security_invariants'),
+  ('20261008090000', '0084_reconcile_live_only_objects'),
+  ('20261008100000', '0085_second_audit_fixes'),
+  ('20261008110000', '0086_commission_change_mfa'),
+  ('20261010100000', '0087_material_sourcing_requests'),
+  ('20261010110000', '0088_sourcing_workflow_integrity'),
+  ('20261010120000', '0089_geographic_dispatch'),
+  ('20261010130000', '0090_sourcing_quote_booking_radius'),
+  ('20261010140000', '0091_flat_commission'),
+  ('20261011200000', '0092_neutralise_level_commission_multiplier'),
+  ('20261011210000', '0093_payment_audit_fixes'),
+  ('20261012000000', '0094_withdrawal_payout_tracking'),
+  ('20261012010000', '0095_wallet_reservation_failed_payout_limits'),
+  ('20261012100000', '0096_delivery_proof_both_modes'),
+  ('20261012200000', '0097_withdrawal_pin_recovery'),
+  ('20261012300000', '0098_bridge_create_price_quote_for'),
+  ('20261012310000', '0099_guard_photo_timestamps_and_sweep_proof'),
+  ('20261012320000', '0100_fix_admin_set_diesel_price_audit_call'),
+  ('20261012330000', '0101_stock_is_advisory'),
+  ('20261012340000', '0102_decline_dispatch_offer'),
+  ('20261012350000', '0103_pricing_setters_superadmin_stepup'),
+  ('20261012360000', '0104_job_supply_confirmation'),
+  ('20261012370000', '0105_accept_dispatch_offer_lock_order'),
+  ('20261013160000', '0106_long_haul_rate_round_trip'),
+  ('20261013170000', '0107_mvp_launch_switches'),
+  ('20261019230000', '0108_fix_budget_trigger_unassigned_loc'),
+  ('20261022100000', '0109_accept_bid_explicit_expiry'),
+  ('20261023100000', '0110_record_job_evidence_stage_order'),
+  ('20261023200000', '0111_admin_google_stepup_owner_lock'),
+  ('20261024100000', '0112_pickup_check_route_trail'),
+  ('20261026100000', '0114_trucks_review_and_visibility'),
+  ('20261026110000', '0115_roles_and_data_exposure'),
+  ('20261026121000', '0117_no_offers_on_own_job'),
+  ('20261026130000', '0118_pricing_engine_v13'),
+  ('20261026140000', '0119_bid_message_length'),
+  ('20261027130000', '0122_admin_signin_alert_not_to_self'),
+  ('20261027140000', '0123_admin_price_accuracy'),
+  ('20261027150000', '0124_material_price_setters_stepup'),
+  ('20261027160000', '0125_no_direct_writes_settings_prices_roles'),
+  ('20261028100000', '0126_public_tracking_details'),
+  ('20261102100000', '0127_pricing_engine_v14');
+do $$
+declare d int; i int;
+begin
+  delete from supabase_migrations.schema_migrations where version not in (select version from _git_versions);
+  get diagnostics d = row_count;
+  insert into supabase_migrations.schema_migrations (version, name, statements)
+    select g.version, g.name, array['see supabase/migrations (history repair 03/11/2026)']
+      from _git_versions g
+     where g.version not in (select version from supabase_migrations.schema_migrations);
+  get diagnostics i = row_count;
+  if d <> 109 or i <> 108 then
+    raise exception 'Unexpected counts (deleted %, inserted %); nothing was changed.', d, i;
+  end if;
+  if (select count(*) from supabase_migrations.schema_migrations) <> 148 then
+    raise exception 'Final row count is not 148; nothing was changed.';
+  end if;
+end $$;
+commit;
