@@ -52,15 +52,16 @@ function AdminPoints() {
   const { data } = useQuery({
     queryKey: ["admin-points"],
     queryFn: async () => {
-      const [{ data: o }, { data: rules }, { data: ledger }, { data: mats }] = await Promise.all([
-        rpc("points_overview", {}),
-        table("points_rules").select("*").order("created_at"),
-        table("points_ledger")
-          .select("id,user_id,points,kind,event,reason,basis,reverses_id,created_at")
-          .order("created_at", { ascending: false })
-          .limit(60),
-        supabase.from("material_prices").select("material"),
-      ]);
+      const [{ data: o, error: overviewError }, { data: rules }, { data: ledger }, { data: mats }] =
+        await Promise.all([
+          rpc("points_overview", {}),
+          table("points_rules").select("*").order("created_at"),
+          table("points_ledger")
+            .select("id,user_id,points,kind,event,reason,basis,reverses_id,created_at")
+            .order("created_at", { ascending: false })
+            .limit(60),
+          supabase.from("material_prices").select("material"),
+        ]);
       const rows = (ledger ?? []) as LedgerRow[];
       const ids = Array.from(new Set(rows.map((r) => r.user_id)));
       const { data: profs } = ids.length
@@ -69,6 +70,7 @@ function AdminPoints() {
       const names = new Map((profs ?? []).map((p) => [p.id, p.full_name || p.email || "User"]));
       rows.forEach((r) => (r.who = names.get(r.user_id) ?? "User"));
       return {
+        ready: !overviewError,
         enabled: !!(o as { enabled?: boolean } | null)?.enabled,
         rules: (rules ?? []) as Rule[],
         ledger: rows,
@@ -170,6 +172,15 @@ function AdminPoints() {
     );
     setNewMat("");
   };
+
+  if (data && !data.ready) {
+    return (
+      <div className="rounded-2xl border bg-card p-5 text-sm text-muted-foreground">
+        ConZ points are not set up on this database yet (migration 0131 has not been applied).
+        Nothing is awarded and nothing is shown to customers or drivers.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
