@@ -49,12 +49,21 @@ const norm = (s: string | null | undefined) => (s ?? "").toLowerCase();
 export function matchesSearch(row: AdminJobRow, q: string): boolean {
   const needle = q.trim().toLowerCase();
   if (!needle) return true;
-  return [row.id, row.material, row.custom_material, row.delivery_address, row.customerName, row.driverName]
+  return [
+    row.id,
+    row.material,
+    row.custom_material,
+    row.delivery_address,
+    row.customerName,
+    row.driverName,
+  ]
     .map(norm)
     .some((v) => v.includes(needle));
 }
 
-export function jobTitle(row: Pick<AdminJobRow, "material" | "custom_material" | "quantity_m3">): string {
+export function jobTitle(
+  row: Pick<AdminJobRow, "material" | "custom_material" | "quantity_m3">,
+): string {
   const name = (row.custom_material || row.material || "Job").replace(/_/g, " ");
   const label = name.charAt(0).toUpperCase() + name.slice(1);
   return row.quantity_m3 ? `${label} · ${Number(row.quantity_m3)} m³` : label;

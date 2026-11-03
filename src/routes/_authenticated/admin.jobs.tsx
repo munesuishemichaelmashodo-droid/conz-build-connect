@@ -44,13 +44,19 @@ function AdminJobs() {
     queryFn: async (): Promise<AdminJobRow[]> => {
       let query = supabase
         .from("jobs")
-        .select("id,status,material,custom_material,quantity_m3,delivery_address,final_price,budget,payment_method,created_at,updated_at,customer_id,driver_id")
+        .select(
+          "id,status,material,custom_material,quantity_m3,delivery_address,final_price,budget,payment_method,created_at,updated_at,customer_id,driver_id",
+        )
         .order("updated_at", { ascending: filter === "active" })
         .limit(LIMIT);
       const statuses = statusesFor(filter);
       if (statuses) query = query.in("status", statuses as never);
       const { data: jobs } = await query;
-      const ids = Array.from(new Set((jobs ?? []).flatMap((j) => [j.customer_id, j.driver_id].filter(Boolean) as string[])));
+      const ids = Array.from(
+        new Set(
+          (jobs ?? []).flatMap((j) => [j.customer_id, j.driver_id].filter(Boolean) as string[]),
+        ),
+      );
       const { data: profiles } = ids.length
         ? await supabase.from("profiles").select("id,full_name").in("id", ids)
         : { data: [] as { id: string; full_name: string | null }[] };
@@ -110,13 +116,22 @@ function AdminJobs() {
             const age = now - new Date(r.updated_at ?? r.created_at).getTime();
             return (
               <li key={r.id}>
-                <Link to="/jobs/$id" params={{ id: r.id }} className="block rounded-2xl border bg-card p-3 shadow-card active:opacity-70">
+                <Link
+                  to="/jobs/$id"
+                  params={{ id: r.id }}
+                  className="block rounded-2xl border bg-card p-3 shadow-card active:opacity-70"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold">{jobTitle(r)}</p>
-                      <p className="truncate text-xs text-muted-foreground">{r.delivery_address ?? "No address"}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {r.delivery_address ?? "No address"}
+                      </p>
                     </div>
-                    <StatusBadge label={STATUS_LABEL[r.status] ?? r.status} className={STATUS_CLASS[r.status]} />
+                    <StatusBadge
+                      label={STATUS_LABEL[r.status] ?? r.status}
+                      className={STATUS_CLASS[r.status]}
+                    />
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {r.customerName}
@@ -134,7 +149,11 @@ function AdminJobs() {
           })}
         </ul>
       )}
-      {(data?.length ?? 0) >= LIMIT && <p className="text-xs text-muted-foreground">Showing the latest {LIMIT}. Use search or a filter to narrow it.</p>}
+      {(data?.length ?? 0) >= LIMIT && (
+        <p className="text-xs text-muted-foreground">
+          Showing the latest {LIMIT}. Use search or a filter to narrow it.
+        </p>
+      )}
     </div>
   );
 }
