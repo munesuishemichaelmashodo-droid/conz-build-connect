@@ -98,8 +98,9 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
   // Customer mode redesign: same queries/flags as before, new look. The
   // booking itself (C1) lives at /customer/book.
   const first = profile?.full_name?.split(" ")[0] ?? "Builder";
-  // The latest completed delivery, offered as a one-tap repeat. Price is never copied (book-again.ts).
-  const repeat = isCustomer ? ((jobs ?? []).find((j) => j.status === "completed") ?? null) : null;
+  // The latest completed delivery, offered as a one-tap repeat. Price is never copied (book-again.ts) and a
+  // custom-material job is skipped because the booking screen cannot pre-fill it.
+  const repeat = isCustomer ? ((jobs ?? []).find((j) => j.status === "completed" && j.material !== "custom") ?? null) : null;
   return (
     <>
       <CzScreen className={NAV_SPACE}>
