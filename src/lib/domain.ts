@@ -1,3 +1,5 @@
+import { jobStamp, TONE_CLASS } from "@/lib/status-stamp";
+
 export type AppRole = "customer" | "driver" | "admin" | "super_admin";
 
 export type MaterialCategory =
@@ -38,13 +40,9 @@ export const levelInfo = (l: string) => {
   }
 };
 
+// Same words and tones as the status stamps (src/lib/status-stamp.ts). Warning
+// colours are kept for real problems, never for a job that is simply moving.
 export const statusInfo = (s: string) => {
-  switch (s) {
-    case "open": return { label: "Open", className: "bg-primary/15 text-primary border-primary/30" };
-    case "accepted": return { label: "Accepted", className: "bg-warning/15 text-warning border-warning/30" };
-    case "in_progress": return { label: "In progress", className: "bg-warning/15 text-warning border-warning/30" };
-    case "completed": return { label: "Completed", className: "bg-success/15 text-success border-success/30" };
-    case "cancelled": return { label: "Cancelled", className: "bg-muted text-muted-foreground border-border" };
-    default: return { label: s, className: "bg-muted text-muted-foreground border-border" };
-  }
+  const stamp = jobStamp({ status: s });
+  return { label: stamp.label, className: `${TONE_CLASS[stamp.tone]} border-transparent` };
 };

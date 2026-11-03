@@ -1,8 +1,18 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { PriceAccuracyCard } from "@/components/admin/PriceAccuracyCard";
+import { LaunchSwitchesCard } from "@/components/admin/LaunchSwitchesCard";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { Percent, Save, ShieldAlert, Fuel, Package } from "lucide-react";
+import { Percent, Save, ShieldAlert, Fuel, Package, Truck } from "lucide-react";
+import {
+  DIESEL_FALLBACK_PER_LITRE,
+  FUEL_RANGE,
+  MARKUP_RANGE,
+  resolveDiesel,
+  resolveFuel,
+  resolveMarkup,
+} from "@/lib/pricing-assumptions";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AddressPicker } from "@/components/AddressPicker";
@@ -24,18 +34,37 @@ function AdminSettings() {
   const isSuper = is("super_admin");
   const qc = useQueryClient();
 
-  const { data: diesel } = useQuery({
+  // What the pricing engine actually uses (0127): the saved value if valid, else its default.
+  const { data: engineSettings } = useQuery({
     queryKey: ["diesel-price"],
     queryFn: async () => {
-      const { data } = await supabase.from("system_settings").select("value").eq("key", "diesel_price_per_liter").maybeSingle();
-      return Number(data?.value ?? 1.87);
+      const { data } = await supabase
+        .from("system_settings")
+        .select("key,value")
+        .in("key", ["diesel_price_per_liter", "fuel_l_per_100km", "long_haul_markup"]);
+      const raw = (k: string): unknown =>
+        (data ?? []).find((r: { key: string }) => r.key === k)?.value ?? null;
+      return {
+        diesel: resolveDiesel(raw("diesel_price_per_liter")),
+        fuel: resolveFuel(raw("fuel_l_per_100km")),
+        markup: resolveMarkup(raw("long_haul_markup")),
+      };
     },
   });
+  const diesel = engineSettings?.diesel;
 
   const [dieselValue, setDieselValue] = useState("");
   useEffect(() => {
-    if (diesel != null) setDieselValue(String(diesel));
-  }, [diesel]);
+    if (diesel?.source === "setting") setDieselValue(String(diesel.value));
+  }, [diesel?.source, diesel?.value]);
+  const [fuelValue, setFuelValue] = useState("");
+  const [markupValue, setMarkupValue] = useState("");
+  useEffect(() => {
+    if (engineSettings) {
+      setFuelValue(String(engineSettings.fuel.value));
+      setMarkupValue(String(engineSettings.markup.value));
+    }
+  }, [engineSettings]);
 
   const { data: materials } = useQuery({
     queryKey: ["admin-material-prices-full"],
@@ -106,6 +135,31 @@ function AdminSettings() {
     qc.invalidateQueries({ queryKey: ["diesel-price"] });
   };
 
+  const saveFuelAssumptions = async () => {
+    const fuel = Number(fuelValue);
+    const markup = Number(markupValue);
+    if (!Number.isFinite(fuel) || fuel < FUEL_RANGE.min || fuel > FUEL_RANGE.max)
+      return toast.error(`Fuel use must be between ${FUEL_RANGE.min} and ${FUEL_RANGE.max} L per 100 km`);
+    if (!Number.isFinite(markup) || markup < MARKUP_RANGE.min || markup > MARKUP_RANGE.max)
+      return toast.error(`The long-haul allowance must be between ${MARKUP_RANGE.min} and ${MARKUP_RANGE.max}`);
+    const reason =
+      window.prompt('Why are the fuel figures changing? e.g. "measured 34 L/100 km on loaded HOWO tippers" (recorded in the audit log)') ??
+      undefined;
+    if (!reason?.trim() || reason.trim().length < 5) return toast.error("Give a reason (at least 5 characters)");
+    // 0127's RPC is not in the generated types yet.
+    const { error } = await (supabase.rpc as unknown as (
+      f: string,
+      a: Record<string, unknown>,
+    ) => PromiseLike<{ error: { message: string } | null }>)("admin_set_fuel_assumptions", {
+      _fuel_l_per_100km: fuel,
+      _long_haul_markup: markup,
+      _reason: reason.trim(),
+    });
+    if (error) return failWithStepUp(error);
+    toast.success(`Fuel use ${fuel} L/100 km, long-haul allowance ${markup} saved`);
+    qc.invalidateQueries({ queryKey: ["diesel-price"] });
+  };
+
   const saveMultiplier = async () => {
     const v = Number(multiplierValue);
     if (isNaN(v) || v <= 0 || v > 3.0) return toast.error("Multiplier must be between 0 and 3.0");
@@ -131,12 +185,19 @@ function AdminSettings() {
     <div className="space-y-4">
       <div className="rounded-2xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
-          <Fuel className="w-5 h-5 text-primary" />
-          <h3 className="font-display font-bold text-lg uppercase tracking-wide">Diesel price</h3>
+          <Fuel className="w-5 h-5 text-cz-amber-text" />
+          <h3 className="font-display font-bold text-lg">Diesel price</h3>
         </div>
         <p className="text-sm text-muted-foreground">
           Price per liter, used to calculate long-distance transport cost.
         </p>
+        {diesel && (
+          <p className="text-sm">
+            {diesel.source === "setting"
+              ? `Pricing uses the saved price, $${diesel.value.toFixed(2)}/L.`
+              : `No valid price is saved, so pricing uses the standard figure of $${DIESEL_FALLBACK_PER_LITRE.toFixed(2)}/L.`}
+          </p>
+        )}
         <div className="flex items-center gap-2">
           <span className="font-display font-bold text-2xl text-muted-foreground">$</span>
           <input
@@ -147,6 +208,7 @@ function AdminSettings() {
             value={dieselValue}
             onChange={(e) => setDieselValue(e.target.value)}
             disabled={!isSuper}
+            aria-label="Diesel price per litre (USD)"
             className="flex-1 px-3 py-2.5 rounded-xl border bg-background text-lg font-display font-bold disabled:opacity-50"
           />
           <span className="text-sm text-muted-foreground">/ liter</span>
@@ -154,7 +216,7 @@ function AdminSettings() {
         <button
           onClick={saveDiesel}
           disabled={!isSuper}
-          className="w-full rounded-xl bg-primary text-primary-foreground font-semibold py-3 disabled:opacity-50"
+          className="w-full min-h-12 rounded-xl border-[1.5px] border-input bg-card text-foreground font-semibold hover:bg-muted disabled:opacity-50"
         >
           <Save className="w-4 h-4 inline mr-1" /> Save diesel price
         </button>
@@ -163,10 +225,67 @@ function AdminSettings() {
         )}
       </div>
 
+      <LaunchSwitchesCard isSuper={isSuper} />
+
       <div className="rounded-2xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
-          <Percent className="w-5 h-5 text-primary" />
-          <h3 className="font-display font-bold text-lg uppercase tracking-wide">Price multiplier</h3>
+          <Truck className="w-5 h-5 text-cz-amber-text" />
+          <h3 className="font-display font-bold text-lg">Fuel use and long trips</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Used for deliveries over 50 km and for drivers' fuel estimates. The long-haul allowance covers driving
+          back empty (2.0 = the full return trip).
+        </p>
+        {engineSettings && (
+          <p className="text-sm">
+            Pricing uses {engineSettings.fuel.value} L per 100 km
+            {engineSettings.fuel.source === "default" ? " (standard figure)" : ""} and an allowance of{" "}
+            {engineSettings.markup.value}
+            {engineSettings.markup.source === "default" ? " (standard figure)" : ""}.
+          </p>
+        )}
+        <label className="block text-sm font-medium">
+          Fuel use (litres per 100 km, {FUEL_RANGE.min}–{FUEL_RANGE.max})
+          <input
+            type="number"
+            min={FUEL_RANGE.min}
+            max={FUEL_RANGE.max}
+            step={0.5}
+            value={fuelValue}
+            onChange={(e) => setFuelValue(e.target.value)}
+            disabled={!isSuper}
+            className="mt-1 w-full px-3 py-2.5 rounded-xl border bg-background text-lg font-display font-bold disabled:opacity-50"
+          />
+        </label>
+        <label className="block text-sm font-medium">
+          Long-haul allowance ({MARKUP_RANGE.min}–{MARKUP_RANGE.max})
+          <input
+            type="number"
+            min={MARKUP_RANGE.min}
+            max={MARKUP_RANGE.max}
+            step={0.01}
+            value={markupValue}
+            onChange={(e) => setMarkupValue(e.target.value)}
+            disabled={!isSuper}
+            className="mt-1 w-full px-3 py-2.5 rounded-xl border bg-background text-lg font-display font-bold disabled:opacity-50"
+          />
+        </label>
+        <button
+          onClick={saveFuelAssumptions}
+          disabled={!isSuper}
+          className="w-full min-h-12 rounded-xl border-[1.5px] border-input bg-card text-foreground font-semibold hover:bg-muted disabled:opacity-50"
+        >
+          <Save className="w-4 h-4 inline mr-1" /> Save fuel figures
+        </button>
+        {!isSuper && (
+          <p className="text-xs text-muted-foreground text-center">Only super admins can change these.</p>
+        )}
+      </div>
+
+      <div className="rounded-2xl border bg-card p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Percent className="w-5 h-5 text-cz-amber-text" />
+          <h3 className="font-display font-bold text-lg">Price multiplier</h3>
         </div>
         <p className="text-sm text-muted-foreground">
           Moves every enforced material's cost at once, separate from diesel price. 1.00 = no change, 1.08 = +8%.
@@ -181,13 +300,14 @@ function AdminSettings() {
             value={multiplierValue}
             onChange={(e) => setMultiplierValue(e.target.value)}
             disabled={!isSuper}
+            aria-label="Price multiplier"
             className="flex-1 px-3 py-2.5 rounded-xl border bg-background text-lg font-display font-bold disabled:opacity-50"
           />
         </div>
         <button
           onClick={saveMultiplier}
           disabled={!isSuper}
-          className="w-full rounded-xl bg-primary text-primary-foreground font-semibold py-3 disabled:opacity-50"
+          className="w-full min-h-12 rounded-xl border-[1.5px] border-input bg-card text-foreground font-semibold hover:bg-muted disabled:opacity-50"
         >
           <Save className="w-4 h-4 inline mr-1" /> Apply multiplier
         </button>
@@ -196,10 +316,12 @@ function AdminSettings() {
         )}
       </div>
 
+      <PriceAccuracyCard />
+
       <div className="rounded-2xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
-          <Package className="w-5 h-5 text-primary" />
-          <h3 className="font-display font-bold text-lg uppercase tracking-wide">Material prices</h3>
+          <Package className="w-5 h-5 text-cz-amber-text" />
+          <h3 className="font-display font-bold text-lg">Material prices</h3>
         </div>
         <p className="text-sm text-muted-foreground">
           Set the min/max price range per material (per {materials?.[0]?.unit ?? "10-15 m³ load"}). Turning enforcement
@@ -226,7 +348,7 @@ function AdminSettings() {
         <div className="rounded-2xl border border-warning/40 bg-warning/10 p-5 space-y-3">
           <div className="flex items-center gap-2">
             <ShieldAlert className="w-5 h-5 text-warning" />
-            <h3 className="font-display font-bold uppercase tracking-wide">No super admin yet</h3>
+            <h3 className="font-display font-bold">No super admin yet</h3>
           </div>
           <p className="text-sm">
             There is no super admin on this platform. Claim the role now to manage commission and roles.
@@ -329,7 +451,14 @@ function MaterialPriceRow({
       _reason: reason.trim(),
     });
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      // 0124: price changes need a super admin with a recent Google sign-in.
+      return isMfaRequiredError(error)
+        ? toast.error(readableRpcError(error), {
+            action: { label: STEP_UP_ACTION_LABEL, onClick: () => void startStepUp() },
+          })
+        : toast.error(readableRpcError(error));
+    }
     toast.success(`${material.label} price updated`);
     setReason("");
     setOpen(false);
@@ -400,13 +529,13 @@ function MaterialPriceRow({
           <button
             onClick={save}
             disabled={!isSuper || saving}
-            className="w-full rounded-lg bg-primary text-primary-foreground font-semibold py-2 text-sm disabled:opacity-50"
+            className="min-h-11 w-full rounded-lg bg-primary text-primary-foreground font-semibold py-2 text-sm disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save"}
           </button>
 
           <div className="pt-3 mt-1 border-t space-y-2">
-            <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
+            <div className="text-xs text-muted-foreground font-semibold">
               Price by load size for {material.label}
             </div>
             <p className="text-[11px] text-muted-foreground">
@@ -433,7 +562,7 @@ function MaterialPriceRow({
           </div>
 
           <div className="pt-3 mt-1 border-t space-y-2">
-            <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
+            <div className="text-xs text-muted-foreground font-semibold">
               Actual pickup location for {material.label}
             </div>
             <p className="text-[11px] text-muted-foreground">
@@ -458,7 +587,7 @@ function MaterialPriceRow({
             <button
               onClick={savePickup}
               disabled={!isSuper || savingPickup || !pickupCoords}
-              className="w-full rounded-lg border font-semibold py-2 text-sm disabled:opacity-50"
+              className="min-h-11 w-full rounded-lg border font-semibold py-2 text-sm disabled:opacity-50"
             >
               {savingPickup ? "Saving…" : "Save pickup location"}
             </button>
@@ -518,7 +647,14 @@ function BucketPriceRow({
       _reason: reason.trim(),
     });
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      // 0124: price changes need a super admin with a recent Google sign-in.
+      return isMfaRequiredError(error)
+        ? toast.error(readableRpcError(error), {
+            action: { label: STEP_UP_ACTION_LABEL, onClick: () => void startStepUp() },
+          })
+        : toast.error(readableRpcError(error));
+    }
     toast.success(`${materialLabel} — ${bucketM3}m³ price updated`);
     setReason("");
     setOpen(false);
@@ -578,7 +714,7 @@ function BucketPriceRow({
           <button
             onClick={save}
             disabled={!isSuper || saving}
-            className="w-full rounded-lg bg-primary text-primary-foreground font-semibold py-2 text-sm disabled:opacity-50"
+            className="min-h-11 w-full rounded-lg bg-primary text-primary-foreground font-semibold py-2 text-sm disabled:opacity-50"
           >
             {saving ? "Saving…" : `Save ${bucketM3}m³ price`}
           </button>

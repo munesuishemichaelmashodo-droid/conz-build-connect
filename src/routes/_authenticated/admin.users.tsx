@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Search, ShieldOff, ShieldCheck, Ban, Wallet, X, Phone, Undo2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { StatusBadge, EmptyState } from "@/components/ui-bits";
+import { DataTable, SortHeader, Th, useSortedRows } from "@/components/ds/table";
 import { money } from "@/lib/domain";
 import { useAuth } from "@/lib/auth";
 import { isMfaRequiredError, isSecondApprovalError, readableRpcError, STEP_UP_ACTION_LABEL, startStepUp } from "@/lib/mfa";
@@ -126,6 +127,13 @@ function AdminUsers() {
     );
   });
 
+  // Desktop table order. Reorders the rows already loaded; the query is unchanged.
+  const { sorted, sort, toggle } = useSortedRows(filtered, {
+    name: (r: Row) => r.full_name,
+    status: (r: Row) => r.status,
+    balance: (r: Row) => r.balance,
+  });
+
   const setStatus = async (id: string, status: Row["status"]) => {
     let reason: string | undefined;
     if (status !== "active") {
@@ -147,14 +155,84 @@ function AdminUsers() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search by name, email, or phone…"
-          className="w-full pl-9 pr-3 py-2.5 rounded-xl border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+          aria-label="Search users"
+          className="w-full h-12 pl-9 pr-3 rounded-xl border border-input bg-card text-base focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
         />
       </div>
 
       {!filtered.length ? (
         <EmptyState icon={Search} title="No users found" hint="Try a different search." />
       ) : (
-        <div className="space-y-2">
+        <>
+        <div className="hidden lg:block">
+          <DataTable caption="Users">
+            <thead className="border-b border-border">
+              <tr>
+                <SortHeader active={sort?.key === "name"} dir={sort?.dir} onSort={() => toggle("name")}>
+                  Name
+                </SortHeader>
+                <Th>Contact</Th>
+                <Th>Roles</Th>
+                <SortHeader active={sort?.key === "status"} dir={sort?.dir} onSort={() => toggle("status")}>
+                  Status
+                </SortHeader>
+                <SortHeader align="right" active={sort?.key === "balance"} dir={sort?.dir} onSort={() => toggle("balance")}>
+                  Wallet
+                </SortHeader>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {sorted.map((r) => (
+                <tr key={r.id} className="align-top hover:bg-muted/40">
+                  <td className="px-3 py-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setActive(r)}
+                      className="min-h-11 text-left font-semibold underline-offset-4 hover:underline"
+                    >
+                      {r.full_name || "Unnamed"}
+                    </button>
+                  </td>
+                  <td className="px-3 py-2.5 text-muted-foreground">
+                    <div className="break-all">{r.email ?? "—"}</div>
+                    {r.phone && <div>{r.phone}</div>}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <div className="flex flex-wrap gap-1">
+                      {r.roles.map((role) => (
+                        <StatusBadge
+                          key={role}
+                          label={role}
+                          className={
+                            role === "super_admin" || role === "admin"
+                              ? "bg-primary/15 text-cz-amber-text border-primary/30"
+                              : role === "driver"
+                                ? "bg-warning/15 text-warning border-warning/30"
+                                : "bg-muted text-muted-foreground border-border"
+                          }
+                        />
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <StatusBadge
+                      label={r.status}
+                      className={
+                        r.status === "active"
+                          ? "bg-success/15 text-success border-success/30"
+                          : r.status === "suspended"
+                            ? "bg-warning/15 text-warning border-warning/30"
+                            : "bg-destructive/15 text-destructive border-destructive/30"
+                      }
+                    />
+                  </td>
+                  <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{money(r.balance)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
+        </div>
+        <div className="space-y-2 lg:hidden">
           {filtered.map((r) => (
             <button
               key={r.id}
@@ -177,7 +255,7 @@ function AdminUsers() {
                         label={role}
                         className={
                           role === "super_admin" || role === "admin"
-                            ? "bg-primary/15 text-primary border-primary/30"
+                            ? "bg-primary/15 text-cz-amber-text border-primary/30"
                             : role === "driver"
                               ? "bg-warning/15 text-warning border-warning/30"
                               : "bg-muted text-muted-foreground border-border"
@@ -203,6 +281,7 @@ function AdminUsers() {
             </button>
           ))}
         </div>
+        </>
       )}
 
       {active && (
@@ -348,7 +427,7 @@ Send this credit to another super admin for approval?`)) return;
             <h3 className="font-display font-bold text-lg">{row.full_name}</h3>
             <p className="text-xs text-muted-foreground">{row.email ?? "No email on file"}</p>
             {row.phone ? (
-              <a href={`tel:${row.phone}`} className="text-xs text-primary font-semibold flex items-center gap-1 mt-0.5">
+              <a href={`tel:${row.phone}`} className="text-xs text-cz-amber-text font-semibold flex items-center gap-1 mt-0.5">
                 <Phone className="w-3 h-3" /> {row.phone}
               </a>
             ) : (
@@ -361,12 +440,12 @@ Send this credit to another super admin for approval?`)) return;
         </div>
 
         <div className="mt-4 rounded-xl bg-muted/40 p-3">
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Wallet balance</div>
+          <div className="text-xs text-muted-foreground">Wallet balance</div>
           <div className="font-display font-bold text-2xl">{money(row.balance)}</div>
         </div>
 
         <div className="mt-4 space-y-2">
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+          <div className="text-xs text-muted-foreground font-semibold">
             Manual wallet adjustment
           </div>
           <p className="text-[11px] text-muted-foreground">
@@ -408,14 +487,14 @@ Send this credit to another super admin for approval?`)) return;
             <button
               disabled={busy || !isSuper}
               onClick={() => startConfirm(1)}
-              className="rounded-lg bg-success text-success-foreground font-semibold py-2 text-sm disabled:opacity-50"
+              className="min-h-11 rounded-lg bg-success text-success-foreground font-semibold py-2 text-sm disabled:opacity-50"
             >
               <Wallet className="w-4 h-4 inline mr-1" /> Credit
             </button>
             <button
               disabled={busy}
               onClick={() => startConfirm(-1)}
-              className="rounded-lg bg-destructive text-destructive-foreground font-semibold py-2 text-sm disabled:opacity-50"
+              className="min-h-11 rounded-lg bg-destructive text-destructive-foreground font-semibold py-2 text-sm disabled:opacity-50"
             >
               Deduct
             </button>
@@ -423,7 +502,7 @@ Send this credit to another super admin for approval?`)) return;
         </div>
 
         <div className="mt-4 space-y-2">
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+          <div className="text-xs text-muted-foreground font-semibold">
             Recent manual adjustments
           </div>
           {ledgerQuery.isLoading ? (
@@ -500,14 +579,14 @@ Send this credit to another super admin for approval?`)) return;
                 <button
                   disabled={busy}
                   onClick={() => setConfirming(null)}
-                  className="rounded-lg border py-2 text-sm font-semibold hover:bg-muted disabled:opacity-50"
+                  className="min-h-11 rounded-lg border py-2 text-sm font-semibold hover:bg-muted disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   disabled={busy}
                   onClick={submitAdjustment}
-                  className="rounded-lg bg-primary text-primary-foreground py-2 text-sm font-semibold disabled:opacity-50"
+                  className="min-h-11 rounded-lg bg-primary text-primary-foreground py-2 text-sm font-semibold disabled:opacity-50"
                 >
                   {busy ? "Processing…" : "Confirm"}
                 </button>
@@ -517,23 +596,23 @@ Send this credit to another super admin for approval?`)) return;
         )}
 
         <div className="mt-5 space-y-2">
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Account status</div>
+          <div className="text-xs text-muted-foreground font-semibold">Account status</div>
           <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => onStatus("active")}
-              className="rounded-lg border py-2 text-xs font-semibold hover:bg-success/10"
+              className="min-h-11 rounded-lg border py-2 text-xs font-semibold hover:bg-success/10"
             >
               <ShieldCheck className="w-4 h-4 inline mr-1 text-success" /> Active
             </button>
             <button
               onClick={() => onStatus("suspended")}
-              className="rounded-lg border py-2 text-xs font-semibold hover:bg-warning/10"
+              className="min-h-11 rounded-lg border py-2 text-xs font-semibold hover:bg-warning/10"
             >
               <ShieldOff className="w-4 h-4 inline mr-1 text-warning" /> Suspend
             </button>
             <button
               onClick={() => onStatus("banned")}
-              className="rounded-lg border py-2 text-xs font-semibold hover:bg-destructive/10"
+              className="min-h-11 rounded-lg border py-2 text-xs font-semibold hover:bg-destructive/10"
             >
               <Ban className="w-4 h-4 inline mr-1 text-destructive" /> Ban
             </button>
@@ -542,7 +621,7 @@ Send this credit to another super admin for approval?`)) return;
 
         {isSuper && (
           <div className="mt-5 space-y-2">
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Roles (super admin)</div>
+            <div className="text-xs text-muted-foreground font-semibold">Roles (super admin)</div>
             <div className="grid grid-cols-3 gap-2">
               {(["customer", "driver", "admin"] as const).map((r) => {
                 const has = row.roles.includes(r);
@@ -550,8 +629,8 @@ Send this credit to another super admin for approval?`)) return;
                   <button
                     key={r}
                     onClick={() => toggleRole(r)}
-                    className={`rounded-lg border py-2 text-xs font-semibold capitalize ${
-                      has ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted"
+                    className={`min-h-11 rounded-lg border py-2 text-sm font-semibold capitalize ${
+                      has ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "hover:bg-muted"
                     }`}
                   >
                     {has ? "✓ " : "+ "}

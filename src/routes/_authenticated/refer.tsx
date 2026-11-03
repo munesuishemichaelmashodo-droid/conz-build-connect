@@ -134,7 +134,7 @@ function ReferPage() {
         {/* Referral code card */}
         <div className="rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground p-5 shadow-lift relative overflow-hidden">
           <Gift className="absolute -right-3 -bottom-3 w-24 h-24 opacity-15" />
-          <p className="text-xs uppercase tracking-wider opacity-80 font-semibold">Your referral code</p>
+          <p className="text-xs opacity-80 font-semibold">Your referral code</p>
           <p className="font-display font-black text-3xl tracking-wide mt-1">{code ?? "…"}</p>
           <p className="text-sm opacity-90 mt-2">
             Share it with friends. You earn when they complete their first job — they get a bonus too.
@@ -142,20 +142,20 @@ function ReferPage() {
           <div className="grid grid-cols-2 gap-2 mt-4">
             <button
               onClick={() => code && copy(code, "Referral code")}
-              className="flex items-center justify-center gap-1.5 rounded-lg bg-white/15 hover:bg-white/25 py-2 text-sm font-semibold"
+              className="flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-white/15 hover:bg-white/25 py-2 text-sm font-semibold"
             >
               <Copy className="w-4 h-4" /> Copy code
             </button>
             <button
               onClick={shareGeneric}
-              className="flex items-center justify-center gap-1.5 rounded-lg bg-white/15 hover:bg-white/25 py-2 text-sm font-semibold"
+              className="flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-white/15 hover:bg-white/25 py-2 text-sm font-semibold"
             >
               <Share2 className="w-4 h-4" /> Share link
             </button>
           </div>
           <button
             onClick={shareWhatsapp}
-            className="w-full mt-2 flex items-center justify-center gap-1.5 rounded-lg bg-[#25D366] text-black py-2 text-sm font-semibold"
+            className="w-full mt-2 flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-[#25D366] text-black py-2 text-sm font-semibold"
           >
             <MessageCircle className="w-4 h-4" /> Share on WhatsApp
           </button>
@@ -172,8 +172,8 @@ function ReferPage() {
         {/* Milestones */}
         <div className="rounded-xl border bg-card p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Trophy className="w-4 h-4 text-primary" />
-            <h3 className="font-display font-bold text-sm uppercase tracking-wide">Milestones</h3>
+            <Trophy className="w-4 h-4 text-cz-amber-text" />
+            <h3 className="font-semibold text-sm">Milestones</h3>
           </div>
           <div className="flex gap-2 mb-3">
             {MILESTONES.map((m) => (
@@ -181,10 +181,10 @@ function ReferPage() {
                 key={m}
                 className={cn(
                   "flex-1 flex flex-col items-center gap-1 rounded-lg border py-2 text-[11px] font-semibold",
-                  achieved.has(m) ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"
+                  achieved.has(m) ? "border-primary bg-primary/10 text-cz-amber-text" : "text-muted-foreground"
                 )}
               >
-                <Trophy className={cn("w-4 h-4", achieved.has(m) ? "text-primary" : "text-muted-foreground/40")} />
+                <Trophy className={cn("w-4 h-4", achieved.has(m) ? "text-cz-amber-text" : "text-muted-foreground/40")} />
                 {m}
               </div>
             ))}
@@ -201,7 +201,7 @@ function ReferPage() {
 
         {/* History */}
         <div className="space-y-2">
-          <h3 className="font-display font-bold text-sm uppercase tracking-wide">Referral history</h3>
+          <h3 className="font-semibold text-sm">Referral history</h3>
           {referralsQuery.isLoading ? (
             <p className="text-xs text-muted-foreground">Loading…</p>
           ) : !referrals.length ? (

@@ -29,7 +29,7 @@ export const LEDGER_STATUSES: LedgerStatus[] = ["completed", "pending", "rejecte
 export const TYPE_TONE: Record<TxType, string> = {
   topup: "bg-success/15 text-success border-success/30",
   refund: "bg-success/15 text-success border-success/30",
-  commission: "bg-primary/15 text-primary border-primary/30",
+  commission: "bg-primary/15 text-cz-amber-text border-primary/30",
   withdrawal: "bg-warning/15 text-warning border-warning/30",
   adjustment: "bg-muted text-muted-foreground border-border",
 };

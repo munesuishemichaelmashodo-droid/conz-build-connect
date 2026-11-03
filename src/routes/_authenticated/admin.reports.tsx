@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { sentence } from "@/lib/status-stamp";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,7 +69,7 @@ function AdminReports() {
           filter/list below since it needs no user report to be actionable */}
       {!!flags?.length && (
         <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-semibold text-warning uppercase tracking-wide">
+          <div className="flex items-center gap-2 text-xs font-semibold text-warning">
             <ShieldAlert className="w-4 h-4" /> Possible off-platform contact ({flags.length})
           </div>
           {flags.map((f) => (
@@ -94,11 +95,11 @@ function AdminReports() {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`flex-1 rounded-lg border py-2 text-xs font-semibold uppercase ${
-              filter === f ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground"
-            }`}
+            className={`min-h-11 flex-1 rounded-lg border py-2 text-xs font-semibold ${
+ filter === f ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "bg-card text-muted-foreground"
+ }`}
           >
-            {f}
+            {sentence(f)}
           </button>
         ))}
       </div>
@@ -125,12 +126,12 @@ function ReportCard({ r, onUpdate }: { r: any; onUpdate: (id: string, patch: { s
           <div className="font-semibold">{r.profile?.full_name ?? "Unknown user"}</div>
           <div className="flex flex-wrap gap-x-3 gap-y-1 mt-0.5">
             {r.profile?.phone && (
-              <a href={`tel:${r.profile.phone}`} className="text-xs text-primary font-semibold flex items-center gap-1">
+              <a href={`tel:${r.profile.phone}`} className="text-xs text-cz-amber-text font-semibold flex items-center gap-1">
                 <Phone className="w-3 h-3" /> {r.profile.phone}
               </a>
             )}
             {r.profile?.email && (
-              <a href={`mailto:${r.profile.email}`} className="text-xs text-primary font-semibold flex items-center gap-1 truncate">
+              <a href={`mailto:${r.profile.email}`} className="text-xs text-cz-amber-text font-semibold flex items-center gap-1 truncate">
                 <Mail className="w-3 h-3 shrink-0" /> {r.profile.email}
               </a>
             )}

@@ -154,7 +154,7 @@ function AdminApprovals() {
   return (
     <div className="space-y-6">
       <section className="space-y-3">
-        <h2 className="font-display font-bold uppercase tracking-wide text-sm flex items-center gap-2">
+        <h2 className="font-semibold text-sm flex items-center gap-2">
           <Undo2 className="w-4 h-4" /> Escrow refunds due ({dueRefunds.length})
         </h2>
         <p className="text-xs text-muted-foreground">
@@ -197,7 +197,7 @@ function AdminApprovals() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-display font-bold uppercase tracking-wide text-sm flex items-center gap-2">
+        <h2 className="font-semibold text-sm flex items-center gap-2">
           <HandCoins className="w-4 h-4" /> Wallet credits awaiting a second super admin (
           {pendingRequests.length})
         </h2>
@@ -312,7 +312,7 @@ function PinRecoveryQueue({ enabled }: { enabled: boolean }) {
 
   return (
     <section className="space-y-3">
-      <h2 className="font-display font-bold uppercase tracking-wide text-sm flex items-center gap-2">
+      <h2 className="font-semibold text-sm flex items-center gap-2">
         <KeyRound className="w-4 h-4" /> Withdrawal PIN reset requests (
         {(rows ?? []).filter((r) => r.status === "pending").length})
       </h2>

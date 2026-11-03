@@ -26,8 +26,8 @@ function Stat({
   const content = (
     <>
       <div className="flex items-center justify-between">
-        <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</span>
-        <Icon className="w-4 h-4 text-primary" />
+        <span className="text-xs text-muted-foreground font-semibold">{label}</span>
+        <Icon className="w-4 h-4 text-cz-amber-text" />
       </div>
       <div className="flex items-end justify-between mt-1">
         <div className="font-display font-bold text-2xl">{value}</div>
@@ -96,11 +96,11 @@ function AdminDashboard() {
         <Stat icon={ShieldCheck} label="Pending verify" value={String(data?.pendingV ?? 0)} to="/admin/verifications" />
         <Stat icon={AlertOctagon} label="Open disputes" value={String(data?.disputes ?? 0)} to="/admin/disputes" />
       </div>
-      <div className="rounded-2xl bg-gradient-dark text-white p-5 shadow-lift">
-        <div className="flex items-center gap-2 text-white/70 text-[11px] uppercase tracking-widest">
+      <div className="rounded-2xl dark bg-gradient-dark text-white p-5 shadow-lift">
+        <div className="flex items-center gap-2 text-white/70 text-xs">
           <DollarSign className="w-3.5 h-3.5" /> {isSuper ? "Platform revenue" : "Today's revenue"}
         </div>
-        <div className="font-display font-bold text-4xl text-primary mt-1">{money(data?.commission ?? 0)}</div>
+        <div className="font-display font-bold text-4xl text-cz-amber-text mt-1">{money(data?.commission ?? 0)}</div>
         <div className="text-xs text-white/60 mt-1">
           {isSuper
             ? `Total commission collected at ${data?.rate ?? 7}%`
@@ -108,7 +108,7 @@ function AdminDashboard() {
         </div>
       </div>
       <div className="rounded-xl border bg-muted/30 p-4 text-xs text-muted-foreground flex items-start gap-2">
-        <Truck className="w-4 h-4 mt-0.5 text-primary" />
+        <Truck className="w-4 h-4 mt-0.5 text-cz-amber-text" />
         <span>Use the tabs above to manage users, approve drivers, and settle disputes.</span>
       </div>
     </div>

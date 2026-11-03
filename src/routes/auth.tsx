@@ -14,6 +14,10 @@ import { COUNTRY_CODES } from "@/lib/country-codes";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { safeInternalPath } from "@/lib/safe-redirect";
+import { describeAuthError, signUpOutcome } from "@/lib/auth-flow";
+import { rememberNext, takeNext } from "@/lib/post-auth-next";
+import { rememberPendingTermsAcceptance } from "@/lib/pending-terms";
+import { ResendConfirmation } from "@/components/ResendConfirmation";
 import { toast } from "sonner";
 
 const searchSchema = z.object({
@@ -41,8 +45,11 @@ function AuthPage() {
   // safeInternalPath rejects "/\evil.com"-style bypasses (audit F8 open redirect).
   const safeNext = safeInternalPath(next);
   const goPostAuth = () => {
-    if (safeNext) {
-      window.location.replace(safeNext);
+    // A destination remembered before an email confirmation, used once.
+    const target = safeNext ?? takeNext();
+    if (safeNext) takeNext();
+    if (target) {
+      window.location.replace(target);
     } else {
       nav({ to: "/home", replace: true });
     }
@@ -66,6 +73,10 @@ function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
+  // Set when a password sign-in fails because the email isn't confirmed yet (audit A-4).
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
+  // Sign-up hit an email that already has an account (Supabase sends nothing then).
+  const [existingEmail, setExistingEmail] = useState<string | null>(null);
   const [authDebug, setAuthDebug] = useState<null | {
     stage: string;
     message: string;
@@ -119,10 +130,13 @@ function AuthPage() {
       endpoint,
       hint,
     };
-    setAuthDebug(info);
-    // eslint-disable-next-line no-console
-    console.error("[auth]", info, err);
-    toast.error(`${stage} failed: ${info.message}`);
+    // Internal details (endpoint, status, code) are for developers only (audit A-5).
+    if (import.meta.env.DEV) {
+      setAuthDebug(info);
+      // eslint-disable-next-line no-console
+      console.error("[auth]", info, err);
+    }
+    toast.error(describeAuthError(err).message);
   };
 
   const login = async (e: React.FormEvent) => {
@@ -131,9 +145,14 @@ function AuthPage() {
     setLoading(true);
     const endpoint = `${supabaseUrl}/auth/v1/token?grant_type=password`;
     try {
+      setUnconfirmedEmail(null);
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       setLoading(false);
       if (error) {
+        if (describeAuthError(error).kind === "email_not_confirmed") {
+          setUnconfirmedEmail(email.trim());
+          return;
+        }
         return reportAuthError(
           "Password sign-in",
           error,
@@ -180,15 +199,27 @@ function AuthPage() {
     if (password.length < 8) return toast.error("Password must be at least 8 characters");
     if (!acceptedTerms) return toast.error("Please accept the Terms and Privacy Policy to continue");
     setAuthDebug(null);
+    setExistingEmail(null);
     setLoading(true);
     const endpoint = `${supabaseUrl}/auth/v1/signup`;
+    // Keep the booking they started (e.g. from the price check) across the
+    // confirmation email, which may open in another tab.
+    rememberNext(safeNext);
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/oauth-callback`,
-          data: { full_name: fullName, phone, role, referral_code: referralCode.trim() || null },
+          // terms_accepted: the box must be ticked to get here. activateAccount
+          // records it on the profile once the user has a session (audit A-1).
+          data: {
+            full_name: fullName,
+            phone,
+            role,
+            referral_code: referralCode.trim() || null,
+            terms_accepted: true,
+          },
         },
       });
       if (error) {
@@ -201,22 +232,21 @@ function AuthPage() {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) {
           setLoading(false);
-          nav({ to: "/verify-email", search: { email } as never });
+          const outcome = signUpOutcome({
+            hasSession: false,
+            identityCount: data.user?.identities?.length ?? null,
+          });
+          if (outcome === "existing_account") {
+            // No email was sent, so don't say it was: send them to log in instead.
+            setExistingEmail(email);
+            setResetEmail(email);
+            setPassword("");
+            setTab("login");
+            return;
+          }
+          nav({ to: "/verify-email", search: { email, next: safeNext ?? undefined } as never });
           return;
         }
-      }
-      // Record terms acceptance timestamp on the profile (best-effort).
-      try {
-        const { data: sess } = await supabase.auth.getSession();
-        const uid = sess.session?.user?.id;
-        if (uid) {
-          await supabase
-            .from("profiles")
-            .update({ terms_accepted_at: new Date().toISOString() })
-            .eq("id", uid);
-        }
-      } catch {
-        /* non-blocking */
       }
       setLoading(false);
       toast.success("Welcome to Con Z!");
@@ -233,17 +263,17 @@ function AuthPage() {
     }
     setAuthDebug(null);
     setLoading(true);
+    if (tab === "register" && acceptedTerms) rememberPendingTermsAcceptance();
     const endpoint = `${supabaseUrl}/auth/v1/authorize?provider=google`;
     const isCancellation = (m: string) =>
       /cancel/i.test(m) || /closed/i.test(m) || /popup/i.test(m) || /dismiss/i.test(m);
     try {
-      if (safeNext) {
-        try {
-          sessionStorage.setItem("conz.postAuthNext", safeNext);
-        } catch {
-          /* ignore */
-        }
-      }
+      // Google sign-up can't carry the Customer/Driver choice (the account starts as a
+      // customer), so a driver goes straight to the driver application afterwards.
+      // Admin approval there grants the driver role (migration 0042).
+      rememberNext(
+        safeNext ?? (tab === "register" && role === "driver" ? "/become-driver" : null),
+      );
 
       // Google actively blocks OAuth sign-in inside an embedded WebView
       // (returns "Error 403: disallowed_useragent") -- this app runs
@@ -316,42 +346,36 @@ function AuthPage() {
 
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-screen-sm px-5 py-6">
-        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="w-4 h-4" /> Back
+    <div className="cz-screen min-h-screen bg-background">
+      <div className="mx-auto max-w-[480px] px-5 py-4">
+        <Link to="/" className="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-foreground hover:bg-muted">
+          <ArrowLeft aria-hidden className="w-4 h-4" /> Back
         </Link>
 
-        <div className="mt-6 flex items-center gap-3">
-          <img
-            src="/conz-logo.png"
-            alt="CON Z"
-            className="w-10 h-10 rounded-lg object-cover"
-            width={40}
-            height={40}
-          />
+        <div className="mt-4 flex items-center gap-3">
+          <img src="/conz-icon-192.png" alt="" className="w-10 h-10 rounded-lg" width={40} height={40} />
           <div>
-            <h1 className="font-display font-bold text-2xl uppercase tracking-tight leading-none">Con Z</h1>
-            <div className="text-xs text-muted-foreground uppercase tracking-widest">Construction Made Easy</div>
+            <h1 className="cz-display font-bold text-[28px] leading-none">Con Z</h1>
+            <div className="text-sm text-muted-foreground">Construction made easy</div>
           </div>
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as "login" | "register")} className="mt-6">
           <TabsList className="grid grid-cols-2 w-full">
-            <TabsTrigger value="login">Login</TabsTrigger>
+            <TabsTrigger value="login">Log in</TabsTrigger>
             <TabsTrigger value="register">Register</TabsTrigger>
           </TabsList>
 
-          {authDebug && (
+          {import.meta.env.DEV && authDebug && (
             <div className="mt-4 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs space-y-1">
               <div className="flex items-center justify-between gap-2">
-                <div className="font-semibold text-destructive uppercase tracking-wide">
+                <div className="font-semibold text-destructive">
                   {authDebug.stage} error
                 </div>
                 <button
                   type="button"
                   onClick={() => setAuthDebug(null)}
-                  className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                  className="text-xs text-muted-foreground hover:text-foreground"
                 >
                   Dismiss
                 </button>
@@ -398,6 +422,38 @@ function AuthPage() {
                 </Button>
               </div>
             )}
+            {existingEmail && (
+              <div role="alert" className="rounded-xl border border-primary/40 bg-primary/5 p-4 space-y-3">
+                <div>
+                  <p className="font-semibold">You already have an account</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    <span className="font-semibold break-all">{existingEmail}</span> is already registered,
+                    so we didn't send a new link. If you first joined with Google, continue with Google.
+                    Otherwise log in below, or reset your password if you've forgotten it.
+                  </p>
+                </div>
+                <Button type="button" onClick={google} disabled={loading} className="w-full h-11 gap-2">
+                  <GoogleLogo />
+                  Continue with Google
+                </Button>
+              </div>
+            )}
+            {unconfirmedEmail && (
+              <div
+                role="alert"
+                className="rounded-xl border border-primary/40 bg-primary/5 p-4 space-y-3"
+              >
+                <div>
+                  <p className="font-semibold">Confirm your email first</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Open the link we emailed to{" "}
+                    <span className="font-semibold break-all">{unconfirmedEmail}</span>, then log
+                    in. Can't find it? Check Spam/Junk, or send a new link.
+                  </p>
+                </div>
+                <ResendConfirmation initialEmail={unconfirmedEmail} editable={false} />
+              </div>
+            )}
             <form onSubmit={login} className="space-y-3">
               <div>
                 <Label htmlFor="email">Email</Label>
@@ -407,8 +463,8 @@ function AuthPage() {
                 <Label htmlFor="password">Password</Label>
                 <PasswordInput id="password" value={password} onChange={setPassword} show={showPassword} onToggle={() => setShowPassword((v) => !v)} autoComplete="current-password" />
               </div>
-              <Button type="submit" disabled={loading} className="w-full h-11 font-display uppercase tracking-wide">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Login"}
+              <Button type="submit" disabled={loading} className="w-full">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Log in"}
               </Button>
             </form>
             <div className="rounded-xl border bg-card p-3 space-y-2">
@@ -421,7 +477,7 @@ function AuthPage() {
               </div>
             </div>
             <Divider />
-            <Button type="button" variant="outline" onClick={google} disabled={loading} className="w-full h-11 gap-2">
+            <Button type="button" variant="outline" onClick={google} disabled={loading} className="w-full gap-2">
               <GoogleLogo />
               Continue with Google
             </Button>
@@ -480,12 +536,12 @@ function AuthPage() {
                     maxLength={20}
                   />
                 </div>
-                <label className="flex items-start gap-2 text-xs text-muted-foreground select-none">
+                <label className="flex items-start gap-3 py-1 text-sm text-muted-foreground select-none">
                   <input
                     type="checkbox"
                     checked={acceptedTerms}
                     onChange={(e) => setAcceptedTerms(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 accent-primary"
+                    className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--cz-text)]"
                     required
                   />
                   <span>
@@ -495,17 +551,19 @@ function AuthPage() {
                     <Link to="/privacy" target="_blank" className="underline text-foreground">Privacy Policy</Link>.
                   </span>
                 </label>
-                <Button type="submit" disabled={loading || !acceptedTerms} className="w-full h-11 font-display uppercase tracking-wide">
+                <Button type="submit" disabled={loading || !acceptedTerms} className="w-full">
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create account"}
                 </Button>
               </form>
             <Divider />
-            <Button type="button" variant="outline" onClick={google} disabled={loading} className="w-full h-11 gap-2">
+            <Button type="button" variant="outline" onClick={google} disabled={loading} className="w-full gap-2">
               <GoogleLogo />
               Continue with Google
             </Button>
-            <p className="text-[11px] text-muted-foreground text-center">
-              Google sign-up creates a Customer account. Switch to a Driver account from your profile.
+            <p className="text-xs text-muted-foreground text-center">
+              {role === "driver"
+                ? "With Google, you'll go straight to the driver application to add your truck and documents."
+                : "One tap with your Google account. No confirmation email needed."}
             </p>
           </TabsContent>
         </Tabs>
@@ -528,12 +586,12 @@ function GoogleLogo() {
 function RoleCard({ value, label, hint, current }: { value: "customer" | "driver"; label: string; hint: string; current: string }) {
   const active = current === value;
   return (
-    <label className={`flex flex-col items-start gap-1 rounded-xl border p-3 cursor-pointer transition ${active ? "border-primary bg-accent" : "border-border hover:bg-muted/50"}`}>
+    <label className={`flex flex-col items-start gap-1 rounded-xl border p-3 cursor-pointer transition ${active ? "border-foreground bg-muted shadow-[inset_0_0_0_1px_var(--cz-text)]" : "border-border hover:bg-muted/50"}`}>
       <div className="flex items-center gap-2">
         <RadioGroupItem value={value} id={value} />
         <span className="font-semibold">{label}</span>
       </div>
-      <span className="text-[11px] text-muted-foreground">{hint}</span>
+      <span className="text-xs text-muted-foreground">{hint}</span>
     </label>
   );
 }
@@ -567,7 +625,7 @@ function Divider() {
   return (
     <div className="relative">
       <div className="absolute inset-0 flex items-center"><div className="w-full border-t" /></div>
-      <div className="relative flex justify-center"><span className="bg-background px-2 text-[11px] uppercase tracking-widest text-muted-foreground">or</span></div>
+      <div className="relative flex justify-center"><span className="bg-background px-2 text-xs text-muted-foreground">or</span></div>
     </div>
   );
 }
@@ -588,6 +646,8 @@ function CountryCodeSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          // A combobox takes no name from its text, so name it explicitly.
+          aria-label={`Country code: ${selected ? `${selected.name} ${selected.dial_code}` : "not chosen"}`}
           className="w-full justify-between px-2 font-normal"
         >
           {selected ? `${selected.name} ${selected.dial_code}` : "Select code"}

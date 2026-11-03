@@ -1,3 +1,4 @@
+import "../lib/auth-url-snapshot"; // first: capture auth redirect flags before the Supabase client reads the URL
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -9,6 +10,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { recoverFromStaleBuild } from "../lib/stale-build";
 import appCss from "../styles.css?url";
 import "../lib/fonts";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -16,6 +18,7 @@ import { AuthProvider } from "@/lib/auth";
 import { ViewModeProvider } from "@/lib/view-mode";
 import { Toaster } from "@/components/ui/sonner";
 import { GuidedTourProvider } from "@/components/GuidedTourProvider";
+import { TermsGate } from "@/components/TermsGate";
 import { SITE_URL } from "@/lib/site";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -28,7 +31,7 @@ function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-7xl font-display font-bold text-primary">404</h1>
+        <h1 className="text-7xl font-display font-bold text-cz-amber-text">404</h1>
         <h2 className="mt-4 text-xl font-semibold">Page not found</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           That page isn't on the map. Let's get you back to base.
@@ -50,12 +53,14 @@ function ErrorComponent({ error: rawError, reset }: { error: unknown; reset: () 
   console.error(error);
   const router = useRouter();
   useEffect(() => {
+    // A tab left open across a release can't load the new page files: reload once instead.
+    if (recoverFromStaleBuild(error)) return;
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-display font-bold uppercase tracking-wide">Something broke on the build site</h1>
+        <h1 className="text-xl font-display font-bold">Something broke on the build site</h1>
         <p className="mt-2 text-sm text-muted-foreground">Try again — or head back to the yard.</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button onClick={() => { router.invalidate(); reset(); }} className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
@@ -69,7 +74,7 @@ function ErrorComponent({ error: rawError, reset }: { error: unknown; reset: () 
             a JS error message/stack, not secrets) and is the single
             fastest way to actually fix the next one of these. */}
         <div className="mt-8 text-left rounded-lg border bg-muted/40 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+          <p className="text-xs font-semibold text-muted-foreground mb-1">
             Technical details (screenshot this)
           </p>
           <p className="text-[11px] font-mono break-words text-muted-foreground mb-1">
@@ -128,12 +133,12 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     // suppressHydrationWarning: the inline theme script below may remove "dark"
     // before React hydrates (light theme). That is intended, not a mismatch.
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('conz.theme')||'dark';var r=document.documentElement;if(t==='dark'){r.classList.add('dark')}else{r.classList.remove('dark')}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('conz.theme')||'light';var r=document.documentElement;if(t==='dark'){r.classList.add('dark')}else{r.classList.remove('dark')}}catch(e){}})();`,
           }}
         />
       </head>
@@ -184,6 +189,7 @@ function RootComponent() {
         <ViewModeProvider>
           <GuidedTourProvider>
             <Outlet />
+            <TermsGate />
             <Toaster position="top-center" richColors closeButton visibleToasts={3} />
           </GuidedTourProvider>
         </ViewModeProvider>

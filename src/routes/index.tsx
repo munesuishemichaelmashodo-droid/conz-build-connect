@@ -103,15 +103,17 @@ function Welcome() {
               and follow the load to your gate.
             </p>
             <div className="mt-5 flex flex-col gap-2.5">
+              {/* The price check is the lowest-risk first step: it works without an
+                  account and carries everything into booking afterwards. */}
+              <Link to="/quote" className={czButtonClass("primary")}>
+                Check my price, no account needed
+              </Link>
               <Link
                 to="/auth"
                 search={{ mode: "register", next: "/customer/book" } as never}
-                className={czButtonClass("primary")}
+                className={czButtonClass("ghost", "md")}
               >
                 Book a delivery
-              </Link>
-              <Link to="/quote" className={czButtonClass("ghost", "md")}>
-                Check a price, no account needed
               </Link>
             </div>
           </section>
@@ -177,7 +179,8 @@ function Welcome() {
               </h2>
             </div>
             <p className="mt-3 text-[15px] leading-relaxed text-cz-muted">
-              Find loads near you and offer your own price. You can start bidding once Con Z has
+              Find loads near you and offer your own price. Con Z takes 7% of each completed job,
+              and your first completed job is commission-free. You can start bidding once Con Z has
               checked your:
             </p>
             <ul className="mt-3 grid grid-cols-3 gap-2">

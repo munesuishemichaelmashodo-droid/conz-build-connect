@@ -144,9 +144,13 @@ const db = {
   driver_availability: [{ driver_id: ID.driver, status: "offline", lat: null, lng: null, updated_at: hoursAgo(3) }],
   system_settings: [
     { key: "commission_rate", value: 7 },
+    { key: "diesel_price_per_liter", value: 1.87 }, // production value 26/10/2026
     { key: "escrow_enabled", value: false },
     { key: "withdrawals_enabled", value: false },
+    // Quotation requests are off in production until the owner turns them on; MOCK_SOURCING=1 shows them here.
+    ...(process.env.MOCK_SOURCING === "1" ? [{ key: "sourcing_requests_enabled", value: true }] : []),
   ],
+  material_sourcing_requests: [],
   jobs: [
     {
       id: "00000000-0000-4000-8000-00000000a001",
@@ -186,6 +190,15 @@ const db = {
       delivery_address: "Harward Road, Belvedere, Harare, Zimbabwe",
       delivery_lat: -17.8322,
       delivery_lng: 31.0181,
+      pickup_photo_taken_at: minutesAgo(25),
+      sample_trail: [
+        [-17.758, 31.078],
+        [-17.7625, 31.0731],
+        [-17.7688, 31.0664],
+        [-17.7751, 31.0602],
+        [-17.7823, 31.0541],
+        [-17.7871, 31.0503],
+      ],
       created_at: hoursAgo(30),
       tracking_token: randomUUID(),
     },
@@ -304,7 +317,7 @@ const db = {
   // A delivery nobody has touched for weeks, a stuck Paynow payment, a waiting
   // top-up and a passing reconciliation, so the admin "Needs attention" panel has
   // something to show.
-  wallet_topup_requests: [{ id: randomUUID(), user_id: ID.driver, amount: 10, status: "pending", created_at: hoursAgo(50) }],
+  wallet_topup_requests: [{ id: randomUUID(), user_id: ID.driver, amount: 10, method: "ecocash", reference: "SAMPLE-REF-1", status: "pending", created_at: hoursAgo(50) }],
   reconciliation_runs: [{ id: randomUUID(), ran_at: hoursAgo(12), ok: true, failed: [] }],
   notifications: Array.from({ length: 3 }, (_, i) => ({
     id: randomUUID(),
@@ -318,10 +331,64 @@ const db = {
   wallet_transactions: [],
   payments: [{ id: randomUUID(), user_id: ID.driver, type: "topup", amount: 5, status: "initiated", method: "paynow", created_at: hoursAgo(3) }],
   storage_objects: [],
+  // One verified sample supply site (exact coordinates) for the materials below,
+  // so the price check can resolve a pickup. Synthetic.
+  material_supply_locations: ["river_sand", "pit_sand", "quarry_dust", "crusher_run", "gravel", "stones"].map((material, i) => ({
+    id: `00000000-0000-4000-8000-0000000005${String(i).padStart(2, "0")}`,
+    material,
+    supplier_id: "00000000-0000-4000-8000-000000000501",
+    supplier_name: "Sample Quarry (synthetic)",
+    source_type: "quarry",
+    label: "Sample Quarry",
+    address: "Pomona, Harare (sample)",
+    lat: -17.7489,
+    lng: 31.0823,
+    status: "active",
+    verified: true,
+  })),
 };
+
+// Sample live truck position for the in-progress job (a002), between Pomona and Belvedere.
+// MOCK_LIVE_MINUTES_AGO=20 shows the "not live" (stale) state.
+db.driver_locations = [
+  {
+    job_id: "00000000-0000-4000-8000-00000000a002",
+    driver_id: ID.driver2,
+    lat: -17.7905,
+    lng: 31.0472,
+    heading: 225,
+    accuracy: 12,
+    updated_at: minutesAgo(Number(process.env.MOCK_LIVE_MINUTES_AGO ?? 0)),
+  },
+];
 
 // --- RPCs (answers shaped like the real functions; values are synthetic) --------
 const rpc = {
+  // Shaped like the live RPC (0088): customers only, idempotent on the key, returns the id.
+  create_material_sourcing_request: (a, me) => {
+    if (!me) return null;
+    const dup = db.material_sourcing_requests.find(
+      (r) => r.customer_id === me.id && a.p_idempotency_key && r.idempotency_key === a.p_idempotency_key,
+    );
+    if (dup) return dup.id;
+    const row = {
+      id: randomUUID(),
+      customer_id: me.id,
+      material: a.p_material,
+      quantity_m3: a.p_quantity_m3,
+      delivery_address: a.p_delivery_address,
+      delivery_lat: a.p_delivery_lat,
+      delivery_lng: a.p_delivery_lng,
+      preferred_date: a.p_preferred_date,
+      notes: a.p_notes,
+      status: "requested",
+      idempotency_key: a.p_idempotency_key,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    db.material_sourcing_requests.push(row);
+    return row.id;
+  },
   launch_switches: () => ({
     escrowEnabled: false,
     withdrawalsEnabled: false,
@@ -352,6 +419,8 @@ const rpc = {
   get_public_tracking: ({ _token }) => {
     const j = db.jobs.find((x) => x.tracking_token === _token);
     if (!j) return null;
+    // 0126: a cancelled link says only that.
+    if (j.status === "cancelled") return { status: "cancelled" };
     const loc = ["accepted", "in_progress"].includes(j.status)
       ? (db.driver_locations ?? []).find((l) => l.job_id === j.id)
       : null;
@@ -365,7 +434,21 @@ const rpc = {
       delivery_lng: j.delivery_lng ?? null,
       preferred_date: j.preferred_date ?? null,
       driver_name: db.profiles.find((x) => x.id === j.driver_id)?.full_name ?? null,
-      live: loc ? { lat: loc.lat, lng: loc.lng, updated_at: loc.updated_at } : null,
+      live: loc
+        ? {
+            lat: loc.lat,
+            lng: loc.lng,
+            heading: loc.heading == null ? null : (Math.round(loc.heading / 15) * 15) % 360,
+            updated_at: loc.updated_at,
+          }
+        : null,
+      // 0126 (sample): step times and the line driven since loading.
+      times: {
+        loaded_at: j.pickup_photo_taken_at ?? null,
+        arrived_at: j.driver_arrived_dropoff_at ?? null,
+        delivered_at: j.completed_at ?? null,
+      },
+      trail: j.status === "in_progress" ? (j.sample_trail ?? null) : null,
     };
   },
   count_available_verified_drivers: () => 2,
@@ -411,6 +494,25 @@ const rpc = {
     if (job.status === "accepted") job.status = "in_progress";
     return job;
   },
+  // Shaped like the live eligibility RPC: exact, verified sites for the material.
+  resolve_material_source_candidates: ({ _material, _delivery_lat, _delivery_lng }) =>
+    db.material_supply_locations
+      .filter((r) => r.material === _material && r.verified && r.status === "active")
+      .map((r) => ({
+        supply_location_id: r.id,
+        supplier_id: r.supplier_id,
+        supplier_name: r.supplier_name,
+        source_type: r.source_type,
+        label: r.label,
+        address: r.address,
+        lat: r.lat,
+        lng: r.lng,
+        priority: 100,
+        haversine_km: Math.hypot(r.lat - Number(_delivery_lat), r.lng - Number(_delivery_lng)) * 111,
+        location_precision: "exact",
+      })),
+  create_price_quote_for: () => randomUUID(),
+  supply_stock_status: () => "unknown",
   compute_material_offer: ({ _quantity = 12, _distance_km = 15 }) => {
     const offer = Math.round(14 * Number(_quantity) + 2.1 * Number(_distance_km));
     return { offer, min: Math.round(offer * 0.85), max: Math.round(offer * 1.25), enforced: true, sample: true };
@@ -564,6 +666,19 @@ const server = http.createServer(async (req, res) => {
     u.phone_confirmed_at = new Date().toISOString();
     return send(res, 200, session(u));
   }
+  if (path === "/auth/v1/signup" && req.method === "POST") {
+    // Like Supabase with "Confirm email" on: no session. An email that is already
+    // registered gets the same 200 but a user with no identities, and nothing is sent.
+    const body = (await readBody(req)) ?? {};
+    const email = String(body?.email ?? "").toLowerCase();
+    const known = [...users.values()].some((u) => u.email?.toLowerCase() === email);
+    const id = randomUUID();
+    return send(res, 200, {
+      id, aud: "authenticated", role: "authenticated", email,
+      identities: known ? [] : [{ id, provider: "email", identity_data: { email } }],
+      user_metadata: body?.data ?? {}, created_at: new Date().toISOString(),
+    });
+  }
   if (path === "/auth/v1/logout") return send(res, 204);
   if (path === "/auth/v1/recover" || path === "/auth/v1/otp" || path === "/auth/v1/resend") return send(res, 200, {});
 
@@ -574,7 +689,11 @@ const server = http.createServer(async (req, res) => {
     if (isRpc) {
       const args = (req.method === "GET" ? Object.fromEntries(url.searchParams) : await readBody(req)) ?? {};
       const fn = rpc[name];
-      return send(res, 200, fn ? fn(args, me) : null);
+      const out = fn ? fn(args, me) : null;
+      // PostgREST returns JSON for every RPC, scalar text included.
+      return typeof out === "string"
+        ? send(res, 200, JSON.stringify(out), { "content-type": "application/json" })
+        : send(res, 200, out);
     }
     const params = [...url.searchParams.entries()];
     const wantsObject = (req.headers.accept ?? "").includes("vnd.pgrst.object");
@@ -603,7 +722,9 @@ const server = http.createServer(async (req, res) => {
           }
           return send(res, 409, { code: "23505", message: "duplicate key value violates unique constraint (mock)" });
         }
-        const fresh = { id: randomUUID(), created_at: new Date().toISOString(), ...row };
+        // Column defaults the real tables have (a new job starts open with no driver).
+        const defaults = name === "jobs" ? { status: "open", driver_id: null } : {};
+        const fresh = { id: randomUUID(), created_at: new Date().toISOString(), ...defaults, ...row };
         db[name].push(fresh);
         out.push(fresh);
       }

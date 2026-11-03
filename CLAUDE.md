@@ -304,3 +304,87 @@ site names the operator, Navysky Innovations (Private) Limited, company no. 1451
 12705 Timire Park, Ruwa; contact email navyskyinnovations@gmail.com (directors' IDs deliberately not published).
 The old ZIMRA TIN (sole proprietorship) was removed from Terms/Privacy; add the company's TIN when issued.
 Still open: repair `schema_migrations` for 0077–0108 before any `supabase db push`.
+
+## 26/10/2026 — release review (branch `release/integration-review`, read-only checks)
+
+Full evidence and plan: `docs/release/RELEASE-READINESS-2026-10-26.md`. Corrections to the notes above:
+- **0103 was never applied** (applied 28/10, see below). Production's `admin_set_demand_multiplier` accepts any admin with no step-up, and
+  `admin_set_diesel_price` runs the 0100 body. Apply 0103 (owner approval); the settings screen already handles step-up.
+- 0079: `find_next_loads_for_driver` differs from git by one token (live-only edit); the other 0079 functions match.
+- The history gap is 0072–0108: 0072–0076 and 0098 are recorded under different versions than the git files. Repair
+  commands are in the release doc. Still: never run `supabase db push` before the repair.
+- 0117 renumbered to `20261026121000` (0116 in PR #18 uses `20261026120000`).
+- Pomona Stone Quarries and Davis Granite are "verified" **locations** (public-source seeds 0050/0054), not partners.
+- Quotation requests (0087/0088 backend, live, 0 rows) are reachable again only behind
+  `system_settings.sourcing_requests_enabled = true` (off by default).
+
+## 28/10/2026 — released (owner: "merge and deploy all the fixes")
+
+Pushed to `main` as `eced140` (Vercel deployed); then applied live via `execute_sql` and recorded:
+`0122` (20261027130000) admin sign-in alerts not to the signer, max once / 30 min per admin;
+`0123` (20261027140000) `admin_price_accuracy()` + Settings card "How close are our estimates?";
+`0124` (20261027150000) material/bucket price setters = super admin + `require_aal2()`;
+`0125` (20261027160000) no INSERT/UPDATE/DELETE for anon/authenticated on system_settings, material_prices,
+material_price_buckets, user_roles, small_load_settings (all writers are SECURITY DEFINER; app never writes them).
+Undo scripts in `supabase/rollbacks/`. Same release: reload once on stale-build chunk errors, separate dispute lists for
+customers/drivers, price-check copy ("Book this delivery" / "Request driver offers", material + delivery split only when
+it adds up), driver copy no longer promises withdrawals while paused. Live checks after applying: functions/grants as
+intended, public price check returns its guide range. Owner guide: `docs/security/ADMIN-GOOGLE-SIGNIN-GUIDE.md`.
+Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multiplier = super admin + `require_aal2()`
+(undo: `supabase/rollbacks/20261012350000_0103_rollback.sql`). Not in this release: PR #38 (Payonify + 0120/0121).
+
+## 28/10/2026 — shared tracking map + security sweep (branch `design/public-tracking-map`)
+
+- Shared tracking link `/track/$token`: one map (`src/components/tracking/LiveDeliveryMap.tsx`) instead of two;
+  truck ETA = car time × 1.4 (`src/lib/live-map.ts`); route re-asked only after 250 m / 3 min (also in
+  `RouteMap`). Review and free-service limits: `docs/design/PUBLIC-TRACKING-MAP.md` (CARTO commercial free tier
+  = 1M tiles/month from 1 Dec 2026; OSRM demo server also drives quote road distance).
+- `0126_public_tracking_details` (20261028100000) — **NOT applied**: step times, heading, trail since loading,
+  cancelled → `{"status":"cancelled"}`. No DROP. Deploy the app first. pgTAP 580.
+- No-login server functions (`getRoute`, geocode) refuse non-Zimbabwe coordinates and are rate-limited per
+  address (`src/lib/public-guard*`). Unused `src/lib/api/example.functions.ts` removed.
+- Security sweep (read-only, 28/10): **0114, 0115, 0119 are on `main` but NOT live** (no trigger/constraint/policy
+  changes live; live `handle_new_user` and `driver_profiles_guard_direct_write` still equal the 0115 rollback
+  definitions, so 0115 applies cleanly). 0114/0115 contain DROP POLICY (SQL editor, or the MCP hangs).
+  Demo edge functions `quick-responder` (spends the ORS key for anyone with the public key) and
+  `smooth-handler` (hello world) are still deployed and unused by the app. Advisor: 2 search_path warnings (fixed
+  by 0115), `driver_public_profiles` SECURITY DEFINER view (intentional), `pg_net` in public, leaked-password
+  protection off (owner setting).
+
+## 02/11/2026 — pricing engine v1.4 (branch `pricing/finalize-v14`, owner-approved release)
+
+- `0127_pricing_engine_v14` (20261102100000), no DROP, writes no settings: trips = ceil(qty/20) for every size;
+  >20 m³ history from completed, undisputed, road-distance-comparable jobs (≥10 jobs, ≥3 drivers, median), else the
+  deterministic calculation; low (1–20 m³) = bucket min + one delivery fee (≤ recommended); non-numeric settings fall
+  back (diesel $2.04, fuel 32 within 10–80, allowance 1.87 within 1–3); new `admin_set_fuel_assumptions`
+  (super admin + `require_aal2` + reason + audit) and `admin_price_accuracy_completed`. Live engine before 0127:
+  md5 `4b23d1de…` (= rollback file); after: `449eb457…`. Diesel stays $1.87 (owner). pgTAP 590; 360/490/550 updated
+  for the intended changes. Undo: `supabase/rollbacks/20261102100000_0127_rollback.sql`.
+- **Released 02/11/2026 (owner-approved):** PR #42 merged as `1427899` (Vercel deployed; new chunks verified on
+  www.conz.co.zw). 0127 applied via `execute_sql` (statement bodies without comment-only lines) and recorded as
+  `20261102100000`; live `compute_material_offer` md5 `0bf44570…` (= the applied body; the git file body with comments
+  hashes `449eb457…`). Live checks: river sand 12 m³ / 15 km = $174 / $200 / $230; 20 m³ = 1 trip $320; 20.01 m³ =
+  2 trips $340; 25 m³ $420; 30 m³ $480; anon quote via the site's public key works; anon call to
+  `admin_set_fuel_assumptions` refused (401); diesel still 1.87, commission 7, no fuel/markup rows written.
+  Not verified live: the Settings fuel card with a real super-admin step-up, and a driver offer on a real job.
+- App: `src/lib/pricing-assumptions.ts` (same fallbacks as the engine) used by Settings and the driver fuel estimate;
+  Settings card "Fuel use and long trips"; accuracy card has "Completed deliveries" / "Customer accepted".
+
+## 03/11/2026 — 0114 + 0115 applied live (owner: "Go ahead", then "No drop but proceed")
+
+- The Supabase MCP approval pop-up for DROP timed out three times, so both files were rewritten without DROP
+  (branch `fix/0114-0115-no-drop`, commit `f8688e6`): policies are renamed and changed with `ALTER POLICY`. Same access.
+  pgTAP 1259/1259 locally; both undo scripts tested locally.
+- `0115` recorded `20261026110000`: sign-up gives driver/customer only (no hard-coded email); admins can't edit a
+  driver's approval fields directly (use `admin_set_driver_verification`); supplier contact columns hidden
+  (`admin_list_supplier_contacts()` for admins); "Users read own profile" / "Job partners read each other" for
+  signed-in users only; search_path fixed on the two sourcing functions. Three duplicate profile policies remain
+  (`Users can insert/update/view their own profile`, same access as kept ones): remove them in the SQL editor sometime.
+- `0114` recorded `20261026100000`: truck add/change by a driver sends them back to review and withdraws pending
+  offers; a job can only be given to a driver passing `is_verified_driver`; trucks readable only by their driver,
+  admins, and customers whose jobs got an offer with that truck.
+- Live function hashes equal the local build (whitespace-stripped md5): handle_new_user `a787bfd6…`,
+  driver_profiles_guard_direct_write `6d40220f…`, admin_list_supplier_contacts `4cdf5334…`,
+  tg_truck_change_needs_review `51a8a13c…`, tg_jobs_driver_must_be_verified `f4cf6f2c…`.
+- Next in the permissions plan: revoke TRUNCATE and anon write grants (new migration); owner deletes demo edge functions
+  `quick-responder`/`smooth-handler` and turns on leaked-password protection; repair schema_migrations 0072–0108.

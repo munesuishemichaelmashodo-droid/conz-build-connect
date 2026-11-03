@@ -1,3 +1,4 @@
+import { serverNow, syncServerClock } from "@/lib/server-clock";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -105,10 +106,12 @@ export function useBidderLocations(jobId: string, enabled: boolean) {
 
 /** Seconds left until `iso`, ticking every second; null when no expiry. */
 export function useSecondsLeft(iso: string | null | undefined) {
-  const [now, setNow] = useState(() => Date.now());
+  // Server clock, not the phone's: expiry is decided by the database (server-clock.ts).
+  const [now, setNow] = useState(() => serverNow());
   useEffect(() => {
     if (!iso) return;
-    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    syncServerClock();
+    const t = window.setInterval(() => setNow(serverNow()), 1000);
     return () => window.clearInterval(t);
   }, [iso]);
   if (!iso) return null;

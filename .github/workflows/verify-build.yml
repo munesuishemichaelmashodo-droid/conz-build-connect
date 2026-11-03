@@ -4,7 +4,8 @@ on:
   push:
     branches: [main, feature/nationwide-sourcing]
   pull_request:
-    branches: [main]
+    # Also PRs into the working branch, where reviewable changes land first.
+    branches: [main, "ccr-*"]
   workflow_dispatch:
 
 jobs:
@@ -58,6 +59,17 @@ jobs:
 
       - name: Run database tests (pgTAP)
         run: node scripts/db-test.mjs test
+
+      # The REAL Paynow callback code against the same local database (provider
+      # mocked, fake key, no money). CONZ_REQUIRE_DB_TESTS makes a skip a failure.
+      - name: Paynow callback tests (local database, provider mocked)
+        env:
+          CONZ_TEST_PG_HOST: 127.0.0.1
+          CONZ_TEST_PG_DB: postgres
+          CONZ_REQUIRE_DB_TESTS: "1"
+          PGPORT: "55432"
+          PGPASSWORD: postgres
+        run: npx vitest run tests/unit/paynow-ipn-db.test.ts
 
       - name: Stop local Supabase
         if: always()

@@ -65,6 +65,8 @@ export type SourcingFallbackInput = {
   deliveryLng: number;
   address?: string;
   idempotencyKey?: string;
+  preferredDate?: string | null;
+  notes?: string | null;
 };
 
 /** Address text stored with a request. Never invent one: fall back to the pin itself. */
@@ -86,8 +88,8 @@ export async function createSourcingFallback(
     p_delivery_address: sourcingAddress(input),
     p_delivery_lat: input.deliveryLat,
     p_delivery_lng: input.deliveryLng,
-    p_preferred_date: null,
-    p_notes: null,
+    p_preferred_date: input.preferredDate ?? null,
+    p_notes: input.notes?.trim() ? input.notes.trim() : null,
     p_idempotency_key: input.idempotencyKey ?? null,
   });
 

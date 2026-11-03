@@ -43,6 +43,13 @@ npm run dev -- --port 5173 --host 127.0.0.1
 ```
 
 These keys are placeholders the stand-in accepts. Never put real project keys here.
+
+Price checks need a real road distance (OSRM), fetched by the app server. Behind an
+HTTPS proxy (cloud sandboxes), add `NODE_USE_ENV_PROXY=1` in front of `npm run dev` so
+Node's fetch uses it; without a route the price check fails closed, as in production.
+The stand-in has one synthetic verified supply site for sand, dust, crusher run,
+gravel and stones. Its sample offers expire 25 minutes after it starts; restart it for
+fresh ones.
 `MOCK_SMS=off node scripts/dev/mock-supabase.mjs` makes phone verification report
 "not configured".
 

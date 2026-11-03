@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Loader2, ShieldCheck, Star } from "lucide-react";
+import { StatusStamp } from "@/components/ds";
 import type { CustomerCard } from "@/components/redesign/rpc";
 import { materialLabel } from "@/lib/domain";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,10 @@ export type FeedJob = {
   delivery_lat?: number | null;
   delivery_lng?: number | null;
 };
+
+// One small tag per fact about the load, wrapping on narrow screens.
+const FACT =
+  "inline-flex min-h-7 items-center gap-1 rounded-md bg-cz-surface-2 px-2 text-[13px] text-cz-muted";
 
 const MATCH_LABEL: Record<string, string> = {
   excellent: "Great fit for your truck",
@@ -73,17 +78,24 @@ export function FeedJobCard({
   return (
     <article
       className={cn(
-        "rounded-[18px] border bg-cz-surface p-4 flex flex-col gap-3.5",
-        highlight ? "border-cz-amber" : "border-cz-border",
+        // Cards in a feed carry no orange: the price and route are the content.
+        "rounded-2xl border border-cz-border bg-cz-surface p-4 flex flex-col gap-3.5",
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <MaterialBadge highlight={!!highlight}>
+        <MaterialBadge material={job.material}>
           {materialLabel(job.material as never, job.custom_material)} · {Number(job.quantity_m3)} m³
         </MaterialBadge>
-        {job.created_at && (
-          <span className="text-[13px] text-cz-muted shrink-0">{timeAgo(job.created_at)}</span>
-        )}
+        <span className="flex shrink-0 items-center gap-2">
+          {highlight && (
+            <StatusStamp tone="info" icon="open">
+              Newest
+            </StatusStamp>
+          )}
+          {job.created_at && (
+            <span className="text-[13px] text-cz-muted">{timeAgo(job.created_at)}</span>
+          )}
+        </span>
       </div>
 
       <Link to="/jobs/$id" params={{ id: job.id }} className="block">
@@ -96,7 +108,7 @@ export function FeedJobCard({
 
       {distanceText && (
         <p
-          className={cn("text-[13px]", far ? "font-semibold text-cz-amber" : "text-cz-muted")}
+          className={cn("text-[13px]", far ? "font-semibold text-cz-warn-text" : "text-cz-muted")}
           data-testid="job-distance"
         >
           {far ? "Far from you · " : ""}
@@ -104,38 +116,46 @@ export function FeedJobCard({
         </p>
       )}
 
-      <div className="flex items-end justify-between gap-3 border-t border-cz-border pt-3">
-        <div className="flex flex-col gap-0.5">
+      <div className="space-y-2.5 border-t border-cz-border pt-3">
+        <div className="flex items-baseline justify-between gap-3">
           <span className="text-[13px] text-cz-muted">Customer's price</span>
           <span className="cz-display font-bold text-[34px] leading-none tabular-nums">
             {usd(price)}
           </span>
         </div>
-        <div className="flex flex-col items-end gap-1 text-right min-w-0">
-          {escrow && (
-            <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-cz-green-text">
-              <ShieldCheck className="w-3.5 h-3.5" /> Con Z Pay job
-            </span>
+        <ul className="flex flex-wrap gap-1.5" aria-label="About this load">
+          {escrow ? (
+            <li className={cn(FACT, "bg-cz-green-tint font-semibold text-cz-green-text")}>
+              <ShieldCheck aria-hidden className="h-3.5 w-3.5" /> Con Z Pay job
+            </li>
+          ) : (
+            <li className={FACT}>Customer pays you directly</li>
           )}
           {matchTier && MATCH_LABEL[matchTier] && (
-            <span className="text-[13px] text-cz-muted truncate max-w-[180px]">
+            <li
+              className={cn(
+                FACT,
+                matchTier === "oversized" || matchTier === "multiple_trips"
+                  ? "bg-cz-warn-tint text-cz-warn-text"
+                  : undefined,
+              )}
+            >
               {MATCH_LABEL[matchTier]}
-            </span>
+            </li>
           )}
           {customer?.first_name && (
-            <span className="inline-flex items-center gap-1 text-[13px] text-cz-muted">
+            <li className={FACT}>
               {customer.first_name}
               {Number(customer.rating_count) > 0 && (
                 <>
-                  {" · "}
-                  <Star className="w-3 h-3 fill-cz-amber text-cz-amber" />
+                  <Star aria-hidden className="ml-1 h-3 w-3 fill-cz-amber text-cz-amber-text" />
+                  <span className="sr-only">rated</span>
                   {Number(customer.rating_avg).toFixed(1)}
                 </>
               )}
-            </span>
+            </li>
           )}
-          {!escrow && <span className="text-[13px] text-cz-muted">Customer pays you directly</span>}
-        </div>
+        </ul>
       </div>
 
       <div className="grid grid-cols-2 gap-2.5">
@@ -144,8 +164,9 @@ export function FeedJobCard({
             type="button"
             onClick={onAccept}
             disabled={accepting}
+            // Neutral: a feed shows many jobs, so no orange button per card.
             className={czButtonClass(
-              "primary",
+              "secondary",
               "md",
               "min-h-[50px] px-2 text-[15px] whitespace-nowrap",
             )}
@@ -159,7 +180,7 @@ export function FeedJobCard({
           to="/jobs/$id"
           params={{ id: job.id }}
           className={czButtonClass(
-            "secondary",
+            "ghost",
             "md",
             "min-h-[50px] px-2 text-[15px] whitespace-nowrap",
           )}

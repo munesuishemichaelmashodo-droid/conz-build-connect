@@ -1,3 +1,4 @@
+import { tripsFor } from "@/lib/driver-economics";
 export type CapacityMatchTier = "excellent" | "good" | "oversized" | "multiple_trips";
 
 export type CapacityMatchPreview = {
@@ -20,23 +21,41 @@ export type CapacityMatchPreview = {
  * (the database trigger remains the sole source of truth for anything
  * that's actually stored).
  */
-export function previewCapacityMatch(capacityM3: number, quantityM3: number): CapacityMatchPreview | null {
-  if (!capacityM3 || capacityM3 <= 0 || !quantityM3 || quantityM3 <= 0) return null;
-  const trips = Math.ceil(quantityM3 / capacityM3);
+export function previewCapacityMatch(
+  capacityM3: number,
+  quantityM3: number,
+): CapacityMatchPreview | null {
+  // Same trip rule as the database (tg_stamp_bid_capacity), shared with driver-economics.
+  const trips = tripsFor(quantityM3, capacityM3);
+  if (trips === null) return null;
   const score = quantityM3 / (trips * capacityM3);
   const tier: CapacityMatchTier =
-    trips > 1 ? "multiple_trips" : score >= 0.833 ? "excellent" : score >= 0.5 ? "good" : "oversized";
+    trips > 1
+      ? "multiple_trips"
+      : score >= 0.833
+        ? "excellent"
+        : score >= 0.5
+          ? "good"
+          : "oversized";
   return { trips, score, tier };
 }
 
-const TIER_RANK: Record<CapacityMatchTier, number> = { excellent: 0, good: 1, oversized: 2, multiple_trips: 3 };
+const TIER_RANK: Record<CapacityMatchTier, number> = {
+  excellent: 0,
+  good: 1,
+  oversized: 2,
+  multiple_trips: 3,
+};
 
 /**
  * Best tier across a driver's registered trucks for a given order quantity
  * — used only for job-list display/sort ordering. Every eligible job stays
  * visible and biddable regardless of rank; this never affects eligibility.
  */
-export function bestCapacityMatchTier(quantityM3: number, capacities: number[]): CapacityMatchTier | null {
+export function bestCapacityMatchTier(
+  quantityM3: number,
+  capacities: number[],
+): CapacityMatchTier | null {
   if (!capacities.length || !quantityM3 || quantityM3 <= 0) return null;
   let best: { tier: CapacityMatchTier; rank: number; trips: number } | null = null;
   for (const cap of capacities) {

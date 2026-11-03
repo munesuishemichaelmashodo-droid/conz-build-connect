@@ -40,7 +40,7 @@ export function SpotlightCallout({ id, title, body }: { id: string; title: strin
 
   return (
     <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 flex items-start gap-2.5">
-      <Lightbulb className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+      <Lightbulb className="w-4 h-4 text-cz-amber-text shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold">{title}</div>
         <p className="text-xs text-muted-foreground mt-0.5">{body}</p>

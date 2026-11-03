@@ -1,4 +1,11 @@
 import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
+import { DISPUTE_OPTIONS, disputeOption, disputeReason, MIN_DISPUTE_EXPLANATION, type DisputeSide } from "@/lib/dispute-options";
+import { useLaunchSwitches } from "@/lib/launch-switches";
+import { serverNow, syncServerClock } from "@/lib/server-clock";
+import { commissionFee, earnings, fuelEstimate } from "@/lib/driver-economics";
+import { composeOfferMessage, isDriverArranged, MAX_SOURCE_LENGTH, parseOfferMessage } from "@/lib/proposed-source";
+import { OfferMessage } from "@/components/redesign/ProposedSource";
+import { ADMIN_CANCEL_REASON_MIN, adminCancelPolicyText, adminCanCancel, cancelPolicyText, customerCanCancel } from "@/lib/cancel-policy";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -187,7 +194,7 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
 
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
-      <div className="font-display font-bold uppercase text-sm tracking-wide flex items-center gap-2">
+      <div className="font-semibold text-sm flex items-center gap-2">
         <MessageCircle className="w-4 h-4 text-success" /> Contact {name}
       </div>
       <p className="text-xs text-muted-foreground -mt-2">
@@ -463,7 +470,7 @@ function JobDetail() {
     const { error } = await supabase.rpc("accept_bid", { _bid_id: bidId });
     if (error) {
       if (/insufficient wallet balance/i.test(error.message)) {
-        return toast.error("This driver can no longer accept — ask them to top up, or accept another bid.");
+        return toast.error("This driver can no longer accept — ask them to top up, or accept another offer.");
       }
       return toast.error(error.message);
     }
@@ -551,7 +558,10 @@ function JobDetail() {
   const showDeliveryPinDisplay = isOwner && ["accepted", "in_progress"].includes(job.status);
   const showCompleteButton = isOwner && !isEscrow && (job.status === "accepted" || job.status === "in_progress");
   const showDeliveryPinEntry = isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && !!job.delivery_photo_url;
-  const showCancel = isOwner && (job.status === "open" || job.status === "accepted" || job.status === "in_progress");
+  // Customers can cancel until the load is collected; after that cancel_job refuses and
+  // "Report a problem" (a dispute) is the way to raise it.
+  const isAdminViewer = !isOwner && !isAssignedDriver && (is("admin") || is("super_admin"));
+  const showCancel = (isOwner && customerCanCancel(job.status)) || (isAdminViewer && adminCanCancel(job.status));
   const showActionSection = showRadar || showEscrowBanner || showBidForm || showPickupUpload || showDeliveryUpload || showDeliveryPinDisplay || showCompleteButton || showDeliveryPinEntry || showCancel;
 
   const showProofPhotos = !!(job.pickup_photo_url || job.delivery_photo_url);
@@ -598,6 +608,7 @@ function JobDetail() {
     showRadar,
     showCounterResponse,
     showCancel,
+    isAdminViewer,
     showDispute,
     showNextLoads,
     showBookAgain,
@@ -609,7 +620,7 @@ function JobDetail() {
     invalidateJob: () => qc.invalidateQueries({ queryKey: ["job", id] }),
     invalidateBids: () => qc.invalidateQueries({ queryKey: ["bids", id] }),
     invalidateRating: () => qc.invalidateQueries({ queryKey: ["my-rating", id, userId] }),
-    onCancelled: () => nav({ to: "/jobs" }),
+    onCancelled: () => nav({ to: isAdminViewer ? "/admin/jobs" : "/jobs" }),
   };
   if (isOwner) return <CustomerJobScreen ctx={ctx} />;
   if (!isOwner && (isAssignedDriver || (is("driver") && (job.status === "open" || !!myBid)))) {
@@ -636,14 +647,14 @@ function JobDetail() {
 
             <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
               <div>
-                <div className="text-[11px] uppercase text-muted-foreground tracking-widest">Quantity</div>
+                <div className="text-xs text-muted-foreground">Quantity</div>
                 <div className="font-semibold">{Number(job.quantity_m3)} m³</div>
               </div>
               <div>
-                <div className="text-[11px] uppercase text-muted-foreground tracking-widest">
+                <div className="text-xs text-muted-foreground">
                   {isOwner ? "Your offer" : "Offer"}
                 </div>
-                <div className="font-display font-bold text-primary text-lg">{money(Number(job.budget))}</div>
+                <div className="font-display font-bold text-cz-amber-text text-lg">{money(Number(job.budget))}</div>
               </div>
             </div>
 
@@ -664,7 +675,7 @@ function JobDetail() {
             {job.final_price && (
               <div className="mt-3 pt-3 border-t text-sm flex justify-between">
                 <span className="text-muted-foreground">Agreed price</span>
-                <span className="font-display font-bold text-primary">{money(Number(job.final_price))}</span>
+                <span className="font-display font-bold text-cz-amber-text">{money(Number(job.final_price))}</span>
               </div>
             )}
           </div>
@@ -672,8 +683,8 @@ function JobDetail() {
 
         {isOwner && escrowRefund && (
           <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4 space-y-1">
-            <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
-              <ShieldCheck className="w-4 h-4 text-primary" />
+            <div className="flex items-center gap-2 font-semibold text-sm">
+              <ShieldCheck className="w-4 h-4 text-cz-amber-text" />
               Con Z Pay refund
             </div>
             <p className="text-sm text-muted-foreground">
@@ -691,15 +702,15 @@ function JobDetail() {
         {showActionSection && (
           <Section id="tour-next-steps" title="What's next">
             <div className="space-y-4">
-              {showRadar && <RadarSearch etaMinutes={5} nearbyDrivers={nearbyDrivers} />}
+              {showRadar && <RadarSearch nearbyDrivers={nearbyDrivers} />}
 
               {showEscrowBanner && (
                 <div className={cn(
                   "rounded-2xl border p-4 space-y-2",
                   escrowPaid ? "border-success/40 bg-success/10" : "border-primary/40 bg-primary/5",
                 )}>
-                  <div className="flex items-center gap-2 font-display font-bold uppercase text-sm tracking-wide">
-                    <ShieldCheck className={cn("w-4 h-4", escrowPaid ? "text-success" : "text-primary")} />
+                  <div className="flex items-center gap-2 font-semibold text-sm">
+                    <ShieldCheck className={cn("w-4 h-4", escrowPaid ? "text-success" : "text-cz-amber-text")} />
                     Con Z Pay
                   </div>
                   {escrowPaid ? (
@@ -719,7 +730,7 @@ function JobDetail() {
                     </>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Waiting for the customer to pay through Con Z Pay before you're guaranteed payment on delivery.
+                      Waiting for the customer to pay into Con Z Pay. Once they do, the money is held for you and released when they confirm delivery with their PIN.
                     </p>
                   )}
                 </div>
@@ -738,7 +749,7 @@ function JobDetail() {
 
               {showCounterResponse && (
                 <div className="rounded-2xl bg-primary/5 border border-primary/30 p-4 space-y-3">
-                  <div className="font-display font-bold uppercase text-sm tracking-wide text-primary">
+                  <div className="font-semibold text-sm text-cz-amber-text">
                     Customer proposed a new price
                   </div>
                   <div className="flex items-baseline gap-2">
@@ -784,7 +795,7 @@ function JobDetail() {
 
               {showDeliveryPinDisplay && (
                 <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4 space-y-2 text-center">
-                  <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
+                  <div className="text-xs text-muted-foreground font-semibold">
                     Delivery confirmation code
                   </div>
                   <div className="font-display font-bold text-4xl tracking-[0.2em]">{deliveryPin ?? "······"}</div>
@@ -816,7 +827,7 @@ function JobDetail() {
               )}
 
               {showCancel && (
-                <CancelJobDialog jobId={id} status={job.status} onCancelled={() => nav({ to: "/jobs" })} />
+                <CancelJobDialog jobId={id} status={job.status} asAdmin={isAdminViewer} onCancelled={() => nav({ to: isAdminViewer ? "/admin/jobs" : "/jobs" })} />
               )}
             </div>
           </Section>
@@ -827,7 +838,7 @@ function JobDetail() {
             <div className="space-y-4">
               {showProofPhotos && (
                 <div className="rounded-2xl bg-card border p-4 space-y-3">
-                  <div className="font-display font-bold uppercase text-sm tracking-wide">Proof of delivery</div>
+                  <div className="font-semibold text-sm">Proof of delivery</div>
                   <div className="grid grid-cols-2 gap-3">
                     {job.pickup_photo_url && (
                       <figure className="space-y-1">
@@ -887,6 +898,7 @@ function JobDetail() {
                   <RaiseDisputeDialog
                     jobId={id}
                     against={isOwner ? job.driver_id : job.customer_id}
+                    side={isOwner ? "customer" : "driver"}
                   />
                 </div>
               )}
@@ -904,7 +916,7 @@ function JobDetail() {
             }
           >
             {!bids?.length ? (
-              <p className="text-sm text-muted-foreground">No bids yet. Drivers are checking your request.</p>
+              <p className="text-sm text-muted-foreground">No offers yet. Drivers are checking your request.</p>
             ) : (
               <div className="space-y-2">
                 {(job.status === "open" ? bids : bids.filter((b: any) => b.status === "accepted")).map((b: any, bIdx: number) => (
@@ -916,7 +928,7 @@ function JobDetail() {
                             src={b.profile?.avatar_url ?? undefined}
                             alt={b.profile?.full_name ?? "Driver"}
                           />
-                          <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                          <AvatarFallback className="bg-primary/10 text-cz-amber-text font-bold">
                             {(b.profile?.full_name ?? "D").trim().slice(0, 1).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
@@ -946,11 +958,19 @@ function JobDetail() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-display font-bold text-primary text-xl">{money(Number(b.price))}</div>
+                        <div className="font-display font-bold text-cz-amber-text text-xl">{money(Number(b.price))}</div>
                         {b.delivery_date && <div className="text-[11px] text-muted-foreground">{b.delivery_date}</div>}
                       </div>
                     </div>
-                    {b.message && <p className="text-sm text-muted-foreground mt-2">{b.message}</p>}
+                    {b.message && (
+                      <div className="mt-2 space-y-1">
+                        <OfferMessage
+                          message={b.message}
+                          driverArranged={isDriverArranged(job)}
+                          noteClassName="text-sm text-muted-foreground"
+                        />
+                      </div>
+                    )}
 
                     {b.truck_reg && (
                       <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
@@ -972,7 +992,7 @@ function JobDetail() {
 
                     {b.counter_status === "countered" && (
                       <div className="mt-2 rounded-lg bg-primary/5 border border-primary/30 p-2.5 text-xs space-y-1">
-                        <div className="font-semibold text-primary">
+                        <div className="font-semibold text-cz-amber-text">
                           Your counter-offer: {money(Number(b.customer_counter_price))}
                         </div>
                         <div className="text-muted-foreground">Waiting for the driver to respond.</div>
@@ -1002,8 +1022,8 @@ function JobDetail() {
                 {job.status !== "open" && bids.filter((b: any) => b.status === "rejected").length > 0 && (
                   <p className="text-xs text-muted-foreground italic px-1">
                     {bids.filter((b: any) => b.status === "rejected").length === 1
-                      ? "1 other bid was not selected."
-                      : `${bids.filter((b: any) => b.status === "rejected").length} other bids were not selected.`}
+                      ? "1 other offer was not selected."
+                      : `${bids.filter((b: any) => b.status === "rejected").length} other offers were not selected.`}
                   </p>
                 )}
               </div>
@@ -1061,7 +1081,7 @@ function JobDetail() {
                 <Link
                   to="/customer/book"
                   search={bookAgainSearch(job, { sameDriver: true }) ?? {}}
-                  className="block w-full text-center rounded-xl bg-primary text-primary-foreground font-display font-bold uppercase tracking-wide py-3"
+                  className="block w-full text-center rounded-xl bg-primary text-primary-foreground font-display font-bold py-3"
                 >
                   Book this driver again
                 </Link>
@@ -1137,7 +1157,7 @@ function CounterOfferRow({
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="w-full min-h-11 text-center text-xs font-semibold text-primary underline underline-offset-2">
+      <button type="button" onClick={() => setOpen(true)} className="w-full min-h-11 text-center text-xs font-semibold text-cz-amber-text underline underline-offset-2">
         Propose a different price
       </button>
     );
@@ -1164,7 +1184,7 @@ function CounterOfferRow({
 
 const MATCH_TIER_LABEL: Record<string, { label: string; className: string }> = {
   excellent: { label: "Excellent match", className: "bg-success/15 text-success border-success/30" },
-  good: { label: "Good match", className: "bg-primary/10 text-primary border-primary/30" },
+  good: { label: "Good match", className: "bg-primary/10 text-cz-amber-text border-primary/30" },
   oversized: { label: "Oversized", className: "bg-muted text-muted-foreground border-border" },
   multiple_trips: { label: "Multiple trips", className: "bg-warning/15 text-warning border-warning/30" },
 };
@@ -1188,7 +1208,11 @@ function BidForm({
   // quickest way to get picked) — the driver adjusts from there.
   const [price, setPrice] = useState(existing?.price?.toString() ?? (job?.budget != null ? String(Number(job.budget)) : ""));
   const [date, setDate] = useState(existing?.delivery_date ?? "");
-  const [message, setMessage] = useState(existing?.message ?? "");
+  // The saved message may start with the driver's proposed source (proposed-source.ts).
+  const [message, setMessage] = useState(parseOfferMessage(existing?.message).note);
+  const [proposedSource, setProposedSource] = useState(parseOfferMessage(existing?.message).source ?? "");
+  // Open request: no listed supplier, so the driver arranges the material (no pickup pin).
+  const driverArrangesPickup = isDriverArranged(job);
   const [truckId, setTruckId] = useState<string>(existing?.truck_id ?? "");
   // Migration 0060: optional "I can reach pickup in" (minutes).
   const [etaMinutes, setEtaMinutes] = useState<number | null>(existing?.eta_minutes ?? null);
@@ -1273,7 +1297,7 @@ function BidForm({
         driver_id: userId!,
         price: p,
         delivery_date: date || null,
-        message: message.trim() || null,
+        message: composeOfferMessage(driverArrangesPickup ? proposedSource : "", message),
         truck_id: truckId,
         eta_minutes: etaMinutes,
       } as any,
@@ -1311,13 +1335,29 @@ function BidForm({
     },
   });
 
+  // Diesel price (admin setting) and fuel use (0118 setting, else the engine default),
+  // for the driver's fuel estimate only. Both readable like commission_rate.
+  const { data: fuelSettings } = useQuery({
+    queryKey: ["fuel-settings"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("system_settings")
+        .select("key,value")
+        .in("key", ["diesel_price_per_liter", "fuel_l_per_100km"]);
+      // Raw values: fuelEstimate applies the engine's own fallbacks (0127).
+      const get = (k: string): unknown =>
+        (data ?? []).find((r: { key: string }) => r.key === k)?.value ?? null;
+      return { diesel: get("diesel_price_per_liter"), fuel: get("fuel_l_per_100km") };
+    },
+  });
   const budget = Number(job?.budget ?? 0);
   const priceNum = Math.max(0, Number(price) || 0);
   const setPriceNum = (n: number) => setPrice(String(Math.max(5, Math.round(n * 100) / 100)));
   const firstJobFree = driverProfile ? driverProfile.first_job_free_used === false : false;
   // Flat commission for every driver level (owner decision 11/10/2026).
   const effectivePct = commissionRate != null ? commissionRate : null;
-  const fee = effectivePct != null ? (firstJobFree ? 0 : Math.round(priceNum * effectivePct) / 100) : null;
+  // Same rounding as the database's commission_amount (driver-economics.ts).
+  const fee = effectivePct != null ? commissionFee(priceNum, effectivePct, firstJobFree) : null;
   const pctLabel = effectivePct != null ? `${Number(effectivePct.toFixed(2))}%` : "";
   const chips = budget > 0 ? [budget, budget + 10, budget + 20, budget + 30] : [];
   // Server-computed at posting time by tg_validate_job_budget (same
@@ -1325,6 +1365,21 @@ function BidForm({
   const pb = job?.pricing_breakdown as { low?: number; high?: number } | null | undefined;
   const range = pb && Number(pb.low) > 0 && Number(pb.high) >= Number(pb.low) ? { low: Number(pb.low), high: Number(pb.high) } : null;
   const km = job ? straightKm({ lat: job.pickup_lat, lng: job.pickup_lng }, { lat: job.delivery_lat, lng: job.delivery_lng }) : null;
+  // Road distance from the booking quote when the job has one (pricing_breakdown is
+  // written by tg_validate_job_budget); otherwise the straight line, labelled as such.
+  const pbRoute = job?.pricing_breakdown as { distance_km?: number; distance_source?: string } | null | undefined;
+  const roadKm = pbRoute && pbRoute.distance_source && pbRoute.distance_source !== "haversine" && Number(pbRoute.distance_km) > 0
+    ? Number(pbRoute.distance_km)
+    : null;
+  const routeKm = roadKm ?? km;
+  const fuel = fuelEstimate({
+    routeKm,
+    routeIsRoad: roadKm != null,
+    trips: preview?.trips ?? null,
+    litresPer100km: fuelSettings?.fuel ?? null,
+    dieselPerLitre: fuelSettings?.diesel ?? null,
+  });
+  const take = earnings(priceNum, fee, fuel);
 
   return (
     <form onSubmit={submit} className="flex flex-1 flex-col">
@@ -1341,7 +1396,11 @@ function BidForm({
             </div>
             <div className="text-sm text-cz-muted">
               {(job.pickup_address || "Supplier pickup point") + " → " + job.delivery_address}
-              {km != null ? ` · about ${Math.round(km)} km` : ""}
+              {roadKm != null
+                ? ` · about ${Math.round(roadKm)} km by road`
+                : km != null
+                  ? ` · about ${Math.round(km)} km in a straight line`
+                  : ""}
             </div>
             <div className="text-sm text-cz-text">
               Customer offered <strong className="text-cz-text">{usd(budget)}</strong>
@@ -1373,7 +1432,7 @@ function BidForm({
                 aria-pressed={priceNum === v}
                 className={cn(
                   "min-h-12 rounded-xl text-[15px] font-semibold tabular-nums",
-                  priceNum === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-cz-border-strong bg-cz-surface",
+                  priceNum === v ? "border border-cz-text bg-cz-surface-2 text-cz-text shadow-[inset_0_0_0_1px_var(--cz-text)]" : "border border-cz-border-strong bg-cz-surface text-cz-text hover:bg-cz-surface-2",
                 )}
               >
                 {usd(v)}
@@ -1425,7 +1484,7 @@ function BidForm({
           </HintBox>
         )}
         {showFundsWarning && (
-          <div className="rounded-[14px] bg-cz-warn-tint p-3.5 text-cz-warn-text space-y-2">
+          <div className="rounded-xl bg-cz-warn-tint p-3.5 text-cz-warn-text space-y-2">
             <div className="flex items-start gap-2">
               <Wallet className="w-4 h-4 mt-0.5 shrink-0" />
               <div className="text-sm">
@@ -1444,6 +1503,27 @@ function BidForm({
           </div>
         )}
 
+        {driverArrangesPickup && (
+          <div className="space-y-1.5">
+            <Label htmlFor="proposed-source" className="text-sm font-semibold text-cz-muted">
+              Where will you load the material?
+            </Label>
+            <Input
+              id="proposed-source"
+              value={proposedSource}
+              onChange={(e) => setProposedSource(e.target.value)}
+              maxLength={MAX_SOURCE_LENGTH}
+              placeholder="Quarry, yard or river bed, and area"
+              aria-describedby="proposed-source-hint"
+              className="min-h-11"
+            />
+            <p id="proposed-source-hint" className="text-[13px] text-cz-muted">
+              No listed supplier covers this job. The customer sees this as your proposed source, marked as not
+              checked by Con Z. You confirm where you loaded when you collect.
+            </p>
+          </div>
+        )}
+
         <div className="space-y-2">
           <div className="text-sm font-semibold text-cz-muted">I can reach pickup in</div>
           <div className="grid grid-cols-4 gap-2">
@@ -1451,7 +1531,7 @@ function BidForm({
               { v: 15, label: "15 min" },
               { v: 30, label: "30 min" },
               { v: 60, label: "1 hr" },
-              { v: null, label: "Later" },
+              { v: null, label: "Not sure" },
             ].map((o) => (
               <button
                 key={String(o.v)}
@@ -1460,13 +1540,18 @@ function BidForm({
                 aria-pressed={etaMinutes === o.v}
                 className={cn(
                   "min-h-12 rounded-xl text-[15px] font-semibold",
-                  etaMinutes === o.v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-cz-border-strong bg-cz-surface",
+                  etaMinutes === o.v ? "border border-cz-text bg-cz-surface-2 text-cz-text shadow-[inset_0_0_0_1px_var(--cz-text)]" : "border border-cz-border-strong bg-cz-surface text-cz-text hover:bg-cz-surface-2",
                 )}
               >
                 {o.label}
               </button>
             ))}
           </div>
+          {etaMinutes === null && (
+            <p className="text-[13px] text-cz-muted">
+              The customer sees "To confirm" for pickup and arrival. Offers with a time are easier to choose.
+            </p>
+          )}
         </div>
 
         {trucks && trucks.length > 0 && (
@@ -1500,7 +1585,7 @@ function BidForm({
           </div>
         )}
 
-        <details className="group rounded-[14px] border border-cz-border bg-cz-surface">
+        <details className="group rounded-xl border border-cz-border bg-cz-surface">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-[15px] font-semibold">
             Delivery date & message <span className="text-cz-muted font-normal text-sm">(optional)</span>
             <ChevronDown className="w-4 h-4 text-cz-muted transition group-open:rotate-180" />
@@ -1525,9 +1610,9 @@ function BidForm({
         </details>
 
         {job && (
-          <details className="group rounded-[14px] border border-cz-border bg-cz-surface">
+          <details className="group rounded-xl border border-cz-border bg-cz-surface">
             <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-[15px] font-semibold">
-              <span className="flex items-center gap-2"><Navigation2 className="w-4 h-4 text-cz-amber" /> Check the route</span>
+              <span className="flex items-center gap-2"><Navigation2 className="w-4 h-4 text-cz-amber-text" /> Check the route</span>
               <ChevronDown className="w-4 h-4 text-cz-muted transition group-open:rotate-180" />
             </summary>
             <div className="px-4 pb-4 -mt-2">
@@ -1550,12 +1635,34 @@ function BidForm({
               <div className="tabular-nums">−{usd2(fee)}</div>
             </div>
             <div className="text-right">
-              <div className="text-[13px] text-cz-muted">You earn</div>
+              <div className="text-[13px] text-cz-muted">After Con Z fee</div>
               <div className="cz-display text-[22px] font-bold leading-none tabular-nums text-cz-green-text">
-                {usd2(priceNum - fee)}
+                {usd2(take?.afterFee ?? priceNum - fee)}
               </div>
             </div>
           </div>
+        )}
+        {fee != null && priceNum > 0 && (
+          <details className="rounded-xl border border-cz-border bg-cz-bg text-[13px]" data-testid="running-cost">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 font-semibold">
+              <span>Estimated fuel</span>
+              <span className="tabular-nums">
+                {fuel.available ? `about ${usd2(fuel.cost)} · ${usd2(take?.afterFuel ?? 0)} after fuel` : "Can't estimate"}
+              </span>
+            </summary>
+            <div className="space-y-1 px-3 pb-3 text-cz-muted">
+              {fuel.available ? (
+                <>
+                  <p>
+                    About {fuel.km} km and {fuel.litres} L: {fuel.assumptions.join(", ")}.
+                  </p>
+                  <p>Not included: {fuel.excluded.join("; ")}. This is a guide, not a promise of profit.</p>
+                </>
+              ) : (
+                <p>{fuel.reason} Check the route yourself before offering.</p>
+              )}
+            </div>
+          </details>
         )}
         {sendBlockedReason && (
           <p role="status" className="text-[13px] font-semibold text-cz-warn-text" data-testid="send-blocked-reason">
@@ -1578,7 +1685,7 @@ function RatingSummary({ title, stars, comment }: { title: string; stars: number
   const rounded = Math.round(stars);
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-2">
-      <div className="font-display font-bold uppercase text-sm tracking-wide">{title}</div>
+      <div className="font-semibold text-sm">{title}</div>
       <div className="flex items-center gap-2">
         <div className="flex gap-1">
           {[1, 2, 3, 4, 5].map((n) => (
@@ -1634,7 +1741,7 @@ function RateForm({ jobId, driverId, onSaved }: { jobId: string; driverId: strin
 
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
-      <div className="font-display font-bold uppercase text-sm tracking-wide">Rate this driver</div>
+      <div className="font-semibold text-sm">Rate this driver</div>
       <Stars value={q} onChange={setQ} label="Quality" />
       <Stars value={c} onChange={setC} label="Communication" />
       <Stars value={r} onChange={setR} label="Reliability" />
@@ -1699,7 +1806,7 @@ function RateCustomerForm({ jobId, customerId, onSaved }: { jobId: string; custo
 
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
-      <div className="font-display font-bold uppercase text-sm tracking-wide">Rate this customer (optional)</div>
+      <div className="font-semibold text-sm">Rate this customer (optional)</div>
       <p className="text-xs text-muted-foreground">Help other drivers by sharing your experience.</p>
       <Stars value={punctuality} onChange={setP} label="Punctuality" />
       <Stars value={communication} onChange={setC} label="Communication" />
@@ -1873,24 +1980,16 @@ function ProofUpload({ jobId, kind, label, hint, ctaLabel, onUploaded, beforeUpl
   );
 }
 
-function CancelJobDialog({ jobId, status, onCancelled }: { jobId: string; status: string; onCancelled: () => void }) {
+function CancelJobDialog({ jobId, status, onCancelled, asAdmin = false }: { jobId: string; status: string; onCancelled: () => void; asAdmin?: boolean }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const policy =
-    status === "open"
-      ? "You can cancel this job for free."
-      : status === "accepted"
-        ? "This driver has already accepted your job. Cancelling now may result in a fee and a strike on your account."
-        : "The driver has already loaded your material. Cancelling now will result in a strike and may affect your account. This should only be used for genuine emergencies.";
+  // cancel_job charges no fee; it records a strike once a driver has accepted.
+  const policy = asAdmin ? adminCancelPolicyText(status) : cancelPolicyText(status);
+  const reasonOk = !asAdmin || reason.trim().length >= ADMIN_CANCEL_REASON_MIN;
 
-  const tone =
-    status === "open"
-      ? "text-muted-foreground"
-      : status === "accepted"
-        ? "text-warning"
-        : "text-destructive";
+  const tone = status === "open" ? "text-muted-foreground" : "text-warning";
 
   const submit = async () => {
     setLoading(true);
@@ -1916,21 +2015,21 @@ function CancelJobDialog({ jobId, status, onCancelled }: { jobId: string; status
           <DialogDescription className={tone}>{policy}</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <Label htmlFor="cxr">Reason (optional)</Label>
+          <Label htmlFor="cxr">{asAdmin ? "Reason (required, shown to the customer and driver)" : "Reason (optional)"}</Label>
           <Textarea
             id="cxr"
             rows={3}
             maxLength={300}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="Tell us why you're cancelling"
+            placeholder={asAdmin ? "Why is this job being cancelled?" : "Tell us why you're cancelling"}
           />
         </div>
         <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="ghost" onClick={() => setOpen(false)} disabled={loading}>
             Keep job
           </Button>
-          <Button variant="destructive" onClick={submit} disabled={loading}>
+          <Button variant="destructive" onClick={submit} disabled={loading || !reasonOk}>
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm cancellation"}
           </Button>
         </DialogFooter>
@@ -1939,43 +2038,48 @@ function CancelJobDialog({ jobId, status, onCancelled }: { jobId: string; status
   );
 }
 
-const DISPUTE_TYPES: { value: "wrong_quantity" | "damage" | "no_show" | "payment_issue" | "conduct" | "other"; label: string }[] = [
-  { value: "wrong_quantity", label: "Wrong quantity delivered" },
-  { value: "damage", label: "Damaged material" },
-  { value: "no_show", label: "Driver didn't show up" },
-  { value: "payment_issue", label: "Payment issue" },
-  { value: "conduct", label: "Bad conduct or behavior" },
-  { value: "other", label: "Something else" },
-];
-
-function RaiseDisputeDialog({ jobId, against, label }: { jobId: string; against: string | null; label?: string }) {
+function RaiseDisputeDialog({
+  jobId,
+  against,
+  side,
+  label,
+}: {
+  jobId: string;
+  against: string | null;
+  side: DisputeSide;
+  label?: string;
+}) {
   const [open, setOpen] = useState(false);
-  const [category, setCategory] = useState<typeof DISPUTE_TYPES[number]["value"]>("wrong_quantity");
+  const [choice, setChoice] = useState<string | null>(null);
   const [explanation, setExplanation] = useState("");
   const [loading, setLoading] = useState(false);
+  const options = DISPUTE_OPTIONS[side];
 
   const submit = async () => {
-    if (explanation.trim().length < 5) return toast.error("Please explain what happened.");
+    const option = choice ? disputeOption(side, choice) : null;
+    if (!option) return toast.error("Choose what the problem is.");
+    if (explanation.trim().length < MIN_DISPUTE_EXPLANATION)
+      return toast.error(`Please explain what happened (at least ${MIN_DISPUTE_EXPLANATION} characters).`);
     if (!against) return toast.error("Cannot identify the other party yet.");
     setLoading(true);
-    const label = DISPUTE_TYPES.find((t) => t.value === category)?.label ?? category;
     const { error } = await supabase.rpc("raise_dispute", {
       _job_id: jobId,
       _against: against,
-      _category: category,
-      _reason: `${label}: ${explanation.trim()}`,
+      _category: option.category,
+      _reason: disputeReason(option, explanation),
     });
     setLoading(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Dispute submitted. Our team will review it.");
     setOpen(false);
+    setChoice(null);
     setExplanation("");
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button type="button" className={czButtonClass("danger", "md")}>
+        <button type="button" className={czButtonClass("secondary", "md")}>
           <Flag className="w-4 h-4" /> {label ?? "Report a problem"}
         </button>
       </DialogTrigger>
@@ -1987,19 +2091,28 @@ function RaiseDisputeDialog({ jobId, against, label }: { jobId: string; against:
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          <div>
-            <Label htmlFor="dcat">Type of issue</Label>
-            <select
-              id="dcat"
-              value={category}
-              onChange={(e) => setCategory(e.target.value as any)}
-              className="w-full mt-1 rounded-md border bg-background px-3 py-2 text-sm"
-            >
-              {DISPUTE_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-          </div>
+          <fieldset>
+            <legend className="text-sm font-medium">What's the problem?</legend>
+            <div role="radiogroup" aria-label="What's the problem?" className="mt-2 space-y-1.5">
+              {options.map((o) => {
+                const selected = choice === o.id;
+                return (
+                  <button
+                    key={o.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setChoice(o.id)}
+                    className={`w-full rounded-xl border px-3 py-2.5 text-left text-sm ${
+                      selected ? "border-primary bg-primary/10 font-semibold" : "border-border bg-background"
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
           <div>
             <Label htmlFor="dexp">What happened?</Label>
             <Textarea
@@ -2051,7 +2164,7 @@ function JobTimeline({ job }: { job: any }) {
         {steps.map((s, i) => {
           const Icon = s.done ? s.icon : Circle;
           const color = s.active
-            ? "text-primary"
+            ? "text-cz-amber-text"
             : s.done
               ? "text-success"
               : "text-muted-foreground";
@@ -2076,7 +2189,7 @@ function JobTimeline({ job }: { job: any }) {
                   <div className={`h-0.5 flex-1 ${s.done ? "bg-success" : "bg-border"}`} />
                 )}
               </div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wide text-center ${color}`}>
+              <div className={`text-xs font-semibold text-center ${color}`}>
                 {s.label}
               </div>
             </div>
@@ -2135,6 +2248,7 @@ type JobScreenCtx = {
   invalidateBids: () => void;
   invalidateRating: () => void;
   onCancelled: () => void;
+  isAdminViewer: boolean;
 };
 
 /** Per-job UI flag kept for the browser session (e.g. "I've arrived at
@@ -2171,7 +2285,7 @@ function firstName(name: string | null | undefined, fallback: string) {
 /** Round overlay button for use on top of a map. */
 function MapBackButton({ to, onClick }: { to?: string; onClick?: () => void }) {
   const cls =
-    "pointer-events-auto w-11 h-11 shrink-0 rounded-[14px] bg-cz-bg text-cz-text flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.4)]";
+    "pointer-events-auto w-11 h-11 shrink-0 rounded-xl bg-cz-bg text-cz-text flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.4)]";
   return onClick ? (
     <button type="button" onClick={onClick} aria-label="Back" className={cls}>
       <ArrowLeft className="w-5 h-5" />
@@ -2189,7 +2303,7 @@ function ContactCard({ ctx, subtitle, role }: { ctx: JobScreenCtx; subtitle: Rea
   const { other, name, call } = useJobContact(ctx.job, ctx.isOwner);
   const who = role === "driver" ? "driver" : "customer";
   return (
-    <div className="flex items-center gap-3 rounded-[14px] border border-cz-border bg-cz-surface px-3.5 py-3">
+    <div className="flex items-center gap-3 rounded-xl border border-cz-border bg-cz-surface px-3.5 py-3">
       <InitialsAvatar name={other?.full_name ?? name} />
       <div className="flex-1 min-w-0">
         <div className="font-semibold truncate">{other?.full_name ?? name}</div>
@@ -2256,7 +2370,7 @@ function StageHero({
       <span className="rounded-full bg-cz-bg/60 p-5">
         <Icon className="h-14 w-14" />
       </span>
-      <span className="text-xs font-semibold uppercase tracking-widest opacity-90">
+      <span className="text-xs font-semibold opacity-90">
         Step {stage + 1} of 4 · {label}
       </span>
     </div>
@@ -2421,9 +2535,9 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
         />
         <div id="tour-place-bid" className="px-5 space-y-4">
           <CzCard selected className="space-y-3">
-            <div className="text-sm font-semibold text-cz-amber-text">Customer proposed a new price</div>
+            <div className="text-sm font-semibold text-cz-text">Customer proposed a new price</div>
             <div className="flex items-baseline gap-3">
-              <span className="cz-display font-bold text-5xl text-cz-amber">{usd(Number(myBid.customer_counter_price))}</span>
+              <span className="cz-display font-bold text-5xl text-cz-text tabular-nums">{usd(Number(myBid.customer_counter_price))}</span>
               <span className="text-sm text-cz-muted line-through">{usd(Number(myBid.price))}</span>
             </div>
             <p className="text-sm text-cz-muted">
@@ -2469,7 +2583,7 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
         <div className={cn("flex flex-col items-center gap-3.5 px-5 pt-6 pb-6 text-center", expired && "hidden")}>
           <div className="relative w-[132px] h-[132px] flex items-center justify-center">
             <span aria-hidden className="cz-pulse-ring absolute inset-0 rounded-full border-2 border-cz-amber" />
-            <span className="w-[92px] h-[92px] rounded-full bg-cz-amber-tint-2 flex items-center justify-center text-cz-amber">
+            <span className="w-[92px] h-[92px] rounded-full bg-cz-amber-tint-2 flex items-center justify-center text-cz-amber-text">
               <Truck className="w-11 h-11" strokeWidth={1.8} />
             </span>
           </div>
@@ -2481,7 +2595,7 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
 
         <div id="tour-place-bid" className="px-5 space-y-2.5">
           <div className="text-sm font-semibold text-cz-muted">Offers on this job</div>
-          <div className="flex items-center justify-between gap-3 rounded-[14px] border-[1.5px] border-cz-amber bg-cz-surface px-4 py-3.5">
+          <div className="flex items-center justify-between gap-3 rounded-xl border-[1.5px] border-cz-text bg-cz-surface px-4 py-3.5">
             <div className="min-w-0">
               <div className="font-bold">Your offer</div>
               <div className="text-[13px] text-cz-muted truncate">
@@ -2497,10 +2611,10 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
                 <div className="text-[13px] text-cz-muted">You declined the customer's counter of {usd(Number(myBid.customer_counter_price))}.</div>
               )}
             </div>
-            <span className="cz-display font-bold text-[28px] text-cz-amber tabular-nums">{usd(Number(myBid.price))}</span>
+            <span className="cz-display font-bold text-[28px] text-cz-text tabular-nums">{usd(Number(myBid.price))}</span>
           </div>
           {summary && (
-            <div className="flex items-center justify-between gap-3 rounded-[14px] border border-cz-border bg-cz-surface px-4 py-3.5">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-cz-border bg-cz-surface px-4 py-3.5">
               <div className="min-w-0">
                 <div className="font-semibold">
                   {summary.others === 0 ? "No other offers yet" : `${summary.others} other driver${summary.others === 1 ? "" : "s"}`}
@@ -2574,7 +2688,7 @@ function JobSummaryCard({ job, id = "tour-job-header" }: { job: any; id?: string
   return (
     <CzCard id={id} className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <MaterialBadge>
+        <MaterialBadge material={job.material}>
           {materialLabel(job.material as any, job.custom_material)} · {Number(job.quantity_m3)} m³
         </MaterialBadge>
         <span className="text-[13px] text-cz-muted">Customer offered {usd(Number(job.budget))}</span>
@@ -2699,7 +2813,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
 
           {ctx.isEscrow && !ctx.escrowPaid && (
             <HintBox tone="warn" icon={<ShieldCheck className="w-4 h-4" />}>
-              Waiting for the customer to pay through Con Z Pay before you're guaranteed payment on delivery.
+              Waiting for the customer to pay into Con Z Pay. Once they do, the money is held for you and released when they confirm delivery with their PIN.
             </HintBox>
           )}
 
@@ -2828,9 +2942,9 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
 
         <ProofPhotos job={job} viewer="driver" />
 
-        <details className="group rounded-[14px] border border-cz-border bg-cz-surface">
+        <details className="group rounded-xl border border-cz-border bg-cz-surface">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-[15px] font-semibold">
-            <span className="flex items-center gap-2"><Navigation2 className="w-4 h-4 text-cz-amber" /> More navigation options</span>
+            <span className="flex items-center gap-2"><Navigation2 className="w-4 h-4 text-cz-amber-text" /> More navigation options</span>
             <ChevronDown className="w-4 h-4 text-cz-muted transition group-open:rotate-180" />
           </summary>
           <div className="px-4 pb-4 -mt-2">
@@ -2849,7 +2963,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
           <ShareTrackingButton ctx={ctx} />
           {ctx.showDispute && (
             <div id="tour-dispute">
-              <RaiseDisputeDialog jobId={id} against={job.customer_id} label="Report an issue" />
+              <RaiseDisputeDialog jobId={id} against={job.customer_id} side="driver" label="Report an issue" />
             </div>
           )}
         </div>
@@ -2863,6 +2977,7 @@ const NEXT_LEVEL: Record<string, string> = { bronze: "silver", silver: "gold", g
 
 /** D5 · Paid / delivery complete. */
 function DriverPaid({ ctx }: { ctx: JobScreenCtx }) {
+  const launch = useLaunchSwitches();
   const { job, id } = ctx;
   const { other } = useJobContact(job, false);
   // Same query + cache key as the driver dashboard's profile read.
@@ -2912,7 +3027,9 @@ function DriverPaid({ ctx }: { ctx: JobScreenCtx }) {
           )}
           <p className="text-[13px] text-cz-muted">
             {ctx.isEscrow
-              ? "Released from Con Z Pay into your wallet. Withdraw to EcoCash or bank anytime."
+              ? launch.withdrawalsEnabled
+                ? "Released from Con Z Pay into your wallet. Withdraw it from Wallet when you're ready."
+                : "Released from Con Z Pay into your wallet. Withdrawals are paused for now: contact support and we'll pay it out to you."
               : "Paid to you directly by the customer. The Con Z fee comes off your wallet balance."}
           </p>
           <p className="text-[11px] text-cz-faint">All amounts in USD</p>
@@ -2921,7 +3038,7 @@ function DriverPaid({ ctx }: { ctx: JobScreenCtx }) {
         {driver && lvl && (
           <CzCard className="space-y-2.5">
             <div className="flex justify-between text-sm">
-              <span className="font-semibold text-cz-amber">{lvl.label}</span>
+              <span className="font-semibold text-cz-amber-text">{lvl.label}</span>
               <span className="text-cz-muted">
                 {next && lvl.nextAt != null
                   ? `${Math.max(0, lvl.nextAt - driver.jobs_completed)} jobs to ${next.label}`
@@ -2960,7 +3077,7 @@ function DriverPaid({ ctx }: { ctx: JobScreenCtx }) {
           </Link>
           {ctx.showDispute && (
             <div id="tour-dispute">
-              <RaiseDisputeDialog jobId={id} against={job.customer_id} label="Report an issue" />
+              <RaiseDisputeDialog jobId={id} against={job.customer_id} side="driver" label="Report an issue" />
             </div>
           )}
         </div>
@@ -2990,9 +3107,14 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
   const { job, bids, id } = ctx;
   // Re-evaluate which offers are still live as their 30-minute windows
   // (migration 0062) run out.
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(() => serverNow());
   useEffect(() => {
-    const t = window.setInterval(() => setNow(Date.now()), 15_000);
+    const refresh = () => setNow(serverNow());
+    void syncServerClock().then(refresh);
+    const t = window.setInterval(() => {
+      void syncServerClock().then(refresh); // no-op once measured
+      refresh();
+    }, 15_000);
     return () => window.clearInterval(t);
   }, []);
   const [sort, setSort] = useState<OfferSort>("price");
@@ -3063,7 +3185,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
           )}
         </dl>
 
-        {ctx.showRadar && <RadarSearch etaMinutes={5} nearbyDrivers={ctx.nearbyDrivers} />}
+        {ctx.showRadar && <RadarSearch nearbyDrivers={ctx.nearbyDrivers} />}
 
         {live.length > 1 && (
           <ToggleGroupPrimitive.Root
@@ -3095,6 +3217,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
                 bid={b}
                 kmToPickup={locations[b.id]?.km_to_pickup ?? null}
                 deliveryKm={Number(breakdown?.distance_km) || null}
+                driverArranged={isDriverArranged(job)}
                 highlights={highlights[b.id]}
                 guide={guideBand(b.price, breakdown)}
                 primary={b.id === primaryId}
@@ -3111,7 +3234,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
         </div>
 
         {earlier.length > 0 && (
-          <details className="group rounded-[18px] border border-cz-border bg-cz-surface">
+          <details className="group rounded-2xl border border-cz-border bg-cz-surface">
             <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 text-sm font-semibold text-cz-muted [&::-webkit-details-marker]:hidden">
               {earlier.length} earlier offer{earlier.length === 1 ? "" : "s"}
               <ChevronDown aria-hidden className="h-4 w-4 transition group-open:rotate-180" />
@@ -3134,7 +3257,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
           <div className="text-sm font-semibold text-cz-muted">Your request</div>
           <CzCard id="tour-job-header" className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <MaterialBadge>
+              <MaterialBadge material={job.material}>
                 {materialLabel(job.material as any, job.custom_material)} · {Number(job.quantity_m3)} m³
               </MaterialBadge>
               <span className="text-[13px] text-cz-muted">{ctx.isEscrow ? "Con Z Pay" : "Pay driver directly"}</span>
@@ -3157,7 +3280,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
 
         {ctx.showCancel && (
           <div id="tour-next-steps">
-            <CancelJobDialog jobId={id} status={job.status} onCancelled={ctx.onCancelled} />
+            <CancelJobDialog jobId={id} status={job.status} asAdmin={ctx.isAdminViewer} onCancelled={ctx.onCancelled} />
           </div>
         )}
       </BottomSheet>
@@ -3214,7 +3337,7 @@ function RaisePriceCard({ job, onRaised }: { job: any; onRaised: () => void }) {
             aria-pressed={target === v}
             className={cn(
               "min-h-12 rounded-xl text-[15px] font-semibold tabular-nums",
-              target === v ? "bg-cz-amber text-cz-amber-ink font-bold" : "border border-cz-border-strong bg-cz-surface",
+              target === v ? "border border-cz-text bg-cz-surface-2 text-cz-text shadow-[inset_0_0_0_1px_var(--cz-text)]" : "border border-cz-border-strong bg-cz-surface text-cz-text hover:bg-cz-surface-2",
             )}
           >
             +{usd(v - current)}
@@ -3293,7 +3416,7 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
 
         <div className="space-y-2">
           <div className="text-sm font-semibold text-cz-muted">Pay with</div>
-          <div className="flex items-center gap-3 rounded-[14px] border-[1.5px] border-cz-amber bg-cz-amber-tint px-4 py-3.5">
+          <div className="flex items-center gap-3 rounded-xl border-[1.5px] border-cz-amber bg-cz-amber-tint px-4 py-3.5">
             <span aria-hidden className="w-5 h-5 rounded-full border-[6px] border-cz-amber bg-cz-bg shrink-0" />
             <div className="min-w-0">
               <div className="font-semibold">Paynow</div>
@@ -3315,7 +3438,7 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
         <div className="grid grid-cols-2 gap-2.5">
           <CzButton kind="ghost" size="sm" onClick={onViewTracking}>View tracking</CzButton>
           {ctx.showCancel ? (
-            <CancelJobDialog jobId={id} status={job.status} onCancelled={ctx.onCancelled} />
+            <CancelJobDialog jobId={id} status={job.status} asAdmin={ctx.isAdminViewer} onCancelled={ctx.onCancelled} />
           ) : (
             <span />
           )}
@@ -3509,7 +3632,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
           </div>
           <ShareTrackingButton
             ctx={ctx}
-            className="pointer-events-auto min-h-11 inline-flex items-center gap-1.5 rounded-[14px] bg-cz-bg px-3.5 text-sm font-semibold shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
+            className="pointer-events-auto min-h-11 inline-flex items-center gap-1.5 rounded-xl bg-cz-bg px-3.5 text-sm font-semibold shadow-[0_4px_14px_rgba(0,0,0,0.4)]"
           />
         </div>
       </div>
@@ -3534,17 +3657,6 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
                 </button>
               </div>
             </HintBox>
-          )}
-
-          {step >= 2 && job.pickup_photo_url && (
-            <div className="flex items-center gap-3">
-              <div className="w-16 shrink-0">
-                <SignedProofPhoto path={job.pickup_photo_url} alt="Loaded truck at pickup" />
-              </div>
-              <div className="text-[13px] text-cz-muted">
-                <span className="font-semibold text-cz-green-text">Loaded</span> — photo taken at pickup
-              </div>
-            </div>
           )}
 
           {/* Information, not an action: a tinted card, so solid orange stays for the
@@ -3581,12 +3693,24 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
             </section>
           )}
 
-          {ctx.showCompleteButton && (
-            <CzButton id="tour-confirm-delivery" kind={job.delivery_photo_url ? "primary" : "ghost"} onClick={ctx.completeJob} disabled={!job.delivery_photo_url}>
-              <CheckCircle2 className="w-5 h-5" />
-              {job.delivery_photo_url ? "Load received — finish" : "Waiting for driver's delivery photo"}
-            </CzButton>
-          )}
+          {/* Until the driver's delivery photo is in, this is a status line, not a
+              greyed-out button: there is nothing for the customer to tap yet. */}
+          {ctx.showCompleteButton &&
+            (job.delivery_photo_url ? (
+              <CzButton id="tour-confirm-delivery" kind="primary" onClick={ctx.completeJob}>
+                <CheckCircle2 className="w-5 h-5" />
+                Confirm the load arrived
+              </CzButton>
+            ) : (
+              <p
+                id="tour-confirm-delivery"
+                role="status"
+                className="flex items-center gap-2 rounded-xl border border-dashed border-cz-border-strong px-3.5 py-3 text-sm text-cz-muted"
+              >
+                <Clock aria-hidden className="h-4 w-4 shrink-0" />
+                You can confirm once the driver adds the delivery photo.
+              </p>
+            ))}
         </div>
 
         {location !== "live" && (
@@ -3603,10 +3727,10 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
         <div className="space-y-2.5">
           {ctx.showDispute && (
             <div id="tour-dispute">
-              <RaiseDisputeDialog jobId={id} against={job.driver_id} label="Report a problem" />
+              <RaiseDisputeDialog jobId={id} against={job.driver_id} side="customer" label="Report a problem" />
             </div>
           )}
-          {ctx.showCancel && <CancelJobDialog jobId={id} status={job.status} onCancelled={ctx.onCancelled} />}
+          {ctx.showCancel && <CancelJobDialog jobId={id} status={job.status} asAdmin={ctx.isAdminViewer} onCancelled={ctx.onCancelled} />}
         </div>
       </BottomSheet>
     </CzScreen>
@@ -3692,7 +3816,7 @@ function CustomerDelivered({ ctx }: { ctx: JobScreenCtx }) {
           </Link>
           {ctx.showDispute && (
             <div id="tour-dispute">
-              <RaiseDisputeDialog jobId={id} against={job.driver_id} label="Report a problem" />
+              <RaiseDisputeDialog jobId={id} against={job.driver_id} side="customer" label="Report a problem" />
             </div>
           )}
         </div>

@@ -31,7 +31,7 @@ const CAPACITY_LABEL: Record<string, string> = {
 
 const TIER_META: Record<RecommendationTier, { label: string; className: string }> = {
   excellent: { label: "EXCELLENT", className: "bg-success/15 text-success" },
-  good: { label: "GOOD", className: "bg-primary/15 text-primary" },
+  good: { label: "GOOD", className: "bg-primary/15 text-cz-amber-text" },
   possible: { label: "POSSIBLE", className: "bg-muted text-muted-foreground" },
 };
 
@@ -110,8 +110,8 @@ export function NextLoadsCard({ driverId, currentJobId }: { driverId: string; cu
   return (
     <div className="rounded-2xl border bg-card p-4 shadow-card space-y-3">
       <div className="flex items-center gap-2">
-        <Truck className="w-4 h-4 text-primary" />
-        <div className="font-display font-bold text-sm uppercase tracking-wide">Suggested next loads</div>
+        <Truck className="w-4 h-4 text-cz-amber-text" />
+        <div className="font-semibold text-sm">Suggested next loads</div>
       </div>
       <p className="text-xs text-muted-foreground -mt-1">
         Other open jobs near where this delivery finishes — bid on any of them the same way as usual.
@@ -140,7 +140,7 @@ function LoadRow({ l, featured, onOpen }: { l: NextLoad; featured: boolean; onOp
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          {featured && <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />}
+          {featured && <Sparkles className="w-3.5 h-3.5 text-cz-amber-text shrink-0" />}
           <span className={cn("text-[10px] font-bold tracking-widest px-1.5 py-0.5 rounded", meta.className)}>{meta.label}</span>
         </div>
         <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
