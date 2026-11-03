@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Loader2, ShieldCheck, Truck, KeyRound, Camera, Image as ImageIcon, AlertTriangle, Check } from "lucide-react";
 import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
 import { AddTruckForm } from "@/components/AddTruckForm";
+import { PointsCard } from "@/components/PointsCard";
 import { deleteMyAccount } from "@/lib/account-deletion";
 import { rpcFailure } from "@/lib/rpc-result";
 import {
@@ -184,6 +185,8 @@ function ProfilePage() {
         )}
 
         {activeRole === "driver" && is("driver") && <WithdrawalPinCard />}
+
+        <PointsCard />
 
         <SetPasswordCard />
 
