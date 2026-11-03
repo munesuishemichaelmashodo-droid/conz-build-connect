@@ -287,6 +287,12 @@ export function DriverHome({
           >
             See all loads & my jobs <ChevronRight className="w-4 h-4" />
           </Link>
+          <Link
+            to="/job-history"
+            className="flex items-center justify-center gap-1 min-h-12 rounded-xl text-[15px] font-semibold text-cz-muted underline underline-offset-4 hover:bg-cz-surface-2"
+          >
+            Job history & recent activity <ChevronRight className="w-4 h-4" />
+          </Link>
 
           <div className="pt-2">
             <LocalLocator />

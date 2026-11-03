@@ -27,6 +27,7 @@ import { Route as AuthenticatedCustomerRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedDriverRouteImport } from './routes/_authenticated/driver'
 import { Route as AuthenticatedHelpRouteImport } from './routes/_authenticated/help'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
+import { Route as AuthenticatedJobHistoryRouteImport } from './routes/_authenticated/job-history'
 import { Route as AuthenticatedMfaRouteImport } from './routes/_authenticated/mfa'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedReferRouteImport } from './routes/_authenticated/refer'
@@ -150,6 +151,11 @@ const AuthenticatedHelpRoute = AuthenticatedHelpRouteImport.update({
 const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
   id: '/home',
   path: '/home',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedJobHistoryRoute = AuthenticatedJobHistoryRouteImport.update({
+  id: '/job-history',
+  path: '/job-history',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedMfaRoute = AuthenticatedMfaRouteImport.update({
@@ -347,6 +353,7 @@ export interface FileRoutesByFullPath {
   '/driver': typeof AuthenticatedDriverRoute
   '/help': typeof AuthenticatedHelpRoute
   '/home': typeof AuthenticatedHomeRoute
+  '/job-history': typeof AuthenticatedJobHistoryRoute
   '/mfa': typeof AuthenticatedMfaRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/refer': typeof AuthenticatedReferRoute
@@ -396,6 +403,7 @@ export interface FileRoutesByTo {
   '/driver': typeof AuthenticatedDriverRoute
   '/help': typeof AuthenticatedHelpRoute
   '/home': typeof AuthenticatedHomeRoute
+  '/job-history': typeof AuthenticatedJobHistoryRoute
   '/mfa': typeof AuthenticatedMfaRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/refer': typeof AuthenticatedReferRoute
@@ -449,6 +457,7 @@ export interface FileRoutesById {
   '/_authenticated/driver': typeof AuthenticatedDriverRoute
   '/_authenticated/help': typeof AuthenticatedHelpRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
+  '/_authenticated/job-history': typeof AuthenticatedJobHistoryRoute
   '/_authenticated/mfa': typeof AuthenticatedMfaRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/refer': typeof AuthenticatedReferRoute
@@ -502,6 +511,7 @@ export interface FileRouteTypes {
     | '/driver'
     | '/help'
     | '/home'
+    | '/job-history'
     | '/mfa'
     | '/profile'
     | '/refer'
@@ -551,6 +561,7 @@ export interface FileRouteTypes {
     | '/driver'
     | '/help'
     | '/home'
+    | '/job-history'
     | '/mfa'
     | '/profile'
     | '/refer'
@@ -603,6 +614,7 @@ export interface FileRouteTypes {
     | '/_authenticated/driver'
     | '/_authenticated/help'
     | '/_authenticated/home'
+    | '/_authenticated/job-history'
     | '/_authenticated/mfa'
     | '/_authenticated/profile'
     | '/_authenticated/refer'
@@ -783,6 +795,13 @@ declare module '@tanstack/react-router' {
       path: '/home'
       fullPath: '/home'
       preLoaderRoute: typeof AuthenticatedHomeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/job-history': {
+      id: '/_authenticated/job-history'
+      path: '/job-history'
+      fullPath: '/job-history'
+      preLoaderRoute: typeof AuthenticatedJobHistoryRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/mfa': {
@@ -1075,6 +1094,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDriverRoute: typeof AuthenticatedDriverRoute
   AuthenticatedHelpRoute: typeof AuthenticatedHelpRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
+  AuthenticatedJobHistoryRoute: typeof AuthenticatedJobHistoryRoute
   AuthenticatedMfaRoute: typeof AuthenticatedMfaRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedReferRoute: typeof AuthenticatedReferRoute
@@ -1093,6 +1113,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDriverRoute: AuthenticatedDriverRoute,
   AuthenticatedHelpRoute: AuthenticatedHelpRoute,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
+  AuthenticatedJobHistoryRoute: AuthenticatedJobHistoryRoute,
   AuthenticatedMfaRoute: AuthenticatedMfaRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedReferRoute: AuthenticatedReferRoute,
