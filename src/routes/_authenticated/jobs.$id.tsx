@@ -5,6 +5,7 @@ import { serverNow, syncServerClock } from "@/lib/server-clock";
 import { commissionFee, earnings, fuelEstimate } from "@/lib/driver-economics";
 import { composeOfferMessage, isDriverArranged, MAX_SOURCE_LENGTH, parseOfferMessage } from "@/lib/proposed-source";
 import { OfferMessage } from "@/components/redesign/ProposedSource";
+import { fetchOpenJob } from "@/lib/open-jobs";
 import { ADMIN_CANCEL_REASON_MIN, adminCancelPolicyText, adminCanCancel, cancelPolicyText, customerCanCancel } from "@/lib/cancel-policy";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
@@ -240,12 +241,7 @@ function JobDetail() {
       if (error) throw error;
       if (data) return data;
       // Not readable as a row: an unselected verified driver gets the area-only preview (0133).
-      const { data: preview } = await (supabase.rpc as unknown as (f: string, a: Record<string, unknown>) => PromiseLike<{ data: unknown }>)(
-        "driver_open_job",
-        { _id: id },
-      );
-      const first = Array.isArray(preview) ? preview[0] : preview;
-      return (first ?? null) as typeof data;
+      return (await fetchOpenJob(supabase, id)) as typeof data;
     },
   });
 

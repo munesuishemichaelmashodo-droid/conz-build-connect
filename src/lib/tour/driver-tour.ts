@@ -1,3 +1,4 @@
+import { fetchOpenJobs } from "@/lib/open-jobs";
 import type { TourConfig, TourResolveCtx, TourStep } from "./types";
 
 const DASHBOARD = "/driver";
@@ -8,8 +9,8 @@ const DASHBOARD = "/driver";
  *  empty. */
 async function findOpenJob({ supabase }: TourResolveCtx): Promise<{ id: string } | null> {
   // Area-only open jobs (0133): drivers can no longer read open job rows directly.
-  const { data } = await (supabase.rpc as any)("driver_open_jobs", { _limit: 1 });
-  return (Array.isArray(data) ? data[0] : null) ?? null;
+  const open = await fetchOpenJobs<{ id: string }>(supabase, 1);
+  return open[0] ?? null;
 }
 
 /** A still-open job this driver has already bid on — for the "bid status"
@@ -26,8 +27,8 @@ async function findJobWithMyBid({
     .limit(10);
   if (!bids?.length) return null;
   const ids = new Set(bids.map((b: any) => b.job_id));
-  const { data: open } = await (supabase.rpc as any)("driver_open_jobs", { _limit: 100 });
-  return (Array.isArray(open) ? open : []).find((j: { id: string }) => ids.has(j.id)) ?? null;
+  const open = await fetchOpenJobs<{ id: string }>(supabase, 100);
+  return open.find((j) => ids.has(j.id)) ?? null;
 }
 
 /** A job actually assigned to this driver, in one of the given statuses —

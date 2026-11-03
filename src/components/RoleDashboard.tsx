@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { driverNeedsBanner } from "@/lib/driver-onboarding";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
+import { fetchOpenJobs } from "@/lib/open-jobs";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronRight, Plus, ShieldCheck } from "lucide-react";
 import { LocalLocator } from "@/components/LocalLocator";
@@ -31,14 +32,10 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
     queryFn: async () => {
       if (isDriver) {
         // Area-only open jobs (0133)
-        const { data, error } = await (
-          supabase.rpc as unknown as (
-            f: string,
-            a: Record<string, unknown>,
-          ) => PromiseLike<{ data: unknown; error: { message: string } | null }>
-        )("driver_open_jobs", { _limit: 5 });
-        if (error) throw new Error(error.message);
-        return (data ?? []) as unknown as import("@/integrations/supabase/types").Tables<"jobs">[];
+        return (await fetchOpenJobs(
+          supabase,
+          5,
+        )) as unknown as import("@/integrations/supabase/types").Tables<"jobs">[];
       }
       const { data, error } = await supabase
         .from("jobs")

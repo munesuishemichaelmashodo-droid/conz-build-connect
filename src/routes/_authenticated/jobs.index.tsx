@@ -3,6 +3,7 @@ import { TipperIllustration } from "@/components/ds/media";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchOpenJobs } from "@/lib/open-jobs";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus } from "lucide-react";
 import { bestCapacityMatchTier, type CapacityMatchTier } from "@/lib/capacityMatch";
@@ -62,15 +63,10 @@ function JobsPage() {
       if (error) throw error;
       if (!isDriver) return data;
       // Open jobs for drivers come from the area-only function (0133); own/assigned jobs from the table.
-      const { data: open } = await (
-        supabase.rpc as unknown as (
-          f: string,
-          a: Record<string, unknown>,
-        ) => PromiseLike<{ data: unknown }>
-      )("driver_open_jobs", { _limit: 100 });
+      const open = await fetchOpenJobs(supabase, 100);
       const own = data ?? [];
       const seen = new Set(own.map((j) => j.id));
-      const merged = [...own, ...((open ?? []) as typeof own).filter((j) => !seen.has(j.id))];
+      const merged = [...own, ...(open as typeof own).filter((j) => !seen.has(j.id))];
       return merged.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
     },
   });

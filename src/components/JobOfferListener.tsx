@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { fetchOpenJob } from "@/lib/open-jobs";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -74,13 +75,7 @@ export function JobOfferListener() {
 
   const loadJob = useCallback(async (jobId: string) => {
     // Area-only preview (0133): the exact address is shared once the customer selects the driver.
-    const { data } = await (
-      supabase.rpc as unknown as (
-        f: string,
-        a: Record<string, unknown>,
-      ) => PromiseLike<{ data: unknown }>
-    )("driver_open_job", { _id: jobId });
-    const row = (Array.isArray(data) ? data[0] : data) as Job | null | undefined;
+    const row = await fetchOpenJob<Job>(supabase, jobId);
     if (row) setJob(row);
   }, []);
 

@@ -1,3 +1,4 @@
+import { fetchOpenJobs } from "@/lib/open-jobs";
 import { createClient } from "@supabase/supabase-js";
 import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
 import { z } from "zod";
@@ -25,10 +26,14 @@ export default defineTool({
     }
     const sb = supabaseForUser(ctx);
     // Area-only open jobs (0133): exact addresses are never listed to a tool caller.
-    const { data: all, error } = await (sb.rpc as any)("driver_open_jobs", { _limit: limit ?? 20 });
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    const data = (all ?? [])
-      .filter((j: { material: string }) => !material || j.material === material)
+    let all: Record<string, unknown>[];
+    try {
+      all = await fetchOpenJobs<Record<string, unknown>>(sb as never, limit ?? 20);
+    } catch (e) {
+      return { content: [{ type: "text", text: (e as Error).message }], isError: true };
+    }
+    const data = all
+      .filter((j) => !material || j.material === material)
       .map((j: Record<string, unknown>) => ({
         id: j.id,
         material: j.material,
