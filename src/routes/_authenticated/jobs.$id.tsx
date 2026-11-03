@@ -470,6 +470,23 @@ function JobDetail() {
   };
 
   const acceptBid = async (bidId: string) => {
+    // Optional deposit (0135): the customer must accept the driver's stated terms before selecting them.
+    const offer = (bids ?? []).find((x) => x.id === bidId) as
+      | { deposit_required?: boolean; deposit_amount?: number; deposit_reason?: string; deposit_terms?: string; deposit_terms_accepted_at?: string | null; price: number }
+      | undefined;
+    if (offer?.deposit_required && !offer.deposit_terms_accepted_at) {
+      const dep = Number(offer.deposit_amount);
+      const ok = window.confirm(
+        `This driver asks for a deposit of ${money(dep)} (balance ${money(Number(offer.price) - dep)}).\n\nReason: ${offer.deposit_reason}\nCancellation and refund terms: ${offer.deposit_terms}\n\n` +
+          "The deposit is agreed and paid directly between you and the driver. Con Z does not hold it and cannot guarantee a refund.\n\nAccept these terms and select this driver?",
+      );
+      if (!ok) return;
+      const { error: ackError } = await (supabase.rpc as unknown as (f: string, a: Record<string, unknown>) => PromiseLike<{ error: { message: string } | null }>)(
+        "acknowledge_deposit_terms",
+        { _bid_id: bidId },
+      );
+      if (ackError) return toast.error(ackError.message);
+    }
     const { error } = await supabase.rpc("accept_bid", { _bid_id: bidId });
     if (error) {
       if (/insufficient wallet balance/i.test(error.message)) {
@@ -1224,6 +1241,12 @@ function BidForm({
   const [truckId, setTruckId] = useState<string>(existing?.truck_id ?? "");
   // Migration 0060: optional "I can reach pickup in" (minutes).
   const [etaMinutes, setEtaMinutes] = useState<number | null>(existing?.eta_minutes ?? null);
+  // Optional mobilisation deposit (0135). Off by default; nothing is sent unless it is switched on.
+  const ex = existing as unknown as { deposit_required?: boolean; deposit_amount?: number; deposit_reason?: string; deposit_terms?: string } | null;
+  const [depositOn, setDepositOn] = useState(!!ex?.deposit_required);
+  const [depositAmount, setDepositAmount] = useState(ex?.deposit_amount ? String(ex.deposit_amount) : "");
+  const [depositReason, setDepositReason] = useState(ex?.deposit_reason ?? "");
+  const [depositTerms, setDepositTerms] = useState(ex?.deposit_terms ?? "");
   const [loading, setLoading] = useState(false);
 
   const { data: trucks } = useQuery({
@@ -1298,6 +1321,12 @@ function BidForm({
     const p = parseFloat(price);
     if (!p || p <= 0) return toast.error("Enter a valid price");
     if (!truckId) return toast.error("Select which truck you're bidding with");
+    const dep = parseFloat(depositAmount);
+    if (depositOn) {
+      if (!(dep > 0) || dep > p) return toast.error("The deposit must be more than 0 and no more than your price");
+      if (depositReason.trim().length < 5) return toast.error("Say why a deposit is needed");
+      if (depositTerms.trim().length < 10) return toast.error("State the cancellation and refund terms for the deposit");
+    }
     setLoading(true);
     const { error } = await supabase.from("bids").upsert(
       {
@@ -1308,6 +1337,12 @@ function BidForm({
         message: composeOfferMessage(driverArrangesPickup ? proposedSource : "", message),
         truck_id: truckId,
         eta_minutes: etaMinutes,
+        // Only sent when switched on, so offers without a deposit are saved exactly as before.
+        ...(depositOn
+          ? { deposit_required: true, deposit_amount: dep, deposit_reason: depositReason.trim(), deposit_terms: depositTerms.trim() }
+          : ex?.deposit_required
+            ? { deposit_required: false }
+            : {}),
       } as any,
       { onConflict: "job_id,driver_id" },
     );
@@ -1614,6 +1649,41 @@ function BidForm({
                 placeholder="e.g. Can deliver tomorrow morning"
               />
             </div>
+          </div>
+        </details>
+
+        <details className="group rounded-xl border border-cz-border bg-cz-surface" open={depositOn}>
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-[15px] font-semibold">
+            Ask for a deposit <span className="text-cz-muted font-normal text-sm">(optional)</span>
+            <ChevronDown className="w-4 h-4 text-cz-muted transition group-open:rotate-180" />
+          </summary>
+          <div className="space-y-3 px-4 pb-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={depositOn} onChange={(e) => setDepositOn(e.target.checked)} />
+              This offer needs a deposit before the job starts
+            </label>
+            {depositOn && (
+              <>
+                <div>
+                  <Label htmlFor="dep-amt">Deposit amount (USD)</Label>
+                  <Input id="dep-amt" inputMode="decimal" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="min-h-11" />
+                  {parseFloat(price) > 0 && parseFloat(depositAmount) > 0 && (
+                    <p className="mt-1 text-xs text-cz-muted">Balance due on delivery: {money(parseFloat(price) - parseFloat(depositAmount))}</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="dep-why">Why a deposit is needed</Label>
+                  <Input id="dep-why" maxLength={300} value={depositReason} onChange={(e) => setDepositReason(e.target.value)} className="min-h-11" placeholder="e.g. to book the loader" />
+                </div>
+                <div>
+                  <Label htmlFor="dep-terms">Cancellation and refund terms</Label>
+                  <Textarea id="dep-terms" rows={2} maxLength={600} value={depositTerms} onChange={(e) => setDepositTerms(e.target.value)} placeholder="e.g. Refundable if I cancel; kept if you cancel after loading" />
+                </div>
+                <p className="text-xs text-cz-muted">
+                  The customer pays the deposit directly to you. Con Z does not hold it, collect it or guarantee a refund. The customer must accept these terms before choosing you.
+                </p>
+              </>
+            )}
           </div>
         </details>
 

@@ -188,6 +188,18 @@ export function OfferCard({
 
       <div className="space-y-3 px-4 pb-4 pt-3">
         <OfferMessage message={bid.message} driverArranged={driverArranged} />
+        {(bid as unknown as { deposit_required?: boolean }).deposit_required && (
+          <DepositNote
+            bid={
+              bid as unknown as {
+                price: number;
+                deposit_amount: number;
+                deposit_reason: string;
+                deposit_terms: string;
+              }
+            }
+          />
+        )}
 
         {bid.counter_status === "countered" && (
           <div className="rounded-xl bg-cz-amber-tint px-3 py-2.5 text-[13px]">
@@ -269,6 +281,31 @@ function Fact({
           {sub}
         </dd>
       )}
+    </div>
+  );
+}
+
+/** Optional deposit stated in the offer (0135). Paid directly to the driver; Con Z does not hold it. */
+function DepositNote({
+  bid,
+}: {
+  bid: { price: number; deposit_amount: number; deposit_reason: string; deposit_terms: string };
+}) {
+  const dep = Number(bid.deposit_amount);
+  return (
+    <div
+      className="mt-2 rounded-xl border border-cz-border bg-cz-surface-2 p-3 text-xs space-y-1"
+      aria-label="Deposit requested"
+    >
+      <div className="font-semibold">
+        Deposit requested: ${dep.toFixed(2)} · balance ${(Number(bid.price) - dep).toFixed(2)}
+      </div>
+      <div>Why: {bid.deposit_reason}</div>
+      <div>Cancellation and refund terms: {bid.deposit_terms}</div>
+      <div className="text-cz-muted">
+        Paid directly to the driver. Con Z does not hold it or guarantee a refund. You will be asked
+        to accept these terms before choosing this driver.
+      </div>
     </div>
   );
 }
