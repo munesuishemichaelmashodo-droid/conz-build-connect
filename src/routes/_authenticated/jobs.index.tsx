@@ -9,7 +9,11 @@ import { bestCapacityMatchTier, type CapacityMatchTier } from "@/lib/capacityMat
 import { CzScreen, CzHeader } from "@/components/redesign";
 import { JobRow } from "@/components/redesign/JobRow";
 import { FeedJobCard } from "@/components/redesign/FeedJobCard";
-import { CustomerBottomNav, DriverBottomNav, NAV_SPACE } from "@/components/redesign/DriverBottomNav";
+import {
+  CustomerBottomNav,
+  DriverBottomNav,
+  NAV_SPACE,
+} from "@/components/redesign/DriverBottomNav";
 import { useQuickAccept } from "@/components/redesign/useQuickAccept";
 import { useCustomerCards } from "@/components/redesign/rpc";
 import { NotificationsBell } from "@/components/NotificationsBell";
@@ -19,7 +23,12 @@ export const Route = createFileRoute("/_authenticated/jobs/")({
   component: JobsPage,
 });
 
-const TIER_RANK: Record<CapacityMatchTier, number> = { excellent: 0, good: 1, oversized: 2, multiple_trips: 3 };
+const TIER_RANK: Record<CapacityMatchTier, number> = {
+  excellent: 0,
+  good: 1,
+  oversized: 2,
+  multiple_trips: 3,
+};
 
 function JobsPage() {
   const { userId, is } = useAuth();
@@ -32,7 +41,10 @@ function JobsPage() {
     queryKey: ["my-trucks-capacities", userId],
     enabled: !!userId && isDriver,
     queryFn: async () => {
-      const { data, error } = await supabase.from("trucks").select("capacity_m3").eq("driver_id", userId!);
+      const { data, error } = await supabase
+        .from("trucks")
+        .select("capacity_m3")
+        .eq("driver_id", userId!);
       if (error) throw error;
       return (data ?? []).map((t) => Number(t.capacity_m3));
     },
@@ -45,11 +57,21 @@ function JobsPage() {
     queryFn: async () => {
       let q = supabase.from("jobs").select("*").order("created_at", { ascending: false });
       if (isCustomer && !isDriver) q = q.eq("customer_id", userId!);
-      else if (isDriver && !isCustomer)
-        q = q.or(`status.eq.open,driver_id.eq.${userId}`);
+      else if (isDriver && !isCustomer) q = q.eq("driver_id", userId!);
       const { data, error } = await q;
       if (error) throw error;
-      return data;
+      if (!isDriver) return data;
+      // Open jobs for drivers come from the area-only function (0133); own/assigned jobs from the table.
+      const { data: open } = await (
+        supabase.rpc as unknown as (
+          f: string,
+          a: Record<string, unknown>,
+        ) => PromiseLike<{ data: unknown }>
+      )("driver_open_jobs", { _limit: 100 });
+      const own = data ?? [];
+      const seen = new Set(own.map((j) => j.id));
+      const merged = [...own, ...((open ?? []) as typeof own).filter((j) => !seen.has(j.id))];
+      return merged.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
     },
   });
 
@@ -68,13 +90,11 @@ function JobsPage() {
     if (!userId || !isDriver) return;
     const ch = supabase
       .channel(`open-jobs-freshness-${userId}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "jobs" },
-        () => {
-          void queryClient.invalidateQueries({ queryKey: ["jobs-list", userId, isDriver, isCustomer] });
-        },
-      )
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "jobs" }, () => {
+        void queryClient.invalidateQueries({
+          queryKey: ["jobs-list", userId, isDriver, isCustomer],
+        });
+      })
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
@@ -91,8 +111,10 @@ function JobsPage() {
           const aOpen = a.status === "open" && a.driver_id !== userId;
           const bOpen = b.status === "open" && b.driver_id !== userId;
           if (aOpen && bOpen) {
-            const ra = TIER_RANK[bestCapacityMatchTier(Number(a.quantity_m3), myTrucks) ?? "oversized"] ?? 9;
-            const rb = TIER_RANK[bestCapacityMatchTier(Number(b.quantity_m3), myTrucks) ?? "oversized"] ?? 9;
+            const ra =
+              TIER_RANK[bestCapacityMatchTier(Number(a.quantity_m3), myTrucks) ?? "oversized"] ?? 9;
+            const rb =
+              TIER_RANK[bestCapacityMatchTier(Number(b.quantity_m3), myTrucks) ?? "oversized"] ?? 9;
             if (ra !== rb) return ra - rb;
           }
           return 0;
@@ -102,10 +124,20 @@ function JobsPage() {
   // Driver / customer mode redesign: same query, poll and realtime channel
   // above; the list is grouped by what needs attention.
   const all = orderedJobs ?? [];
-  const mineActive = all.filter((j) => (isDriver ? j.driver_id === userId : true) && (j.status === "accepted" || j.status === "in_progress"));
-  const openLoads = all.filter((j) => j.status === "open" && (isDriver ? j.customer_id !== userId : true));
+  const mineActive = all.filter(
+    (j) =>
+      (isDriver ? j.driver_id === userId : true) &&
+      (j.status === "accepted" || j.status === "in_progress"),
+  );
+  const openLoads = all.filter(
+    (j) => j.status === "open" && (isDriver ? j.customer_id !== userId : true),
+  );
   const cards = useCustomerCards(isDriver && !isCustomer ? openLoads.map((j) => j.id) : []);
-  const past = all.filter((j) => (isDriver ? j.driver_id === userId : true) && (j.status === "completed" || j.status === "cancelled"));
+  const past = all.filter(
+    (j) =>
+      (isDriver ? j.driver_id === userId : true) &&
+      (j.status === "completed" || j.status === "cancelled"),
+  );
 
   return (
     <>
@@ -116,7 +148,10 @@ function JobsPage() {
           right={
             <div className="flex items-center gap-0.5">
               {isCustomer && (
-                <Link to="/jobs/new" className="min-h-11 inline-flex items-center gap-1 rounded-xl bg-cz-amber px-3 text-sm font-bold text-cz-amber-ink">
+                <Link
+                  to="/jobs/new"
+                  className="min-h-11 inline-flex items-center gap-1 rounded-xl bg-cz-amber px-3 text-sm font-bold text-cz-amber-ink"
+                >
                   <Plus className="w-4 h-4" /> New
                 </Link>
               )}
@@ -132,23 +167,39 @@ function JobsPage() {
             <div className="rounded-2xl border border-dashed border-cz-border-strong p-8 text-center">
               <TipperIllustration className="mx-auto w-40 opacity-90" />
               <p className="mt-3 font-semibold">No jobs yet</p>
-              <p className="text-sm text-cz-muted">{isCustomer ? "Post your first delivery request." : "Check back soon for open requests."}</p>
+              <p className="text-sm text-cz-muted">
+                {isCustomer
+                  ? "Post your first delivery request."
+                  : "Check back soon for open requests."}
+              </p>
             </div>
           ) : (
             <>
               {mineActive.length > 0 && (
                 <JobGroup title={isDriver && !isCustomer ? "Active now" : "In progress"}>
-                  {mineActive.map((j) => <JobRow key={j.id} j={j} />)}
+                  {mineActive.map((j) => (
+                    <JobRow key={j.id} j={j} />
+                  ))}
                 </JobGroup>
               )}
               {openLoads.length > 0 && (
-                <JobGroup title={isDriver && !isCustomer ? `${openLoads.length} open load${openLoads.length === 1 ? "" : "s"}` : "Waiting for offers"}>
+                <JobGroup
+                  title={
+                    isDriver && !isCustomer
+                      ? `${openLoads.length} open load${openLoads.length === 1 ? "" : "s"}`
+                      : "Waiting for offers"
+                  }
+                >
                   {isDriver && !isCustomer
                     ? openLoads.map((j) => (
                         <FeedJobCard
                           key={j.id}
                           job={j}
-                          matchTier={myTrucks?.length ? bestCapacityMatchTier(Number(j.quantity_m3), myTrucks) : undefined}
+                          matchTier={
+                            myTrucks?.length
+                              ? bestCapacityMatchTier(Number(j.quantity_m3), myTrucks)
+                              : undefined
+                          }
                           onAccept={() => accept(j)}
                           accepting={busyJobId === j.id}
                           customer={cards[j.id]}
@@ -159,7 +210,9 @@ function JobsPage() {
               )}
               {past.length > 0 && (
                 <JobGroup title="Completed & cancelled">
-                  {past.map((j) => <JobRow key={j.id} j={j} />)}
+                  {past.map((j) => (
+                    <JobRow key={j.id} j={j} />
+                  ))}
                 </JobGroup>
               )}
             </>

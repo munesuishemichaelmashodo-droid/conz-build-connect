@@ -238,7 +238,14 @@ function JobDetail() {
     queryFn: async () => {
       const { data, error } = await supabase.from("jobs").select("*").eq("id", id).maybeSingle();
       if (error) throw error;
-      return data;
+      if (data) return data;
+      // Not readable as a row: an unselected verified driver gets the area-only preview (0133).
+      const { data: preview } = await (supabase.rpc as unknown as (f: string, a: Record<string, unknown>) => PromiseLike<{ data: unknown }>)(
+        "driver_open_job",
+        { _id: id },
+      );
+      const first = Array.isArray(preview) ? preview[0] : preview;
+      return (first ?? null) as typeof data;
     },
   });
 
@@ -662,6 +669,11 @@ function JobDetail() {
               <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
               <span>{job.delivery_address}</span>
             </div>
+            {job.status === "open" && !isOwner && !is("admin") && !is("super_admin") && (
+              <p className="mt-1 pl-6 text-xs text-muted-foreground">
+                Area only. The exact address and the customer's contact details are shared once you are selected.
+              </p>
+            )}
 
             {job.preferred_date && (
               <div className="mt-2 flex items-center gap-2 text-sm">

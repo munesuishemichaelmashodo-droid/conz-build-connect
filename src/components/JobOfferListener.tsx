@@ -41,8 +41,12 @@ export function alertPulse(variant: "dispatch" | "nudge" = "dispatch") {
   } catch {}
   try {
     const Ctx =
-      (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext })
-        .AudioContext ??
+      (
+        window as unknown as {
+          AudioContext?: typeof AudioContext;
+          webkitAudioContext?: typeof AudioContext;
+        }
+      ).AudioContext ??
       (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctx) return;
     const ctx = new Ctx();
@@ -60,7 +64,6 @@ export function alertPulse(variant: "dispatch" | "nudge" = "dispatch") {
   } catch {}
 }
 
-
 export function JobOfferListener() {
   const { userId, is } = useAuth();
   const [offer, setOffer] = useState<Offer | null>(null);
@@ -70,12 +73,15 @@ export function JobOfferListener() {
   const isDriver = is("driver");
 
   const loadJob = useCallback(async (jobId: string) => {
-    const { data } = await supabase
-      .from("jobs")
-      .select("id,material,custom_material,quantity_m3,budget,delivery_address")
-      .eq("id", jobId)
-      .maybeSingle();
-    if (data) setJob(data as Job);
+    // Area-only preview (0133): the exact address is shared once the customer selects the driver.
+    const { data } = await (
+      supabase.rpc as unknown as (
+        f: string,
+        a: Record<string, unknown>,
+      ) => PromiseLike<{ data: unknown }>
+    )("driver_open_job", { _id: jobId });
+    const row = (Array.isArray(data) ? data[0] : data) as Job | null | undefined;
+    if (row) setJob(row);
   }, []);
 
   const openOffer = useCallback(
@@ -151,13 +157,7 @@ export function JobOfferListener() {
   }, [userId, isDriver, openOffer]);
 
   if (!offer) return null;
-  return (
-    <OfferModal
-      offer={offer}
-      job={job}
-      onClose={() => setOffer(null)}
-    />
-  );
+  return <OfferModal offer={offer} job={job} onClose={() => setOffer(null)} />;
 }
 
 function OfferModal({
@@ -200,10 +200,10 @@ function OfferModal({
     secondsLeft >= 8
       ? "#22c55e" // green
       : secondsLeft >= 5
-      ? "#84cc16" // lime
-      : secondsLeft >= 2
-      ? "#f97316" // orange
-      : "#ef4444"; // red
+        ? "#84cc16" // lime
+        : secondsLeft >= 2
+          ? "#f97316" // orange
+          : "#ef4444"; // red
 
   // Dismissing the offer is a decision: tell the server so the next wave goes out now
   // instead of waiting for the timeout (best effort; the timeout still covers a failed call).
@@ -238,7 +238,6 @@ function OfferModal({
     if (data) nav({ to: "/jobs/$id", params: { id: String(data) } });
   };
 
-
   const R = 70;
   const C = 2 * Math.PI * R;
 
@@ -253,9 +252,7 @@ function OfferModal({
         <DialogTitle className="sr-only">New job request</DialogTitle>
         <div className="p-6 space-y-5">
           <div className="flex items-center justify-between">
-            <div className="text-xs text-cz-amber-text font-semibold">
-              New job request
-            </div>
+            <div className="text-xs text-cz-amber-text font-semibold">New job request</div>
             <button
               onClick={decline}
               className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"
@@ -267,11 +264,17 @@ function OfferModal({
 
           {job && (
             <div className="rounded-2xl bg-white/5 border border-white/10 p-4 space-y-2 text-sm">
-              <Row icon={Package} label={materialLabel(job.material as any, job.custom_material)} value={`${Number(job.quantity_m3)} m³`} />
+              <Row
+                icon={Package}
+                label={materialLabel(job.material as any, job.custom_material)}
+                value={`${Number(job.quantity_m3)} m³`}
+              />
               <Row icon={MapPin} label="Delivery to" value={job.delivery_address} />
               <div className="flex items-center justify-between pt-2 border-t border-white/10">
                 <span className="text-xs text-white/60">Trip value</span>
-                <span className="font-display font-bold text-cz-amber-text text-lg">{money(Number(job.budget))}</span>
+                <span className="font-display font-bold text-cz-amber-text text-lg">
+                  {money(Number(job.budget))}
+                </span>
               </div>
             </div>
           )}
@@ -279,7 +282,14 @@ function OfferModal({
           {/* Circular countdown */}
           <div className="relative mx-auto w-40 h-40">
             <svg viewBox="0 0 160 160" className="w-full h-full -rotate-90">
-              <circle cx="80" cy="80" r={R} stroke="rgba(255,255,255,0.1)" strokeWidth="10" fill="none" />
+              <circle
+                cx="80"
+                cy="80"
+                r={R}
+                stroke="rgba(255,255,255,0.1)"
+                strokeWidth="10"
+                fill="none"
+              />
               <circle
                 cx="80"
                 cy="80"
@@ -335,15 +345,7 @@ function OfferModal({
   );
 }
 
-function Row({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof MapPin;
-  label: string;
-  value: string;
-}) {
+function Row({ icon: Icon, label, value }: { icon: typeof MapPin; label: string; value: string }) {
   return (
     <div className="flex items-center gap-3">
       <Icon className="w-4 h-4 text-white/60 shrink-0" />

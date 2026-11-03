@@ -100,8 +100,8 @@ select is(
   (select phone_confirmed_at from auth.users where id = current_setting('t.appl')::uuid), null,
   'Approval does not mark the phone as SMS-verified');
 select tests.login_as(current_setting('t.appl')::uuid);
-select ok((select count(*) from public.jobs where id = current_setting('t.job')::uuid) = 1,
-  'Once approved, the driver can see the open job');
+select ok((select count(*) from public.driver_open_job(current_setting('t.job')::uuid)) = 1,
+  'Once approved, the driver can see the open job (area only, 0133)');
 
 -- ---------------------------------------------------------------------------
 -- Existing verified drivers keep access
