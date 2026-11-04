@@ -47,3 +47,44 @@ export function bookAgainSearch(
   if (sameDriver && job.driver_id) s.driverId = job.driver_id;
   return s;
 }
+
+export type RepeatableJob = PastJob & {
+  id: string;
+  quantity_m3: number | string | null;
+  material: string;
+};
+
+// Minimal shape of the supabase query builder this helper uses, so it can be tested without a network.
+type Query = {
+  select: (cols: string) => Query;
+  eq: (col: string, val: string) => Query;
+  neq: (col: string, val: string) => Query;
+  order: (col: string, opts: { ascending: boolean }) => Query;
+  limit: (n: number) => Query;
+  maybeSingle: () => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+};
+
+const REPEAT_COLUMNS =
+  "id,status,material,custom_material,quantity_m3,delivery_address,delivery_lat,delivery_lng,driver_id";
+
+/**
+ * The customer's most recent completed delivery that the booking screen can pre-fill (no custom material),
+ * read straight from their history with one narrow query, so it does not matter how many newer jobs exist.
+ * Returns null when there is none or the read fails (the card is simply not shown).
+ */
+export async function latestRepeatableJob(
+  client: { from: (table: string) => unknown },
+  userId: string,
+): Promise<RepeatableJob | null> {
+  const q = client.from("jobs") as Query;
+  const { data, error } = await q
+    .select(REPEAT_COLUMNS)
+    .eq("customer_id", userId)
+    .eq("status", "completed")
+    .neq("material", "custom")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data as RepeatableJob;
+}

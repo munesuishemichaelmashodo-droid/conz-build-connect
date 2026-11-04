@@ -1108,7 +1108,7 @@ function JobDetail() {
                   search={bookAgainSearch(job, { sameDriver: true }) ?? {}}
                   className="block w-full text-center rounded-xl bg-primary text-primary-foreground font-display font-bold py-3"
                 >
-                  Book this driver again
+                  Invite this driver to bid again
                 </Link>
               )}
             </div>
@@ -3295,7 +3295,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
 
         <div id="tour-bids-received" className="space-y-3">
           {live.length === 0 ? (
-            <p className="text-sm text-cz-muted">No offers yet. Drivers near you are checking your request. This updates live.</p>
+            <p className="text-sm text-cz-muted">No offers yet. Verified drivers can see your request and send offers. This updates live.</p>
           ) : (
             sorted.map((b: any) => (
               <OfferCard
@@ -3876,7 +3876,7 @@ function CustomerDelivered({ ctx }: { ctx: JobScreenCtx }) {
               search={bookAgainSearch(job, { sameDriver: true }) ?? {}}
               className={czButtonClass("secondary", "md")}
             >
-              Book {d.first} again
+              Invite {d.first} to bid again
             </Link>
           )}
           {ctx.showReceipt && (

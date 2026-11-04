@@ -14,10 +14,10 @@ import { cn } from "@/lib/utils";
 type NavItem = { to: string; label: string; icon: LucideIcon; match: (p: string) => boolean };
 
 const DRIVER_ITEMS: NavItem[] = [
-  { to: "/driver", label: "Jobs", icon: Rows3, match: (p) => p === "/driver" },
+  { to: "/driver", label: "Find jobs", icon: Rows3, match: (p) => p === "/driver" },
   {
     to: "/jobs",
-    label: "Active",
+    label: "My jobs",
     icon: Truck,
     match: (p) => p === "/jobs" || p.startsWith("/jobs/") || p.startsWith("/chat/"),
   },
@@ -37,7 +37,7 @@ const CUSTOMER_ITEMS: NavItem[] = [
   },
   {
     to: "/jobs",
-    label: "My jobs",
+    label: "Deliveries",
     icon: ReceiptText,
     match: (p) => p === "/jobs" || p.startsWith("/jobs/") || p.startsWith("/chat/"),
   },
