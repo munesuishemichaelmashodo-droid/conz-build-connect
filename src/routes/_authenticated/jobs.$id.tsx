@@ -1513,11 +1513,19 @@ function BidForm({
         )}
 
         {fee != null && (
-          <p className="text-[13px] leading-relaxed text-cz-muted" data-testid="fee-explainer">
-            {firstJobFree
-              ? "Your first job on Con Z is free of the Con Z fee."
-              : `Con Z keeps ${pctLabel} of your price. It is reserved from your wallet when the customer accepts and charged when the job is done.`}
-          </p>
+          <div className="space-y-1 text-[13px] leading-relaxed text-cz-muted" data-testid="fee-explainer">
+            <p>
+              {firstJobFree
+                ? `Your first completed job on Con Z has no Con Z fee. After that, the fee is ${pctLabel} of your full offer price.`
+                : `Con Z keeps ${pctLabel} of your full offer price, material and transport included. It is reserved from your wallet when the customer accepts and charged when the job is completed.`}
+            </p>
+            {take && (
+              <p data-testid="fee-example">
+                On this offer: {usd2(priceNum)} − {usd2(fee)} Con Z fee = <b className="text-cz-text">{usd2(take.afterFee)}</b>{" "}
+                before fuel and other operating costs. This is not guaranteed profit.
+              </p>
+            )}
+          </div>
         )}
 
         {trucks && trucks.length === 0 && (
