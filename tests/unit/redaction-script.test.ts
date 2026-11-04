@@ -27,6 +27,6 @@ describe("new_job notification redaction", () => {
     expect(u.match(/\bset\b/g)).toHaveLength(1);
   });
   it("is not a migration, so db push and the test harness never run it", () => {
-    expect(script).toMatch(/NOT EXECUTED in production/);
+    expect(script).toMatch(/ONE-OFF DATA OPERATION \(not a migration/);
   });
 });
