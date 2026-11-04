@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 // for the commission, anywhere (not "online" or "near"). No wait time is shown,
 // because nothing measures one.
 const MESSAGES = [
-  "Your request is open to drivers near you…",
+  "Your request is open to verified drivers…",
   "Drivers send their own offers…",
   "You'll be notified when an offer arrives…",
 ];

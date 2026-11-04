@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { driverNeedsBanner } from "@/lib/driver-onboarding";
 import { materialLabel } from "@/lib/domain";
-import { bookAgainSearch } from "@/lib/book-again";
+import { bookAgainSearch, latestRepeatableJob } from "@/lib/book-again";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { fetchOpenJobs } from "@/lib/open-jobs";
@@ -98,9 +98,14 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
   // Customer mode redesign: same queries/flags as before, new look. The
   // booking itself (C1) lives at /customer/book.
   const first = profile?.full_name?.split(" ")[0] ?? "Builder";
-  // The latest completed delivery, offered as a one-tap repeat. Price is never copied (book-again.ts) and a
-  // custom-material job is skipped because the booking screen cannot pre-fill it.
-  const repeat = isCustomer ? ((jobs ?? []).find((j) => j.status === "completed" && j.material !== "custom") ?? null) : null;
+  // The latest completed delivery that booking can pre-fill, read from the customer's whole history
+  // (not just the five jobs listed below). One narrow query, cached for five minutes, no polling.
+  const { data: repeat } = useQuery({
+    queryKey: ["repeat-delivery", userId],
+    enabled: !!userId && isCustomer,
+    staleTime: 5 * 60_000,
+    queryFn: () => latestRepeatableJob(supabase, userId!),
+  });
   return (
     <>
       <CzScreen className={NAV_SPACE}>
@@ -176,21 +181,35 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
           <PushNotificationPrompt />
 
           {!restricted && repeat && (
-            <div className="rounded-2xl border border-cz-border bg-cz-surface p-4 space-y-2">
+            <div className="rounded-2xl border border-cz-border bg-cz-surface p-4 space-y-2.5">
               <div className="text-sm font-semibold">Need the same again?</div>
               <p className="text-sm text-cz-muted">
-                {Number(repeat.quantity_m3)} m³{" "}
-                {materialLabel(repeat.material as never, repeat.custom_material)}
-                {repeat.delivery_address ? ` to ${repeat.delivery_address}` : ""}. We check the
-                price fresh, and you can invite the same driver to bid.
+                {Number(repeat.quantity_m3)} m³ {materialLabel(repeat.material as never, null)}
+                {repeat.delivery_address ? ` to ${repeat.delivery_address}` : ""}. The price is
+                checked fresh each time.
               </p>
               <Link
                 to="/customer/book"
-                search={bookAgainSearch(repeat, { sameDriver: false }) ?? {}}
+                search={bookAgainSearch(repeat) ?? {}}
                 className={czButtonClass("secondary", "md")}
               >
                 Order this delivery again
               </Link>
+              {repeat.driver_id && (
+                <>
+                  <Link
+                    to="/customer/book"
+                    search={bookAgainSearch(repeat, { sameDriver: true }) ?? {}}
+                    className={czButtonClass("ghost", "md")}
+                  >
+                    Order again and invite your previous driver to bid
+                  </Link>
+                  <p className="text-xs text-cz-muted">
+                    An invitation only tells that driver about the request. Other verified drivers
+                    can still send offers, and you choose.
+                  </p>
+                </>
+              )}
             </div>
           )}
 

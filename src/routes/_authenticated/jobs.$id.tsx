@@ -3287,7 +3287,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
 
         <div id="tour-bids-received" className="space-y-3">
           {live.length === 0 ? (
-            <p className="text-sm text-cz-muted">No offers yet. Drivers near you are checking your request. This updates live.</p>
+            <p className="text-sm text-cz-muted">No offers yet. Verified drivers can see your request and send offers. This updates live.</p>
           ) : (
             sorted.map((b: any) => (
               <OfferCard

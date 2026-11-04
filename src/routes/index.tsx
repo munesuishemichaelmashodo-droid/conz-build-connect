@@ -58,19 +58,19 @@ const WHY_CUSTOMERS = [
   },
   {
     title: "Know the likely price first",
-    body: "The price check gives a guide range before you commit. No account needed.",
+    body: "The price check shows a likely price, or a guide range when no listed pickup location covers your site. It is an estimate, not a quote. No account needed.",
   },
   {
     title: "You choose",
-    body: "Compare offers by total price, driver rating, jobs done and truck. Nobody is assigned for you.",
+    body: "Drivers compete with their own offers. Compare total price, verification, rating, jobs done and truck, then choose. Nobody is assigned for you.",
   },
   {
     title: "Everything about the delivery in one place",
-    body: "Address, chat, delivery photos and the delivery code stay together on the job.",
+    body: "Delivery progress, chat, delivery photos and the delivery code stay together on the job, so you are not searching old messages.",
   },
   {
     title: "Order again in a few taps",
-    body: "Reuse a past delivery. The price is always checked fresh, and you can invite the same driver to bid.",
+    body: "Reuse a past delivery with a fresh price check. You can invite a previous driver to bid; other drivers can still offer and you choose.",
   },
 ];
 
@@ -147,6 +147,10 @@ function Welcome() {
             <h2 id="why-title" className="cz-display font-bold text-[24px]">
               Why book on Con Z
             </h2>
+            <p className="mt-1 text-[15px] leading-relaxed text-cz-muted">
+              One delivery request. Competing driver offers. Your choice. Delivery progress and
+              proof in one place.
+            </p>
             <ul className="mt-3 divide-y divide-cz-border border-y border-cz-border">
               {WHY_CUSTOMERS.map((w) => (
                 <li key={w.title} className="py-3">
@@ -155,6 +159,10 @@ function Welcome() {
                 </li>
               ))}
             </ul>
+            <p className="mt-3 text-sm text-cz-muted">
+              Ready to book? Create a free account. Your material, load and address carry over from
+              the price check, and nothing is charged for posting a request.
+            </p>
           </section>
 
           <section aria-labelledby="materials-title" className="mt-10">
@@ -218,9 +226,9 @@ function Welcome() {
               </h2>
             </div>
             <p className="mt-3 text-[15px] leading-relaxed text-cz-muted">
-              See the load, the size and the delivery area before you offer, and set the price that
-              makes sense for your truck. Your completed jobs, ratings and earnings build a record
-              customers can see. Con Z commission is 7% of the full job value, materials and
+              See the material, size and delivery area before you offer, and set the price that
+              makes sense for your truck. Customers see your verified status, ratings, completed
+              jobs and truck details on your offers. Con Z commission is 7% of the full job value, materials and
               transport included, and your first completed job has no commission. You can start
               bidding once Con Z has checked your:
             </p>

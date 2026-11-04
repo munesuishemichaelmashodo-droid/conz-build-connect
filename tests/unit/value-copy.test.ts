@@ -29,6 +29,11 @@ describe("customer and driver wording stays honest", () => {
       "Con Z does not promise automatic driver payment",
     ],
     [/tracked the whole way/i, "live location only while the driver shares it"],
+    [/lock it in/i, "an invitation to bid is not a lock or priority"],
+    [
+      /earnings[^.]{0,40}customers? (can )?see|customers? (can )?see[^.]{0,40}earnings/i,
+      "earnings are not a customer-visible record",
+    ],
     [/always commission-free/i, "only the first completed job has no commission"],
   ];
   for (const f of FILES) {
