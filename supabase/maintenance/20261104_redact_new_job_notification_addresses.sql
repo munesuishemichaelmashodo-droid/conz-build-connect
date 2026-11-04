@@ -1,5 +1,7 @@
--- ONE-OFF DATA OPERATION (not a migration; never run by the test harness or `db push`). NOT EXECUTED in production.
--- Needs the owner's explicit approval. Run AFTER 0133 and 0140 are live.
+-- ONE-OFF DATA OPERATION (not a migration; never run by the test harness or `db push`).
+-- EXECUTED in production on 04/11/2026 with the owner's approval: 248 rows changed (guarded: it aborts unless exactly 248),
+-- 35 assigned-driver rows kept. Afterwards 0 other-driver rows differ from the area-only text. Originals are recoverable:
+-- each was the prefix plus coalesce(dropoff_address, delivery_address, 'a nearby location') of its job (checked for all 248).
 --
 -- What it changes: ONLY public.notifications.body, ONLY on rows with type = 'new_job' whose recipient is NOT the
 -- driver the job was given to. The text after " delivery to " is replaced by the area (suburb, city) from

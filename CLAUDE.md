@@ -403,3 +403,19 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
   (Auth > Sign In / Providers > Email > "Prevent use of leaked passwords") is, as far as we know, a Pro-plan feature, so it
   stays OFF while on Free. The advisor warning `auth_leaked_password_protection` is accepted for now. Compensating
   controls: minimum password length and Google sign-in; revisit if the plan changes.
+
+## 04/11/2026 — privacy and notification release (owner approved: "Go ahead on all")
+
+- Merged to `main`: #58 `4e0440d` (0133 without the `pods` join), #57 `786f7ac` (0140), #56 `305f1b5` (notifications + 0139),
+  #55 `5a8e21e` (commission example), #54 `a67729c` (value proposition + repeat order).
+- **LIVE, applied via `execute_sql` and recorded:** `0133` (20261103150000, comment-only lines and one trailing comment stripped),
+  `0136` (20261103180000), `0139` (20261104100000), `0140` (20261104110000). Undo scripts in `supabase/rollbacks/`.
+  Live checks: Jobs visibility policy = customer / assigned driver (accepted, in_progress, completed) / admin; exact functions not callable
+  by clients; `archived_at` column and `notifications_user_active_idx` exist; trigger text updated.
+- Production probe (DB-level, as an unselected verified driver, a selected driver, the customer and a visitor, in a transaction that was
+  rolled back): unselected driver reads 0 rows by id or by status filter, masked function shows area and 2-decimal coordinates only,
+  notes phone hidden, no receiver or tracking token; selected driver reads the exact address; customer reads own job; visitor 0 rows;
+  `driver_job_history` runs. Not an HTTP-level test (no test tokens). Notification generation not exercised live (needs a real new job).
+- One-off redaction executed (see `supabase/maintenance/`): 248 old `new_job` notification bodies now show the area only.
+- Still NOT live: 0113, 0116, 0120/0121, 0129-0132, 0134, 0135, 0137. `public.pods` does not exist in production. The
+  `on_auth_user_created` trigger exists live but is not in git.
