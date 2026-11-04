@@ -169,7 +169,9 @@ $$;
 revoke all on function public.find_next_loads_for_driver(uuid, uuid) from public, anon;
 grant execute on function public.find_next_loads_for_driver(uuid, uuid) to authenticated;
 
--- History: a cancelled job shows only the area and no customer name -------------------------------
+-- History: a cancelled job shows only the area and no customer name. pod_token is returned as null: the
+-- public.pods table the old body joined does not exist in production (checked 04/11), so that join made every call fail.
+-- ------------------------------------------------------------------------------------------------
 create or replace function public.driver_job_history(_limit integer default 30, _offset integer default 0)
 returns table(id uuid, status text, material text, custom_material text, quantity_m3 numeric, final_price numeric,
               commission numeric, net_earned numeric, delivery_address text, completed_at timestamptz,
@@ -185,10 +187,9 @@ begin
          case when j.status = 'completed' then j.delivery_address else public.coarse_place(j.delivery_address) end,
          j.completed_at, j.cancelled_at, j.cancellation_reason, (j.cancelled_by = auth.uid()),
          case when j.status = 'completed' then cp.full_name else null end,
-         p.share_token, count(*) over ()
+         null::text, count(*) over ()
     from public.jobs j
     left join public.profiles cp on cp.id = j.customer_id
-    left join public.pods p on p.job_id = j.id
    where j.driver_id = auth.uid() and j.status in ('completed', 'cancelled')
    order by coalesce(j.completed_at, j.cancelled_at, j.updated_at) desc
    limit greatest(1, least(_limit, 100)) offset greatest(0, _offset);
