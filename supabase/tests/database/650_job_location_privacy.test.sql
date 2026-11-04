@@ -3,8 +3,6 @@
 begin;
 select plan(31);
 
--- public.pods exists in production but is not in the migrations (known drift); driver_job_history joins it.
-create table if not exists public.pods (job_id uuid, share_token text);
 
 select set_config('t.cust',  tests.create_user('lp_cust')::text, true);
 select set_config('t.dsel',  tests.create_driver('lp_dsel', 100)::text, true);    -- will be selected
