@@ -1108,7 +1108,7 @@ function JobDetail() {
                   search={bookAgainSearch(job, { sameDriver: true }) ?? {}}
                   className="block w-full text-center rounded-xl bg-primary text-primary-foreground font-display font-bold py-3"
                 >
-                  Book this driver again
+                  Invite this driver to bid again
                 </Link>
               )}
             </div>
@@ -1513,11 +1513,19 @@ function BidForm({
         )}
 
         {fee != null && (
-          <p className="text-[13px] leading-relaxed text-cz-muted" data-testid="fee-explainer">
-            {firstJobFree
-              ? "Your first job on Con Z is free of the Con Z fee."
-              : `Con Z keeps ${pctLabel} of your price. It is reserved from your wallet when the customer accepts and charged when the job is done.`}
-          </p>
+          <div className="space-y-1 text-[13px] leading-relaxed text-cz-muted" data-testid="fee-explainer">
+            <p>
+              {firstJobFree
+                ? `Your first completed job on Con Z has no Con Z fee. After that, the fee is ${pctLabel} of your full offer price.`
+                : `Con Z keeps ${pctLabel} of your full offer price, material and transport included. It is reserved from your wallet when the customer accepts and charged when the job is completed.`}
+            </p>
+            {take && (
+              <p data-testid="fee-example">
+                On this offer: {usd2(priceNum)} − {usd2(fee)} Con Z fee = <b className="text-cz-text">{usd2(take.afterFee)}</b>{" "}
+                before fuel and other operating costs. This is not guaranteed profit.
+              </p>
+            )}
+          </div>
         )}
 
         {trucks && trucks.length === 0 && (
@@ -3287,7 +3295,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
 
         <div id="tour-bids-received" className="space-y-3">
           {live.length === 0 ? (
-            <p className="text-sm text-cz-muted">No offers yet. Drivers near you are checking your request. This updates live.</p>
+            <p className="text-sm text-cz-muted">No offers yet. Verified drivers can see your request and send offers. This updates live.</p>
           ) : (
             sorted.map((b: any) => (
               <OfferCard
@@ -3868,7 +3876,7 @@ function CustomerDelivered({ ctx }: { ctx: JobScreenCtx }) {
               search={bookAgainSearch(job, { sameDriver: true }) ?? {}}
               className={czButtonClass("secondary", "md")}
             >
-              Book {d.first} again
+              Invite {d.first} to bid again
             </Link>
           )}
           {ctx.showReceipt && (

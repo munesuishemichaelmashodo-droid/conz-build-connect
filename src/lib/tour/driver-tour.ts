@@ -52,7 +52,7 @@ const steps: TourStep[] = [
   {
     id: "driver-dashboard",
     title: "Your dashboard",
-    description: "Open jobs near you, your wallet, and your level all live here.",
+    description: "Open delivery requests, your wallet, and your level all live here.",
     route: DASHBOARD,
     target: "#tour-dashboard-hero",
   },

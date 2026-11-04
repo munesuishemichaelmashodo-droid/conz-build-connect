@@ -56,6 +56,8 @@ export function NotificationsBell() {
   const [items, setItems] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<NotificationCategory | "all">("all");
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const nav = useNavigate();
 
   const visible = items.filter((i) => !i.archived_at);
@@ -80,7 +82,12 @@ export function NotificationsBell() {
           .select("*")
           .order("created_at", { ascending: false })
           .limit(50);
-      if (active && res.data) setItems(res.data as Notification[]);
+      if (!active) return;
+      if (res.error) setLoadError(true);
+      else {
+        setLoadError(false);
+        setItems((res.data ?? []) as Notification[]);
+      }
     };
     load();
 
@@ -120,12 +127,24 @@ export function NotificationsBell() {
       active = false;
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, reloadKey]);
 
   const setRead = async (ids: string[], read: boolean) => {
     if (!ids.length) return;
+    const before = items;
     setItems((prev) => prev.map((i) => (ids.includes(i.id) ? { ...i, read } : i)));
-    await supabase.from("notifications").update({ read }).in("id", ids);
+    const { error } = await supabase.from("notifications").update({ read }).in("id", ids);
+    if (error) {
+      // Put the previous read state back and say so.
+      setItems((prev) =>
+        prev.map((i) =>
+          ids.includes(i.id)
+            ? { ...i, read: before.find((b) => b.id === i.id)?.read ?? i.read }
+            : i,
+        ),
+      );
+      toast.error("Could not update notifications. Please try again.");
+    }
   };
 
   const markAll = () =>
@@ -165,9 +184,10 @@ export function NotificationsBell() {
   const clearShown = async () => {
     const ids = shown.map((i) => i.id);
     if (!ids.length) return;
+    const scope = filter === "all" ? "" : ` in ${CATEGORY_LABEL[filter]}`;
     if (
       !window.confirm(
-        `Clear ${ids.length} notification${ids.length === 1 ? "" : "s"}? Your jobs, payments and records are not affected.`,
+        `Clear ${ids.length} notification${ids.length === 1 ? "" : "s"}${scope}? Your jobs, payments, messages and records are not affected.`,
       )
     )
       return;
@@ -204,20 +224,21 @@ export function NotificationsBell() {
       <PopoverContent align="end" className="z-50 w-[calc(100vw-1.5rem)] max-w-sm p-0">
         <div className="flex items-center justify-between px-3 py-2 border-b gap-2">
           <div className="font-semibold text-sm">Notifications</div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
             <button
               onClick={markAll}
               disabled={!unread}
-              className="text-xs text-cz-amber-text disabled:text-muted-foreground inline-flex items-center gap-1"
+              className="min-h-11 rounded-lg px-2 text-xs font-medium text-cz-amber-text hover:bg-muted disabled:text-muted-foreground inline-flex items-center gap-1"
             >
-              <Check className="w-3 h-3" /> Mark all read
+              <Check className="w-3.5 h-3.5" /> Mark all read
             </button>
             <button
               onClick={clearShown}
               disabled={!shown.length}
-              className="text-xs text-muted-foreground disabled:opacity-50 inline-flex items-center gap-1"
+              aria-label={`Clear ${shown.length} shown notification${shown.length === 1 ? "" : "s"}`}
+              className="min-h-11 rounded-lg px-2 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50 inline-flex items-center gap-1"
             >
-              <Archive className="w-3 h-3" /> Clear
+              <Archive className="w-3.5 h-3.5" /> Clear shown
             </button>
           </div>
         </div>
@@ -245,8 +266,22 @@ export function NotificationsBell() {
         </div>
         <div className="max-h-[65vh] overflow-auto">
           {shown.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">
-              You're all caught up
+            <div className="p-6 text-center text-sm text-muted-foreground" role="status">
+              {loadError && visible.length === 0 ? (
+                <>
+                  <p>Could not load your notifications.</p>
+                  <button
+                    onClick={() => setReloadKey((k) => k + 1)}
+                    className="mt-2 min-h-11 rounded-lg px-3 text-sm font-semibold text-foreground underline underline-offset-4"
+                  >
+                    Try again
+                  </button>
+                </>
+              ) : visible.length === 0 ? (
+                "You're all caught up"
+              ) : (
+                `No ${CATEGORY_LABEL[filter].toLowerCase()} notifications`
+              )}
             </div>
           ) : (
             groupByDay(shown).map((g) => (
@@ -289,18 +324,18 @@ export function NotificationsBell() {
                         </div>
                       </div>
                     </button>
-                    <div className="flex shrink-0 flex-col py-1 pr-1">
+                    <div className="flex shrink-0 items-center py-0.5 pr-1">
                       <button
                         onClick={() => setRead([n.id], !n.read)}
                         aria-label={n.read ? "Mark as unread" : "Mark as read"}
-                        className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:bg-muted"
+                        className="flex h-11 w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted"
                       >
                         {n.read ? <Mail className="w-4 h-4" /> : <MailOpen className="w-4 h-4" />}
                       </button>
                       <button
                         onClick={() => archiveOne(n)}
                         aria-label="Clear this notification"
-                        className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:bg-muted"
+                        className="flex h-11 w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted"
                       >
                         <Archive className="w-4 h-4" />
                       </button>

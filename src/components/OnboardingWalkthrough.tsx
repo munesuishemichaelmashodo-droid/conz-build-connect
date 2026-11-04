@@ -14,12 +14,12 @@ const CUSTOMER_SLIDES: Slide[] = [
   {
     icon: Package,
     title: "Welcome to Con Z",
-    body: "Book construction materials — sand, stone, soil — and get them delivered by a verified driver, tracked the whole way.",
+    body: "Book construction materials — sand, stone, soil — and get them delivered by a driver checked by Con Z. Follow the job's progress, and the truck's location while the driver shares it.",
   },
   {
     icon: Users,
     title: "You're in control",
-    body: "Set your quantity and location, drivers bid their price, you pick the offer that works. As you use the app, we'll point out what each new screen does.",
+    body: "Post one request, compare driver offers, prices, ratings and trucks, and make the final choice yourself. As you use the app, we'll point out what each new screen does.",
   },
 ];
 
@@ -27,12 +27,12 @@ const DRIVER_SLIDES: Slide[] = [
   {
     icon: Briefcase,
     title: "Welcome to Con Z",
-    body: "Find delivery jobs near you and bid your own price — no one assigns work to you, you choose what to take.",
+    body: "See the load, size and delivery area, then offer a price that suits your truck. No one assigns work to you; you choose what is worth pursuing.",
   },
   {
     icon: Wallet,
     title: "You're in control",
-    body: "Your first job is commission-free, and you get paid automatically once delivery is confirmed. As you use the app, we'll point out what each new screen does.",
+    body: "Your first completed job has no commission. After that, Con Z commission is 7% of the full job value, materials and transport included. As you use the app, we'll point out what each new screen does.",
   },
 ];
 

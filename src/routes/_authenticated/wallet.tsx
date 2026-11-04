@@ -442,7 +442,7 @@ function WalletPage() {
 
         {!canWithdraw && (
           <p className="text-xs text-white/75 mt-4 relative">
-            Your ConZ credit pays our 7% fee on jobs you complete. Part of it is held while a job is
+            Your ConZ credit pays ConZ commission: 7% of the full job price, materials and transport included. Your first completed job has no commission. Part of it is held while a job is
             active. Withdrawals are paused for now; to get unused credit back, contact support. You
             can hold up to {money(launch.maxWalletBalance)} in credit.
           </p>
