@@ -19,11 +19,8 @@ update public.profiles set phone = '+263771111111' where id = current_setting('t
 -- ---------------------------------------------------------------------------
 -- 1. Sign-up never grants a privileged role (S-3)
 -- ---------------------------------------------------------------------------
--- Production fires handle_new_user from auth.users (trigger on_auth_user_created,
--- checked 25/10). The test database's baseline has no auth-schema triggers, so add
--- the same trigger here; it is rolled back with the test.
-create trigger on_auth_user_created after insert on auth.users
-  for each row execute function public.handle_new_user();
+-- Production fires handle_new_user from auth.users (trigger on_auth_user_created). Migration 0141 creates it when missing,
+-- so the test database already has it.
 select set_config('t.owner_email_user', gen_random_uuid()::text, true);
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 values (current_setting('t.owner_email_user')::uuid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
