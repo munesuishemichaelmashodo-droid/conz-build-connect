@@ -397,5 +397,9 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
   INSERT kept on 38 tables, anon SELECT kept on 46.
 - PR #43 (0114/0115 without DROP) is merged; both are live and recorded. Do not reapply.
 - On `main` but NOT live: 0113, 0116 (PR #18, still open), 0120/0121 (PR #38), 0129–0137 (privacy 0133 matters most).
-- Manual (no tool for it): delete demo edge functions `quick-responder` and `smooth-handler` (nothing in the repo uses them);
-  turn on leaked-password protection (Auth settings); `pg_net` extension still in public.
+- Manual (no tool for it): delete demo edge functions `quick-responder` and `smooth-handler` (nothing in the repo uses
+  them; edge logs 03/11 show only `send-push` calls; keep `send-push` and `send-sms`); `pg_net` extension still in public.
+- **Plan limitation (owner decision 03/11: stay on Supabase Free, no paid services):** leaked-password protection
+  (Auth > Sign In / Providers > Email > "Prevent use of leaked passwords") is, as far as we know, a Pro-plan feature, so it
+  stays OFF while on Free. The advisor warning `auth_leaked_password_protection` is accepted for now. Compensating
+  controls: minimum password length and Google sign-in; revisit if the plan changes.
