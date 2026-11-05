@@ -1,6 +1,20 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { Check, Mail, Phone } from "lucide-react";
+import {
+  BadgeCheck,
+  Camera,
+  Check,
+  FileText,
+  KeyRound,
+  Mail,
+  MapPin,
+  MessageSquare,
+  Phone,
+  Repeat,
+  Star,
+  Tag,
+  Truck,
+} from "lucide-react";
 import { MATERIALS } from "@/lib/domain";
 import { supabase } from "@/integrations/supabase/client";
 import { czButtonClass } from "@/components/redesign";
@@ -64,6 +78,7 @@ const SAMPLE_OFFERS = [
 const TRUST_GROUPS = [
   {
     title: "Know the driver",
+    icon: BadgeCheck,
     rows: [
       ["Identity checked", "Con Z checks a driver's ID before they can send offers."],
       ["Licence checked", "The driver's licence is reviewed as part of verification."],
@@ -73,6 +88,7 @@ const TRUST_GROUPS = [
   },
   {
     title: "Know the deal",
+    icon: Tag,
     rows: [
       ["Price in view", "Every offer shows the total before you accept it."],
       ["Job chat", "Messages stay on the job, in the app, so nothing is lost in old threads."],
@@ -80,6 +96,7 @@ const TRUST_GROUPS = [
   },
   {
     title: "Keep the record",
+    icon: FileText,
     rows: [
       [
         "Location sharing",
@@ -99,10 +116,9 @@ const REPEAT_STEPS = [
   ["You decide", "Nobody is assigned for you."],
 ];
 
-const GROUPS = ["Sand", "Aggregates", "Soil"].map((group) => ({
-  group,
-  items: MATERIALS.filter((m) => m.group === group),
-}));
+const MATERIAL_TILES = MATERIALS.filter((m) => ["Sand", "Aggregates", "Soil"].includes(m.group));
+
+const STEP_ICONS = [MapPin, Truck, Star, Camera];
 
 const DRIVER_POINTS = [
   "See the material, load size and delivery area before you offer.",
@@ -120,8 +136,9 @@ function Container({ children, className = "" }: { children: ReactNode; classNam
 
 function SectionHead({ id, title, lead }: { id: string; title: string; lead?: string }) {
   return (
-    <div className="max-w-[640px]">
-      <h2 id={id} className="cz-display text-[32px] font-bold leading-[1.05] md:text-[44px]">
+    <div className="mx-auto max-w-[680px] text-center">
+      <span aria-hidden className="mx-auto mb-4 block h-1 w-12 rounded-full bg-cz-amber" />
+      <h2 id={id} className="cz-display text-[32px] font-bold leading-[1.05] md:text-[46px]">
         {title}
       </h2>
       {lead && <p className="mt-3 text-[16px] leading-relaxed text-cz-muted">{lead}</p>}
@@ -134,8 +151,8 @@ function Welcome() {
   const bookHref = { mode: "register", next: "/customer/book" } as never;
   return (
     // `dark` switches the cz-* tokens to the charcoal palette for this page only.
-    <div className="dark cz-screen min-h-[100dvh] w-full bg-cz-bg text-cz-text">
-      <header className="border-b border-cz-border">
+    <div className="dark cz-screen min-h-[100dvh] w-full overflow-x-clip bg-cz-bg text-cz-text">
+      <header className="sticky top-0 z-20 border-b border-cz-border bg-cz-bg/90 backdrop-blur">
         <Container className="flex items-center justify-between gap-3 py-3">
           <div className="flex min-w-0 items-center gap-2.5">
             <img
@@ -160,7 +177,7 @@ function Welcome() {
             <Link
               to="/auth"
               search={{ mode: "login" } as never}
-              className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-cz-text hover:bg-cz-surface"
+              className="inline-flex min-h-11 items-center rounded-xl border border-cz-border-strong px-4 text-sm font-semibold text-cz-text hover:bg-cz-surface"
             >
               Log in
             </Link>
@@ -170,21 +187,28 @@ function Welcome() {
 
       <main>
         {/* A. Hero */}
-        <section aria-labelledby="hero-title" className="py-10 md:py-20">
-          <Container className="grid gap-8 md:grid-cols-[1.05fr_0.95fr] md:items-center md:gap-14">
-            <div>
+        <section
+          aria-labelledby="hero-title"
+          className="relative overflow-hidden pb-12 pt-10 md:pb-24 md:pt-20"
+        >
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-0 h-[420px] w-[900px] -translate-x-1/2 rounded-full bg-cz-amber/10 blur-3xl"
+          />
+          <Container className="relative grid gap-10 md:grid-cols-[1.05fr_0.95fr] md:items-center md:gap-14">
+            <div className="text-center md:text-left">
               <h1
                 id="hero-title"
                 className="cz-display text-[44px] font-bold leading-[0.98] md:text-[72px]"
               >
                 Get your construction delivery organised in one place.
               </h1>
-              <p className="mt-4 max-w-[520px] text-[17px] leading-relaxed text-cz-muted">
+              <p className="mx-auto mt-4 max-w-[520px] text-[17px] leading-relaxed text-cz-muted md:mx-0">
                 Choose your material, enter your quantity and delivery location, then compare offers
                 from checked tipper drivers before choosing the arrangement that works for your
                 project.
               </p>
-              <div className="mt-6 flex max-w-[420px] flex-col gap-2.5">
+              <div className="mx-auto mt-7 flex max-w-[420px] flex-col gap-2.5 md:mx-0">
                 <Link to="/quote" className={czButtonClass("primary")}>
                   Check delivery price
                 </Link>
@@ -196,23 +220,29 @@ function Welcome() {
                 </p>
               </div>
             </div>
-            <img
-              src="/hero-tipper-1024.webp"
-              srcSet="/hero-tipper-720.webp 720w, /hero-tipper-1024.webp 1024w"
-              sizes="(min-width: 768px) 45vw, 100vw"
-              alt="An orange tipper truck tipping its load at a building site"
-              width={1024}
-              height={622}
-              fetchPriority="high"
-              className="aspect-[16/10] w-full rounded-lg object-cover md:aspect-[4/3]"
-            />
+            <div className="relative">
+              <div
+                aria-hidden
+                className="absolute -inset-2 rounded-[28px] bg-gradient-to-br from-cz-amber/40 via-transparent to-transparent"
+              />
+              <img
+                src="/hero-tipper-1024.webp"
+                srcSet="/hero-tipper-720.webp 720w, /hero-tipper-1024.webp 1024w"
+                sizes="(min-width: 768px) 45vw, 100vw"
+                alt="An orange tipper truck tipping its load at a building site"
+                width={1024}
+                height={622}
+                fetchPriority="high"
+                className="relative aspect-[16/10] w-full rounded-3xl object-cover shadow-2xl md:aspect-[4/3]"
+              />
+            </div>
           </Container>
         </section>
 
         {/* B. How the marketplace works, with an illustrative offer comparison */}
         <section
           aria-labelledby="how-title"
-          className="border-t border-cz-border bg-cz-bg-deep py-14 md:py-20"
+          className="border-t border-cz-border bg-cz-bg-deep py-16 md:py-24"
         >
           <Container>
             <SectionHead
@@ -220,90 +250,98 @@ function Welcome() {
               title="One request. Several offers. Your choice."
               lead="Instead of calling driver after driver and keeping track of separate chats, you describe the delivery once and compare what comes back."
             />
-            <div className="mt-10 grid gap-10 md:grid-cols-[1fr_0.9fr] md:gap-14">
-              <ol className="space-y-6">
-                {STEPS.map((s, i) => (
+            <ol className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {STEPS.map((st, i) => {
+                const Icon = STEP_ICONS[i];
+                return (
                   <li
-                    key={s.title}
-                    className="flex gap-4 border-t border-dashed border-cz-amber/40 pt-4"
+                    key={st.title}
+                    className="relative rounded-2xl border border-cz-border bg-cz-surface p-6 text-center"
                   >
-                    <span
-                      aria-hidden
-                      className="cz-display w-8 shrink-0 text-[34px] font-bold leading-none text-cz-amber"
-                    >
+                    <span className="absolute -top-3 left-1/2 flex h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full bg-cz-amber text-[13px] font-bold text-cz-amber-ink">
                       {i + 1}
                     </span>
-                    <div>
-                      <h3 className="text-[18px] font-semibold leading-snug">{s.title}</h3>
-                      <p className="mt-1 text-[15px] leading-relaxed text-cz-muted">{s.body}</p>
-                    </div>
+                    <span className="mx-auto mt-2 flex h-14 w-14 items-center justify-center rounded-2xl bg-cz-amber/15 text-cz-amber">
+                      <Icon className="h-7 w-7" aria-hidden />
+                    </span>
+                    <h3 className="mt-4 text-[18px] font-semibold leading-snug">{st.title}</h3>
+                    <p className="mt-1.5 text-[14px] leading-relaxed text-cz-muted">{st.body}</p>
                   </li>
-                ))}
-              </ol>
+                );
+              })}
+            </ol>
 
-              <figure aria-label="Illustrative offer comparison" className="self-start">
-                <div className="rounded-lg border border-cz-border bg-cz-surface">
-                  <div className="flex items-baseline justify-between gap-3 border-b border-cz-border px-4 py-3">
-                    <span className="text-sm font-semibold">Offers on your request</span>
-                    <span className="text-xs text-cz-muted">12 m³ river sand</span>
-                  </div>
-                  <ul className="divide-y divide-cz-border">
-                    {SAMPLE_OFFERS.map((o) => (
-                      <li
-                        key={o.name}
-                        className="flex items-center justify-between gap-3 px-4 py-3.5"
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 text-[15px] font-semibold">
-                            {o.name}
-                            <span className="inline-flex items-center gap-1 text-xs font-medium text-cz-green-text">
-                              <Check className="h-3.5 w-3.5" aria-hidden /> Verified
-                            </span>
-                          </div>
-                          <div className="text-[13px] text-cz-muted">
-                            {o.truck} · {o.record}
-                          </div>
-                        </div>
-                        <div className="cz-display text-[30px] font-bold tabular-nums">
-                          {o.price}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+            <figure
+              aria-label="Illustrative offer comparison"
+              className="mx-auto mt-14 max-w-[620px]"
+            >
+              <div className="overflow-hidden rounded-2xl border border-cz-border-strong bg-cz-surface shadow-xl">
+                <div className="flex items-baseline justify-between gap-3 bg-cz-surface-2 px-5 py-3.5">
+                  <span className="text-sm font-semibold">Offers on your request</span>
+                  <span className="text-xs text-cz-muted">12 m³ river sand</span>
                 </div>
-                <figcaption className="mt-2 text-xs text-cz-faint">
-                  Illustrative example only. These are not real drivers or prices. Real offers show
-                  each driver's own price, truck and record.
-                </figcaption>
-              </figure>
-            </div>
+                <ul className="divide-y divide-cz-border">
+                  {SAMPLE_OFFERS.map((o) => (
+                    <li key={o.name} className="flex items-center justify-between gap-3 px-5 py-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 text-[15px] font-semibold">
+                          {o.name}
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-cz-green-text">
+                            <Check className="h-3.5 w-3.5" aria-hidden /> Verified
+                          </span>
+                        </div>
+                        <div className="text-[13px] text-cz-muted">
+                          {o.truck} · {o.record}
+                        </div>
+                      </div>
+                      <div className="cz-display text-[32px] font-bold tabular-nums">{o.price}</div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <figcaption className="mt-3 text-center text-xs text-cz-faint">
+                Illustrative example only. These are not real drivers or prices. Real offers show
+                each driver's own price, truck and record.
+              </figcaption>
+            </figure>
           </Container>
         </section>
 
         {/* C. Trust and accountability */}
-        <section aria-labelledby="trust-title" className="border-t border-cz-border py-14 md:py-20">
+        <section aria-labelledby="trust-title" className="border-t border-cz-border py-16 md:py-24">
           <Container>
             <SectionHead
               id="trust-title"
               title="Know who you're choosing. Keep the delivery record."
               lead="Each of these is something the app does today, and each one is there for a practical reason."
             />
-            <div className="mt-10 grid gap-10 md:grid-cols-3 md:gap-8">
+            <div className="mt-12 grid gap-5 md:grid-cols-3">
               {TRUST_GROUPS.map((g) => (
-                <div key={g.title}>
-                  <h3 className="cz-display text-[24px] font-bold text-cz-amber">{g.title}</h3>
-                  <dl className="mt-3 divide-y divide-cz-border border-y border-cz-border">
+                <div
+                  key={g.title}
+                  className="rounded-2xl border border-cz-border bg-cz-surface p-6"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-cz-amber/15 text-cz-amber">
+                      <g.icon className="h-6 w-6" aria-hidden />
+                    </span>
+                    <h3 className="cz-display text-[26px] font-bold">{g.title}</h3>
+                  </div>
+                  <ul className="mt-4 space-y-4">
                     {g.rows.map(([k, v]) => (
-                      <div key={k} className="py-3.5">
-                        <dt className="text-[15px] font-semibold">{k}</dt>
-                        <dd className="mt-0.5 text-[14px] leading-relaxed text-cz-muted">{v}</dd>
-                      </div>
+                      <li key={k} className="flex gap-3">
+                        <Check className="mt-1 h-4 w-4 shrink-0 text-cz-amber" aria-hidden />
+                        <div>
+                          <div className="text-[15px] font-semibold">{k}</div>
+                          <div className="text-[14px] leading-relaxed text-cz-muted">{v}</div>
+                        </div>
+                      </li>
                     ))}
-                  </dl>
+                  </ul>
                 </div>
               ))}
             </div>
-            <p className="mt-8 max-w-[720px] text-sm leading-relaxed text-cz-muted">
+            <p className="mx-auto mt-8 max-w-[720px] text-center text-sm leading-relaxed text-cz-muted">
               Verification checks documents; it is not a promise of how a delivery will go. Location
               appears on the map only while the driver shares it.
             </p>
@@ -313,76 +351,80 @@ function Welcome() {
         {/* D. Repeat customers */}
         <section
           aria-labelledby="repeat-title"
-          className="border-t border-cz-border bg-cz-bg-deep py-14 md:py-20"
+          className="border-t border-cz-border bg-cz-bg-deep py-16 md:py-24"
         >
-          <Container className="grid gap-10 md:grid-cols-[1fr_0.9fr] md:items-center md:gap-14">
-            <div>
-              <SectionHead
-                id="repeat-title"
-                title="Your next delivery shouldn't start from scratch."
-                lead="After your first completed delivery, ordering again takes a few taps."
-              />
-              <ul className="mt-6 divide-y divide-cz-border border-y border-cz-border">
+          <Container>
+            <SectionHead
+              id="repeat-title"
+              title="Your next delivery shouldn't start from scratch."
+              lead="After your first completed delivery, ordering again takes a few taps."
+            />
+            <div className="mt-12 grid items-center gap-10 md:grid-cols-2 md:gap-14">
+              <ul className="space-y-3">
                 {REPEAT_STEPS.map(([k, v]) => (
-                  <li key={k} className="flex flex-col gap-0.5 py-3.5 sm:flex-row sm:gap-4">
-                    <span className="text-[15px] font-semibold sm:w-[220px] sm:shrink-0">{k}</span>
-                    <span className="text-[14px] leading-relaxed text-cz-muted">{v}</span>
+                  <li
+                    key={k}
+                    className="flex items-start gap-4 rounded-xl border border-cz-border bg-cz-surface px-4 py-3.5"
+                  >
+                    <Repeat className="mt-0.5 h-5 w-5 shrink-0 text-cz-amber" aria-hidden />
+                    <div>
+                      <div className="text-[15px] font-semibold">{k}</div>
+                      <div className="text-[14px] leading-relaxed text-cz-muted">{v}</div>
+                    </div>
                   </li>
                 ))}
               </ul>
-            </div>
-            <figure aria-label="Illustrative repeat-order card">
-              <div className="rounded-lg border border-cz-border bg-cz-surface p-5">
-                <div className="text-sm font-semibold">Need the same again?</div>
-                <p className="mt-2 text-[15px] leading-relaxed text-cz-muted">
-                  12 m³ river sand to your last delivery address. The price is checked fresh each
-                  time.
-                </p>
-                <div className="mt-4 space-y-2">
-                  <div className="flex min-h-12 items-center justify-center rounded-xl border border-cz-border-strong text-[15px] font-semibold">
-                    Order this delivery again
+              <figure aria-label="Illustrative repeat-order card">
+                <div className="rounded-2xl border border-cz-border-strong bg-cz-surface p-6 shadow-xl">
+                  <div className="text-sm font-semibold">Need the same again?</div>
+                  <p className="mt-2 text-[15px] leading-relaxed text-cz-muted">
+                    12 m³ river sand to your last delivery address. The price is checked fresh each
+                    time.
+                  </p>
+                  <div className="mt-5 space-y-2.5">
+                    <div className="flex min-h-12 items-center justify-center rounded-xl bg-cz-amber px-3 text-center text-[15px] font-semibold text-cz-amber-ink">
+                      Order this delivery again
+                    </div>
+                    <div className="flex min-h-12 items-center justify-center rounded-xl border border-cz-border-strong px-3 text-center text-[15px] font-semibold">
+                      Order again and invite your previous driver to bid
+                    </div>
                   </div>
-                  <div className="flex min-h-12 items-center justify-center rounded-xl border border-cz-border text-[15px] font-semibold text-cz-muted">
-                    Order again and invite your previous driver to bid
-                  </div>
+                  <p className="mt-4 text-xs leading-relaxed text-cz-faint">
+                    An invitation only tells that driver about the request. Other verified drivers
+                    can still send offers, and you choose.
+                  </p>
                 </div>
-                <p className="mt-3 text-xs text-cz-faint">
-                  An invitation only tells that driver about the request. Other verified drivers can
-                  still send offers, and you choose.
-                </p>
-              </div>
-              <figcaption className="mt-2 text-xs text-cz-faint">
-                Illustration of the card shown on your home screen after a completed delivery.
-              </figcaption>
-            </figure>
+                <figcaption className="mt-3 text-center text-xs text-cz-faint">
+                  Illustration of the card shown on your home screen after a completed delivery.
+                </figcaption>
+              </figure>
+            </div>
           </Container>
         </section>
 
         {/* E. Materials */}
         <section
           aria-labelledby="materials-title"
-          className="border-t border-cz-border py-14 md:py-20"
+          className="border-t border-cz-border py-16 md:py-24"
         >
           <Container>
-            <SectionHead id="materials-title" title="What we deliver" />
-            <div className="mt-8 grid gap-8 sm:grid-cols-3">
-              {GROUPS.map((g) => (
-                <div key={g.group}>
-                  <h3 className="cz-display text-[24px] font-bold text-cz-amber">{g.group}</h3>
-                  <ul className="mt-3 divide-y divide-cz-border border-y border-cz-border">
-                    {g.items.map((m) => (
-                      <li key={m.value} className="flex items-center gap-3 py-2.5">
-                        <MaterialThumb material={m.value} size={44} className="rounded-md" />
-                        <span className="text-[15px] font-semibold">{m.label}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+            <SectionHead
+              id="materials-title"
+              title="What we deliver"
+              lead="Need something else? Describe it when you book."
+            />
+            <ul className="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-4 md:gap-4">
+              {MATERIAL_TILES.map((m) => (
+                <li
+                  key={m.value}
+                  className="flex flex-col items-center gap-3 rounded-2xl border border-cz-border bg-cz-surface px-3 py-5 text-center"
+                >
+                  <MaterialThumb material={m.value} size={44} className="rounded-xl" />
+                  <span className="text-[15px] font-semibold">{m.label}</span>
+                  <span className="-mt-2 text-xs text-cz-muted">{m.group}</span>
+                </li>
               ))}
-            </div>
-            <p className="mt-5 text-sm text-cz-muted">
-              Need something else? Describe it when you book.
-            </p>
+            </ul>
           </Container>
         </section>
 
@@ -390,76 +432,80 @@ function Welcome() {
         <section
           id="drivers"
           aria-labelledby="driver-title"
-          className="border-t border-cz-border bg-cz-bg-deep py-14 md:py-20"
+          className="border-t border-cz-border bg-cz-bg-deep py-16 md:py-24"
         >
-          <Container className="grid gap-10 md:grid-cols-[1.1fr_0.9fr] md:gap-14">
-            <div>
-              <SectionHead
-                id="driver-title"
-                title="Put your tipper truck to work."
-                lead="Browse delivery requests, review the load and route, and send an offer that works for your truck and business."
-              />
-              <ul className="mt-6 space-y-3">
-                {DRIVER_POINTS.map((p) => (
-                  <li key={p} className="flex gap-3 text-[15px] leading-relaxed">
-                    <Check className="mt-1 h-4 w-4 shrink-0 text-cz-amber" aria-hidden />
-                    <span>{p}</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-5 max-w-[560px] text-sm leading-relaxed text-cz-muted">
-                You can start offering once Con Z has checked your ID, driver's licence and truck.
-                Con Z doesn't promise a volume of jobs: you choose which requests to price.
-              </p>
-            </div>
-            <div className="self-start rounded-lg border border-cz-border bg-cz-surface p-5 md:p-6">
-              <h3 className="cz-display text-[26px] font-bold">What Con Z charges</h3>
-              <p className="mt-2 text-[16px] leading-relaxed">
-                7% commission on eligible job value, including materials and transport. Your first
-                completed job is commission-free.
-              </p>
-              <p className="mt-3 text-[14px] leading-relaxed text-cz-muted">
-                The commission is reserved from your Con Z credit when a customer accepts your
-                offer, and taken once delivery is verified. Customers pay you directly; Con Z does
-                not collect or hold their payment.
-              </p>
-              <div className="mt-5 flex flex-col gap-2.5">
-                <Link
-                  to="/auth"
-                  search={{ mode: "register", role: "driver" } as never}
-                  className={czButtonClass("primary", "md")}
-                >
-                  Register as a driver
-                </Link>
-                <Link to="/open-jobs" className={czButtonClass("secondary", "md")}>
-                  See open delivery requests
-                </Link>
+          <Container>
+            <SectionHead
+              id="driver-title"
+              title="Put your tipper truck to work."
+              lead="Browse delivery requests, review the load and route, and send an offer that works for your truck and business."
+            />
+            <div className="mt-12 grid gap-5 md:grid-cols-[1.1fr_0.9fr]">
+              <div className="rounded-2xl border border-cz-border bg-cz-surface p-6 md:p-8">
+                <ul className="space-y-4">
+                  {DRIVER_POINTS.map((pt) => (
+                    <li key={pt} className="flex gap-3 text-[15px] leading-relaxed">
+                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cz-amber/15 text-cz-amber">
+                        <Check className="h-3.5 w-3.5" aria-hidden />
+                      </span>
+                      <span>{pt}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-6 text-sm leading-relaxed text-cz-muted">
+                  You can start offering once Con Z has checked your ID, driver's licence and truck.
+                  Con Z doesn't promise a volume of jobs: you choose which requests to price.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-cz-amber/50 bg-gradient-to-b from-cz-amber/15 to-cz-surface p-6 md:p-8">
+                <h3 className="cz-display text-[28px] font-bold">What Con Z charges</h3>
+                <p className="mt-3 text-[17px] leading-relaxed">
+                  7% commission on eligible job value, including materials and transport. Your first
+                  completed job is commission-free.
+                </p>
+                <p className="mt-3 text-[14px] leading-relaxed text-cz-muted">
+                  The commission is reserved from your Con Z credit when a customer accepts your
+                  offer, and taken once delivery is verified. Customers pay you directly; Con Z does
+                  not collect or hold their payment.
+                </p>
+                <div className="mt-6 flex flex-col gap-2.5">
+                  <Link
+                    to="/auth"
+                    search={{ mode: "register", role: "driver" } as never}
+                    className={czButtonClass("primary", "md")}
+                  >
+                    Register as a driver
+                  </Link>
+                  <Link to="/open-jobs" className={czButtonClass("secondary", "md")}>
+                    See open delivery requests
+                  </Link>
+                </div>
               </div>
             </div>
           </Container>
         </section>
 
         {/* G. Final conversion */}
-        <section aria-labelledby="final-title" className="border-t border-cz-border py-14 md:py-20">
-          <Container className="flex flex-col items-start gap-6 md:flex-row md:items-center md:justify-between">
-            <div className="max-w-[620px]">
+        <section aria-labelledby="final-title" className="border-t border-cz-border py-16 md:py-24">
+          <Container>
+            <div className="relative overflow-hidden rounded-3xl border border-cz-amber/40 bg-gradient-to-br from-cz-amber/20 via-cz-surface to-cz-surface px-6 py-12 text-center md:py-16">
               <h2
                 id="final-title"
-                className="cz-display text-[34px] font-bold leading-[1.05] md:text-[48px]"
+                className="cz-display mx-auto max-w-[640px] text-[36px] font-bold leading-[1.05] md:text-[52px]"
               >
                 Know the likely price before you commit.
               </h2>
-              <p className="mt-3 text-[16px] text-cz-muted">
+              <p className="mx-auto mt-3 max-w-[480px] text-[16px] text-cz-muted">
                 It takes a minute and needs no account. Drivers then set their own offers.
               </p>
-            </div>
-            <div className="flex w-full flex-col gap-2.5 md:w-[320px]">
-              <Link to="/quote" className={czButtonClass("primary")}>
-                Check delivery price
-              </Link>
-              <Link to="/auth" search={bookHref} className={czButtonClass("secondary", "md")}>
-                Book a delivery
-              </Link>
+              <div className="mx-auto mt-7 flex w-full max-w-[360px] flex-col gap-2.5">
+                <Link to="/quote" className={czButtonClass("primary")}>
+                  Check delivery price
+                </Link>
+                <Link to="/auth" search={bookHref} className={czButtonClass("secondary", "md")}>
+                  Book a delivery
+                </Link>
+              </div>
             </div>
           </Container>
         </section>
@@ -467,9 +513,9 @@ function Welcome() {
 
       {/* H. Footer */}
       <footer className="border-t border-cz-border bg-cz-bg-deep">
-        <Container className="grid gap-8 py-10 md:grid-cols-[1.2fr_1fr_auto] md:gap-12">
+        <Container className="grid gap-8 py-12 text-center md:grid-cols-[1.2fr_1fr_auto] md:gap-12 md:text-left">
           <div>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center justify-center gap-2.5 md:justify-start">
               <img
                 src="/conz-icon-192.png"
                 alt=""
@@ -490,11 +536,11 @@ function Welcome() {
 
           <div>
             <h2 className="text-[13px] font-semibold">Talk to us</h2>
-            <ul className="mt-2 divide-y divide-cz-border border-y border-cz-border">
+            <ul className="mt-3 space-y-2">
               <li>
                 <a
                   href="tel:+263777770557"
-                  className="flex min-h-12 items-center gap-3 hover:text-cz-amber"
+                  className="flex min-h-12 items-center justify-center gap-3 rounded-xl border border-cz-border bg-cz-surface px-4 hover:border-cz-amber md:justify-start"
                 >
                   <Phone className="h-4 w-4 text-cz-amber" aria-hidden />
                   <span className="font-semibold">+263 77 777 0557</span>
@@ -503,16 +549,18 @@ function Welcome() {
               <li>
                 <a
                   href="mailto:navyskyinnovations@gmail.com"
-                  className="flex min-h-12 items-center gap-3 hover:text-cz-amber"
+                  className="flex min-h-12 items-center justify-center gap-3 rounded-xl border border-cz-border bg-cz-surface px-4 hover:border-cz-amber md:justify-start"
                 >
-                  <Mail className="h-4 w-4 text-cz-amber" aria-hidden />
-                  <span className="break-all font-semibold">navyskyinnovations@gmail.com</span>
+                  <Mail className="h-4 w-4 shrink-0 text-cz-amber" aria-hidden />
+                  <span className="break-all text-[14px] font-semibold">
+                    navyskyinnovations@gmail.com
+                  </span>
                 </a>
               </li>
             </ul>
           </div>
 
-          <nav aria-label="Legal" className="flex gap-5 md:flex-col md:gap-0">
+          <nav aria-label="Legal" className="flex justify-center gap-6 md:flex-col md:gap-0">
             <Link
               to="/terms"
               className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4"
