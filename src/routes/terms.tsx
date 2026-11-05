@@ -31,7 +31,8 @@ function TermsPage() {
           <Section title="1. About Con Z Build Connect">
             <p>
               Con Z Build Connect ("Con Z") is operated by Navysky Innovations (Private) Limited, a company
-              registered in Zimbabwe (company number 145174A02102026) with its registered
+              registered in Zimbabwe (company number 145174A02102026; ZIMRA tax identification
+              number (TIN) 2002683072) with its registered
               office at 12705 Timire Park, Ruwa. It operates a construction
               logistics marketplace that connects customers requiring bulk material
               deliveries with independent tipper truck drivers ("Drivers").
