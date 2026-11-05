@@ -31,7 +31,8 @@ function PrivacyPage() {
           <Section title="1. Who We Are">
             <p>
               Con Z Build Connect ("Con Z", "we") is operated by Navysky Innovations (Private) Limited, a company
-              registered in Zimbabwe (company number 145174A02102026) with its registered
+              registered in Zimbabwe (company number 145174A02102026; ZIMRA tax identification
+              number (TIN) 2002683072) with its registered
               office at 12705 Timire Park, Ruwa. This policy explains
               what personal data we collect through the app, how we use it, and how we
               protect it.
