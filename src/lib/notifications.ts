@@ -14,6 +14,8 @@ export const CATEGORY_LABEL: Record<NotificationCategory | "all", string> = {
 export interface NotificationLike {
   id: string;
   type: string;
+  /** Optional: driver_verification rows are told apart by the title the database writes. */
+  title?: string | null;
   job_id: string | null;
   created_at: string;
 }
@@ -66,7 +68,14 @@ export function notificationDestination(
     case "verification_overdue":
     case "truck_review":
       return { to: "/admin/verifications" };
-    case "driver_verification":
+    case "driver_verification": {
+      const t = (n.title ?? "").toLowerCase();
+      // Sent to admins when a verified driver changes a document.
+      if (t.startsWith("driver documents changed")) return { to: "/admin/verifications" };
+      if (t.includes("verified")) return { to: "/home" }; // approved: Find Jobs
+      if (t.includes("rejected")) return { to: "/become-driver" }; // corrections: fix and resubmit
+      return { to: "/profile" };
+    }
     case "user_status_changed":
       return { to: "/profile" };
     case "new_message":
@@ -76,4 +85,22 @@ export function notificationDestination(
   }
   if (notificationCategory(n.type) === "payments") return { to: "/wallet" };
   return n.job_id ? { to: "/jobs/$id", params: { id: n.job_id } } : null;
+}
+
+/**
+ * One line telling the driver what to do next, for events whose text comes from the
+ * database. Null when the stored text already says it (or the event is not a driver one).
+ */
+export function notificationHint(n: Pick<NotificationLike, "type" | "title">): string | null {
+  const t = (n.title ?? "").toLowerCase();
+  if (n.type === "driver_verification") {
+    if (t.startsWith("driver documents changed")) return null;
+    if (t.includes("verified")) return "Next: open Find Jobs to see available delivery requests.";
+    if (t.includes("rejected"))
+      return "Next: review the reason, correct your documents and resubmit your application.";
+    return "Next: nothing to do. Your documents are being reviewed, and you do not need to submit again.";
+  }
+  if (n.type === "repeat_customer")
+    return "Next: review the new details and decide whether the job suits your truck. You are not assigned.";
+  return null;
 }

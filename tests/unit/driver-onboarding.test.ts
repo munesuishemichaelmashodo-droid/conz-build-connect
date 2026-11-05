@@ -249,3 +249,72 @@ describe("applicationChecklist", () => {
     expect(rows.find((r) => r.key === "application")!.state).toBe("todo");
   });
 });
+
+import { driverStatus, REVIEW_TARGET_TEXT } from "@/lib/driver-onboarding";
+
+describe("driverStatus (one source of truth)", () => {
+  const now = new Date("2026-11-05T12:00:00Z");
+  const day = (n: number) => new Date(now.getTime() + n * 86_400_000).toISOString();
+
+  it("distinguishes not submitted, incomplete and pending review", () => {
+    expect(driverStatus({ status: "pending", submitted: false, anyProgress: false }).kind).toBe(
+      "not_submitted",
+    );
+    expect(driverStatus({ status: "pending", submitted: false, anyProgress: true }).kind).toBe(
+      "incomplete",
+    );
+    const p = driverStatus({ status: "pending", submitted: true });
+    expect(p.kind).toBe("pending");
+    expect(p.canBid).toBe(false);
+    expect(p.next).toMatch(/do not need to submit it again/i);
+  });
+
+  it("an incomplete application never reads as submitted", () => {
+    const s = driverStatus({ status: "pending", submitted: false, anyProgress: true });
+    expect(s.title).not.toMatch(/received|review/i);
+    expect(s.action?.to).toBe("/become-driver");
+  });
+
+  it("approved can bid and points at Find Jobs", () => {
+    const s = driverStatus({ status: "verified", submitted: true, reverifyDueAt: day(60), now });
+    expect(s.kind).toBe("approved");
+    expect(s.canBid).toBe(true);
+    expect(s.action?.label).toBe("Find jobs");
+  });
+
+  it("rejected shows the reason and a resubmit path", () => {
+    const s = driverStatus({ status: "rejected", submitted: true, notes: " Licence unreadable " });
+    expect(s.kind).toBe("rejected");
+    expect(s.meaning).toContain("Licence unreadable");
+    expect(s.canBid).toBe(false);
+    expect(s.action?.to).toBe("/become-driver");
+  });
+
+  it("re-verification due soon is distinct from overdue, and only overdue blocks bidding", () => {
+    const soon = driverStatus({ status: "verified", submitted: true, reverifyDueAt: day(10), now });
+    expect(soon.kind).toBe("reverify_due_soon");
+    expect(soon.canBid).toBe(true);
+    expect(soon.title).toContain("10 days");
+    expect(soon.next).toMatch(/pauses from the moment you submit/i);
+    const late = driverStatus({ status: "verified", submitted: true, reverifyDueAt: day(-1), now });
+    expect(late.kind).toBe("reverify_overdue");
+    expect(late.canBid).toBe(false);
+    expect(late.action?.to).toBe("/profile");
+  });
+
+  it("a pending driver with the guard's note is a submitted re-verification, not a new application", () => {
+    const s = driverStatus({
+      status: "pending",
+      submitted: true,
+      notes: "Documents changed after verification on 2026-11-05 — re-review required",
+    });
+    expect(s.kind).toBe("reverify_submitted");
+    expect(s.canBid).toBe(false);
+    expect(s.next).toMatch(/do not need to submit again/i);
+  });
+
+  it("states the review time as a target, not a guarantee", () => {
+    expect(REVIEW_TARGET_TEXT).toMatch(/24 business hours/);
+    expect(REVIEW_TARGET_TEXT).toMatch(/target, not a guarantee/);
+  });
+});

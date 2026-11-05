@@ -16,11 +16,12 @@ import { NotificationsBell } from "@/components/NotificationsBell";
 import { SidePanel } from "@/components/SidePanel";
 import { LogoLockup } from "@/components/ds";
 import { TipperIllustration } from "@/components/ds/media";
-import { CzScreen, MaterialChips, usd2 } from "@/components/redesign";
+import { CzScreen, MaterialChips, czButtonClass, usd2 } from "@/components/redesign";
 import { FeedJobCard, type FeedJob } from "@/components/redesign/FeedJobCard";
 import type { DriverFix } from "@/lib/jobDistance";
 import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 import { useQuickAccept } from "@/components/redesign/useQuickAccept";
+import { useInvitedJobIds } from "@/components/redesign/useInvitedJobs";
 import { driverTodayEarnings, useCustomerCards } from "@/components/redesign/rpc";
 import {
   hasSubmitted,
@@ -137,17 +138,24 @@ export function DriverHome({
       return data;
     },
   });
+  const invited = useInvitedJobIds(userId);
   const cards = useCustomerCards((jobs ?? []).map((j) => j.id));
   const shown = useMemo(() => filterJobs(jobs ?? [], filter), [jobs, filter]);
   const level = driver ? levelInfo(driver.level) : null;
-  const banner = showVerificationWarning
-    ? verificationBanner(
-        driver?.verification_status,
-        !!driver &&
-          hasSubmitted(driver.verification_status, driver, (trucks?.length ?? 0) > 0, driver.nationality),
-        { notes: driver?.verification_notes, reverifyDueAt: driver?.reverify_due_at },
-      )
-    : null;
+  // Also shown to an approved driver whose 90-day check is due soon (showVerificationWarning is only
+  // true once bidding is already blocked).
+  const banner = verificationBanner(
+    driver?.verification_status,
+    !!driver &&
+      hasSubmitted(
+        driver.verification_status,
+        driver,
+        (trucks?.length ?? 0) > 0,
+        driver.nationality,
+      ),
+    { notes: driver?.verification_notes, reverifyDueAt: driver?.reverify_due_at },
+  );
+  const canBid = !showVerificationWarning && !wallet?.limited;
 
   return (
     <>
@@ -189,11 +197,11 @@ export function DriverHome({
                 </span>
               )}
               <span className="text-xs text-cz-faint whitespace-nowrap">
-                Wallet {wallet ? usd2(Number(wallet.balance)) : "—"}
+                Wallet credit {wallet ? usd2(Number(wallet.balance)) : "—"}
               </span>
               {wallet?.limited && (
                 <span className="text-xs font-semibold text-cz-danger-text">
-                  Limited — top up to bid
+                  Wallet limited: top up to bid
                 </span>
               )}
             </Link>
@@ -225,15 +233,24 @@ export function DriverHome({
           {banner && (
             <Link
               id="tour-driver-verification"
-              to="/become-driver"
+              to={banner.to}
               className="flex items-center gap-3 rounded-xl bg-cz-warn-tint p-3.5 text-cz-warn-text"
             >
               <ShieldAlert className="w-5 h-5 shrink-0" />
               <div className="text-sm min-w-0 flex-1">
                 <div className="font-semibold">{banner.title}</div>
                 <div className="text-xs opacity-90">{banner.body}</div>
+                <div className="mt-1 text-xs font-semibold underline underline-offset-2">
+                  {banner.action}
+                </div>
               </div>
               <ChevronRight className="w-4 h-4 shrink-0" />
+            </Link>
+          )}
+
+          {canBid && (
+            <Link to="/jobs" className={czButtonClass("primary")}>
+              Find jobs
             </Link>
           )}
         </div>
@@ -276,6 +293,7 @@ export function DriverHome({
                 onAccept={() => accept(j)}
                 accepting={busyJobId === j.id}
                 customer={cards[j.id]}
+                returning={invited.has(j.id)}
                 driverFix={driverFix}
               />
             ))
