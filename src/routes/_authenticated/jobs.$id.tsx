@@ -1244,6 +1244,14 @@ function BidForm({
   // Optional mobilisation deposit (0135). Off by default; nothing is sent unless it is switched on.
   const ex = existing as unknown as { deposit_required?: boolean; deposit_amount?: number; deposit_reason?: string; deposit_terms?: string } | null;
   const [depositOn, setDepositOn] = useState(!!ex?.deposit_required);
+  const { data: depositsAvailable } = useQuery({
+    queryKey: ["bids-deposit-columns"],
+    staleTime: Infinity,
+    queryFn: async () => {
+      const { error } = await supabase.from("bids").select("deposit_required" as never).limit(1);
+      return !error;
+    },
+  });
   const [depositAmount, setDepositAmount] = useState(ex?.deposit_amount ? String(ex.deposit_amount) : "");
   const [depositReason, setDepositReason] = useState(ex?.deposit_reason ?? "");
   const [depositTerms, setDepositTerms] = useState(ex?.deposit_terms ?? "");
@@ -1660,6 +1668,8 @@ function BidForm({
           </div>
         </details>
 
+        {/* Offer deposits need migration 0135; until it is live the control is hidden instead of failing on send. */}
+        {(depositsAvailable || depositOn) && (
         <details className="group rounded-xl border border-cz-border bg-cz-surface" open={depositOn}>
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-[15px] font-semibold">
             Ask for a deposit <span className="text-cz-muted font-normal text-sm">(optional)</span>
@@ -1694,6 +1704,7 @@ function BidForm({
             )}
           </div>
         </details>
+        )}
 
         {job && (
           <details className="group rounded-xl border border-cz-border bg-cz-surface">
