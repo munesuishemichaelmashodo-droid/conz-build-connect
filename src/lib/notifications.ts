@@ -64,6 +64,8 @@ export function notificationDestination(
       return { to: "/admin/disputes" };
     case "report_filed":
       return { to: "/admin/reports" };
+    case "report_update":
+      return { to: "/report" };
     case "verification_submitted":
     case "verification_overdue":
     case "truck_review":
@@ -103,4 +105,53 @@ export function notificationHint(n: Pick<NotificationLike, "type" | "title">): s
   if (n.type === "repeat_customer")
     return "Next: review the new details and decide whether the job suits your truck. You are not assigned.";
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// List handling for the bell. Pure, so reconnects, redelivered realtime events and the
+// archive fallback can be tested without a browser.
+// ---------------------------------------------------------------------------
+
+export type NotificationRow = NotificationLike & {
+  read: boolean;
+  archived_at?: string | null;
+};
+
+/** Postgres/PostgREST "undefined column": only then is the plain list a safe fallback (pre-0136). */
+export function isMissingArchiveColumn(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return (
+    error.code === "42703" || error.code === "PGRST204" || /archived_at/i.test(error.message ?? "")
+  );
+}
+
+/** Archived rows are never shown or counted, whichever query produced them. */
+export function visibleNotifications<T extends { archived_at?: string | null }>(items: T[]): T[] {
+  return items.filter((i) => !i.archived_at);
+}
+
+export function unreadCount<T extends { read: boolean; archived_at?: string | null }>(
+  items: T[],
+): number {
+  return visibleNotifications(items).filter((i) => !i.read).length;
+}
+
+/** A realtime INSERT. The same id twice (reconnect, redelivery) is ignored: `isNew` gates sound and toast. */
+export function mergeInserted<T extends { id: string }>(
+  prev: T[],
+  incoming: T,
+  max = 100,
+): { items: T[]; isNew: boolean } {
+  if (prev.some((i) => i.id === incoming.id)) return { items: prev, isNew: false };
+  return { items: [incoming, ...prev].slice(0, max), isNew: true };
+}
+
+/** A realtime UPDATE. A row restored elsewhere (archived_at cleared) joins the list; no sound for it. */
+export function applyUpdated<
+  T extends { id: string; created_at: string; archived_at?: string | null },
+>(prev: T[], updated: T, max = 100): T[] {
+  if (prev.some((i) => i.id === updated.id))
+    return prev.map((i) => (i.id === updated.id ? updated : i));
+  if (updated.archived_at) return prev;
+  return [...prev, updated].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, max);
 }

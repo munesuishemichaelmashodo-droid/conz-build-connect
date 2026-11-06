@@ -47,6 +47,7 @@ import { Route as AuthenticatedAdminPointsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminReferralsRouteImport } from './routes/_authenticated/admin.referrals'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
 import { Route as AuthenticatedAdminRevenueRouteImport } from './routes/_authenticated/admin.revenue'
+import { Route as AuthenticatedAdminSearchRouteImport } from './routes/_authenticated/admin.search'
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
 import { Route as AuthenticatedAdminSourcingRouteImport } from './routes/_authenticated/admin.sourcing'
 import { Route as AuthenticatedAdminSupplyCoverageRouteImport } from './routes/_authenticated/admin.supply-coverage'
@@ -262,6 +263,12 @@ const AuthenticatedAdminRevenueRoute =
     path: '/revenue',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminSearchRoute =
+  AuthenticatedAdminSearchRouteImport.update({
+    id: '/search',
+    path: '/search',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminSettingsRoute =
   AuthenticatedAdminSettingsRouteImport.update({
     id: '/settings',
@@ -378,6 +385,7 @@ export interface FileRoutesByFullPath {
   '/admin/referrals': typeof AuthenticatedAdminReferralsRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/revenue': typeof AuthenticatedAdminRevenueRoute
+  '/admin/search': typeof AuthenticatedAdminSearchRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/admin/sourcing': typeof AuthenticatedAdminSourcingRoute
   '/admin/supply-coverage': typeof AuthenticatedAdminSupplyCoverageRoute
@@ -429,6 +437,7 @@ export interface FileRoutesByTo {
   '/admin/referrals': typeof AuthenticatedAdminReferralsRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/revenue': typeof AuthenticatedAdminRevenueRoute
+  '/admin/search': typeof AuthenticatedAdminSearchRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/admin/sourcing': typeof AuthenticatedAdminSourcingRoute
   '/admin/supply-coverage': typeof AuthenticatedAdminSupplyCoverageRoute
@@ -484,6 +493,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/referrals': typeof AuthenticatedAdminReferralsRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/revenue': typeof AuthenticatedAdminRevenueRoute
+  '/_authenticated/admin/search': typeof AuthenticatedAdminSearchRoute
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/_authenticated/admin/sourcing': typeof AuthenticatedAdminSourcingRoute
   '/_authenticated/admin/supply-coverage': typeof AuthenticatedAdminSupplyCoverageRoute
@@ -539,6 +549,7 @@ export interface FileRouteTypes {
     | '/admin/referrals'
     | '/admin/reports'
     | '/admin/revenue'
+    | '/admin/search'
     | '/admin/settings'
     | '/admin/sourcing'
     | '/admin/supply-coverage'
@@ -590,6 +601,7 @@ export interface FileRouteTypes {
     | '/admin/referrals'
     | '/admin/reports'
     | '/admin/revenue'
+    | '/admin/search'
     | '/admin/settings'
     | '/admin/sourcing'
     | '/admin/supply-coverage'
@@ -644,6 +656,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/referrals'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/revenue'
+    | '/_authenticated/admin/search'
     | '/_authenticated/admin/settings'
     | '/_authenticated/admin/sourcing'
     | '/_authenticated/admin/supply-coverage'
@@ -950,6 +963,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRevenueRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/search': {
+      id: '/_authenticated/admin/search'
+      path: '/search'
+      fullPath: '/admin/search'
+      preLoaderRoute: typeof AuthenticatedAdminSearchRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/settings': {
       id: '/_authenticated/admin/settings'
       path: '/settings'
@@ -1061,6 +1081,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminReferralsRoute: typeof AuthenticatedAdminReferralsRoute
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
   AuthenticatedAdminRevenueRoute: typeof AuthenticatedAdminRevenueRoute
+  AuthenticatedAdminSearchRoute: typeof AuthenticatedAdminSearchRoute
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
   AuthenticatedAdminSourcingRoute: typeof AuthenticatedAdminSourcingRoute
   AuthenticatedAdminSupplyCoverageRoute: typeof AuthenticatedAdminSupplyCoverageRoute
@@ -1079,6 +1100,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminReferralsRoute: AuthenticatedAdminReferralsRoute,
   AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
   AuthenticatedAdminRevenueRoute: AuthenticatedAdminRevenueRoute,
+  AuthenticatedAdminSearchRoute: AuthenticatedAdminSearchRoute,
   AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
   AuthenticatedAdminSourcingRoute: AuthenticatedAdminSourcingRoute,
   AuthenticatedAdminSupplyCoverageRoute: AuthenticatedAdminSupplyCoverageRoute,

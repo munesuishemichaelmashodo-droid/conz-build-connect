@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Archive, Bell, Check, Mail, MailOpen } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,10 +8,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import {
   CATEGORY_LABEL,
+  applyUpdated,
   groupByDay,
+  isMissingArchiveColumn,
+  mergeInserted,
   notificationCategory,
   notificationDestination,
   notificationHint,
+  unreadCount,
+  visibleNotifications,
   type NotificationCategory,
 } from "@/lib/notifications";
 
@@ -61,8 +66,10 @@ export function NotificationsBell() {
   const [reloadKey, setReloadKey] = useState(0);
   const nav = useNavigate();
 
-  const visible = items.filter((i) => !i.archived_at);
-  const unread = visible.filter((i) => !i.read).length;
+  // Ids already handled this session, so a redelivered realtime event never repeats the toast or chime.
+  const seen = useRef<Set<string>>(new Set());
+  const visible = visibleNotifications(items);
+  const unread = unreadCount(items);
   const shown = visible.filter((i) => filter === "all" || notificationCategory(i.type) === filter);
 
   useEffect(() => {
@@ -77,7 +84,9 @@ export function NotificationsBell() {
         .is("archived_at" as never, null)
         .order("created_at", { ascending: false })
         .limit(50);
-      if (res.error)
+      // Only a missing column (before 0136) justifies the plain list. Any other error is a failed load,
+      // never a reason to fetch everything again.
+      if (res.error && isMissingArchiveColumn(res.error))
         res = await supabase
           .from("notifications")
           .select("*")
@@ -87,7 +96,9 @@ export function NotificationsBell() {
       if (res.error) setLoadError(true);
       else {
         setLoadError(false);
-        setItems((res.data ?? []) as Notification[]);
+        const rows = visibleNotifications((res.data ?? []) as Notification[]);
+        rows.forEach((r) => seen.current.add(r.id));
+        setItems(rows);
       }
     };
     load();
@@ -104,7 +115,9 @@ export function NotificationsBell() {
         },
         (payload) => {
           const n = payload.new as Notification;
-          setItems((prev) => [n, ...prev].slice(0, 100));
+          if (seen.current.has(n.id)) return; // redelivered: already listed, already announced
+          seen.current.add(n.id);
+          setItems((prev) => mergeInserted(prev, n).items);
           toast(n.title, {
             description: [n.body, notificationHint(n)].filter(Boolean).join(" ") || undefined,
           });
@@ -121,7 +134,7 @@ export function NotificationsBell() {
         },
         (payload) => {
           const n = payload.new as Notification;
-          setItems((prev) => prev.map((i) => (i.id === n.id ? n : i)));
+          setItems((prev) => applyUpdated(prev, n));
         },
       )
       .subscribe();
