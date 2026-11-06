@@ -47,9 +47,9 @@ export function driverReach(row: AvailabilityRow | null, now: number): Reach {
   }
   return {
     kind: "reachable",
-    title: "Eligible for automatic offers",
+    title: "Online with a recent location",
     detail:
-      "Con Z can send you offers while you are online with a recent location. The list below shows open requests more widely; you choose which to price.",
+      "This is one condition for automatic offers; Con Z also checks your verification, truck and wallet credit, so offers are not guaranteed. The list below shows open requests more widely; you choose which to price.",
   };
 }
 

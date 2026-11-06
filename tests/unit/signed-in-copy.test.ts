@@ -47,7 +47,8 @@ describe("driver wording matches what the code does", () => {
       { is_available: true, lat: 1, lng: 1, updated_at: new Date(now).toISOString() },
       now,
     );
-    expect(fresh.title).toBe("Eligible for automatic offers");
+    expect(fresh.title).toBe("Online with a recent location");
+    expect(fresh.detail).toMatch(/offers are not guaranteed/);
     expect(fresh.detail).toMatch(/more widely/);
     for (const row of [null, { is_available: true, lat: null, lng: null, updated_at: null }]) {
       const r = driverReach(row, now);

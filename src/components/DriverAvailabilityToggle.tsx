@@ -60,7 +60,7 @@ export function DriverAvailabilityToggle({ variant = "button" }: { variant?: "bu
       supabase,
       availabilityValues(userId, available, position, new Date().toISOString()),
     );
-    // The driver home reads the same row for "Eligible for automatic offers".
+    // The driver home reads the same row for "Online with a recent location".
     void queryClient.invalidateQueries({ queryKey: ["driver-fix", userId] });
     if (res.ok && available && !position) {
       return { ...res, noPosition: true };
