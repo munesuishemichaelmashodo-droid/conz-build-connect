@@ -15,6 +15,7 @@ import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
 import { AddTruckForm } from "@/components/AddTruckForm";
 import { PointsCard } from "@/components/PointsCard";
 import { deleteMyAccount } from "@/lib/account-deletion";
+import { driverStatus, REVIEW_TARGET_TEXT } from "@/lib/driver-onboarding";
 import { rpcFailure } from "@/lib/rpc-result";
 import {
   Dialog,
@@ -28,6 +29,17 @@ import {
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
 });
+
+const STATUS_BADGE: Record<ReturnType<typeof driverStatus>["kind"], string> = {
+  not_submitted: "Not submitted",
+  incomplete: "Incomplete",
+  pending: "In review",
+  reverify_submitted: "Re-check in review",
+  approved: "Verified",
+  reverify_due_soon: "Verified · re-check due",
+  reverify_overdue: "Bidding paused",
+  rejected: "Needs corrections",
+};
 
 function ProfilePage() {
   const { userId, profile, roles, is, refresh } = useAuth();
@@ -55,7 +67,15 @@ function ProfilePage() {
   const daysLeft = reverifyDueAt ? Math.ceil((reverifyDueAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)) : null;
   const reverifyDueSoon = daysLeft !== null && daysLeft <= 14;
   const reverifyOverdue = daysLeft !== null && daysLeft <= 0;
-  const showFullDocs = !isVerified || reverifyDueSoon || docsExpanded;
+  const status = driverStatus({
+    status: driver?.verification_status as "pending" | "verified" | "rejected" | null | undefined,
+    notes: driver?.verification_notes as string | null | undefined,
+    reverifyDueAt: driver?.reverify_due_at as string | null | undefined,
+    submitted: true,
+  });
+  const needsSelfieOnly = isVerified && reverifyDueSoon;
+  // Not yet approved (or sent back): all documents. Approved and due for re-checking: the selfie only.
+  const showFullDocs = (!isVerified && status.kind !== "reverify_submitted") || docsExpanded;
   const DOC_ITEMS: { field: DocField; label: string; hint: string; cameraFacing: "user" | "environment" }[] = [
     { field: "selfie_url", label: "Selfie (face photo)", hint: "Front camera • Look at the camera in good light", cameraFacing: "user" },
     { field: "license_url", label: "Driver's licence", hint: "Back camera • Full licence card, all corners visible", cameraFacing: "environment" },
@@ -114,35 +134,33 @@ function ProfilePage() {
           <section id="tour-driver-verification-section" className="rounded-2xl bg-card border p-4 shadow-soft space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold">Driver verification</h2>
-              <StatusBadge label={driver?.verification_status ?? "pending"} className={isVerified ? "bg-success/15 text-success border-success/30" : driver?.verification_status === "rejected" ? "bg-destructive/15 text-destructive border-destructive/30" : "bg-warning/15 text-warning border-warning/30"} />
+              <StatusBadge label={STATUS_BADGE[status.kind]} className={status.tone === "ok" ? "bg-success/15 text-success border-success/30" : status.tone === "bad" ? "bg-destructive/15 text-destructive border-destructive/30" : "bg-warning/15 text-warning border-warning/30"} />
             </div>
 
-            {isVerified && !reverifyDueSoon && (
-              <div className="rounded-xl bg-success/10 border border-success/30 p-3 flex items-center gap-3">
-                <ShieldCheck className="w-5 h-5 text-success shrink-0" />
-                <div className="text-sm"><div className="font-semibold">You're verified</div><div className="text-muted-foreground text-xs">You can bid on any open job.</div></div>
+            <div
+              role={status.tone === "bad" ? "alert" : undefined}
+              className={`rounded-xl border p-3 space-y-1.5 ${status.tone === "ok" ? "border-success/30 bg-success/10" : status.tone === "bad" ? "border-destructive/40 bg-destructive/10" : status.tone === "warn" ? "border-warning/40 bg-warning/10" : "border-border bg-muted/40"}`}
+            >
+              <div className="flex items-start gap-2">
+                {status.tone === "ok" ? <ShieldCheck className="w-5 h-5 text-success shrink-0" /> : <AlertTriangle className={`w-5 h-5 shrink-0 ${status.tone === "bad" ? "text-destructive" : "text-warning"}`} />}
+                <div className="text-sm font-semibold">{status.title}</div>
               </div>
+              <p className="text-xs">{status.meaning}</p>
+              <p className="text-xs font-semibold">{status.next}</p>
+              <p className="text-xs">
+                {status.canBid ? "You can bid on open jobs." : "You cannot bid right now."}
+              </p>
+              {status.kind === "reverify_submitted" && <p className="text-[11px] text-muted-foreground">{REVIEW_TARGET_TEXT}</p>}
+            </div>
+
+            {needsSelfieOnly && (
+              <p className="text-xs text-muted-foreground">Only your selfie is needed for this check. Your ID, licence and truck photos stay as they are.</p>
             )}
 
-            {isVerified && reverifyDueSoon && (
-              <div className={`rounded-lg border p-3 flex items-start gap-2 text-xs ${reverifyOverdue ? "border-destructive/40 bg-destructive/10" : "border-warning/40 bg-warning/10"}`}>
-                <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${reverifyOverdue ? "text-destructive" : "text-warning"}`} />
-                <span>
-                  {reverifyOverdue
-                    ? "Your verification has expired — retake your selfie below to keep bidding on jobs. You won't see new job alerts or be able to bid until you do."
-                    : `Time to re-verify — retake your selfie below within ${daysLeft} day${daysLeft === 1 ? "" : "s"} to avoid losing access to bidding.`}
-                </span>
-              </div>
-            )}
-
-            {driver?.verification_status === "pending" && (
-              <p className="text-xs text-muted-foreground">Your documents are with our team — most drivers are reviewed within 24 hours.</p>
-            )}
-
-            {showFullDocs ? (
+            {showFullDocs || needsSelfieOnly ? (
               <>
-                <p className="text-xs text-muted-foreground">Take each photo with your phone camera. Make sure your face and documents are clearly visible.</p>
-                {DOC_ITEMS.map((d) => (
+                {!needsSelfieOnly && <p className="text-xs text-muted-foreground">Take each photo with your phone camera. Make sure your face and documents are clearly visible.</p>}
+                {(needsSelfieOnly ? DOC_ITEMS.filter((d) => d.field === "selfie_url") : DOC_ITEMS).map((d) => (
                   <DocUpload
                     key={d.field}
                     field={d.field}
@@ -151,11 +169,15 @@ function ProfilePage() {
                     cameraFacing={d.cameraFacing}
                     userId={userId!}
                     current={driver?.[d.field] as string | undefined}
+                    pausesBidding={isVerified}
                     refresh={() => qc.invalidateQueries({ queryKey: ["driver-profile", userId] })}
                   />
                 ))}
-                {isVerified && !reverifyDueSoon && (
+                {isVerified && docsExpanded && !needsSelfieOnly && (
                   <Button variant="outline" size="sm" className="w-full" onClick={() => setDocsExpanded(false)}>Hide documents</Button>
+                )}
+                {needsSelfieOnly && !docsExpanded && (
+                  <Button variant="ghost" size="sm" className="w-full" onClick={() => setDocsExpanded(true)}>Update other documents instead</Button>
                 )}
               </>
             ) : (
@@ -166,7 +188,9 @@ function ProfilePage() {
                     <span>{d.label}</span>
                   </div>
                 ))}
-                <Button variant="outline" size="sm" className="w-full mt-1" onClick={() => setDocsExpanded(true)}>Update documents</Button>
+                {status.kind !== "reverify_submitted" && (
+                  <Button variant="outline" size="sm" className="w-full mt-1" onClick={() => setDocsExpanded(true)}>Update documents</Button>
+                )}
               </div>
             )}
 
@@ -188,13 +212,25 @@ function ProfilePage() {
 
         <PointsCard />
 
-        <SetPasswordCard />
+        <Collapsible title="Login security"><SetPasswordCard /></Collapsible>
 
-        <LocationPrivacyCard />
+        <Collapsible title="Location privacy"><LocationPrivacyCard /></Collapsible>
 
-        <DeleteAccountCard />
+        <Collapsible title="Account management"><DeleteAccountCard /></Collapsible>
       </div>
     </AppShell>
+  );
+}
+
+function Collapsible({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <details className="group rounded-2xl bg-card border shadow-soft">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 font-display font-bold">
+        {title}
+        <span aria-hidden className="text-muted-foreground text-sm group-open:rotate-180 transition-transform">▾</span>
+      </summary>
+      <div className="px-1 pb-1 [&>section]:border-0 [&>section]:shadow-none">{children}</div>
+    </details>
   );
 }
 
@@ -241,9 +277,11 @@ function SetPasswordCard() {
 
 type DocField = "national_id_url" | "selfie_url" | "license_url" | "tipper_photo_url";
 
-function DocUpload({ field, label, hint, cameraFacing = "environment", userId, current, refresh }: { field: DocField; label: string; hint?: string; cameraFacing?: "user" | "environment"; userId: string; current?: string | null; refresh: () => void }) {
+function DocUpload({ field, label, hint, cameraFacing = "environment", userId, current, refresh, pausesBidding = false }: { field: DocField; label: string; hint?: string; cameraFacing?: "user" | "environment"; userId: string; current?: string | null; refresh: () => void; pausesBidding?: boolean }) {
   const [uploading, setUploading] = useState(false);
   const upload = async (file: File) => {
+    // Approved drivers: any replaced document sends the account back to review (database rule), so say so first.
+    if (pausesBidding && !window.confirm(`Submitting a new ${label.toLowerCase()} pauses bidding until Con Z approves it. Continue?`)) return;
     setUploading(true);
     const path = `${userId}/${field}-${Date.now()}-${file.name.replace(/[^a-z0-9.]/gi, "_")}`;
     const { error: uerr } = await supabase.storage.from("driver-docs").upload(path, file, { upsert: false });
@@ -252,7 +290,7 @@ function DocUpload({ field, label, hint, cameraFacing = "environment", userId, c
     const { error } = await supabase.from("driver_profiles").update(patch as never).eq("user_id", userId);
     setUploading(false);
     if (error) return toast.error(error.message);
-    toast.success(`${label} uploaded — usually reviewed within 24 hours`);
+    toast.success(pausesBidding ? `${label} submitted. Bidding is paused until Con Z approves it.` : `${label} uploaded. Our review target is 24 business hours, not a guarantee.`);
     refresh();
   };
   return (
@@ -262,6 +300,7 @@ function DocUpload({ field, label, hint, cameraFacing = "environment", userId, c
         {current && <StatusBadge label="Uploaded" className="bg-success/15 text-success border-success/30" />}
       </div>
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+      {pausesBidding && <p className="text-[11px] font-semibold text-warning">Submitting pauses bidding until Con Z approves it.</p>}
       <div className="grid grid-cols-2 gap-2">
         <label className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 hover:bg-muted transition p-3 cursor-pointer">
           <Camera className="w-5 h-5 text-cz-amber-text shrink-0" />

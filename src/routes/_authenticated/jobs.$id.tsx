@@ -2,6 +2,7 @@ import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
 import { DISPUTE_OPTIONS, disputeOption, disputeReason, MIN_DISPUTE_EXPLANATION, type DisputeSide } from "@/lib/dispute-options";
 import { useLaunchSwitches } from "@/lib/launch-switches";
 import { serverNow, syncServerClock } from "@/lib/server-clock";
+import { useInvitedJobIds, RETURNING_CUSTOMER_TEXT } from "@/components/redesign/useInvitedJobs";
 import { commissionFee, earnings, fuelEstimate } from "@/lib/driver-economics";
 import { composeOfferMessage, isDriverArranged, MAX_SOURCE_LENGTH, parseOfferMessage } from "@/lib/proposed-source";
 import { OfferMessage } from "@/components/redesign/ProposedSource";
@@ -2582,6 +2583,7 @@ function DriverJobScreen({ ctx }: { ctx: JobScreenCtx }) {
 /** D2 (offer form) / D3 (offer sent, waiting) / counter-offer response. */
 function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
   const { job, myBid } = ctx;
+  const invitedByPastCustomer = useInvitedJobIds(ctx.userId).has(ctx.id);
   const [editing, setEditing] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   // Migration 0060: count + price range of the OTHER offers (never their
@@ -2748,7 +2750,12 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
     <CzScreen>
       <CzHeader title={editing ? "Change your offer" : "Offer your price"} {...(editing ? { onBack: () => setEditing(false) } : { backTo: "/driver" })} />
       <div id="tour-place-bid" className="flex flex-1 flex-col">
-        <div className="px-5">
+        <div className="px-5 space-y-3">
+          {invitedByPastCustomer && (
+            <HintBox tone="info" icon={<Info className="w-4 h-4" />}>
+              <b>Returning customer.</b> {RETURNING_CUSTOMER_TEXT} Check the details below and decide whether it suits your truck.
+            </HintBox>
+          )}
           <SpotlightCallout
             id="driver-bidding"
             title="Bid your own price"

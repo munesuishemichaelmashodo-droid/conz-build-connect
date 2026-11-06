@@ -11,6 +11,7 @@ import {
   groupByDay,
   notificationCategory,
   notificationDestination,
+  notificationHint,
   type NotificationCategory,
 } from "@/lib/notifications";
 
@@ -104,7 +105,9 @@ export function NotificationsBell() {
         (payload) => {
           const n = payload.new as Notification;
           setItems((prev) => [n, ...prev].slice(0, 100));
-          toast(n.title, { description: n.body ?? undefined });
+          toast(n.title, {
+            description: [n.body, notificationHint(n)].filter(Boolean).join(" ") || undefined,
+          });
           playChime();
         },
       )
@@ -314,6 +317,9 @@ export function NotificationsBell() {
                             <div className="text-xs text-muted-foreground line-clamp-2">
                               {n.body}
                             </div>
+                          )}
+                          {notificationHint(n) && (
+                            <div className="text-xs font-medium mt-0.5">{notificationHint(n)}</div>
                           )}
                           <div className="text-[10px] text-muted-foreground mt-0.5">
                             {CATEGORY_LABEL[notificationCategory(n.type)]} ·{" "}

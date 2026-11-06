@@ -55,6 +55,7 @@ export function FeedJobCard({
   highlight,
   customer,
   driverFix,
+  returning,
 }: {
   job: FeedJob;
   onAccept?: () => void;
@@ -65,6 +66,8 @@ export function FeedJobCard({
   customer?: CustomerCard;
   /** The driver's own last availability position (null = none on record). */
   driverFix?: DriverFix;
+  /** A past customer invited this driver to offer (no priority, no assignment). */
+  returning?: boolean;
 }) {
   const distance = jobDistance(driverFix ?? null, job);
   const distanceText = distanceLabel(distance);
@@ -97,6 +100,16 @@ export function FeedJobCard({
           )}
         </span>
       </div>
+
+      {returning && (
+        <p
+          className="rounded-lg bg-cz-surface-2 px-3 py-2 text-[13px]"
+          data-testid="returning-customer"
+        >
+          <b>Returning customer.</b> They have had a delivery from you before and invited you to
+          offer. Other drivers can offer too; you decide whether it suits your truck.
+        </p>
+      )}
 
       <Link to="/jobs/$id" params={{ id: job.id }} className="block">
         <RouteStops

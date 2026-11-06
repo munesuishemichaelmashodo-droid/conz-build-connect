@@ -4,6 +4,7 @@ import {
   groupByDay,
   notificationCategory,
   notificationDestination,
+  notificationHint,
 } from "@/lib/notifications";
 
 describe("notification categories", () => {
@@ -59,5 +60,29 @@ describe("destinations", () => {
       params: { id: "j1" },
     });
     expect(notificationDestination(n("admin_signin"))).toBeNull();
+  });
+});
+
+describe("driver notifications say what to do next", () => {
+  const v = (title: string) => ({
+    id: "1",
+    type: "driver_verification",
+    title,
+    job_id: null,
+    created_at: "",
+  });
+  it("approval opens Find Jobs, rejection opens the fix page, pending opens the profile", () => {
+    expect(notificationDestination(v("You're verified!"))).toEqual({ to: "/home" });
+    expect(notificationDestination(v("Verification rejected"))).toEqual({ to: "/become-driver" });
+    expect(notificationDestination(v("Verification pending"))).toEqual({ to: "/profile" });
+    expect(notificationDestination(v("Driver documents changed — re-review needed"))).toEqual({
+      to: "/admin/verifications",
+    });
+  });
+  it("adds a next-step line", () => {
+    expect(notificationHint(v("You're verified!"))).toMatch(/Find Jobs/);
+    expect(notificationHint(v("Verification rejected"))).toMatch(/resubmit/);
+    expect(notificationHint({ type: "repeat_customer", title: "x" })).toMatch(/not assigned/);
+    expect(notificationHint({ type: "bid_accepted", title: "x" })).toBeNull();
   });
 });

@@ -485,6 +485,12 @@ function WalletPage() {
 
       {tab === "summary" && (
         <div className="mt-4 space-y-4">
+          <dl className="rounded-2xl border bg-card p-4 text-xs space-y-1.5" aria-label="What the numbers mean">
+            <div><dt className="inline font-semibold">Total credit: </dt><dd className="inline text-muted-foreground">your top-ups and earnings in Con Z.</dd></div>
+            <div><dt className="inline font-semibold">Held: </dt><dd className="inline text-muted-foreground">the commission reserved while a job is active. It is charged when the job is completed (your first completed job has no commission), and released on a valid cancellation.</dd></div>
+            <div><dt className="inline font-semibold">Available: </dt><dd className="inline text-muted-foreground">total minus held. This is what covers commission on new jobs.</dd></div>
+            {!canWithdraw && <div><dt className="inline font-semibold">Withdrawals: </dt><dd className="inline text-muted-foreground">paused for now.</dd></div>}
+          </dl>
           <div className="rounded-2xl bg-card border p-4 space-y-3">
             <SummaryRow
               label="Credits received"
