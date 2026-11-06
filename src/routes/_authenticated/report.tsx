@@ -43,13 +43,25 @@ function ReportPage() {
     queryKey: ["my-reports", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data } = await supabase
-        .from("reports")
-        .select("*")
-        .eq("user_id", userId!)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      return data ?? [];
+      // Public columns only: the private admin note is not readable by customers (0142). Before 0142 is
+      // applied admin_reply does not exist yet, so fall back to the columns that do.
+      const read = (cols: string) =>
+        supabase
+          .from("reports")
+          .select(cols)
+          .eq("user_id", userId!)
+          .order("created_at", { ascending: false })
+          .limit(20);
+      let res = await read("id,description,status,created_at,admin_reply,admin_reply_at");
+      if (res.error) res = await read("id,description,status,created_at");
+      return (res.data ?? []) as unknown as {
+        id: string;
+        description: string;
+        status: string;
+        created_at: string;
+        admin_reply?: string | null;
+        admin_reply_at?: string | null;
+      }[];
     },
   });
 
@@ -127,9 +139,9 @@ function ReportPage() {
                     <span className="text-[11px] text-muted-foreground">{new Date(r.created_at).toLocaleString()}</span>
                   </div>
                   <p className="mt-1 whitespace-pre-wrap">{r.description}</p>
-                  {r.admin_notes && (
+                  {r.admin_reply && (
                     <p className="mt-2 text-xs bg-muted p-2 rounded">
-                      <b>Admin reply:</b> {r.admin_notes}
+                      <b>Con Z reply:</b> {r.admin_reply}
                     </p>
                   )}
                 </div>

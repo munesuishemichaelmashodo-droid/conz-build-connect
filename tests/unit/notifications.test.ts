@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   dayGroup,
@@ -5,6 +6,11 @@ import {
   notificationCategory,
   notificationDestination,
   notificationHint,
+  applyUpdated,
+  isMissingArchiveColumn,
+  mergeInserted,
+  unreadCount,
+  visibleNotifications,
 } from "@/lib/notifications";
 
 describe("notification categories", () => {
@@ -84,5 +90,77 @@ describe("driver notifications say what to do next", () => {
     expect(notificationHint(v("Verification rejected"))).toMatch(/resubmit/);
     expect(notificationHint({ type: "repeat_customer", title: "x" })).toMatch(/not assigned/);
     expect(notificationHint({ type: "bid_accepted", title: "x" })).toBeNull();
+  });
+});
+
+describe("notification list reliability", () => {
+  const row = (
+    id: string,
+    extra: Partial<{ read: boolean; archived_at: string | null; created_at: string }> = {},
+  ) => ({
+    id,
+    type: "bid_accepted",
+    job_id: null,
+    read: false,
+    archived_at: null as string | null,
+    created_at: "2026-11-06T10:00:00Z",
+    ...extra,
+  });
+
+  it("only a missing column allows the plain-list fallback", () => {
+    expect(
+      isMissingArchiveColumn({
+        code: "42703",
+        message: "column notifications.archived_at does not exist",
+      }),
+    ).toBe(true);
+    expect(
+      isMissingArchiveColumn({
+        code: "PGRST204",
+        message: "Could not find the 'archived_at' column",
+      }),
+    ).toBe(true);
+    expect(
+      isMissingArchiveColumn({
+        code: "57014",
+        message: "canceling statement due to statement timeout",
+      }),
+    ).toBe(false);
+    expect(isMissingArchiveColumn({ message: "Failed to fetch" })).toBe(false);
+    expect(isMissingArchiveColumn(null)).toBe(false);
+  });
+
+  it("archived rows are never shown or counted, even if a query returned them", () => {
+    const items = [
+      row("a"),
+      row("b", { archived_at: "2026-11-06T11:00:00Z" }),
+      row("c", { read: true }),
+    ];
+    expect(visibleNotifications(items).map((i) => i.id)).toEqual(["a", "c"]);
+    expect(unreadCount(items)).toBe(1);
+  });
+
+  it("a redelivered realtime INSERT is not added or announced twice", () => {
+    const first = mergeInserted([row("x")], row("n1"));
+    expect(first.isNew).toBe(true);
+    expect(first.items.map((i) => i.id)).toEqual(["n1", "x"]);
+    const again = mergeInserted(first.items, row("n1"));
+    expect(again.isNew).toBe(false);
+    expect(again.items).toBe(first.items);
+    expect(unreadCount(again.items)).toBe(2);
+  });
+
+  it("an UPDATE changes a listed row, ignores an unknown archived one, and restores an unarchived one", () => {
+    const list = [row("a"), row("b")];
+    expect(applyUpdated(list, row("a", { read: true })).find((i) => i.id === "a")?.read).toBe(true);
+    expect(applyUpdated(list, row("z", { archived_at: "2026-11-06T11:00:00Z" }))).toBe(list);
+    const restored = applyUpdated(list, row("z", { created_at: "2026-11-06T12:00:00Z" }));
+    expect(restored.map((i) => i.id)).toEqual(["z", "a", "b"]);
+  });
+
+  it("the bell wires the guard: seen ids gate the sound and toast", () => {
+    const src = readFileSync("src/components/NotificationsBell.tsx", "utf8");
+    expect(src).toMatch(/seen\.current\.has\(n\.id\)/);
+    expect(src).toMatch(/isMissingArchiveColumn\(res\.error\)/);
   });
 });

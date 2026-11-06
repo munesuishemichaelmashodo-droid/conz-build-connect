@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, Link, useRouterState, redirect } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { LayoutDashboard, Users, ShieldCheck, Gavel, Settings as SettingsIcon, TrendingUp, ScrollText, BookOpen, MessageSquareWarning, Gift, MapPin, HandCoins, PackageSearch, Briefcase, Sparkles } from "lucide-react";
+import { Search, LayoutDashboard, Users, ShieldCheck, Gavel, Settings as SettingsIcon, TrendingUp, ScrollText, BookOpen, MessageSquareWarning, Gift, MapPin, HandCoins, PackageSearch, Briefcase, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -32,6 +32,7 @@ type Tab = { to: string; label: string; icon: typeof Users; exact?: boolean; sup
 // still enforces its own role checks.
 const TABS: Tab[] = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true, group: "Overview" },
+  { to: "/admin/search", label: "Search", icon: Search, group: "Overview" },
   { to: "/admin/revenue", label: "Revenue", icon: TrendingUp, superOnly: true, group: "Money" },
   { to: "/admin/approvals", label: "Approvals", icon: HandCoins, superOnly: true, group: "Money" },
   { to: "/admin/ledger", label: "Ledger", icon: BookOpen, superOnly: true, group: "Money" },

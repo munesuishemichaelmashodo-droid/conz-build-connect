@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { EmptyState, StatusBadge } from "@/components/ui-bits";
 import { MessageSquareWarning, ShieldAlert, Phone, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { adminListReports, adminRespondToReport, isMissingRpc } from "@/lib/admin-ops";
 
 export const Route = createFileRoute("/_authenticated/admin/reports")({
   component: AdminReports,
@@ -44,6 +45,16 @@ function AdminReports() {
   const { data } = useQuery({
     queryKey: ["admin-reports", filter],
     queryFn: async () => {
+      // 0142: the list comes from a server function that returns the private note to admins only.
+      const res = await adminListReports(filter === "all" ? null : filter);
+      if (!res.error) {
+        return (res.data ?? []).map((r) => ({
+          ...r,
+          profile: { full_name: r.reporter_name, phone: r.reporter_phone, email: r.reporter_email },
+        }));
+      }
+      if (!isMissingRpc(res.error)) throw new Error(res.error.message);
+      // Before 0142 is applied: the previous direct read.
       let q = supabase.from("reports").select("*").order("created_at", { ascending: false });
       if (filter !== "all") q = q.eq("status", filter);
       const { data: rows } = await q;
@@ -56,10 +67,19 @@ function AdminReports() {
     },
   });
 
-  const update = async (id: string, patch: { status?: string; admin_notes?: string }) => {
-    const { error } = await supabase.from("reports").update(patch).eq("id", id);
+  const update = async (
+    id: string,
+    patch: { status?: "open" | "resolved"; reply?: string; note?: string },
+  ) => {
+    const { data, error } = await adminRespondToReport({ reportId: id, ...patch });
     if (error) return toast.error(error.message);
-    toast.success("Report updated");
+    toast.success(
+      !data?.changed
+        ? "Nothing changed"
+        : patch.reply
+          ? "Reply sent to the customer"
+          : "Report updated",
+    );
     qc.invalidateQueries({ queryKey: ["admin-reports"] });
   };
 
@@ -116,8 +136,11 @@ function AdminReports() {
   );
 }
 
-function ReportCard({ r, onUpdate }: { r: any; onUpdate: (id: string, patch: { status?: string; admin_notes?: string }) => void }) {
+type ReportPatch = { status?: "open" | "resolved"; reply?: string; note?: string };
+
+function ReportCard({ r, onUpdate }: { r: any; onUpdate: (id: string, patch: ReportPatch) => void }) {
   const [note, setNote] = useState(r.admin_notes ?? "");
+  const [reply, setReply] = useState(r.admin_reply ?? "");
   return (
     <div className="rounded-xl border bg-card p-4 space-y-3">
       {/* Reporter identity + contact */}
@@ -148,16 +171,30 @@ function ReportCard({ r, onUpdate }: { r: any; onUpdate: (id: string, patch: { s
       {r.job_id && <p className="text-[11px] text-muted-foreground">Related job: <code>{r.job_id}</code></p>}
       <p className="text-[11px] text-muted-foreground">{new Date(r.created_at).toLocaleString()}</p>
 
-      {/* Admin note + resolve/reopen */}
-      <div className="space-y-2 pt-2 border-t">
-        <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Admin reply / internal note…" rows={2} />
-        <div className="grid grid-cols-2 gap-2">
-          <Button size="sm" variant="outline" onClick={() => onUpdate(r.id, { admin_notes: note })}>Save note</Button>
-          {r.status === "open" ? (
-            <Button size="sm" onClick={() => onUpdate(r.id, { status: "resolved", admin_notes: note })}>Mark resolved</Button>
-          ) : (
-            <Button size="sm" variant="outline" onClick={() => onUpdate(r.id, { status: "open", admin_notes: note })}>Reopen</Button>
-          )}
+      {/* Reply the customer will read, and a private note only admins read (0142) */}
+      <div className="space-y-3 pt-2 border-t">
+        <div className="space-y-1.5">
+          <label htmlFor={`reply-${r.id}`} className="text-xs font-semibold">
+            Reply to the customer <span className="font-normal text-muted-foreground">(they see this and are notified)</span>
+          </label>
+          <Textarea id={`reply-${r.id}`} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Write what the customer should read…" rows={2} />
+          <Button size="sm" onClick={() => onUpdate(r.id, { reply })} disabled={!reply.trim() || reply.trim() === (r.admin_reply ?? "").trim()}>
+            Send reply
+          </Button>
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor={`note-${r.id}`} className="text-xs font-semibold">
+            Private note <span className="font-normal text-muted-foreground">(admins only, never shown to the customer)</span>
+          </label>
+          <Textarea id={`note-${r.id}`} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Internal context for other admins…" rows={2} />
+          <div className="grid grid-cols-2 gap-2">
+            <Button size="sm" variant="outline" onClick={() => onUpdate(r.id, { note })}>Save private note</Button>
+            {r.status === "open" ? (
+              <Button size="sm" onClick={() => onUpdate(r.id, { status: "resolved" })}>Mark resolved</Button>
+            ) : (
+              <Button size="sm" variant="outline" onClick={() => onUpdate(r.id, { status: "open" })}>Reopen</Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
