@@ -60,7 +60,7 @@ export function DriverAvailabilityToggle({ variant = "button" }: { variant?: "bu
       supabase,
       availabilityValues(userId, available, position, new Date().toISOString()),
     );
-    // The driver home reads the same row for "Getting offers near you".
+    // The driver home reads the same row for "Eligible for automatic offers".
     void queryClient.invalidateQueries({ queryKey: ["driver-fix", userId] });
     if (res.ok && available && !position) {
       return { ...res, noPosition: true };
@@ -81,7 +81,7 @@ export function DriverAvailabilityToggle({ variant = "button" }: { variant?: "bu
     beatFailedRef.current = false;
     setIsAvailable(next);
     if ("noPosition" in res && res.noPosition) {
-      toast.error("You're online, but Con Z can't see your location yet. Allow location to get nearby offers.");
+      toast.error("You're online, but Con Z can't see your location yet. Allow location to be eligible for automatic offers.");
     } else {
       toast.success(next ? "You're online" : "You're offline");
     }

@@ -15,6 +15,7 @@ import { SidePanel } from "@/components/SidePanel";
 import { DriverHome } from "@/components/redesign/DriverHome";
 import { CzScreen, StatusPill, czButtonClass } from "@/components/redesign";
 import { JobRow } from "@/components/redesign/JobRow";
+import { customerNow } from "@/lib/customer-home";
 import { CustomerBottomNav, NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 import { LogoLockup } from "@/components/ds";
 import { TipperIllustration } from "@/components/ds/media";
@@ -98,6 +99,8 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
   // Customer mode redesign: same queries/flags as before, new look. The
   // booking itself (C1) lives at /customer/book.
   const first = profile?.full_name?.split(" ")[0] ?? "Builder";
+  // First thing to do now, from the jobs already loaded above (no extra query).
+  const now = customerNow(jobs as { id: string; status: string }[] | undefined);
   // The latest completed delivery that booking can pre-fill, read from the customer's whole history
   // (not just the five jobs listed below). One narrow query, cached for five minutes, no polling.
   const { data: repeat } = useQuery({
@@ -122,6 +125,20 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
         </header>
 
         <div className="px-5 space-y-4">
+          {!restricted && now && (
+            <section
+              aria-label="What is happening now"
+              data-testid="customer-now"
+              data-kind={now.kind}
+              className="rounded-2xl border border-cz-border-strong bg-cz-surface p-4 space-y-2.5"
+            >
+              <h2 className="cz-display font-bold text-[24px] leading-tight">{now.title}</h2>
+              <p className="text-sm text-cz-muted">{now.meaning}</p>
+              <Link to="/jobs/$id" params={{ id: now.jobId }} className={czButtonClass("primary")}>
+                {now.action}
+              </Link>
+            </section>
+          )}
           <div
             id="tour-dashboard-hero"
             data-tour="dashboard-hero"
@@ -154,7 +171,7 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
                   id="tour-book-delivery-cta"
                   data-tour="book-delivery-cta"
                   to="/customer/book"
-                  className={czButtonClass("primary")}
+                  className={czButtonClass(now ? "secondary" : "primary")}
                 >
                   <Plus className="w-5 h-5" /> Book a delivery
                 </Link>
@@ -185,8 +202,8 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
               <div className="text-sm font-semibold">Need the same again?</div>
               <p className="text-sm text-cz-muted">
                 {Number(repeat.quantity_m3)} m³ {materialLabel(repeat.material as never, null)}
-                {repeat.delivery_address ? ` to ${repeat.delivery_address}` : ""}. The price is
-                checked fresh each time.
+                {repeat.delivery_address ? ` to ${repeat.delivery_address}` : ""}. Your details are
+                reused and the price is recalculated each time.
               </p>
               <Link
                 to="/customer/book"
@@ -205,8 +222,8 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
                     Order again and invite your previous driver to bid
                   </Link>
                   <p className="text-xs text-cz-muted">
-                    An invitation only tells that driver about the request. Other verified drivers
-                    can still send offers, and you choose.
+                    An invitation only tells that driver about the request. They may or may not
+                    offer. Other verified drivers can send offers too, and you choose.
                   </p>
                 </>
               )}

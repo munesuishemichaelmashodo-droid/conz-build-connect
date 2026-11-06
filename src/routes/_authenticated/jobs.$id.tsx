@@ -3272,6 +3272,9 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
             {live.length ? `${live.length} driver${live.length === 1 ? "" : "s"} offered` : "Waiting for offers"}
           </h1>
           {covers && <p className="text-sm text-cz-muted">{covers}</p>}
+          <p className="text-sm text-cz-muted">
+            Compare price, truck, rating and pickup time, then choose a driver. An offer is not accepted until you choose it.
+          </p>
         </div>
 
         <dl className={cn("grid gap-2", hasRange ? "grid-cols-2" : "grid-cols-1")}>

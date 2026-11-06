@@ -77,4 +77,12 @@ describe("customer and driver wording stays honest", () => {
       /while the driver's phone is sharing it/,
     );
   });
+
+  it("permission copy does not promise nearby drivers or guaranteed live tracking", () => {
+    const w = text("src/components/OnboardingWalkthrough.tsx");
+    expect(w).not.toMatch(/drivers near you/i);
+    expect(w).not.toMatch(/live tracking work/i);
+    expect(w).toMatch(/Both are optional/);
+    expect(w).toMatch(/Skip for now/);
+  });
 });

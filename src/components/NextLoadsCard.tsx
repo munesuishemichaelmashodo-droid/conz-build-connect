@@ -114,7 +114,7 @@ export function NextLoadsCard({ driverId, currentJobId }: { driverId: string; cu
         <div className="font-semibold text-sm">Suggested next loads</div>
       </div>
       <p className="text-xs text-muted-foreground -mt-1">
-        Other open jobs near where this delivery finishes — bid on any of them the same way as usual.
+        Open requests near where this delivery finishes. Sending an offer does not assign you the job: the customer chooses. Distances and empty-kilometre figures are estimates.
       </p>
       <div className="space-y-2">
         {loads.map((l, i) => (
