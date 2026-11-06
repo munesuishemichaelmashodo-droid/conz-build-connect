@@ -184,7 +184,11 @@ export function FeedJobCard({
               "min-h-[50px] px-2 text-[15px] whitespace-nowrap",
             )}
           >
-            {accepting ? <Loader2 className="w-4 h-4 animate-spin" /> : `Send offer · ${usd(price)}`}
+            {accepting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              `Send offer · ${usd(price)}`
+            )}
           </button>
         ) : (
           <span />
