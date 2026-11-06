@@ -77,7 +77,18 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
     },
   });
 
-  const restrictedUntil = (profile as any)?.restricted_until as string | null | undefined;
+  // Hooks must run in the same order every render, so this sits above the driver early return.
+  // The latest completed delivery that booking can pre-fill, read from the customer's whole history
+  // (not just the five jobs listed below). One narrow query, cached for five minutes, no polling.
+  const { data: repeat } = useQuery({
+    queryKey: ["repeat-delivery", userId],
+    enabled: !!userId && isCustomer,
+    staleTime: 5 * 60_000,
+    queryFn: () => latestRepeatableJob(supabase, userId!),
+  });
+
+  const restrictedUntil = (profile as { restricted_until?: string | null } | null)
+    ?.restricted_until;
   const restricted =
     isCustomer && !!restrictedUntil ? new Date(restrictedUntil) > new Date() : false;
   const showVerificationWarning = isDriver && driverNeedsBanner(driver);
@@ -88,9 +99,9 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
       <DriverHome
         userId={userId}
         firstName={profile?.full_name?.split(" ")[0] ?? null}
-        jobs={jobs as any}
-        wallet={wallet as any}
-        driver={driver as any}
+        jobs={jobs as never}
+        wallet={wallet as never}
+        driver={driver as never}
         showVerificationWarning={showVerificationWarning}
       />
     );
@@ -101,14 +112,6 @@ export function RoleDashboard({ role }: { role: "driver" | "customer" }) {
   const first = profile?.full_name?.split(" ")[0] ?? "Builder";
   // First thing to do now, from the jobs already loaded above (no extra query).
   const now = customerNow(jobs as { id: string; status: string }[] | undefined);
-  // The latest completed delivery that booking can pre-fill, read from the customer's whole history
-  // (not just the five jobs listed below). One narrow query, cached for five minutes, no polling.
-  const { data: repeat } = useQuery({
-    queryKey: ["repeat-delivery", userId],
-    enabled: !!userId && isCustomer,
-    staleTime: 5 * 60_000,
-    queryFn: () => latestRepeatableJob(supabase, userId!),
-  });
   return (
     <>
       <CzScreen className={NAV_SPACE}>

@@ -57,7 +57,7 @@ describe("driver wording matches what the code does", () => {
   });
   it("the next-loads card does not promise a job", () => {
     const c = text("src/components/NextLoadsCard.tsx");
-    expect(c).toMatch(/does not assign you the job/);
+    expect(c).toMatch(/does not assign you the\s+job/);
     expect(c).toMatch(/estimates/);
   });
   it("repeat booking says the price is recalculated and the previous driver may not offer", () => {
