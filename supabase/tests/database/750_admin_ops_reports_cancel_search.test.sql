@@ -83,7 +83,7 @@ values (current_setting('t.cust')::uuid, 'topup', 30, 30, 'old topup NEEDLEFIN',
 select tests.login_as(current_setting('t.cust')::uuid);
 select throws_ok($$select * from public.admin_search('rpt_cust')$$, 'P0001', 'Forbidden', 'a customer cannot search');
 select tests.login_as(current_setting('t.adm')::uuid);
-select ok(exists (select 1 from public.admin_search('rpt_cust') where kind = 'customers'), 'finds a customer by name');
+select ok(exists (select 1 from public.admin_search('rpt_cust', 'customers') where kind = 'customers'), 'finds a customer by name');
 select ok(exists (select 1 from public.admin_search('Needle Street', 'jobs') where kind = 'jobs'), 'finds a job beyond the old 200-newest browser window');
 select is((select count(*)::int from public.admin_search('zzpg', 'customers', 10, 20)), 5, 'page 3 of 10 over 25 customers has 5 rows');
 select is((select max(total_count)::int from public.admin_search('zzpg', 'customers', 10, 20)), 25, 'and every row carries the full total');
