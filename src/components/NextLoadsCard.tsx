@@ -50,7 +50,13 @@ const TIER_META: Record<RecommendationTier, { label: string; className: string }
  * anchor (the one real, already-known prior location), not a claim
  * about the driver's true home base or intended direction.
  */
-export function NextLoadsCard({ driverId, currentJobId }: { driverId: string; currentJobId: string }) {
+export function NextLoadsCard({
+  driverId,
+  currentJobId,
+}: {
+  driverId: string;
+  currentJobId: string;
+}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const queryKey = ["next-loads", driverId, currentJobId];
@@ -114,11 +120,17 @@ export function NextLoadsCard({ driverId, currentJobId }: { driverId: string; cu
         <div className="font-semibold text-sm">Suggested next loads</div>
       </div>
       <p className="text-xs text-muted-foreground -mt-1">
-        Other open jobs near where this delivery finishes — bid on any of them the same way as usual.
+        Open requests near where this delivery finishes. Sending an offer does not assign you the
+        job: the customer chooses. Distances and empty-kilometre figures are estimates.
       </p>
       <div className="space-y-2">
         {loads.map((l, i) => (
-          <LoadRow key={l.job_id} l={l} featured={i === 0} onOpen={() => navigate({ to: "/jobs/$id", params: { id: l.job_id } })} />
+          <LoadRow
+            key={l.job_id}
+            l={l}
+            featured={i === 0}
+            onOpen={() => navigate({ to: "/jobs/$id", params: { id: l.job_id } })}
+          />
         ))}
       </div>
     </div>
@@ -141,13 +153,20 @@ function LoadRow({ l, featured, onOpen }: { l: NextLoad; featured: boolean; onOp
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           {featured && <Sparkles className="w-3.5 h-3.5 text-cz-amber-text shrink-0" />}
-          <span className={cn("text-[10px] font-bold tracking-widest px-1.5 py-0.5 rounded", meta.className)}>{meta.label}</span>
+          <span
+            className={cn(
+              "text-[10px] font-bold tracking-widest px-1.5 py-0.5 rounded",
+              meta.className,
+            )}
+          >
+            {meta.label}
+          </span>
         </div>
         <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
       </div>
 
       <div className="font-semibold text-sm truncate">
-        {materialLabel(l.material as any, null)} — {l.quantity_m3} m³
+        {materialLabel(l.material as never, null)} — {l.quantity_m3} m³
       </div>
       <div className="text-xs text-muted-foreground truncate">
         {l.pickup_address ?? "—"} → {l.delivery_address ?? "—"}
@@ -155,7 +174,9 @@ function LoadRow({ l, featured, onOpen }: { l: NextLoad; featured: boolean; onOp
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground pt-0.5">
         {l.repositioning_km != null && <span>Pickup: ~{l.repositioning_km} km away</span>}
-        {l.capacity_tier && <span>Truck fit: {CAPACITY_LABEL[l.capacity_tier] ?? l.capacity_tier}</span>}
+        {l.capacity_tier && (
+          <span>Truck fit: {CAPACITY_LABEL[l.capacity_tier] ?? l.capacity_tier}</span>
+        )}
       </div>
 
       {hasSaving && (

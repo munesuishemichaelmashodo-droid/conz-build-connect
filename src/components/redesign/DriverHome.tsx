@@ -264,6 +264,10 @@ export function DriverHome({
             live
           </span>
         </div>
+        <p className="px-5 pb-2.5 text-[13px] text-cz-muted" data-testid="offer-note">
+          These are open requests, not assigned jobs. Sending an offer does not win the job: the
+          customer compares offers and chooses a driver.
+        </p>
         <div className="px-5 pb-3.5">
           <MaterialChips options={FEED_FILTERS} value={filter} onChange={setFilter} size="sm" />
         </div>

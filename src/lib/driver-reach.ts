@@ -24,14 +24,16 @@ export function driverReach(row: AvailabilityRow | null, now: number): Reach {
     return {
       kind: "offline",
       title: "You're offline",
-      detail: "Go online to get job offers near you.",
+      detail:
+        "Go online to be eligible for automatic offers. You can still browse open requests below.",
     };
   }
   if (row.lat == null || row.lng == null) {
     return {
       kind: "no_location",
       title: "Online, but no location",
-      detail: "Allow location for Con Z so nearby jobs can reach you.",
+      detail:
+        "Allow location for Con Z to be eligible for automatic offers. You can still browse open requests below.",
     };
   }
   const at = row.updated_at ? Date.parse(row.updated_at) : NaN;
@@ -39,13 +41,15 @@ export function driverReach(row: AvailabilityRow | null, now: number): Reach {
     return {
       kind: "stale",
       title: "Online, but your location is old",
-      detail: "Open Con Z to refresh it. Offers only go to drivers seen in the last 15 minutes.",
+      detail:
+        "Open Con Z to refresh it. Automatic offers only go to drivers seen in the last 15 minutes. You can still browse open requests below.",
     };
   }
   return {
     kind: "reachable",
-    title: "Getting offers near you",
-    detail: "Keep Con Z open while you wait for loads.",
+    title: "Online with a recent location",
+    detail:
+      "This is one condition for automatic offers; Con Z also checks your verification, truck and wallet credit, so offers are not guaranteed. The list below shows open requests more widely; you choose which to price.",
   };
 }
 

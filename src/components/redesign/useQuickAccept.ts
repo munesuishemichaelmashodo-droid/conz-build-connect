@@ -18,7 +18,7 @@ type Funds = {
 };
 
 /**
- * One-tap "Accept $X" from the driver job feed.
+ * One-tap "Send offer · $X" from the driver job feed. It submits an offer at the customer's price; the customer compares offers and chooses.
  *
  * This is NOT a new bidding path: it submits exactly the bid the existing
  * job-page BidForm submits (same `bids` upsert, same columns, same
