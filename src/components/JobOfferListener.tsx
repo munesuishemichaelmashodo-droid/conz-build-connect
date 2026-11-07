@@ -8,6 +8,12 @@ import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import { materialLabel, money } from "@/lib/domain";
 import { MapPin, Package, Truck, X, Loader2 } from "lucide-react";
+import {
+  countdownColor,
+  formatRemaining,
+  offerFootnote,
+  offerWindowMs,
+} from "@/lib/dispatch-window";
 
 type Offer = {
   id: string;
@@ -26,8 +32,6 @@ type Job = {
   budget: number;
   delivery_address: string;
 };
-
-const WINDOW_MS = 10_000;
 
 /**
  * Short beep via WebAudio; also vibrate if supported.
@@ -85,6 +89,10 @@ export function JobOfferListener() {
       // ignore if already expired
       if (new Date(o.expires_at).getTime() < Date.now()) return;
       seenIds.current.add(o.id);
+      // Honest "seen" evidence for the admin response metrics (best effort).
+      void (supabase as any)
+        .rpc("mark_dispatch_offer_viewed", { _offer_id: o.id })
+        .then(() => undefined);
       setOffer(o);
       setJob(null);
       loadJob(o.job_id);
@@ -188,17 +196,9 @@ function OfferModal({
   }, [offer.expires_at, offer.job_id, onClose]);
 
   const secondsLeft = Math.ceil(remaining / 1000);
-  const pct = Math.max(0, Math.min(1, remaining / WINDOW_MS));
-
-  // Colour bands per the design guide.
-  const color =
-    secondsLeft >= 8
-      ? "#22c55e" // green
-      : secondsLeft >= 5
-        ? "#84cc16" // lime
-        : secondsLeft >= 2
-          ? "#f97316" // orange
-          : "#ef4444"; // red
+  const windowMs = offerWindowMs(offer);
+  const pct = Math.max(0, Math.min(1, remaining / windowMs));
+  const color = countdownColor(remaining, windowMs);
 
   // Dismissing the offer is a decision: tell the server so the next wave goes out now
   // instead of waiting for the timeout (best effort; the timeout still covers a failed call).
@@ -305,9 +305,11 @@ function OfferModal({
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <div className="font-display font-bold text-5xl" style={{ color }}>
-                {secondsLeft}
+                {formatRemaining(remaining)}
               </div>
-              <div className="text-xs text-white/60">seconds</div>
+              <div className="text-xs text-white/60">
+                {secondsLeft >= 60 ? "minutes" : "seconds"}
+              </div>
             </div>
           </div>
 
@@ -336,9 +338,7 @@ function OfferModal({
               </>
             )}
           </Button>
-          <p className="text-[11px] text-center text-white/50">
-            Accept quickly — after 10 seconds this goes to the next driver.
-          </p>
+          <p className="text-[11px] text-center text-white/50">{offerFootnote(windowMs)}</p>
         </div>
       </DialogContent>
     </Dialog>
