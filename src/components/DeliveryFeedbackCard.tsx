@@ -29,7 +29,11 @@ export function DeliveryFeedbackCard({ jobId }: { jobId: string }) {
   const [busy, setBusy] = useState(false);
   const [thanked, setThanked] = useState(false);
 
-  const { data: row, isLoading, isError } = useQuery({
+  const {
+    data: row,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["delivery-feedback", jobId],
     queryFn: async (): Promise<Row | null> => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated types predate 0149
