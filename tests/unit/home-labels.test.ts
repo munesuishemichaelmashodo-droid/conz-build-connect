@@ -14,6 +14,11 @@ describe("ratingLabel", () => {
   });
   it("shows the average and how many ratings it is based on", () => {
     expect(ratingLabel(4.66, 23)).toBe("4.7 (23)");
+    expect(ratingLabel(4.5, 3)).toBe("4.5 (3)");
+  });
+  it("does not show an average from one or two ratings, so a tiny sample cannot look like a track record", () => {
+    expect(ratingLabel(5, 1)).toBe("1 rating so far");
+    expect(ratingLabel(5, 2)).toBe("2 ratings so far");
   });
 });
 

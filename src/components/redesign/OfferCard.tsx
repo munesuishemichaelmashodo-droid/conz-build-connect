@@ -5,7 +5,7 @@ import { mmss, useSecondsLeft } from "@/components/redesign/rpc";
 import { levelInfo } from "@/lib/domain";
 import { cn } from "@/lib/utils";
 import { estimateDeliveryMinutes, formatDuration, presenceOf } from "@/lib/delivery-time";
-import { ratingLabel } from "@/lib/driver-onboarding";
+import { ratingLabel, MIN_RATINGS_FOR_AVERAGE } from "@/lib/driver-onboarding";
 import { tripsLabel, type GuideBand } from "@/lib/offer-compare";
 import { InitialsAvatar, czButtonClass, usd } from "@/components/redesign";
 
@@ -86,7 +86,8 @@ export function OfferCard({
   const first = name.split(" ")[0];
   const verified = bid.driver?.verification_status === "verified";
   const presence = presenceOf(bid.profile?.last_active_at);
-  const rated = Number(bid.driver?.rating_count ?? 0) > 0;
+  // The star only appears once the average is shown (three or more ratings).
+  const rated = Number(bid.driver?.rating_count ?? 0) >= MIN_RATINGS_FOR_AVERAGE;
   const eta = Number(bid.eta_minutes) > 0 ? Number(bid.eta_minutes) : null;
   const atSite = estimateDeliveryMinutes(deliveryKm, bid.eta_minutes);
   const trips = tripsLabel(bid.estimated_trips);
@@ -110,9 +111,12 @@ export function OfferCard({
           <div className="flex min-w-0 items-center gap-2">
             <span className="truncate font-semibold">{name}</span>
             {presence.online && (
-              <span className="inline-flex shrink-0 items-center gap-1 text-[12px] text-cz-muted">
+              <span
+                className="inline-flex shrink-0 items-center gap-1 text-[12px] text-cz-muted"
+                title="The driver's app was open in the last 2 minutes. This does not mean they are free for a job or will see a notification."
+              >
                 <span aria-hidden className="h-2 w-2 rounded-full bg-cz-green" />
-                Online
+                Active just now
               </span>
             )}
           </div>
