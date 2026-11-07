@@ -39,7 +39,15 @@ function RatioRow({ label, ratio, help }: { label: string; ratio: Ratio; help: s
   );
 }
 
-function CountRow({ label, value, help }: { label: string; value: string | number; help?: string }) {
+function CountRow({
+  label,
+  value,
+  help,
+}: {
+  label: string;
+  value: string | number;
+  help?: string;
+}) {
   return (
     <div className="flex items-start justify-between gap-3 py-2 border-b border-cz-border last:border-0">
       <div className="min-w-0">
@@ -61,7 +69,9 @@ export function MarketplaceHealthCard() {
   const { data, error, isLoading } = useQuery({
     queryKey: ["admin-marketplace-metrics", days],
     queryFn: async () => {
-      const r = await (supabase.rpc as unknown as Rpc)("admin_marketplace_metrics", { _days: days });
+      const r = await (supabase.rpc as unknown as Rpc)("admin_marketplace_metrics", {
+        _days: days,
+      });
       if (r.error) throw r.error;
       return r.data;
     },
@@ -75,7 +85,10 @@ export function MarketplaceHealthCard() {
   const answerLabel = (k: string) => FEEDBACK_OPTIONS.find((o) => o.value === k)?.label ?? k;
 
   return (
-    <section className="rounded-2xl border bg-card p-5 space-y-4" aria-labelledby="marketplace-health-title">
+    <section
+      className="rounded-2xl border bg-card p-5 space-y-4"
+      aria-labelledby="marketplace-health-title"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Activity className="w-5 h-5 text-cz-amber-text" aria-hidden />
@@ -98,8 +111,8 @@ export function MarketplaceHealthCard() {
         </div>
       </div>
       <p className="text-xs text-cz-muted">
-        Counts first, percentages second. Small samples are marked and should not be read as conclusions. Repeat
-        requests are not the same as repeat successful deliveries.
+        Counts first, percentages second. Small samples are marked and should not be read as
+        conclusions. Repeat requests are not the same as repeat successful deliveries.
       </p>
 
       {isLoading || !m ? (
@@ -109,11 +122,30 @@ export function MarketplaceHealthCard() {
           <div>
             <h3 className="text-sm font-semibold">Requests (jobs)</h3>
             <CountRow label="Requests created" value={m.jobs.requests_created} />
-            <RatioRow label="Received an offer" ratio={m.jobs.with_offer} help={METRIC_DEFINITIONS.with_offer} />
-            <CountRow label="Median time to first offer" value={formatMedianMinutes(m.jobs.median_minutes_to_first_offer)} />
-            <RatioRow label="Offer accepted" ratio={m.jobs.offer_accepted} help={METRIC_DEFINITIONS.offer_accepted} />
-            <RatioRow label="Delivery completed" ratio={m.jobs.verified_completed} help={METRIC_DEFINITIONS.verified_completed} />
-            <RatioRow label="Cancelled" ratio={m.jobs.cancelled} help={METRIC_DEFINITIONS.cancelled} />
+            <RatioRow
+              label="Received an offer"
+              ratio={m.jobs.with_offer}
+              help={METRIC_DEFINITIONS.with_offer}
+            />
+            <CountRow
+              label="Median time to first offer"
+              value={formatMedianMinutes(m.jobs.median_minutes_to_first_offer)}
+            />
+            <RatioRow
+              label="Offer accepted"
+              ratio={m.jobs.offer_accepted}
+              help={METRIC_DEFINITIONS.offer_accepted}
+            />
+            <RatioRow
+              label="Delivery completed"
+              ratio={m.jobs.verified_completed}
+              help={METRIC_DEFINITIONS.verified_completed}
+            />
+            <RatioRow
+              label="Cancelled"
+              ratio={m.jobs.cancelled}
+              help={METRIC_DEFINITIONS.cancelled}
+            />
           </div>
 
           <div>
@@ -121,9 +153,19 @@ export function MarketplaceHealthCard() {
             {reasons.length === 0 ? (
               <p className="py-2 text-sm text-cz-muted">No cancellations in this period.</p>
             ) : (
-              reasons.map(([k, c]) => <CountRow key={k} label={cancellationReasonLabel(k === "unknown" ? null : k)} value={c} />)
+              reasons.map(([k, c]) => (
+                <CountRow
+                  key={k}
+                  label={cancellationReasonLabel(k === "unknown" ? null : k)}
+                  value={c}
+                />
+              ))
             )}
-            <RatioRow label="Driver no-shows (still cancelled)" ratio={m.jobs.no_shows} help={METRIC_DEFINITIONS.no_shows} />
+            <RatioRow
+              label="Driver no-shows (still cancelled)"
+              ratio={m.jobs.no_shows}
+              help={METRIC_DEFINITIONS.no_shows}
+            />
             <CountRow
               label="No-show requests reopened by the customer"
               value={`${m.jobs.no_show_reopened.reopened} (${m.jobs.no_show_reopened.reopened_then_completed} later completed)`}
@@ -133,10 +175,26 @@ export function MarketplaceHealthCard() {
 
           <div>
             <h3 className="text-sm font-semibold">Repeat and invitations</h3>
-            <RatioRow label="Repeat requests" ratio={m.jobs.repeat_requests} help={METRIC_DEFINITIONS.repeat_requests} />
-            <RatioRow label="Repeat completed deliveries" ratio={m.jobs.repeat_verified_completed} help={METRIC_DEFINITIONS.repeat_verified_completed} />
-            <RatioRow label="Invited a previous driver" ratio={m.jobs.invited} help={METRIC_DEFINITIONS.invited} />
-            <RatioRow label="Invited driver chosen" ratio={m.jobs.invited_chosen} help={METRIC_DEFINITIONS.invited_chosen} />
+            <RatioRow
+              label="Repeat requests"
+              ratio={m.jobs.repeat_requests}
+              help={METRIC_DEFINITIONS.repeat_requests}
+            />
+            <RatioRow
+              label="Repeat completed deliveries"
+              ratio={m.jobs.repeat_verified_completed}
+              help={METRIC_DEFINITIONS.repeat_verified_completed}
+            />
+            <RatioRow
+              label="Invited a previous driver"
+              ratio={m.jobs.invited}
+              help={METRIC_DEFINITIONS.invited}
+            />
+            <RatioRow
+              label="Invited driver chosen"
+              ratio={m.jobs.invited_chosen}
+              help={METRIC_DEFINITIONS.invited_chosen}
+            />
           </div>
 
           <div>
@@ -146,14 +204,23 @@ export function MarketplaceHealthCard() {
             <CountRow label="Viewed" value={`${m.offers.viewed} of ${m.offers.sent}`} />
             <CountRow label="Accepted" value={`${m.offers.accepted} of ${m.offers.sent}`} />
             <CountRow label="Declined" value={`${m.offers.declined} of ${m.offers.sent}`} />
-            <CountRow label="Expired without a response" value={`${m.offers.expired} of ${m.offers.sent}`} />
-            <CountRow label="Median time to a response" value={formatMedianSeconds(m.offers.median_response_seconds)} />
+            <CountRow
+              label="Expired without a response"
+              value={`${m.offers.expired} of ${m.offers.sent}`}
+            />
+            <CountRow
+              label="Median time to a response"
+              value={formatMedianSeconds(m.offers.median_response_seconds)}
+            />
           </div>
 
           <div>
             <h3 className="text-sm font-semibold">After-delivery feedback (optional)</h3>
             <p className="text-xs text-cz-muted">{METRIC_DEFINITIONS.feedback}</p>
-            <CountRow label="Answered" value={`${m.feedback.answered} of ${m.feedback.eligible} completed`} />
+            <CountRow
+              label="Answered"
+              value={`${m.feedback.answered} of ${m.feedback.eligible} completed`}
+            />
             <CountRow label="Dismissed" value={m.feedback.dismissed} />
             {answers.map(([k, c]) => (
               <CountRow key={k} label={answerLabel(k)} value={c} />

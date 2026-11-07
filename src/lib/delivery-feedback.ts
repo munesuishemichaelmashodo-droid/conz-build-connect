@@ -42,6 +42,8 @@ export function feedbackPayload(
 }
 
 /** The prompt shows only when no response (answer or dismissal) exists for this job yet. */
-export function shouldAskFeedback(row: { answer: string | null; dismissed: boolean } | null | undefined): boolean {
+export function shouldAskFeedback(
+  row: { answer: string | null; dismissed: boolean } | null | undefined,
+): boolean {
   return !row;
 }

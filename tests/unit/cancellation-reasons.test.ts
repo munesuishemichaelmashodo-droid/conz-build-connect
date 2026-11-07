@@ -18,7 +18,9 @@ describe("cancellationReasonOptions", () => {
     for (const role of ["customer", "driver", "admin"] as const) {
       expect(cancellationReasonOptions(role).length).toBeGreaterThan(0);
     }
-    expect(cancellationReasonOptions("driver").map((o) => o.value)).not.toContain("driver_did_not_arrive");
+    expect(cancellationReasonOptions("driver").map((o) => o.value)).not.toContain(
+      "driver_did_not_arrive",
+    );
   });
 });
 

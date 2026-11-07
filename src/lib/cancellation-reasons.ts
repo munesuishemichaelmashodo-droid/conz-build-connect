@@ -38,9 +38,15 @@ const CUSTOMER: CancellationReasonCode[] = [
   "other",
 ];
 // A driver cannot pick customer-side reasons such as price or "no driver responded" (the database refuses them too).
-const DRIVER: CancellationReasonCode[] = ["material_unavailable", "delivery_details_changed", "other"];
+const DRIVER: CancellationReasonCode[] = [
+  "material_unavailable",
+  "delivery_details_changed",
+  "other",
+];
 
-export function cancellationReasonOptions(role: CancellationRole): { value: CancellationReasonCode; label: string }[] {
+export function cancellationReasonOptions(
+  role: CancellationRole,
+): { value: CancellationReasonCode; label: string }[] {
   const codes = role === "driver" ? DRIVER : CUSTOMER;
   return codes.map((value) => ({ value, label: LABELS[value] }));
 }

@@ -6,7 +6,11 @@ export const SMALL_SAMPLE_BELOW = 20;
 
 export type Ratio = { n: number; d: number };
 
-export function formatRatio(r: Ratio | null | undefined): { raw: string; pct: string | null; small: boolean } {
+export function formatRatio(r: Ratio | null | undefined): {
+  raw: string;
+  pct: string | null;
+  small: boolean;
+} {
   const n = Number(r?.n ?? 0);
   const d = Number(r?.d ?? 0);
   return {
@@ -35,7 +39,12 @@ export type MarketplaceMetrics = {
     invited_bid_received: Ratio;
     invited_chosen: Ratio;
   };
-  feedback: { eligible: number; answered: number; dismissed: number; by_answer: Record<string, number> };
+  feedback: {
+    eligible: number;
+    answered: number;
+    dismissed: number;
+    by_answer: Record<string, number>;
+  };
   offers: {
     sent: number;
     viewed: number;
@@ -48,18 +57,27 @@ export type MarketplaceMetrics = {
 
 /** Numerator and denominator in words, shown beside each rate. Jobs and offers are never mixed. */
 export const METRIC_DEFINITIONS: Record<string, string> = {
-  with_offer: "Requests that received at least one driver offer, out of all requests created in the period.",
-  offer_accepted: "Requests where the customer accepted an offer, out of requests that received at least one offer.",
-  verified_completed: "Deliveries completed through the normal confirmation flow, out of all requests created.",
+  with_offer:
+    "Requests that received at least one driver offer, out of all requests created in the period.",
+  offer_accepted:
+    "Requests where the customer accepted an offer, out of requests that received at least one offer.",
+  verified_completed:
+    "Deliveries completed through the normal confirmation flow, out of all requests created.",
   cancelled: "Requests now cancelled, out of all requests created.",
-  no_shows: "Cancelled by the 24-hour driver no-show check and still cancelled, out of all requests created. Reopened ones are counted under reopenings.",
-  no_show_reopened: "Requests the customer reopened after a driver no-show, and how many of those were later completed. A reopening is not a new request.",
-  repeat_requests: "Requests from customers who already had an earlier completed delivery. Retries after a failed request are included, so this is not loyalty on its own.",
-  repeat_verified_completed: "Completed deliveries by customers with an earlier completed delivery, out of all completed deliveries.",
+  no_shows:
+    "Cancelled by the 24-hour driver no-show check and still cancelled, out of all requests created. Reopened ones are counted under reopenings.",
+  no_show_reopened:
+    "Requests the customer reopened after a driver no-show, and how many of those were later completed. A reopening is not a new request.",
+  repeat_requests:
+    "Requests from customers who already had an earlier completed delivery. Retries after a failed request are included, so this is not loyalty on its own.",
+  repeat_verified_completed:
+    "Completed deliveries by customers with an earlier completed delivery, out of all completed deliveries.",
   invited: "Requests that invited a previous driver to bid, out of all requests created.",
   invited_chosen: "Invited driver ended up assigned, out of requests that invited a driver.",
-  feedback: "Optional answers after completed deliveries. Customers can skip, so this is not every customer's view.",
-  offers: "Dispatch offers sent to drivers in the period (offers, not requests). Declined and expired are counted separately from accepted.",
+  feedback:
+    "Optional answers after completed deliveries. Customers can skip, so this is not every customer's view.",
+  offers:
+    "Dispatch offers sent to drivers in the period (offers, not requests). Declined and expired are counted separately from accepted.",
 };
 
 export function formatMedianMinutes(m: number | null | undefined): string {

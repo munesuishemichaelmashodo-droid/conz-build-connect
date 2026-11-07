@@ -91,14 +91,19 @@ export async function latestRepeatableJob(
   return data as RepeatableJob;
 }
 
-
 /**
  * What the booking screen says when it was opened from a past delivery: which details were reused, that they
  * can be changed, that the price is quoted fresh, and (when a previous driver is invited) that the invitation
  * is not an assignment and gives no priority. Pickup details are never reused: only the delivery point is.
  */
 export function repeatNoticeText(
-  search: { repeat?: boolean; material?: string; quantity?: number; address?: string; driverId?: string },
+  search: {
+    repeat?: boolean;
+    material?: string;
+    quantity?: number;
+    address?: string;
+    driverId?: string;
+  },
   materialName: string,
 ): { title: string; details: string; note: string; invitation: string | null } | null {
   if (!search.repeat) return null;

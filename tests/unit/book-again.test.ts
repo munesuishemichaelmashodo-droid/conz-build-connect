@@ -151,9 +151,13 @@ describe("latestRepeatableJob", () => {
   });
 });
 
-
 describe("repeatNoticeText", () => {
-  const search = { repeat: true, material: "river_sand", quantity: 12, address: "Harward Road, Harare" };
+  const search = {
+    repeat: true,
+    material: "river_sand",
+    quantity: 12,
+    address: "Harward Road, Harare",
+  };
   it("says nothing unless the booking was opened from a past delivery", () => {
     expect(repeatNoticeText({ material: "river_sand", quantity: 12 }, "River sand")).toBeNull();
   });

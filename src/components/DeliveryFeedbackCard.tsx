@@ -42,7 +42,8 @@ export function DeliveryFeedbackCard({ jobId }: { jobId: string }) {
     },
   });
 
-  if (thanked) return <p className="px-1 text-sm text-cz-muted">Thank you. That helps us improve ConZ.</p>;
+  if (thanked)
+    return <p className="px-1 text-sm text-cz-muted">Thank you. That helps us improve ConZ.</p>;
   if (isLoading || !shouldAskFeedback(row)) return null;
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["delivery-feedback", jobId] });
@@ -52,7 +53,10 @@ export function DeliveryFeedbackCard({ jobId }: { jobId: string }) {
     if (!payload) return;
     setBusy(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated types predate 0149
-    const { error } = await (supabase as any).rpc("submit_delivery_feedback", { _job_id: jobId, ...payload });
+    const { error } = await (supabase as any).rpc("submit_delivery_feedback", {
+      _job_id: jobId,
+      ...payload,
+    });
     setBusy(false);
     if (error) return toast.error("We couldn't save that just now. You can ignore this question.");
     setThanked(true);
@@ -71,7 +75,9 @@ export function DeliveryFeedbackCard({ jobId }: { jobId: string }) {
     <CzCard className="space-y-3 p-[18px]" id="delivery-feedback">
       <div>
         <div className="text-[15px] font-semibold">{FEEDBACK_QUESTION}</div>
-        <p className="text-[13px] text-cz-muted">Optional. It takes a few seconds and doesn't change your delivery.</p>
+        <p className="text-[13px] text-cz-muted">
+          Optional. It takes a few seconds and doesn't change your delivery.
+        </p>
       </div>
       <ChoiceChips
         label={FEEDBACK_QUESTION}

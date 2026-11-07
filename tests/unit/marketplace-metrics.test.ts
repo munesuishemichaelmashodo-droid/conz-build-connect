@@ -36,7 +36,14 @@ describe("medians", () => {
 
 describe("definitions", () => {
   it("defines every rate and keeps jobs and offers apart", () => {
-    for (const k of ["with_offer", "offer_accepted", "verified_completed", "no_shows", "repeat_requests", "offers"]) {
+    for (const k of [
+      "with_offer",
+      "offer_accepted",
+      "verified_completed",
+      "no_shows",
+      "repeat_requests",
+      "offers",
+    ]) {
       expect(METRIC_DEFINITIONS[k]).toBeTruthy();
     }
     expect(METRIC_DEFINITIONS.offers).toMatch(/offers, not requests/i);
