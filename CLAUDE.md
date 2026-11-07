@@ -419,3 +419,21 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
 - One-off redaction executed (see `supabase/maintenance/`): 248 old `new_job` notification bodies now show the area only.
 - Still NOT live: 0113, 0116, 0120/0121, 0129-0132, 0134, 0135, 0137. `public.pods` does not exist in production. The
   `on_auth_user_created` trigger exists live but is not in git.
+
+## 07/11/2026 — reliability + retention (PR #71, #72 merged; retention branch `retention/trust-differentiation`)
+
+- **LIVE and recorded in `schema_migrations`** (applied 07/11, hashes checked against the local build): `0143` (20261107100000), `0144`
+  (…110000), `0145` (…120000), `0146` (…130000), `0147` (…140000). Undo scripts in `supabase/rollbacks/`. `0146`'s rollback restores the
+  verbatim original `create_dispatch_wave` / `expire_stale_dispatch_offers` (md5 `0cec3ec1…` / `4508d7f8…`).
+- **NOT applied anywhere but the local test stack:** `0148` structured cancellation reasons, `0149` post-delivery feedback, `0150`
+  admin marketplace metrics (+ `jobs.no_show_reopened_at`, re-creates `customer_reopen_no_show_job` with one extra assignment, so its
+  live md5 will change from `6a070c1e…`), `0151` dispatch notification content (re-creates `create_dispatch_wave`; undo restores
+  the 0146 body `61893547…`). Apply in that order, after the app from this branch is deployed.
+- **Supabase tool gotcha #2:** `execute_sql` asks the user a confirmation question (and times out after 60 s if it never reaches them) for
+  statements containing `delete from`, e.g. 0145 and 0147. Run those in the Supabase SQL editor, then verify hashes and record the
+  version with an `insert into supabase_migrations.schema_migrations (version, name, statements)`.
+- Guard triggers that must see the CALLER's role (`current_user in ('authenticated','anon')`) have to be SECURITY INVOKER; in a
+  SECURITY DEFINER function `current_user` is the owner (found and fixed in 0148).
+- Live `hold_job_commission` / `release_job_commission` are the OLDER versions (md5 `959e1824…` / `28707533…`); the local stack builds
+  newer ones (0091/0134). Money-path tests (820, 870) pass on both; check live before assuming a newer behaviour.
+- Details: `docs/marketplace/RELIABILITY-2026-11-07.md`, `docs/marketplace/RETENTION-TRUST-2026-11-07.md`.
