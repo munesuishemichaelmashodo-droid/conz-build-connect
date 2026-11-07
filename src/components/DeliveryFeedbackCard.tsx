@@ -29,22 +29,24 @@ export function DeliveryFeedbackCard({ jobId }: { jobId: string }) {
   const [busy, setBusy] = useState(false);
   const [thanked, setThanked] = useState(false);
 
-  const { data: row, isLoading } = useQuery({
+  const { data: row, isLoading, isError } = useQuery({
     queryKey: ["delivery-feedback", jobId],
     queryFn: async (): Promise<Row | null> => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated types predate 0149
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("delivery_feedback")
         .select("answer,dismissed")
         .eq("job_id", jobId)
         .maybeSingle();
+      if (error) throw error; // table not there yet (database not updated): show nothing rather than an unsaveable question
       return (data as Row | null) ?? null;
     },
+    retry: false,
   });
 
   if (thanked)
     return <p className="px-1 text-sm text-cz-muted">Thank you. That helps us improve ConZ.</p>;
-  if (isLoading || !shouldAskFeedback(row)) return null;
+  if (isLoading || isError || !shouldAskFeedback(row)) return null;
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["delivery-feedback", jobId] });
 
