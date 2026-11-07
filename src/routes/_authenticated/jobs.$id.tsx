@@ -7,6 +7,7 @@ import { commissionFee, earnings, fuelEstimate } from "@/lib/driver-economics";
 import { composeOfferMessage, isDriverArranged, MAX_SOURCE_LENGTH, parseOfferMessage } from "@/lib/proposed-source";
 import { OfferMessage } from "@/components/redesign/ProposedSource";
 import { fetchOpenJob } from "@/lib/open-jobs";
+import { DeliveryFeedbackCard } from "@/components/DeliveryFeedbackCard";
 import { cancellationReasonOptions, type CancellationReasonCode } from "@/lib/cancellation-reasons";
 import { ADMIN_CANCEL_REASON_MIN, DRIVER_RELEASE_POLICY_TEXT, adminCancelPolicyText, adminCanCancel, cancelPolicyText, customerCanCancel, customerCanReopenNoShow, driverCanRelease, friendlyAcceptError } from "@/lib/cancel-policy";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -3963,6 +3964,8 @@ function CustomerDelivered({ ctx }: { ctx: JobScreenCtx }) {
             <RateForm jobId={id} driverId={job.driver_id!} onSaved={ctx.invalidateRating} />
           )}
         </div>
+
+        <DeliveryFeedbackCard jobId={id} />
 
         <ProofPhotos job={job} viewer="customer" />
 
