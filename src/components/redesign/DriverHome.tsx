@@ -5,7 +5,6 @@ import { ChevronRight, ShieldAlert, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { levelInfo } from "@/lib/domain";
 import { bestCapacityMatchTier } from "@/lib/capacityMatch";
-import { JobOfferListener } from "@/components/JobOfferListener";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
 import { DriverAvailabilityToggle } from "@/components/DriverAvailabilityToggle";
@@ -161,7 +160,6 @@ export function DriverHome({
     <>
       <CzScreen className={DRIVER_NAV_SPACE}>
         {userId && <OnboardingWalkthrough userId={userId} role="driver" />}
-        <JobOfferListener />
 
         <header className="flex items-center justify-between gap-2 px-5 pt-4 pb-3">
           <div className="min-w-0">

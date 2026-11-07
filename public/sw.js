@@ -10,14 +10,21 @@ self.addEventListener("push", (event) => {
     // ignore malformed payloads
   }
 
-  event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: "/conz-icon-192.png",
-      badge: "/conz-icon-192.png",
-      data: { url: data.url || "/" },
-    }),
-  );
+  // One notification per job: a new-job alert and a dispatch offer for the same job replace
+  // each other instead of stacking, and the replacement still buzzes the phone.
+  const jobMatch = /\/jobs\/([0-9a-f-]{36})/i.exec(data.url || "");
+  const options = {
+    body: data.body,
+    icon: "/conz-icon-192.png",
+    badge: "/conz-icon-192.png",
+    data: { url: data.url || "/" },
+  };
+  if (jobMatch) {
+    options.tag = "job-" + jobMatch[1];
+    options.renotify = true;
+  }
+
+  event.waitUntil(self.registration.showNotification(data.title, options));
 });
 
 self.addEventListener("notificationclick", (event) => {
