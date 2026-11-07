@@ -224,6 +224,11 @@ function OfferModal({
         nav({ to: "/wallet" });
         return;
       }
+      if (msg.includes("DRIVER_BUSY")) {
+        toast.error("You are already on another job. Finish it before taking a new one.");
+        onClose();
+        return;
+      }
       toast.error(msg);
       onClose();
       return;
