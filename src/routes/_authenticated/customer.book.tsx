@@ -24,6 +24,7 @@ import {
 import { MATERIALS, type MaterialCategory, money } from "@/lib/domain";
 import { getSourcingRequestsEnabled, requestSourcingQuote } from "@/lib/sourcing-request.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { bookingOutcome, newBookingAttemptId } from "@/lib/booking-attempt";
 import { useAuth } from "@/lib/auth";
 import { useLaunchSwitches } from "@/lib/launch-switches";
 import { toast } from "sonner";
@@ -118,6 +119,10 @@ function BookDelivery() {
     return attemptRef.current.key;
   };
   const [posting, setPosting] = useState(false);
+  // Retry safety (see booking-attempt.ts): a synchronous lock against double taps, and one job id per
+  // booking attempt so a retry after a lost reply finds the job instead of failing or duplicating it.
+  const postingLock = useRef(false);
+  const attemptId = useRef<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"direct" | "escrow">("direct");
   // MVP launch: Con Z Pay (escrow) stays hidden until the owner turns it on (database-enforced too).
   const launch = useLaunchSwitches();
@@ -256,7 +261,7 @@ function BookDelivery() {
     setOffer(proposed);
   };
 
-  const confirm = async () => {
+  const submitBooking = async () => {
     if (!offerData) return;
 
     if (!coords) {
@@ -265,10 +270,13 @@ function BookDelivery() {
     }
 
     setPosting(true);
+    attemptId.current ??= newBookingAttemptId();
+    const jobId = attemptId.current;
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("jobs")
       .insert({
+        id: jobId,
         customer_id: userId!,
 
         // Open request (no ConZ supplier): posted as the existing unpriced
@@ -302,13 +310,37 @@ function BookDelivery() {
       .select()
       .single();
 
+    // After any failure, check whether this attempt's job was in fact saved (a lost reply).
+    let existingJobId: string | null = null;
+    if (error) {
+      const { data: found } = await supabase.from("jobs").select("id").eq("id", jobId).maybeSingle();
+      existingJobId = found?.id ?? null;
+    }
+    const outcome = bookingOutcome(error, existingJobId, jobId);
+
     setPosting(false);
 
-    if (error) return toast.error(error.message);
+    if (outcome.kind === "failed") return toast.error(outcome.message);
 
-    toast.success("Job posted. We'll notify you when drivers send offers.");
+    toast.success(
+      outcome.kind === "created"
+        ? "Job posted. We'll notify you when drivers send offers."
+        : "Your job was already posted. Opening it now.",
+    );
 
-    nav({ to: "/jobs/$id", params: { id: data.id } });
+    nav({ to: "/jobs/$id", params: { id: jobId } });
+  };
+
+  // One booking at a time: a second tap while the first is in flight does nothing.
+  const confirm = async () => {
+    if (postingLock.current) return;
+    postingLock.current = true;
+    try {
+      await submitBooking();
+    } finally {
+      postingLock.current = false;
+      setPosting(false);
+    }
   };
 
   const goBack = () => {
