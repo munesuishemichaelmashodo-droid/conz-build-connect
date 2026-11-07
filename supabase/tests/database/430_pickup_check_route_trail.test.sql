@@ -7,6 +7,10 @@
 --     only, kept 90 days.
 begin;
 select plan(27);
+-- These fixtures reuse one driver for several active jobs on purpose: they test other things (evidence,
+-- pickup checks, settlement). The one-active-job rule (0144) has its own test, 780, so it is switched off
+-- here, inside this rolled-back transaction only.
+alter table public.jobs disable trigger trg_jobs_one_active_per_driver;
 select tests.enable_launch_features();
 
 select set_config('t.cust', tests.create_user('pc_cust')::text, true);

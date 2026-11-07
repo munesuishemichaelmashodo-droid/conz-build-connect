@@ -114,10 +114,14 @@ select set_config('t.j6', tests.create_job(current_setting('t.cust')::uuid, 400)
 select set_config('t.j7', tests.create_job(current_setting('t.cust')::uuid, 500)::text, true);
 select set_config('t.b6', tests.create_bid(current_setting('t.j6')::uuid, current_setting('t.new')::uuid, 400)::text, true);
 select set_config('t.b7', tests.create_bid(current_setting('t.j7')::uuid, current_setting('t.new')::uuid, 500)::text, true);
+-- Two jobs held by one driver can no longer be created by accepting offers (0144, one active job per
+-- driver), but drivers booked before that rule still exist. This simulates one of them.
+alter table public.jobs disable trigger trg_jobs_one_active_per_driver;
 select tests.login_as(current_setting('t.cust')::uuid);
 select public.accept_bid(current_setting('t.b6')::uuid);
 select public.accept_bid(current_setting('t.b7')::uuid);
 select tests.as_owner();
+alter table public.jobs enable trigger trg_jobs_one_active_per_driver;
 select is((select array_agg(held_commission order by budget) from public.jobs
             where id in (current_setting('t.j6')::uuid, current_setting('t.j7')::uuid)), array[0,0]::numeric[],
   'Both jobs were reserved as free while the free job was unused');
