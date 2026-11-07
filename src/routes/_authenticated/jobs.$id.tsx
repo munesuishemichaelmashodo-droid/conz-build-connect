@@ -7,7 +7,7 @@ import { commissionFee, earnings, fuelEstimate } from "@/lib/driver-economics";
 import { composeOfferMessage, isDriverArranged, MAX_SOURCE_LENGTH, parseOfferMessage } from "@/lib/proposed-source";
 import { OfferMessage } from "@/components/redesign/ProposedSource";
 import { fetchOpenJob } from "@/lib/open-jobs";
-import { ADMIN_CANCEL_REASON_MIN, DRIVER_RELEASE_POLICY_TEXT, adminCancelPolicyText, adminCanCancel, cancelPolicyText, customerCanCancel, driverCanRelease, friendlyAcceptError } from "@/lib/cancel-policy";
+import { ADMIN_CANCEL_REASON_MIN, DRIVER_RELEASE_POLICY_TEXT, adminCancelPolicyText, adminCanCancel, cancelPolicyText, customerCanCancel, customerCanReopenNoShow, driverCanRelease, friendlyAcceptError } from "@/lib/cancel-policy";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -2542,6 +2542,33 @@ function ProofPhotos({ job, viewer }: { job: any; viewer: EvidenceViewer }) {
   );
 }
 
+function ReopenNoShowButton({ jobId }: { jobId: string }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-cz-muted">
+        Your driver did not turn up. You can put this request back in front of other drivers. Nothing is
+        charged, and you can cancel it again at any time.
+      </p>
+      <button
+        type="button"
+        disabled={busy}
+        className={czButtonClass("primary")}
+        onClick={async () => {
+          setBusy(true);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated types predate 0147
+          const { error } = await (supabase as any).rpc("customer_reopen_no_show_job", { _job_id: jobId });
+          setBusy(false);
+          if (error) return toast.error(error.message || "This request can't be reopened.");
+          toast.success("Your request is open again. Nearby drivers have been alerted.");
+        }}
+      >
+        {busy ? "Reopening…" : "Reopen my request"}
+      </button>
+    </div>
+  );
+}
+
 function CancelledScreen({ ctx, backTo }: { ctx: JobScreenCtx; backTo: string }) {
   return (
     <CzScreen>
@@ -2555,6 +2582,7 @@ function CancelledScreen({ ctx, backTo }: { ctx: JobScreenCtx; backTo: string })
           <p className="pt-2 text-sm text-cz-muted">This job was cancelled.</p>
           {ctx.job.cancellation_reason && <p className="text-sm text-cz-muted italic">"{ctx.job.cancellation_reason}"</p>}
         </CzCard>
+        {ctx.isOwner && customerCanReopenNoShow(ctx.job as never) && <ReopenNoShowButton jobId={ctx.job.id} />}
         <Link to={backTo as "/jobs"} className={czButtonClass("primary")}>
           {ctx.isOwner ? "Back to my jobs" : "Find another load"}
         </Link>

@@ -52,3 +52,24 @@ export function adminCancelPolicyText(status: string | null | undefined): string
     ? "The customer is told the job was cancelled. No strike is recorded."
     : "The customer and the driver are told the job was cancelled and the reason below is shown to them. Any held commission is released and any escrow payment is queued for refund. No strike is recorded.";
 }
+
+export const NO_SHOW_CANCEL_REASON = "Driver did not start pickup within 24 hours of accepting";
+
+/** Mirrors customer_reopen_no_show_job (0147). A dispute is only known to the server, which refuses then. */
+export function customerCanReopenNoShow(
+  job: {
+    status?: string | null;
+    payment_method?: string | null;
+    cancellation_reason?: string | null;
+    cancelled_at?: string | null;
+    driver_arrived_pickup_at?: string | null;
+    pickup_photo_url?: string | null;
+  },
+  now: number = Date.now(),
+): boolean {
+  if (job.status !== "cancelled" || job.payment_method !== "direct") return false;
+  if (job.cancellation_reason !== NO_SHOW_CANCEL_REASON) return false;
+  if (job.driver_arrived_pickup_at || job.pickup_photo_url) return false;
+  const at = job.cancelled_at ? new Date(job.cancelled_at).getTime() : NaN;
+  return Number.isFinite(at) && now - at <= 7 * 24 * 3_600_000;
+}
