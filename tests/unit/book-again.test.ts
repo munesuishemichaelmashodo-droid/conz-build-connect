@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookAgainSearch } from "@/lib/book-again";
+import { bookAgainSearch, repeatNoticeText } from "@/lib/book-again";
 
 const job = {
   status: "completed",
@@ -16,6 +16,7 @@ const job = {
 describe("bookAgainSearch", () => {
   it("fills material, load and delivery point from the past job", () => {
     expect(bookAgainSearch(job)).toEqual({
+      repeat: true,
       material: "river_sand",
       quantity: 12,
       address: "Harward Road, Belvedere, Harare",
@@ -147,5 +148,35 @@ describe("latestRepeatableJob", () => {
       lat: -17.8,
       lng: 31,
     });
+  });
+});
+
+
+describe("repeatNoticeText", () => {
+  const search = { repeat: true, material: "river_sand", quantity: 12, address: "Harward Road, Harare" };
+  it("says nothing unless the booking was opened from a past delivery", () => {
+    expect(repeatNoticeText({ material: "river_sand", quantity: 12 }, "River sand")).toBeNull();
+  });
+  it("names the reused details and says they can be changed", () => {
+    const n = repeatNoticeText(search, "River sand")!;
+    expect(n.details).toBe("River sand · 12 m³ · to Harward Road, Harare");
+    expect(n.note).toMatch(/change anything/i);
+  });
+  it("says the price is quoted fresh and nothing is assigned until the customer chooses", () => {
+    const n = repeatNoticeText(search, "River sand")!;
+    expect(n.note).toMatch(/price is worked out fresh/i);
+    expect(n.note).toMatch(/nothing is assigned until you choose/i);
+  });
+  it("an invited previous driver is not assigned and has no priority", () => {
+    const n = repeatNoticeText({ ...search, driverId: "d1" }, "River sand")!;
+    expect(n.invitation).toMatch(/invite your previous driver to bid/);
+    expect(n.invitation).toMatch(/not assigned/);
+    expect(n.invitation).toMatch(/no priority/);
+    expect(n.invitation).toMatch(/other verified drivers can offer/);
+    expect(repeatNoticeText(search, "River sand")!.invitation).toBeNull();
+  });
+  it("does not invent a pickup or an old price", () => {
+    const n = repeatNoticeText({ ...search, driverId: "d1" }, "River sand")!;
+    expect(JSON.stringify(n)).not.toMatch(/pickup|\$\d/i);
   });
 });

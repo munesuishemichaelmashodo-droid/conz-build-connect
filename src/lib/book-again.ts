@@ -14,6 +14,8 @@ type PastJob = {
 };
 
 export type BookAgainSearch = {
+  /** Marks a booking opened from a past delivery, so the screen can say which details were reused. */
+  repeat?: boolean;
   material?: string;
   quantity?: number;
   address?: string;
@@ -32,7 +34,7 @@ export function bookAgainSearch(
   { sameDriver = false }: { sameDriver?: boolean } = {},
 ): BookAgainSearch | null {
   if (job.status !== "completed") return null;
-  const s: BookAgainSearch = {};
+  const s: BookAgainSearch = { repeat: true };
   if (job.material && job.material !== "custom") s.material = job.material;
   const qty = num(job.quantity_m3);
   if (qty != null && qty > 0) s.quantity = qty;
@@ -87,4 +89,30 @@ export async function latestRepeatableJob(
     .maybeSingle();
   if (error || !data) return null;
   return data as RepeatableJob;
+}
+
+
+/**
+ * What the booking screen says when it was opened from a past delivery: which details were reused, that they
+ * can be changed, that the price is quoted fresh, and (when a previous driver is invited) that the invitation
+ * is not an assignment and gives no priority. Pickup details are never reused: only the delivery point is.
+ */
+export function repeatNoticeText(
+  search: { repeat?: boolean; material?: string; quantity?: number; address?: string; driverId?: string },
+  materialName: string,
+): { title: string; details: string; note: string; invitation: string | null } | null {
+  if (!search.repeat) return null;
+  const parts = [
+    search.material ? materialName : null,
+    search.quantity ? `${search.quantity} m³` : null,
+    search.address ? `to ${search.address}` : null,
+  ].filter(Boolean);
+  return {
+    title: "Based on your last delivery",
+    details: parts.length ? parts.join(" · ") : "Your last delivery's details",
+    note: "Check these and change anything you need. The price is worked out fresh for this request, so it may differ from last time. Nothing is assigned until you choose an offer.",
+    invitation: search.driverId
+      ? "We'll invite your previous driver to bid. They are not assigned and get no priority: other verified drivers can offer too, and you choose."
+      : null,
+  };
 }
