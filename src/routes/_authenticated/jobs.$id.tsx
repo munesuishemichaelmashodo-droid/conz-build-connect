@@ -7,7 +7,7 @@ import { commissionFee, earnings, fuelEstimate } from "@/lib/driver-economics";
 import { composeOfferMessage, isDriverArranged, MAX_SOURCE_LENGTH, parseOfferMessage } from "@/lib/proposed-source";
 import { OfferMessage } from "@/components/redesign/ProposedSource";
 import { fetchOpenJob } from "@/lib/open-jobs";
-import { ADMIN_CANCEL_REASON_MIN, adminCancelPolicyText, adminCanCancel, cancelPolicyText, customerCanCancel } from "@/lib/cancel-policy";
+import { ADMIN_CANCEL_REASON_MIN, DRIVER_RELEASE_POLICY_TEXT, adminCancelPolicyText, adminCanCancel, cancelPolicyText, customerCanCancel, driverCanRelease, friendlyAcceptError } from "@/lib/cancel-policy";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -80,6 +80,7 @@ import {
   guideBand,
   offerHighlights,
   priceCoversLine,
+  recommendOffer,
   sortOffers,
   type OfferSort,
 } from "@/lib/offer-compare";
@@ -490,6 +491,11 @@ function JobDetail() {
     }
     const { error } = await supabase.rpc("accept_bid", { _bid_id: bidId });
     if (error) {
+      const busy = friendlyAcceptError(error.message);
+      if (busy) {
+        qc.invalidateQueries({ queryKey: ["bids", id] });
+        return toast.error(busy);
+      }
       if (/insufficient wallet balance/i.test(error.message)) {
         return toast.error("This driver can no longer accept — ask them to top up, or accept another offer.");
       }
@@ -510,6 +516,9 @@ function JobDetail() {
   const acceptCounter = async (bidId: string) => {
     const { error } = await supabase.rpc("accept_counter", { _bid_id: bidId });
     if (error) {
+      if (error.message.includes("DRIVER_BUSY")) {
+        return toast.error("You are already on another job. Finish it before taking a new one.");
+      }
       if (/insufficient wallet balance/i.test(error.message)) {
         return toast.error("You can no longer accept — top up your wallet first.");
       }
@@ -582,7 +591,11 @@ function JobDetail() {
   // Customers can cancel until the load is collected; after that cancel_job refuses and
   // "Report a problem" (a dispute) is the way to raise it.
   const isAdminViewer = !isOwner && !isAssignedDriver && (is("admin") || is("super_admin"));
-  const showCancel = (isOwner && customerCanCancel(job.status)) || (isAdminViewer && adminCanCancel(job.status));
+  const showCancel =
+    (isOwner && customerCanCancel(job.status)) ||
+    (isAdminViewer && adminCanCancel(job.status)) ||
+    // 0145: the assigned driver can hand an accepted direct-pay job back until the load is collected.
+    (isAssignedDriver && driverCanRelease(job.status, !!job.pickup_photo_url, job.payment_method));
   const showActionSection = showRadar || showEscrowBanner || showBidForm || showPickupUpload || showDeliveryUpload || showDeliveryPinDisplay || showCompleteButton || showDeliveryPinEntry || showCancel;
 
   const showProofPhotos = !!(job.pickup_photo_url || job.delivery_photo_url);
@@ -853,7 +866,7 @@ function JobDetail() {
               )}
 
               {showCancel && (
-                <CancelJobDialog jobId={id} status={job.status} asAdmin={isAdminViewer} onCancelled={() => nav({ to: isAdminViewer ? "/admin/jobs" : "/jobs" })} />
+                <CancelJobDialog jobId={id} status={job.status} asAdmin={isAdminViewer} asDriver={isAssignedDriver} onCancelled={() => nav({ to: isAdminViewer ? "/admin/jobs" : "/jobs" })} />
               )}
             </div>
           </Section>
@@ -977,7 +990,7 @@ function JobDetail() {
                                   {Number(b.driver.rating_avg || 0).toFixed(1)}{" "}
                                   <span className="text-muted-foreground/70">({b.driver.rating_count ?? 0})</span>
                                 </span>
-                                <span>• {b.driver.jobs_completed ?? 0} rides completed</span>
+                                <span>• {b.driver.jobs_completed ?? 0} deliveries completed</span>
                               </>
                             )}
                           </div>
@@ -2078,13 +2091,13 @@ function ProofUpload({ jobId, kind, label, hint, ctaLabel, onUploaded, beforeUpl
   );
 }
 
-function CancelJobDialog({ jobId, status, onCancelled, asAdmin = false }: { jobId: string; status: string; onCancelled: () => void; asAdmin?: boolean }) {
+function CancelJobDialog({ jobId, status, onCancelled, asAdmin = false, asDriver = false }: { jobId: string; status: string; onCancelled: () => void; asAdmin?: boolean; asDriver?: boolean }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
 
   // cancel_job charges no fee; it records a strike once a driver has accepted.
-  const policy = asAdmin ? adminCancelPolicyText(status) : cancelPolicyText(status);
+  const policy = asDriver ? DRIVER_RELEASE_POLICY_TEXT : asAdmin ? adminCancelPolicyText(status) : cancelPolicyText(status);
   const reasonOk = !asAdmin || reason.trim().length >= ADMIN_CANCEL_REASON_MIN;
 
   const tone = status === "open" ? "text-muted-foreground" : "text-warning";
@@ -2094,7 +2107,7 @@ function CancelJobDialog({ jobId, status, onCancelled, asAdmin = false }: { jobI
     const { error } = await supabase.rpc("cancel_job", { _job_id: jobId, _reason: reason.trim() || "" });
     setLoading(false);
     if (error) { toast.error(error.message); return; }
-    toast.success("Job cancelled");
+    toast.success(asDriver ? "Job released. It is open to other drivers again." : "Job cancelled");
     setOpen(false);
     onCancelled();
   };
@@ -2104,12 +2117,12 @@ function CancelJobDialog({ jobId, status, onCancelled, asAdmin = false }: { jobI
       <DialogTrigger asChild>
         <button type="button" className={czButtonClass("danger", "md")}>
           <Trash2 className="w-4 h-4" />
-          Cancel job
+          {asDriver ? "I can't do this job" : "Cancel job"}
         </button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Cancel this job?</DialogTitle>
+          <DialogTitle>{asDriver ? "Hand this job back?" : "Cancel this job?"}</DialogTitle>
           <DialogDescription className={tone}>{policy}</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
@@ -3221,14 +3234,11 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
     }, 15_000);
     return () => window.clearInterval(t);
   }, []);
-  const [sort, setSort] = useState<OfferSort>("price");
+  const [sort, setSort] = useState<OfferSort>("best");
   const isLive = (b: any) => b.status === "pending" && (!b.expires_at || new Date(b.expires_at).getTime() > now);
   const all = bids ?? [];
   const live = all.filter(isLive);
   const earlier = all.filter((b: any) => !isLive(b)); // expired / withdrawn, collapsed at the bottom
-  const sorted = sortOffers(live, sort);
-  const primaryId = sorted[0]?.id; // the one filled Choose button follows the top of the list
-  const highlights = offerHighlights(live);
   const breakdown = ((job as any).pricing_breakdown ?? null) as {
     low?: number;
     high?: number;
@@ -3239,6 +3249,13 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
   const rangeLow = Number(breakdown?.low);
   const rangeHigh = Number(breakdown?.high);
   const hasRange = rangeLow > 0 && rangeHigh >= rangeLow;
+  const sorted = sortOffers(live, sort, breakdown);
+  const primaryId = sorted[0]?.id; // the one filled Choose button follows the top of the list
+  // "Best match": only when one offer is clearly better overall (display only; the customer chooses).
+  const recommendation = recommendOffer(live, breakdown);
+  const highlights = offerHighlights(live);
+  if (recommendation) (highlights[recommendation.id] ??= []).unshift("Best match");
+  const recommended = recommendation ? live.find((b: any) => b.id === recommendation.id) : null;
   const covers = priceCoversLine(
     breakdown,
     `${Number(job.quantity_m3)} m³ ${materialLabel(job.material as any, job.custom_material)}`,
@@ -3300,7 +3317,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
             value={sort}
             onValueChange={(v) => v && setSort(v as OfferSort)}
             aria-label="Sort offers"
-            className="grid grid-cols-3 gap-1 rounded-xl bg-cz-surface-2 p-1"
+            className="grid grid-cols-4 gap-1 rounded-xl bg-cz-surface-2 p-1"
           >
             {OFFER_SORTS.map((o) => (
               <ToggleGroupPrimitive.Item
@@ -3312,6 +3329,15 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
               </ToggleGroupPrimitive.Item>
             ))}
           </ToggleGroupPrimitive.Root>
+        )}
+
+        {recommendation && recommended && sort === "best" && (
+          <p data-testid="best-match-note" className="rounded-xl bg-cz-surface-2 px-3 py-2 text-[13px] text-cz-muted">
+            <span className="font-semibold">Best match:</span>{" "}
+            {String((recommended as any).profile?.full_name ?? "A driver").split(" ")[0]}
+            {recommendation.reasons.length > 0 ? `. ${recommendation.reasons.join(" · ")}.` : "."} Based on price, truck fit,
+            ratings and experience. You choose.
+          </p>
         )}
 
         <div id="tour-bids-received" className="space-y-3">
@@ -3387,7 +3413,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
 
         {ctx.showCancel && (
           <div id="tour-next-steps">
-            <CancelJobDialog jobId={id} status={job.status} asAdmin={ctx.isAdminViewer} onCancelled={ctx.onCancelled} />
+            <CancelJobDialog jobId={id} status={job.status} asAdmin={ctx.isAdminViewer} asDriver={ctx.isAssignedDriver} onCancelled={ctx.onCancelled} />
           </div>
         )}
       </BottomSheet>
@@ -3545,7 +3571,7 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
         <div className="grid grid-cols-2 gap-2.5">
           <CzButton kind="ghost" size="sm" onClick={onViewTracking}>View tracking</CzButton>
           {ctx.showCancel ? (
-            <CancelJobDialog jobId={id} status={job.status} asAdmin={ctx.isAdminViewer} onCancelled={ctx.onCancelled} />
+            <CancelJobDialog jobId={id} status={job.status} asAdmin={ctx.isAdminViewer} asDriver={ctx.isAssignedDriver} onCancelled={ctx.onCancelled} />
           ) : (
             <span />
           )}
@@ -3837,7 +3863,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
               <RaiseDisputeDialog jobId={id} against={job.driver_id} side="customer" label="Report a problem" />
             </div>
           )}
-          {ctx.showCancel && <CancelJobDialog jobId={id} status={job.status} asAdmin={ctx.isAdminViewer} onCancelled={ctx.onCancelled} />}
+          {ctx.showCancel && <CancelJobDialog jobId={id} status={job.status} asAdmin={ctx.isAdminViewer} asDriver={ctx.isAssignedDriver} onCancelled={ctx.onCancelled} />}
         </div>
       </BottomSheet>
     </CzScreen>

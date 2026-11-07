@@ -21,6 +21,30 @@ export function adminCanCancel(status: string | null | undefined): boolean {
   return status === "open" || status === "accepted" || status === "in_progress";
 }
 
+/**
+ * The assigned driver can hand an accepted job back until the load is collected. cancel_job (0145)
+ * then reopens it for other drivers instead of cancelling it: only for direct-pay jobs (escrow keeps
+ * its refund flow), and never once the trip has started (that needs a dispute).
+ */
+export function driverCanRelease(
+  status: string | null | undefined,
+  hasPickupPhoto: boolean,
+  paymentMethod: string | null | undefined,
+): boolean {
+  return status === "accepted" && !hasPickupPhoto && paymentMethod === "direct";
+}
+
+export const DRIVER_RELEASE_POLICY_TEXT =
+  "The job goes back to other drivers and the customer is told. It is recorded as a cancellation on your account, and the commission reserved for you is released.";
+
+/** A plain message for a refusal the customer can act on, or null to show the server's own text. */
+export function friendlyAcceptError(message: string | null | undefined): string | null {
+  if (message?.includes("DRIVER_BUSY")) {
+    return "This driver has just taken another job. Please choose another offer.";
+  }
+  return null;
+}
+
 export const ADMIN_CANCEL_REASON_MIN = 5;
 
 export function adminCancelPolicyText(status: string | null | undefined): string {

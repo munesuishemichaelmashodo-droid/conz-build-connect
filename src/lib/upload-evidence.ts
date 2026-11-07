@@ -2,6 +2,8 @@
 import { warmLocation, describeAccuracy } from "@/lib/capture-location";
 import { getWarmLocation, type CapturedLocation } from "@/lib/capture-location";
 
+import { recordWithRetry, type RecordResult } from "@/lib/evidence-retry";
+
 const BUCKET = "job-proof-photos";
 
 export type EvidenceKind = "pickup" | "delivery" | "dispute" | "other";
@@ -52,18 +54,33 @@ export async function uploadJobEvidence(
   if (location.lng !== null) payload._lng = location.lng;
   if (location.accuracy_m !== null) payload._accuracy_m = location.accuracy_m;
 
-  const { data, error: rpcError } = await supabase.rpc(
-    "record_job_evidence",
-    payload as never
-  );
-
-  if (rpcError) {
-    throw new Error("Photo uploaded but not recorded: " + rpcError.message);
+  // The photo is already in storage, so a network failure here is retried (see evidence-retry.ts)
+  // instead of making the driver upload it again.
+  let row: { id: string };
+  try {
+    row = await recordWithRetry<{ id: string }>(
+      () =>
+        supabase.rpc("record_job_evidence", payload as never) as unknown as PromiseLike<
+          RecordResult<{ id: string }>
+        >,
+      async () => {
+        const { data } = await supabase
+          .from("job_evidence")
+          .select("id")
+          .eq("storage_path", path)
+          .maybeSingle();
+        return (data as { id: string } | null) ?? null;
+      },
+    );
+  } catch (e) {
+    throw new Error(
+      "Photo uploaded but not recorded: " + (e instanceof Error ? e.message : String(e)),
+    );
   }
 
   return {
     path,
-    evidenceId: (data as { id: string }).id,
+    evidenceId: row.id,
     location,
   };
 }
