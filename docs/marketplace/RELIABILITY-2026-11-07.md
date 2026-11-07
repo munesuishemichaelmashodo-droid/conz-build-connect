@@ -58,3 +58,12 @@ tsc clean; vitest 648 passed (9 skipped, pre-existing); lint:security clean; bui
 - **Unchanged and verified:** 0146 rollback = authoritative original functions; 0147 rejects spoofed no-show reasons (`cancelled_by` must be null); commission hold/release functions are not modified; all migrations remain unapplied to hosted databases.
 - **Deployment order:** PR #71 migrations 0143-0145 → 0147 → compatible app deploy → 0146.
 - **Outstanding:** owner decisions (window values, customer-facing "Online"); real-device and real push testing; supply of drivers/push subscriptions; PR #71 must merge first.
+
+## Production status (07/11/2026, after the closeout above)
+PR #71 was merged to `main` as `9feee08` (Vercel deployed its app code), and #72 was retargeted to `main`. With owner approval the migrations were then applied to production and recorded in `schema_migrations`; live function hashes were checked against the local build:
+- `0143` (20261107100000) and `0144` (20261107110000): applied with `execute_sql`.
+- `0145` (20261107120000): applied by the owner in the SQL editor, because the Supabase tool's confirmation prompt (statements containing `delete from`) did not reach the owner and timed out. `cancel_job` `758fb10c…`, `reopen_job_after_driver_cancel` `319cbab6…`.
+- `0147` (20261107140000): applied by the owner in the SQL editor for the same reason. `customer_reopen_no_show_job` `6a070c1e…`.
+- `0146` is **not applied yet**: it goes last, after this PR's app is deployed (otherwise the deployed popup would show a 5-minute window as "300 seconds").
+- Commission functions unchanged: `hold_job_commission` `959e1824…`, `release_job_commission` `28707533…`.
+None of this was exercised on a real job in production.
