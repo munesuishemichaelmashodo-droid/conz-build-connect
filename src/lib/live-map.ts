@@ -30,6 +30,17 @@ export function truckEtaMin(carMin: number | null | undefined): number | null {
   return Math.max(1, Math.ceil(carMin * TRUCK_TIME_FACTOR));
 }
 
+/**
+ * A route as the app should show it: the routing service's car time stretched to truck time, the same way the
+ * shared tracking link does it, so every screen gives one estimate. A straight-line fallback (service down) is
+ * already a rough truck-speed guess and is left as it is.
+ */
+export function withTruckEta<T extends { etaMin: number; source?: string }>(r: T): T {
+  if (r.source === "haversine") return r;
+  const eta = truckEtaMin(r.etaMin);
+  return eta == null ? r : { ...r, etaMin: eta };
+}
+
 /** Within this distance of the delivery point the truck counts as "at the site". */
 export const AT_SITE_M = 150;
 
