@@ -30,7 +30,7 @@ export function customerNow(jobs: CustomerJobLite[] | null | undefined): Custome
   if (accepted)
     return {
       kind: "accepted",
-      title: "You chose a driver",
+      title: "A driver is booked for your delivery",
       meaning: "The driver is getting ready to load. You can message them from the job.",
       action: "Open delivery",
       jobId: accepted.id,
@@ -41,7 +41,7 @@ export function customerNow(jobs: CustomerJobLite[] | null | undefined): Custome
       kind: "open",
       title: "Your request is open to offers",
       meaning:
-        "Verified drivers can send offers. When they do, you compare them and choose. Nothing is accepted until you choose.",
+        "Nearby verified drivers are alerted and can send offers. You will see them on the job. Open the job to see the current status.",
       action: "Check offers",
       jobId: open.id,
     };
