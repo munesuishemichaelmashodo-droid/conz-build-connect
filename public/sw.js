@@ -4,6 +4,7 @@
 //  2. No-signal fallback: when a PAGE cannot load, answer with /offline.html, which shows the delivery details saved on
 //     this phone (see src/lib/offline-card.ts). It never caches the app and never touches data requests.
 
+// Bump this name whenever public/offline.html changes, so phones fetch the new page.
 const OFFLINE_CACHE = "conz-offline-v1";
 const OFFLINE_URL = "/offline.html";
 
@@ -19,6 +20,8 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
+  // Start the page request while the worker wakes up, so a normal page load is not slowed down by the worker.
+  if (self.registration.navigationPreload) event.waitUntil(self.registration.navigationPreload.enable().catch(() => {}));
   event.waitUntil(
     caches
       .keys()
@@ -36,7 +39,13 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.mode !== "navigate" || request.method !== "GET") return;
   event.respondWith(
-    fetch(request).catch(async () => (await caches.match(OFFLINE_URL)) || Response.error()),
+    (async () => {
+      try {
+        return (await event.preloadResponse) || (await fetch(request));
+      } catch {
+        return (await caches.match(OFFLINE_URL)) || Response.error();
+      }
+    })(),
   );
 });
 

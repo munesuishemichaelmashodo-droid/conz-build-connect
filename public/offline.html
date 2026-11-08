@@ -33,7 +33,8 @@
 // Reads the cards and PINs the app saves in localStorage (see src/lib/offline-card.ts: same keys, 7-day life).
 // Written with textContent only, so nothing stored can inject markup.
 (function () {
-  var CARD = "conz.offlinecard.", PIN = "conz.offlinepin.", TTL = 7 * 24 * 60 * 60 * 1000, now = Date.now();
+  var CARD = "conz.offlinecard.", PIN = "conz.offlinepin.", TTL = 7 * 24 * 60 * 60 * 1000, DRIFT = 5 * 60 * 1000, now = Date.now();
+  function fresh(t) { return typeof t === "number" && now - t <= TTL && t - now <= DRIFT; }
   function read(key) { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { return null; } }
   function tel(phone) {
     if (!phone) return null;
@@ -53,7 +54,7 @@
       var k = localStorage.key(i);
       if (k && k.indexOf(CARD) === 0) {
         var c = read(k);
-        if (c && typeof c.savedAt === "number" && now - c.savedAt <= TTL) cards.push(c);
+        if (c && fresh(c.savedAt)) cards.push(c);
       }
     }
   } catch (e) {}
@@ -70,7 +71,7 @@
     card.appendChild(el("div", "muted", "Saved on this phone at " + time(c.savedAt)));
     if (c.role === "customer") {
       var pin = read(PIN + c.jobId);
-      if (pin && typeof pin.pin === "string" && typeof pin.savedAt === "number" && now - pin.savedAt <= TTL) {
+      if (pin && typeof pin.pin === "string" && fresh(pin.savedAt)) {
         var box2 = el("div", "pin");
         box2.appendChild(el("span", "muted", "Your delivery PIN"));
         box2.appendChild(el("b", "", pin.pin));
@@ -83,7 +84,7 @@
     if (call) card.appendChild(link(call, "primary", "Call " + who));
     if (c.role === "driver" && hasPoint) {
       var q = c.lat + "," + c.lng;
-      card.appendChild(link("geo:" + q + "?q=" + q + (c.deliveryAddress ? "(" + encodeURIComponent(c.deliveryAddress) + ")" : ""), "", "Open in a maps app"));
+      card.appendChild(link("geo:" + q + "?q=" + q + (c.deliveryAddress ? "(" + encodeURIComponent(c.deliveryAddress).replace(/\(/g, "%28").replace(/\)/g, "%29") + ")" : ""), "", "Open in a maps app"));
     }
     box.appendChild(card);
   });

@@ -13,6 +13,7 @@ import {
   removePin,
   saveOfflineCard,
   savePin,
+  shouldPruneSavedJob,
 } from "@/lib/offline-card";
 
 const DAY = 86_400_000;
@@ -232,5 +233,42 @@ describe("pinForDisplay", () => {
       pin: null,
       failed: false,
     });
+  });
+});
+
+describe("shouldPruneSavedJob (a saved card must not outlive its delivery)", () => {
+  it("removes it once the job is no longer under way", () => {
+    expect(shouldPruneSavedJob({ job: { status: "completed" }, settled: true })).toBe(true);
+    expect(shouldPruneSavedJob({ job: { status: "cancelled" }, settled: true })).toBe(true);
+  });
+  it("keeps it while the delivery is under way", () => {
+    expect(shouldPruneSavedJob({ job: { status: "in_progress" }, settled: true })).toBe(false);
+    expect(shouldPruneSavedJob({ job: { status: "accepted" }, settled: true })).toBe(false);
+  });
+  it("removes it when the server answered but no longer returns the job (a driver cannot read a cancelled job)", () => {
+    expect(shouldPruneSavedJob({ job: null, settled: true })).toBe(true);
+    expect(shouldPruneSavedJob({ job: undefined, settled: true })).toBe(true);
+  });
+  it("keeps it while the job simply has not loaded (no signal, still loading, failed)", () => {
+    expect(shouldPruneSavedJob({ job: null, settled: false })).toBe(false);
+    expect(shouldPruneSavedJob({ job: undefined, settled: false })).toBe(false);
+  });
+});
+
+describe("card safety details", () => {
+  it("ignores a card or PIN stamped in the future (a wrong phone clock), allowing a few minutes of drift", () => {
+    const s = mem();
+    saveOfflineCard(build({}, 10 * 60_000)!, s);
+    savePin("j1", "482917", s, 10 * 60_000);
+    expect(readOfflineCard("j1", s, 0)).toBeNull();
+    expect(readPin("j1", s, 0)).toBeNull();
+    saveOfflineCard(build({}, 3 * 60_000)!, s);
+    savePin("j1", "482917", s, 3 * 60_000);
+    expect(readOfflineCard("j1", s, 0)).not.toBeNull();
+    expect(readPin("j1", s, 0)).toBe("482917");
+  });
+  it("encodes brackets in the map label so an address like 'Stand 12 (near Total)' does not break the link", () => {
+    const l = navLinks(build({ delivery_address: "Stand 12 (near Total)" })!);
+    expect(l.geo).toContain("(Stand%2012%20%28near%20Total%29)");
   });
 });

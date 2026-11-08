@@ -60,6 +60,7 @@ import {
   removePin,
   saveOfflineCard,
   savePin,
+  shouldPruneSavedJob,
 } from "@/lib/offline-card";
 import { telLink } from "@/lib/tel-link";
 import { loadStateCopy } from "@/lib/load-state";
@@ -266,6 +267,7 @@ function JobDetail() {
     data: job,
     isLoading,
     isError: jobFailed,
+    error: jobError,
     fetchStatus: jobFetchStatus,
     refetch: refetchJob,
   } = useQuery({
@@ -282,11 +284,14 @@ function JobDetail() {
   // Saved offline details belong only to a delivery that is under way; a finished or cancelled job must not leave an
   // old address (or PIN) on the phone.
   useEffect(() => {
-    if (job && !isActiveJobStatus(job.status)) {
-      removeOfflineCard(job.id, window.localStorage);
-      removePin(job.id, window.localStorage);
+    // "settled": the server really answered. A driver cannot read a job once it is cancelled, so "answered, no row"
+    // also means the delivery is over.
+    const settled = !isLoading && !jobFailed && jobFetchStatus === "idle";
+    if (shouldPruneSavedJob({ job, settled })) {
+      removeOfflineCard(id, window.localStorage);
+      removePin(id, window.localStorage);
     }
-  }, [job?.id, job?.status]);
+  }, [id, job?.status, isLoading, jobFailed, jobFetchStatus]);
 
   // Without this, a driver who had this page open when their bid got
   // accepted (or a customer watching a job change status) kept seeing the
@@ -493,10 +498,12 @@ function JobDetail() {
   if (isLoading || !job) {
     const state = loadStateCopy({ error: jobFailed && !job, paused: jobFetchStatus === "paused" });
     // The job cannot be loaded: show the delivery details saved on this phone while there was signal.
+    // Only for a missing signal: a real server error (for example an expired session) must say so, not "No signal".
+    const noSignal =
+      state.kind === "paused" ||
+      (state.kind === "error" && isNetworkFailure(jobError as { message?: string; code?: string } | null));
     const saved =
-      !job && state.kind !== "loading"
-        ? readOfflineCard(id, typeof window === "undefined" ? null : window.localStorage)
-        : null;
+      !job && noSignal ? readOfflineCard(id, typeof window === "undefined" ? null : window.localStorage) : null;
     if (saved) {
       return (
         <AppShell>

@@ -6,6 +6,7 @@
 export const CARD_PREFIX = "conz.offlinecard.";
 export const PIN_PREFIX = "conz.offlinepin.";
 const TTL_MS = 7 * 24 * 60 * 60 * 1000; // the life of a delivery PIN
+const MAX_CLOCK_DRIFT_MS = 5 * 60 * 1000; // a stamp further in the future than this means the phone clock was wrong
 
 export type OfflineCard = {
   jobId: string;
@@ -86,17 +87,17 @@ export function saveOfflineCard(card: OfflineCard, storage: Writable) {
   }
 }
 
+function isFresh(savedAt: unknown, now: number): boolean {
+  return (
+    typeof savedAt === "number" && now - savedAt <= TTL_MS && savedAt - now <= MAX_CLOCK_DRIFT_MS
+  );
+}
+
 function parseCard(raw: string | null | undefined, now: number): OfflineCard | null {
   try {
     if (!raw) return null;
     const c = JSON.parse(raw) as Partial<OfflineCard> | null;
-    if (
-      !c ||
-      typeof c.jobId !== "string" ||
-      typeof c.savedAt !== "number" ||
-      now - c.savedAt > TTL_MS
-    )
-      return null;
+    if (!c || typeof c.jobId !== "string" || !isFresh(c.savedAt, now)) return null;
     return c as OfflineCard;
   } catch {
     return null;
@@ -152,13 +153,7 @@ export function readPin(jobId: string, storage: Readable, now: number = Date.now
     const raw = storage?.getItem(PIN_PREFIX + jobId);
     if (!raw) return null;
     const v = JSON.parse(raw) as { pin?: unknown; savedAt?: unknown } | null;
-    if (
-      !v ||
-      typeof v.pin !== "string" ||
-      typeof v.savedAt !== "number" ||
-      now - v.savedAt > TTL_MS
-    )
-      return null;
+    if (!v || typeof v.pin !== "string" || !isFresh(v.savedAt, now)) return null;
     return v.pin;
   } catch {
     return null;
@@ -192,7 +187,9 @@ export function clearOfflineData(storage: Clearable) {
 export function navLinks(card: OfflineCard): { geo: string | null; web: string | null } {
   if (card.lat == null || card.lng == null) return { geo: null, web: null };
   const point = `${card.lat},${card.lng}`;
-  const label = card.deliveryAddress ? `(${encodeURIComponent(card.deliveryAddress)})` : "";
+  // encodeURIComponent leaves ( and ) alone; they would end the label early in a maps app.
+  const encode = (v: string) => encodeURIComponent(v).replace(/\(/g, "%28").replace(/\)/g, "%29");
+  const label = card.deliveryAddress ? `(${encode(card.deliveryAddress)})` : "";
   return {
     geo: `geo:${point}?q=${point}${label}`,
     web: `https://www.google.com/maps/dir/?api=1&destination=${point}&travelmode=driving`,
@@ -228,4 +225,16 @@ export function pinForDisplay(i: {
 }): { pin: string | null; failed: boolean } {
   if (!i.networkFailed) return { pin: i.fetched, failed: false };
   return i.cached ? { pin: i.cached, failed: false } : { pin: null, failed: true };
+}
+
+/**
+ * Whether a saved card (and PIN) should be removed now. Once the job is no longer under way it goes; if the server
+ * answered but no longer returns the job at all (an assigned driver cannot read a cancelled job) it goes too; while the
+ * job simply has not loaded (no signal, still loading, a failed request) it stays.
+ */
+export function shouldPruneSavedJob(i: {
+  job: { status: string } | null | undefined;
+  settled: boolean;
+}): boolean {
+  return i.job ? !isActiveJobStatus(i.job.status) : i.settled;
 }

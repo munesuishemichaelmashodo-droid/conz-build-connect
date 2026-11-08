@@ -87,3 +87,8 @@ not, the in-app saved card still works whenever the app is already open, and not
 Still to build (next plan, needs the database): the photo outbox ("save now, send later") with the capture-time columns, the
 late-evidence labels in the admin dispute panel, and the "waiting for confirmation" status. Those follow your approved answers but
 touch how evidence is timed; they will leave the commission/reserve/escrow clocks alone and flag them to you.
+
+Found while reviewing the offline card (not changed): signing out with NO signal does not end the session. The sign-in library asks
+the server first and gives up on a network error, so the "Sign out" button appears to work but the phone stays signed in. The saved
+cards, PINs and numbers are now removed first, so nothing of the last person's delivery stays on a shared phone, but the session
+itself should be fixed in a follow-up (remove the stored session when the server cannot be reached).

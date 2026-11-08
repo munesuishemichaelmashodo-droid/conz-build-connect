@@ -1,3 +1,4 @@
+import { clearDeviceData } from "@/lib/sign-out";
 import { useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -73,7 +74,14 @@ export function TermsGate() {
         <Button className="w-full h-11" disabled={!ticked || busy} onClick={submit}>
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Continue"}
         </Button>
-        <Button variant="ghost" className="w-full" onClick={() => void supabase.auth.signOut()}>
+        <Button
+          variant="ghost"
+          className="w-full"
+          onClick={() => {
+            clearDeviceData();
+            void supabase.auth.signOut();
+          }}
+        >
           Sign out
         </Button>
       </div>
