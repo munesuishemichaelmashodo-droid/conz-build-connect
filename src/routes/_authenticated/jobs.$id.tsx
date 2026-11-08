@@ -48,6 +48,16 @@ import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/pay
 import { friendlyPaymentError } from "@/lib/paymentErrors";
 import { ShieldCheck } from "lucide-react";
 import { isNetworkFailure, readContact, saveContact } from "@/lib/contact-cache";
+import { OfflineJobCard, ReadyOfflineChip } from "@/components/OfflineJobCard";
+import {
+  buildOfflineCard,
+  isActiveJobStatus,
+  readOfflineCard,
+  removeOfflineCard,
+  removePin,
+  saveOfflineCard,
+} from "@/lib/offline-card";
+import { telLink } from "@/lib/tel-link";
 import { loadStateCopy } from "@/lib/load-state";
 import { bookAgainSearch, repostSearch } from "@/lib/book-again";
 import { isDriverArrangedPickup, saveLoadedAt } from "@/lib/pickup-check";
@@ -101,19 +111,6 @@ import { ChevronDown, ChevronRight, Clock, Info, Navigation2, TrendingUp } from 
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
   component: JobDetail,
 });
-
-// Plain tap-to-dial link — opens the phone's own dialer. Deliberately not a
-// masked/in-app call: it's simple, free, and needs no calling provider, at
-// the cost of showing each party the other's real phone number.
-const telLink = (phone: string | null | undefined) => {
-  if (!phone) return null;
-  let p = phone.replace(/[^\d+]/g, "");
-  if (p.startsWith("+")) p = p.slice(1);
-  if (p.startsWith("00")) p = p.slice(2);
-  if (p.startsWith("0")) p = "263" + p.slice(1);
-  if (p.length < 9) return null;
-  return `tel:+${p}`;
-};
 
 // Live-tracking share panel — lets either party hand off a login-free
 // tracking link to someone outside Con Z (e.g. a foreman waiting on site).
@@ -277,6 +274,15 @@ function JobDetail() {
       return (await fetchOpenJob(supabase, id)) as typeof data;
     },
   });
+
+  // Saved offline details belong only to a delivery that is under way; a finished or cancelled job must not leave an
+  // old address (or PIN) on the phone.
+  useEffect(() => {
+    if (job && !isActiveJobStatus(job.status)) {
+      removeOfflineCard(job.id, window.localStorage);
+      removePin(job.id, window.localStorage);
+    }
+  }, [job?.id, job?.status]);
 
   // Without this, a driver who had this page open when their bid got
   // accepted (or a customer watching a job change status) kept seeing the
@@ -470,6 +476,18 @@ function JobDetail() {
 
   if (isLoading || !job) {
     const state = loadStateCopy({ error: jobFailed && !job, paused: jobFetchStatus === "paused" });
+    // The job cannot be loaded: show the delivery details saved on this phone while there was signal.
+    const saved =
+      !job && state.kind !== "loading"
+        ? readOfflineCard(id, typeof window === "undefined" ? null : window.localStorage)
+        : null;
+    if (saved) {
+      return (
+        <AppShell>
+          <OfflineJobCard card={saved} />
+        </AppShell>
+      );
+    }
     return (
       <AppShell>
         <div role={state.kind === "error" ? "alert" : "status"} className="text-center text-muted-foreground py-10 space-y-2">
@@ -2932,6 +2950,33 @@ function JobSummaryCard({ job, id = "tour-job-header" }: { job: any; id?: string
 function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
   const { job, id } = ctx;
   const { other } = useJobContact(job, false);
+  // Save the delivery details on this phone so they are still there with no signal (see lib/offline-card.ts).
+  const [readyOffline, setReadyOffline] = useState(false);
+  useEffect(() => {
+    if (!isActiveJobStatus(job.status)) return;
+    const card = buildOfflineCard({
+      job,
+      materialName: materialLabel(job.material as any, job.custom_material),
+      contact: other ? { full_name: other.full_name ?? null, phone: other.phone ?? null } : null,
+      role: "driver",
+    });
+    if (!card) return;
+    saveOfflineCard(card, window.localStorage);
+    setReadyOffline(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-save only when what the card shows changes
+  }, [
+    job.id,
+    job.status,
+    job.delivery_address,
+    job.delivery_lat,
+    job.delivery_lng,
+    job.notes,
+    job.pickup_address,
+    job.material,
+    job.quantity_m3,
+    other?.full_name,
+    other?.phone,
+  ]);
   // Migration 0060: arrival is recorded server-side (driver_mark_arrived),
   // so the customer's step bar shows it too. Realtime on the job row
   // refreshes this screen when it lands.
@@ -3154,6 +3199,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
         </div>
 
         <ContactCard ctx={ctx} role="customer" subtitle={`${mat} · ${Number(job.quantity_m3)} m³`} />
+        {readyOffline && <ReadyOfflineChip />}
 
         <SupplyConfirmationCard job={job} viewer="driver" />
 

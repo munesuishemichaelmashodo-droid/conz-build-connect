@@ -1,5 +1,6 @@
 import { keepIfFailed } from "@/lib/auth-guard";
 import { clearContacts } from "@/lib/contact-cache";
+import { clearOfflineData } from "@/lib/offline-card";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -108,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (event === "SIGNED_OUT") {
         qc.clear();
         clearContacts(window.localStorage); // numbers saved for offline calling go with the session
+        clearOfflineData(window.localStorage); // so do saved delivery cards and PINs
       } else if (event === "SIGNED_IN" || event === "USER_UPDATED") {
         qc.invalidateQueries();
       }

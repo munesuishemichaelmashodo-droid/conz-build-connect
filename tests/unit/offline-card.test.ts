@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildOfflineCard,
+  cardCopy,
   clearOfflineData,
   isActiveJobStatus,
   listOfflineCards,
@@ -181,5 +182,22 @@ describe("navLinks", () => {
       geo: null,
       web: null,
     });
+  });
+});
+
+describe("cardCopy", () => {
+  it("says it is saved on this phone, with the time, and shows coordinates to five places", () => {
+    const c = cardCopy(build()!);
+    expect(c.ready).toBe("Ready offline");
+    expect(c.saved).toMatch(/^Saved on this phone at \d{2}:\d{2}$/);
+    expect(c.coordinates).toBe("-17.83220, 31.01810");
+  });
+  it("an address-only card says the coordinates were not saved, rather than showing a made-up point", () => {
+    const c = cardCopy(build({ delivery_lat: null, delivery_lng: null })!);
+    expect(c.coordinates).toBe("Map position not saved");
+  });
+  it("never promises anything will be sent or checked later", () => {
+    const c = cardCopy(build()!);
+    expect(JSON.stringify(c)).not.toMatch(/will be sent|queued|sent later|checked later/i);
   });
 });

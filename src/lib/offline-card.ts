@@ -198,3 +198,19 @@ export function navLinks(card: OfflineCard): { geo: string | null; web: string |
     web: `https://www.google.com/maps/dir/?api=1&destination=${point}&travelmode=driving`,
   };
 }
+
+/** The words on a saved card. Honest: it says what is saved on this phone, never that anything will be sent later. */
+export function cardCopy(
+  card: OfflineCard,
+  clock: (ms: number) => string = (ms) =>
+    new Date(ms).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }),
+): { ready: string; saved: string; coordinates: string } {
+  return {
+    ready: "Ready offline",
+    saved: `Saved on this phone at ${clock(card.savedAt)}`,
+    coordinates:
+      card.lat != null && card.lng != null
+        ? `${card.lat.toFixed(5)}, ${card.lng.toFixed(5)}`
+        : "Map position not saved",
+  };
+}
