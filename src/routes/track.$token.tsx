@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { isTrackingToken } from "@/lib/tracking-token";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { materialLabel, type MaterialCategory } from "@/lib/domain";
@@ -227,6 +228,8 @@ function PublicTrackPage() {
     refetchInterval: 15000,
     retry: 1,
     queryFn: async () => {
+      // A malformed link cannot match a job: answer "not found" without a server error.
+      if (!isTrackingToken(token)) return null;
       const { data, error } = await (supabase as any).rpc("get_public_tracking", { _token: token });
       if (error) throw error;
       return (data ?? null) as TrackPayload | null;
