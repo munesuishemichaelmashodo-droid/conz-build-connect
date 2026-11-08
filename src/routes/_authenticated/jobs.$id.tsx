@@ -92,6 +92,7 @@ import {
   straightKm,
 } from "@/components/redesign";
 import { OfferCard } from "@/components/redesign/OfferCard";
+import { truckFactsLine } from "@/lib/truck-facts";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import {
   OFFER_SORTS,
@@ -103,7 +104,7 @@ import {
   sortOffers,
   type OfferSort,
 } from "@/lib/offer-compare";
-import { driverMarkArrived, jobOfferSummary, withdrawBid, raiseJobBudget, useBidderLocations, useSecondsLeft, mmss } from "@/components/redesign/rpc";
+import { driverMarkArrived, jobOfferSummary, offerBidderCards, withdrawBid, raiseJobBudget, useBidderLocations, useSecondsLeft, mmss } from "@/components/redesign/rpc";
 import { PinMap } from "@/components/redesign/PinMap";
 import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 import { DriverNavigationButtons } from "@/components/DriverNavigationButtons";
@@ -336,23 +337,40 @@ function JobDetail() {
       const { data: bids } = await supabase.from("bids").select("*").eq("job_id", id).order("price");
       if (!bids?.length) return [] as any[];
       const driverIds = [...new Set(bids.map((b) => b.driver_id))];
-      const truckIds = [...new Set(bids.map((b: any) => b.truck_id).filter(Boolean))];
+      // Safe cards first (customer and admin): name, photo, last active, truck facts and a
+      // masked plate. No phone, email or full truck row (migration 0152).
+      const cardRes = await offerBidderCards(id);
+      const cards = new Map((cardRes.data ?? []).map((c) => [c.bid_id, c]));
+      // A driver looking at their own offer gets no cards; fall back to what they may read.
+      const missing = bids.filter((b: any) => !cards.has(b.id));
+      const missingDriverIds = [...new Set(missing.map((b: any) => b.driver_id))];
+      const missingTruckIds = [...new Set(missing.map((b: any) => b.truck_id).filter(Boolean))];
       const [{ data: profs }, { data: drvs }, { data: trucksData }] = await Promise.all([
-        supabase.from("profiles").select("id,full_name,avatar_url,last_active_at").in("id", driverIds),
+        missingDriverIds.length
+          ? supabase.from("profiles").select("id,full_name,avatar_url,last_active_at").in("id", missingDriverIds)
+          : Promise.resolve({ data: [] as { id: string; full_name: string | null; avatar_url: string | null; last_active_at: string | null }[] }),
         supabase
           .from("driver_public_profiles")
           .select("user_id,rating_avg,rating_count,level,jobs_completed,verification_status")
           .in("user_id", driverIds),
-        truckIds.length
-          ? supabase.from("trucks").select("id,registration").in("id", truckIds)
+        missingTruckIds.length
+          ? supabase.from("trucks").select("id,registration").in("id", missingTruckIds)
           : Promise.resolve({ data: [] as { id: string; registration: string }[] }),
       ]);
-      return bids.map((b: any) => ({
-        ...b,
-        profile: profs?.find((p) => p.id === b.driver_id),
-        driver: drvs?.find((d) => d.user_id === b.driver_id),
-        truck_reg: trucksData?.find((t) => t.id === b.truck_id)?.registration,
-      }));
+      return bids.map((b: any) => {
+        const card = cards.get(b.id);
+        return {
+          ...b,
+          profile: card
+            ? { full_name: card.full_name, avatar_url: card.avatar_url, last_active_at: card.last_active_at }
+            : profs?.find((p) => p.id === b.driver_id),
+          driver: drvs?.find((d) => d.user_id === b.driver_id),
+          truck_reg: card ? card.plate_display : trucksData?.find((t) => t.id === b.truck_id)?.registration,
+          truck_facts: card
+            ? { body_type: card.body_type, make: card.make, model: card.model, colour: card.colour }
+            : null,
+        };
+      });
     },
   });
 
@@ -1100,7 +1118,7 @@ function JobDetail() {
                       <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
                         <span className="inline-flex items-center gap-1 text-muted-foreground">
                           <Truck className="w-3.5 h-3.5" />
-                          {b.truck_reg} · {b.capacity_m3_snapshot} m³ truck
+                          {[truckFactsLine(b.truck_facts), b.truck_reg].filter(Boolean).join(" · ")} · {b.capacity_m3_snapshot} m³ truck
                         </span>
                         {b.capacity_match_tier && (
                           <StatusBadge

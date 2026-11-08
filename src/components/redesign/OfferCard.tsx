@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { estimateDeliveryMinutes, formatDuration, presenceOf } from "@/lib/delivery-time";
 import { ratingLabel, MIN_RATINGS_FOR_AVERAGE } from "@/lib/driver-onboarding";
 import { tripsLabel, type GuideBand } from "@/lib/offer-compare";
+import { truckFactsLine, type TruckFacts } from "@/lib/truck-facts";
 import { InitialsAvatar, czButtonClass, usd } from "@/components/redesign";
 
 export type OfferBid = {
@@ -18,6 +19,8 @@ export type OfferBid = {
   delivery_date?: string | null;
   message?: string | null;
   truck_reg?: string | null;
+  /** Declared by the driver (migration 0152); shown as "declared by driver". */
+  truck_facts?: TruckFacts | null;
   capacity_m3_snapshot?: number | null;
   estimated_trips?: number | null;
   /** "I can reach pickup in" minutes (migration 0060). */
@@ -189,6 +192,17 @@ export function OfferCard({
           subStrong={trips.multiple}
         />
       </dl>
+
+      {(truckFactsLine(bid.truck_facts) || bid.truck_reg) && (
+        <p className="mx-4 mt-2 text-xs text-cz-muted">
+          {[
+            truckFactsLine(bid.truck_facts) ? `${truckFactsLine(bid.truck_facts)} (declared by driver)` : null,
+            bid.truck_reg ? `Plate ${bid.truck_reg}` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      )}
 
       <div className="space-y-3 px-4 pb-4 pt-3">
         <OfferMessage message={bid.message} driverArranged={driverArranged} />
