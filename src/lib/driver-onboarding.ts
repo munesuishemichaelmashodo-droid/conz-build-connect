@@ -449,8 +449,13 @@ export function ratingLabel(
 ): string {
   const n = Number(count ?? 0);
   if (!(n > 0)) return "No ratings yet";
+  // One or two ratings are too few for an average to mean anything, so none is shown yet.
+  if (n < MIN_RATINGS_FOR_AVERAGE) return `${n} ${n === 1 ? "rating" : "ratings"} so far`;
   return `${Number(avg ?? 0).toFixed(1)} (${n})`;
 }
+
+/** Fewer ratings than this and the average is not shown (a single rating must not look like a record). */
+export const MIN_RATINGS_FOR_AVERAGE = 3;
 
 export function jobsDoneLabel(n: number | null | undefined): string {
   const v = Math.max(0, Number(n ?? 0));

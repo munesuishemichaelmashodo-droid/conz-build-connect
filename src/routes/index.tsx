@@ -247,8 +247,8 @@ function Welcome() {
           <Container>
             <SectionHead
               id="how-title"
-              title="One request. Several offers. Your choice."
-              lead="Instead of calling driver after driver and keeping track of separate chats, you describe the delivery once and compare what comes back."
+              title="One request. Clear offers. A recorded delivery."
+              lead="Instead of calling driver after driver and keeping track of separate chats, you describe the delivery once and compare what comes back. You choose the driver, and the delivery is recorded from pickup to confirmation."
             />
             <ol className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {STEPS.map((st, i) => {
@@ -438,7 +438,7 @@ function Welcome() {
             <SectionHead
               id="driver-title"
               title="Put your tipper truck to work."
-              lead="Browse delivery requests, review the load and route, and send an offer that works for your truck and business."
+              lead="See the load. Set your price. Build your record. Browse delivery requests, review the load and route, and send an offer that works for your truck and business."
             />
             <div className="mt-12 grid gap-5 md:grid-cols-[1.1fr_0.9fr]">
               <div className="rounded-2xl border border-cz-border bg-cz-surface p-6 md:p-8">

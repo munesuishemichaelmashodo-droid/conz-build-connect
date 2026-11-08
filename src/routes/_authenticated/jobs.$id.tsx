@@ -7,6 +7,8 @@ import { commissionFee, earnings, fuelEstimate } from "@/lib/driver-economics";
 import { composeOfferMessage, isDriverArranged, MAX_SOURCE_LENGTH, parseOfferMessage } from "@/lib/proposed-source";
 import { OfferMessage } from "@/components/redesign/ProposedSource";
 import { fetchOpenJob } from "@/lib/open-jobs";
+import { DeliveryFeedbackCard } from "@/components/DeliveryFeedbackCard";
+import { cancellationReasonOptions, type CancellationReasonCode } from "@/lib/cancellation-reasons";
 import { ADMIN_CANCEL_REASON_MIN, DRIVER_RELEASE_POLICY_TEXT, adminCancelPolicyText, adminCanCancel, cancelPolicyText, customerCanCancel, customerCanReopenNoShow, driverCanRelease, friendlyAcceptError } from "@/lib/cancel-policy";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
@@ -2094,7 +2096,9 @@ function ProofUpload({ jobId, kind, label, hint, ctaLabel, onUploaded, beforeUpl
 function CancelJobDialog({ jobId, status, onCancelled, asAdmin = false, asDriver = false }: { jobId: string; status: string; onCancelled: () => void; asAdmin?: boolean; asDriver?: boolean }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const [category, setCategory] = useState<CancellationReasonCode | "">("");
   const [loading, setLoading] = useState(false);
+  const categories = cancellationReasonOptions(asDriver ? "driver" : asAdmin ? "admin" : "customer");
 
   // cancel_job charges no fee; it records a strike once a driver has accepted.
   const policy = asDriver ? DRIVER_RELEASE_POLICY_TEXT : asAdmin ? adminCancelPolicyText(status) : cancelPolicyText(status);
@@ -2107,6 +2111,11 @@ function CancelJobDialog({ jobId, status, onCancelled, asAdmin = false, asDriver
     const { error } = await supabase.rpc("cancel_job", { _job_id: jobId, _reason: reason.trim() || "" });
     setLoading(false);
     if (error) { toast.error(error.message); return; }
+    // Optional: the category never blocks or changes the cancellation; the server decides who the actor is.
+    if (category) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated types predate 0148
+      await (supabase as any).rpc("record_cancellation_reason", { _job_id: jobId, _code: category });
+    }
     toast.success(asDriver ? "Job released. It is open to other drivers again." : "Job cancelled");
     setOpen(false);
     onCancelled();
@@ -2126,7 +2135,22 @@ function CancelJobDialog({ jobId, status, onCancelled, asAdmin = false, asDriver
           <DialogDescription className={tone}>{policy}</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <Label htmlFor="cxr">{asAdmin ? "Reason (required, shown to the customer and driver)" : "Reason (optional)"}</Label>
+          <Label htmlFor="cxc">Main reason (optional)</Label>
+          <select
+            id="cxc"
+            value={category}
+            onChange={(e) => setCategory(e.target.value as CancellationReasonCode | "")}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">Prefer not to say</option>
+            {categories.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">This helps us fix what goes wrong. It does not change your cancellation.</p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="cxr">{asAdmin ? "Reason (required, shown to the customer and driver)" : "Details (optional)"}</Label>
           <Textarea
             id="cxr"
             rows={3}
@@ -3940,6 +3964,8 @@ function CustomerDelivered({ ctx }: { ctx: JobScreenCtx }) {
             <RateForm jobId={id} driverId={job.driver_id!} onSaved={ctx.invalidateRating} />
           )}
         </div>
+
+        <DeliveryFeedbackCard jobId={id} />
 
         <ProofPhotos job={job} viewer="customer" />
 

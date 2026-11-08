@@ -21,7 +21,7 @@ import {
   ShieldCheck,
   HandCoins,
 } from "lucide-react";
-import { MATERIALS, type MaterialCategory, money } from "@/lib/domain";
+import { MATERIALS, type MaterialCategory, money, materialLabel } from "@/lib/domain";
 import { getSourcingRequestsEnabled, requestSourcingQuote } from "@/lib/sourcing-request.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { bookingOutcome, newBookingAttemptId } from "@/lib/booking-attempt";
@@ -55,6 +55,7 @@ import { isValidQuantity, MIN_QUANTITY_M3 } from "@/lib/load-size";
 import { useNearbyTrucks } from "@/components/redesign/rpc";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
+import { repeatNoticeText } from "@/lib/book-again";
 
 const bookSearchSchema = z.object({
   material: z.string().optional(),
@@ -63,6 +64,8 @@ const bookSearchSchema = z.object({
   lat: z.coerce.number().optional(),
   lng: z.coerce.number().optional(),
   driverId: z.string().optional(),
+  // Set by "Order again": the screen then says which details were reused.
+  repeat: z.preprocess((v) => v === true || v === "true" || v === "1", z.boolean()).optional(),
   // Set when the customer returns to book an admin-issued sourcing quote.
   sourcingRequestId: z.string().uuid().optional(),
 });
@@ -102,6 +105,8 @@ function BookDelivery() {
     BOOKABLE_MATERIALS.some((m) => m.value === search.material) ? (search.material as MaterialCategory) : "river_sand",
   );
   const [quantity, setQuantity] = useState<number>(search.quantity ?? 12);
+  // What was reused from a past delivery (null unless opened from "Order again").
+  const repeatNotice = repeatNoticeText(search, search.material ? materialLabel(search.material as MaterialCategory, null) : "");
   const [notes, setNotes] = useState("");
   const [date, setDate] = useState("");
   const [computing, setComputing] = useState(false);
@@ -417,9 +422,16 @@ function BookDelivery() {
           <section ref={setSheetEl} className="absolute inset-x-0 bottom-0 z-30 max-h-[62dvh] overflow-y-auto rounded-t-3xl bg-cz-bg px-5 pt-2.5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgb(28_24_21/0.14)] dark:shadow-[0_-8px_30px_rgb(0_0_0/0.45)]">
             <div aria-hidden className="mx-auto mb-3.5 h-[5px] w-10 rounded-full bg-cz-border-strong" />
             <div className="space-y-4">
-              {search.driverId && (
+              {repeatNotice && (
                 <HintBox tone="green" icon={<CheckCircle2 className="w-4 h-4" />}>
-                  We'll invite your previous driver to bid. Other verified drivers can bid too, and you choose.
+                  <b>{repeatNotice.title}.</b> {repeatNotice.details}. {repeatNotice.note}
+                  {repeatNotice.invitation && <> {repeatNotice.invitation}</>}
+                </HintBox>
+              )}
+              {!repeatNotice && search.driverId && (
+                <HintBox tone="green" icon={<CheckCircle2 className="w-4 h-4" />}>
+                  We'll invite your previous driver to bid. They are not assigned and get no priority: other verified
+                  drivers can offer too, and you choose.
                 </HintBox>
               )}
 
