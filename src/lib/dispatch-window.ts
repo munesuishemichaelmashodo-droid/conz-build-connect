@@ -30,6 +30,6 @@ export function countdownColor(remainingMs: number, windowMs: number): string {
 /** The honest line under the countdown. */
 export function offerFootnote(windowMs: number): string {
   return windowMs > 90_000
-    ? "Accept within a few minutes — after that this goes to the next driver."
-    : "Accept quickly — after a minute this goes to the next driver.";
+    ? "Send your offer within a few minutes — the customer compares offers and chooses."
+    : "Send your offer quickly — the customer compares offers and chooses.";
 }
