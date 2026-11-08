@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookAgainSearch, repeatNoticeText } from "@/lib/book-again";
+import { bookAgainSearch, repeatNoticeText, repostSearch } from "@/lib/book-again";
 
 const job = {
   status: "completed",
@@ -182,5 +182,33 @@ describe("repeatNoticeText", () => {
   it("does not invent a pickup or an old price", () => {
     const n = repeatNoticeText({ ...search, driverId: "d1" }, "River sand")!;
     expect(JSON.stringify(n)).not.toMatch(/pickup|\$\d/i);
+  });
+});
+
+describe("repostSearch (post again after a request that did not work out)", () => {
+  const base = { ...job, status: "cancelled" };
+  it("refills the same details for a cancelled request, without a price or a driver", () => {
+    const s = repostSearch(base)!;
+    expect(s).toMatchObject({
+      repeat: true,
+      material: "river_sand",
+      quantity: 12,
+      address: "Harward Road, Belvedere, Harare",
+    });
+    expect(s).not.toHaveProperty("driverId");
+    expect(JSON.stringify(s)).not.toMatch(/207|180|price|budget/);
+  });
+  it("is only for requests that ended without a delivery", () => {
+    expect(repostSearch({ ...base, status: "open" })).toBeNull();
+    expect(repostSearch({ ...base, status: "accepted" })).toBeNull();
+    expect(repostSearch({ ...base, status: "completed" })).toBeNull();
+    expect(repostSearch({ ...base, status: "expired" })).not.toBeNull();
+  });
+  it("keeps the 'Based on your last delivery' wording for deliveries only", () => {
+    const n = repeatNoticeText({ ...repostSearch(base)!, source: "cancelled" }, "River sand")!;
+    expect(n.title).toBe("Same details as your earlier request");
+    expect(repeatNoticeText({ ...bookAgainSearch(job)! }, "River sand")!.title).toBe(
+      "Based on your last delivery",
+    );
   });
 });

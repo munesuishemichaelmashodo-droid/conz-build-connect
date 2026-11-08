@@ -47,7 +47,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
 import { friendlyPaymentError } from "@/lib/paymentErrors";
 import { ShieldCheck } from "lucide-react";
-import { bookAgainSearch } from "@/lib/book-again";
+import { bookAgainSearch, repostSearch } from "@/lib/book-again";
 import { isDriverArrangedPickup, saveLoadedAt } from "@/lib/pickup-check";
 import { cn } from "@/lib/utils";
 import { SpotlightCallout } from "@/components/SpotlightCallout";
@@ -2607,7 +2607,12 @@ function CancelledScreen({ ctx, backTo }: { ctx: JobScreenCtx; backTo: string })
           {ctx.job.cancellation_reason && <p className="text-sm text-cz-muted italic">"{ctx.job.cancellation_reason}"</p>}
         </CzCard>
         {ctx.isOwner && customerCanReopenNoShow(ctx.job as never) && <ReopenNoShowButton jobId={ctx.job.id} />}
-        <Link to={backTo as "/jobs"} className={czButtonClass("primary")}>
+        {ctx.isOwner && !customerCanReopenNoShow(ctx.job as never) && repostSearch(ctx.job) && (
+          <Link to="/customer/book" search={repostSearch(ctx.job) ?? {}} className={czButtonClass("primary")}>
+            Post this request again
+          </Link>
+        )}
+        <Link to={backTo as "/jobs"} className={czButtonClass(ctx.isOwner ? "secondary" : "primary")}>
           {ctx.isOwner ? "Back to my jobs" : "Find another load"}
         </Link>
       </div>

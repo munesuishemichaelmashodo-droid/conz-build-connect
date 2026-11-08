@@ -16,6 +16,8 @@ type PastJob = {
 export type BookAgainSearch = {
   /** Marks a booking opened from a past delivery, so the screen can say which details were reused. */
   repeat?: boolean;
+  /** "cancelled" when reposting a request that did not get delivered (changes the wording of the notice). */
+  source?: "cancelled";
   material?: string;
   quantity?: number;
   address?: string;
@@ -48,6 +50,17 @@ export function bookAgainSearch(
   }
   if (sameDriver && job.driver_id) s.driverId = job.driver_id;
   return s;
+}
+
+/**
+ * "Post again" for a request that ended without a delivery (cancelled or expired): the same load and delivery
+ * point, a fresh quote, and no previous driver (they did not deliver, so nobody is invited by default).
+ */
+export function repostSearch(job: PastJob): BookAgainSearch | null {
+  if (job.status !== "cancelled" && job.status !== "expired") return null;
+  const s = bookAgainSearch({ ...job, status: "completed" });
+  if (!s) return null;
+  return { ...s, source: "cancelled" };
 }
 
 export type RepeatableJob = PastJob & {
@@ -99,6 +112,7 @@ export async function latestRepeatableJob(
 export function repeatNoticeText(
   search: {
     repeat?: boolean;
+    source?: "cancelled";
     material?: string;
     quantity?: number;
     address?: string;
@@ -113,7 +127,10 @@ export function repeatNoticeText(
     search.address ? `to ${search.address}` : null,
   ].filter(Boolean);
   return {
-    title: "Based on your last delivery",
+    title:
+      search.source === "cancelled"
+        ? "Same details as your earlier request"
+        : "Based on your last delivery",
     details: parts.length ? parts.join(" · ") : "Your last delivery's details",
     note: "Check these and change anything you need. The price is worked out fresh for this request, so it may differ from last time. Nothing is assigned until you choose an offer.",
     invitation: search.driverId
