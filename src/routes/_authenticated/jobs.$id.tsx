@@ -47,6 +47,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
 import { friendlyPaymentError } from "@/lib/paymentErrors";
 import { ShieldCheck } from "lucide-react";
+import { isNetworkFailure, readContact, saveContact } from "@/lib/contact-cache";
+import { loadStateCopy } from "@/lib/load-state";
 import { bookAgainSearch, repostSearch } from "@/lib/book-again";
 import { isDriverArrangedPickup, saveLoadedAt } from "@/lib/pickup-check";
 import { cn } from "@/lib/utils";
@@ -128,18 +130,32 @@ function useJobContact(job: any, isOwner: boolean) {
   const material = materialLabel(job.material as any, job.custom_material);
   const ref = String(job.id).slice(0, 8);
 
-  const { data: other } = useQuery({
+  const {
+    data: other,
+    isError: contactFailed,
+    refetch: refetchContact,
+  } = useQuery({
     queryKey: ["wa-contact", job.id, otherId],
     enabled: !!otherId,
     retry: false,
     queryFn: async () => {
+      const store = typeof window === "undefined" ? null : window.localStorage;
       const { data, error } = await supabase
         .from("profiles")
         .select("id,full_name,phone")
         .eq("id", otherId)
         .maybeSingle();
-      // If the phone column or RLS blocks this read, degrade gracefully.
-      if (error) return null;
+      if (error) {
+        // No signal: use the number this phone saw earlier (a call needs voice, not data), or say it failed.
+        if (isNetworkFailure(error)) {
+          const saved = readContact(job.id, otherId, store);
+          if (saved) return { id: otherId, ...saved };
+          throw error;
+        }
+        // If the phone column or RLS blocks this read, degrade gracefully.
+        return null;
+      }
+      if (data) saveContact(job.id, otherId, { full_name: data.full_name, phone: data.phone }, store);
       return data;
     },
   });
@@ -191,11 +207,11 @@ function useJobContact(job: any, isOwner: boolean) {
     }
   };
 
-  return { other, name, call, trackUrl, shareTrackLink };
+  return { other, name, call, trackUrl, shareTrackLink, contactFailed, retryContact: () => void refetchContact() };
 }
 
 function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
-  const { name, call, trackUrl, shareTrackLink } = useJobContact(job, isOwner);
+  const { name, call, trackUrl, shareTrackLink, contactFailed, retryContact } = useJobContact(job, isOwner);
 
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
@@ -213,6 +229,13 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
             Call {name}
           </a>
         </Button>
+      ) : contactFailed ? (
+        <div className="text-xs text-muted-foreground space-y-2">
+          <p>Couldn't load their number. Check your signal and try again.</p>
+          <Button type="button" variant="outline" size="sm" onClick={retryContact}>
+            Try again
+          </Button>
+        </div>
       ) : (
         <p className="text-xs text-muted-foreground">
           No phone number on their profile yet — use in-app chat above.
@@ -238,7 +261,13 @@ function JobDetail() {
   const qc = useQueryClient();
   const nav = useNavigate();
 
-  const { data: job, isLoading } = useQuery({
+  const {
+    data: job,
+    isLoading,
+    isError: jobFailed,
+    fetchStatus: jobFetchStatus,
+    refetch: refetchJob,
+  } = useQuery({
     queryKey: ["job", id],
     queryFn: async () => {
       const { data, error } = await supabase.from("jobs").select("*").eq("id", id).maybeSingle();
@@ -439,12 +468,22 @@ function JobDetail() {
       .catch(() => {});
   }, [job, isEscrow, userId]);
 
-  if (isLoading || !job)
+  if (isLoading || !job) {
+    const state = loadStateCopy({ error: jobFailed && !job, paused: jobFetchStatus === "paused" });
     return (
       <AppShell>
-        <div className="text-center text-muted-foreground py-10">Loading…</div>
+        <div role={state.kind === "error" ? "alert" : "status"} className="text-center text-muted-foreground py-10 space-y-2">
+          <div className="font-semibold text-foreground">{state.title}</div>
+          {state.detail && <div className="text-sm">{state.detail}</div>}
+          {state.kind === "error" && (
+            <Button type="button" variant="outline" onClick={() => void refetchJob()}>
+              Try again
+            </Button>
+          )}
+        </div>
       </AppShell>
     );
+  }
 
   const isOwner = job.customer_id === userId;
   const isAssignedDriver = job.driver_id === userId;
@@ -2435,7 +2474,7 @@ function MapBackButton({ to, onClick }: { to?: string; onClick?: () => void }) {
 /** Other party card with Chat (existing chat route, unread badge) + Call
  *  (existing tel: link). */
 function ContactCard({ ctx, subtitle, role }: { ctx: JobScreenCtx; subtitle: ReactNode; role: "driver" | "customer" }) {
-  const { other, name, call } = useJobContact(ctx.job, ctx.isOwner);
+  const { other, name, call, contactFailed, retryContact } = useJobContact(ctx.job, ctx.isOwner);
   const who = role === "driver" ? "driver" : "customer";
   return (
     <div className="flex items-center gap-3 rounded-xl border border-cz-border bg-cz-surface px-3.5 py-3">
@@ -2466,6 +2505,14 @@ function ContactCard({ ctx, subtitle, role }: { ctx: JobScreenCtx; subtitle: Rea
         >
           <Phone className="w-5 h-5" />
         </a>
+      ) : contactFailed ? (
+        <IconButton
+          onClick={retryContact}
+          aria-label="Couldn't load their number. Tap to try again"
+          title="Couldn't load their number. Tap to try again"
+        >
+          <Phone className="w-5 h-5" />
+        </IconButton>
       ) : (
         <IconButton disabled aria-label="No phone number on their profile yet" title="No phone number on their profile yet">
           <Phone className="w-5 h-5" />

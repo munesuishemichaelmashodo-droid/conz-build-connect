@@ -47,3 +47,25 @@ to Con Z. The only real fix is a native background-location plugin in the Androi
 Customer ETA: the customer's own job screen showed raw car time while the shared link showed truck time (x1.4), and the route was
 sometimes never requested at all (a timing bug). Both fixed; the two screens now give the same estimate. The 1.4 factor is still
 an assumption; compare with `job_route_points` once real trips exist.
+
+## Offline Phase 0 (08/11/2026): done, web only, no database or payment change
+
+From the report "ConZ offline and poor network features". Built and checked in a browser on the sample-data stand-in:
+- A phone with no signal is no longer thrown to the sign-in screen when it opens a screen or a role area (driver, customer). Only a
+  real answer from the server (no user, expired or revoked session) signs someone out of a screen. Admin screens were deliberately left
+  as they were (finance and access-control surfaces).
+- A failed profile or role read no longer wipes what the app already knew; it retries a few times.
+- TanStack Router reloads the whole page when a screen's code fails to load, even with no signal, which lands on Android's error
+  page. While the phone is definitely offline that reload is held back; the driver sees "No signal right now" and the screen
+  retries by itself when signal returns.
+- A calm "No signal" banner on signed-in screens that says what still works and what will not go through (it does not promise that
+  anything is saved, because nothing is queued yet).
+- The job page says "Waiting for signal…" or "Couldn't load this" with a retry, instead of "Loading…" forever.
+- The Call button: a failed lookup no longer says "No phone number on their profile yet". The number seen on this phone is kept for
+  7 days per job (removed at sign-out) so the driver can still ring the customer with no data.
+- Production map tiles checked: the live build carries a valid CARTO key (a real tile loads; without a key it is a watermark).
+  CARTO's commercial terms change on 1 Dec 2026: confirm the plan.
+
+Still reserved for you (Phase 1 and later, see the report): photo outbox and "Ready offline" card (changes how evidence is timed and
+touches the 72-hour release and 24-hour no-show clocks), the PIN question, SMS/WhatsApp, a native Android release for
+background GPS and a start-up screen, and measuring real dead zones (needs your OK to log per-driver network data).

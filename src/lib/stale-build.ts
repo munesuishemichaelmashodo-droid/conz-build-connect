@@ -21,12 +21,28 @@ export function isStaleBuildError(error: unknown): boolean {
 
 type Store = Pick<Storage, "getItem" | "setItem">;
 
-/** Reloads unless we already did so in the last minute. Returns whether it reloaded. */
+/**
+ * `navigator.onLine === false` is reliable ("definitely no connection"); `true` is not (it can be true with no
+ * real internet), so only the false case is used to hold back a reload.
+ */
+export function isDefinitelyOffline(
+  nav: { onLine?: boolean } | undefined = typeof navigator === "undefined" ? undefined : navigator,
+): boolean {
+  return nav?.onLine === false;
+}
+
+/**
+ * Reloads unless we already did so in the last minute, or the phone is definitely offline (a page file that fails
+ * to load with no signal is not a new release, and a reload would end on the browser's error page and lose
+ * whatever the driver had open). Returns whether it reloaded.
+ */
 export function reloadOnceForNewBuild(
   store: Store | null,
   reload: () => void,
   now: number = Date.now(),
+  offline: boolean = false,
 ): boolean {
+  if (offline) return false;
   try {
     const last = Number(store?.getItem(KEY) ?? 0);
     if (Number.isFinite(last) && now - last < MIN_GAP_MS) return false;
@@ -36,6 +52,30 @@ export function reloadOnceForNewBuild(
   }
   reload();
   return true;
+}
+
+const ROUTER_RELOAD_PREFIX = "tanstack_router_reload:";
+
+/**
+ * TanStack Router reloads the page, once per message, when a screen's code fails to load, and remembers that in
+ * sessionStorage. With no signal that reload ends on the browser's error page and loses whatever was open, so while
+ * the phone is definitely offline we answer "already reloaded": the failure then reaches the error screen, which
+ * says "No signal" and tries again by itself when it returns.
+ */
+export function shouldTreatRouterReloadAsDone(key: unknown, offline: boolean): boolean {
+  return offline && typeof key === "string" && key.startsWith(ROUTER_RELOAD_PREFIX);
+}
+
+let routerGuardInstalled = false;
+function installOfflineRouterReloadGuard(): void {
+  if (routerGuardInstalled || typeof window === "undefined" || typeof Storage === "undefined")
+    return;
+  routerGuardInstalled = true;
+  const original = Storage.prototype.getItem;
+  Storage.prototype.getItem = function (this: Storage, key: string) {
+    if (shouldTreatRouterReloadAsDone(key, isDefinitelyOffline())) return "1";
+    return original.call(this, key);
+  };
 }
 
 function sessionStore(): Store | null {
@@ -48,7 +88,12 @@ function sessionStore(): Store | null {
 
 export function recoverFromStaleBuild(error: unknown): boolean {
   if (typeof window === "undefined" || !isStaleBuildError(error)) return false;
-  return reloadOnceForNewBuild(sessionStore(), () => window.location.reload());
+  return reloadOnceForNewBuild(
+    sessionStore(),
+    () => window.location.reload(),
+    Date.now(),
+    isDefinitelyOffline(),
+  );
 }
 
 let installed = false;
@@ -56,8 +101,14 @@ let installed = false;
 export function installStaleBuildRecovery(): void {
   if (installed || typeof window === "undefined") return;
   installed = true;
+  installOfflineRouterReloadGuard();
   window.addEventListener("vite:preloadError", (event) => {
-    const reloaded = reloadOnceForNewBuild(sessionStore(), () => window.location.reload());
+    const reloaded = reloadOnceForNewBuild(
+      sessionStore(),
+      () => window.location.reload(),
+      Date.now(),
+      isDefinitelyOffline(),
+    );
     if (reloaded) event.preventDefault();
   });
 }
