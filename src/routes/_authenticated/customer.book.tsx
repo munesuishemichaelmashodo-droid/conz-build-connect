@@ -66,6 +66,7 @@ const bookSearchSchema = z.object({
   driverId: z.string().optional(),
   // Set by "Order again": the screen then says which details were reused.
   repeat: z.preprocess((v) => v === true || v === "true" || v === "1", z.boolean()).optional(),
+  source: z.literal("cancelled").optional().catch(undefined),
   // Set when the customer returns to book an admin-issued sourcing quote.
   sourcingRequestId: z.string().uuid().optional(),
 });

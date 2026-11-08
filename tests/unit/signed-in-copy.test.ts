@@ -18,13 +18,15 @@ describe("customerNow: one next action from the jobs already loaded", () => {
     expect(n?.meaning).toMatch(/while the driver's phone is sharing/);
     expect(n?.meaning).not.toMatch(/always|live the whole/i);
   });
-  it("open request never claims an offer exists and says the customer chooses", () => {
+  it("open request never claims an offer exists or that nothing can be assigned without the customer", () => {
     const n = customerNow([j("a", "completed"), j("b", "open")]);
     expect(n?.kind).toBe("open");
-    expect(n?.meaning).toMatch(/Nothing is accepted until you choose/);
+    expect(n?.meaning).toMatch(/can send offers/);
+    expect(n?.meaning).not.toMatch(/Nothing is accepted until you choose/);
   });
   it("accepted and completed map to their own next action", () => {
     expect(customerNow([j("a", "accepted")])?.action).toBe("Open delivery");
+    expect(customerNow([j("a", "accepted")])?.title).not.toMatch(/you chose/i);
     expect(customerNow([j("a", "completed")])?.action).toBe("View delivery");
     expect(customerNow([j("a", "cancelled")])).toBeNull();
   });

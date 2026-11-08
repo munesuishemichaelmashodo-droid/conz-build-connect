@@ -47,7 +47,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
 import { friendlyPaymentError } from "@/lib/paymentErrors";
 import { ShieldCheck } from "lucide-react";
-import { bookAgainSearch } from "@/lib/book-again";
+import { bookAgainSearch, repostSearch } from "@/lib/book-again";
 import { isDriverArrangedPickup, saveLoadedAt } from "@/lib/pickup-check";
 import { cn } from "@/lib/utils";
 import { SpotlightCallout } from "@/components/SpotlightCallout";
@@ -743,7 +743,7 @@ function JobDetail() {
         {showActionSection && (
           <Section id="tour-next-steps" title="What's next">
             <div className="space-y-4">
-              {showRadar && <RadarSearch nearbyDrivers={nearbyDrivers} />}
+              {showRadar && <RadarSearch nearbyDrivers={nearbyDrivers} createdAt={job.created_at} expiresAt={job.expires_at} />}
 
               {showEscrowBanner && (
                 <div className={cn(
@@ -2607,7 +2607,12 @@ function CancelledScreen({ ctx, backTo }: { ctx: JobScreenCtx; backTo: string })
           {ctx.job.cancellation_reason && <p className="text-sm text-cz-muted italic">"{ctx.job.cancellation_reason}"</p>}
         </CzCard>
         {ctx.isOwner && customerCanReopenNoShow(ctx.job as never) && <ReopenNoShowButton jobId={ctx.job.id} />}
-        <Link to={backTo as "/jobs"} className={czButtonClass("primary")}>
+        {ctx.isOwner && !customerCanReopenNoShow(ctx.job as never) && repostSearch(ctx.job) && (
+          <Link to="/customer/book" search={repostSearch(ctx.job) ?? {}} className={czButtonClass("primary")}>
+            Post this request again
+          </Link>
+        )}
+        <Link to={backTo as "/jobs"} className={czButtonClass(ctx.isOwner ? "secondary" : "primary")}>
           {ctx.isOwner ? "Back to my jobs" : "Find another load"}
         </Link>
       </div>
@@ -3361,7 +3366,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
           )}
         </dl>
 
-        {ctx.showRadar && <RadarSearch nearbyDrivers={ctx.nearbyDrivers} />}
+        {ctx.showRadar && <RadarSearch nearbyDrivers={ctx.nearbyDrivers} createdAt={ctx.job.created_at} expiresAt={ctx.job.expires_at} />}
 
         {live.length > 1 && (
           <ToggleGroupPrimitive.Root
@@ -3970,7 +3975,13 @@ function CustomerDelivered({ ctx }: { ctx: JobScreenCtx }) {
         <ProofPhotos job={job} viewer="customer" />
 
         <div className="space-y-2.5 pt-1">
-          <Link to="/customer/book" className={czButtonClass("primary")}>Book another load</Link>
+          <Link
+            to="/customer/book"
+            search={bookAgainSearch(job) ?? {}}
+            className={czButtonClass("primary")}
+          >
+            Book this delivery again
+          </Link>
           {ctx.showBookAgain && (
             <Link
               to="/customer/book"
