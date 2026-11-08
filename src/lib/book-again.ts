@@ -132,7 +132,7 @@ export function repeatNoticeText(
         ? "Same details as your earlier request"
         : "Based on your last delivery",
     details: parts.length ? parts.join(" · ") : "Your last delivery's details",
-    note: "Check these and change anything you need. The price is worked out fresh for this request, so it may differ from last time. Nothing is assigned until you choose an offer.",
+    note: "Check these and change anything you need. The price is worked out fresh for this request, so it may differ from last time. You see every offer and driver update on the job page.",
     invitation: search.driverId
       ? "We'll invite your previous driver to bid. They are not assigned and get no priority: other verified drivers can offer too, and you choose."
       : null,
