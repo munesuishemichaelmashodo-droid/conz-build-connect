@@ -6,6 +6,7 @@ import {
   isActiveJobStatus,
   listOfflineCards,
   navLinks,
+  pinForDisplay,
   readOfflineCard,
   readPin,
   removeOfflineCard,
@@ -196,8 +197,28 @@ describe("cardCopy", () => {
     const c = cardCopy(build({ delivery_lat: null, delivery_lng: null })!);
     expect(c.coordinates).toBe("Map position not saved");
   });
+  it("tells the customer when to show the PIN, and that ConZ never asks for it", () => {
+    const c = cardCopy(build()!);
+    expect(c.pinHelp).toMatch(/only after your load is delivered and checked/i);
+    expect(c.pinHelp).toMatch(/will never ask you for it/i);
+  });
   it("never promises anything will be sent or checked later", () => {
     const c = cardCopy(build()!);
     expect(JSON.stringify(c)).not.toMatch(/will be sent|queued|sent later|checked later/i);
+  });
+});
+
+describe("pinForDisplay", () => {
+  it("shows the PIN just fetched", () => {
+    expect(pinForDisplay({ fetched: "482917", networkFailed: false, cached: "111111" })).toEqual({ pin: "482917", failed: false });
+  });
+  it("falls back to the PIN saved on this phone when the request failed for lack of signal", () => {
+    expect(pinForDisplay({ fetched: null, networkFailed: true, cached: "482917" })).toEqual({ pin: "482917", failed: false });
+  });
+  it("says it failed, and shows no PIN, when there is no signal and nothing saved", () => {
+    expect(pinForDisplay({ fetched: null, networkFailed: true, cached: null })).toEqual({ pin: null, failed: true });
+  });
+  it("a real 'no PIN' answer never revives a stale saved PIN", () => {
+    expect(pinForDisplay({ fetched: null, networkFailed: false, cached: "482917" })).toEqual({ pin: null, failed: false });
   });
 });

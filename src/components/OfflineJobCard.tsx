@@ -8,7 +8,7 @@ import { telLink } from "@/lib/tel-link";
  * What a driver (or customer) sees for a delivery when the job cannot load: the details saved on this phone while there
  * was signal. A call needs voice, not data, so the number works with no data at all.
  */
-export function OfflineJobCard({ card }: { card: OfflineCard }) {
+export function OfflineJobCard({ card, pin = null }: { card: OfflineCard; pin?: string | null }) {
   const copy = cardCopy(card);
   const links = navLinks(card);
   const call = telLink(card.contactPhone);
@@ -49,16 +49,24 @@ export function OfflineJobCard({ card }: { card: OfflineCard }) {
           <p className="mt-2 border-t border-cz-border pt-2 text-sm text-cz-muted">{card.notes}</p>
         )}
       </div>
+      {card.role === "customer" && pin && (
+        <div className="rounded-xl border border-cz-border bg-cz-surface-2 p-3">
+          <div className="text-[13px] text-cz-muted">Your delivery PIN</div>
+          <div className="font-display text-3xl font-bold tracking-[0.2em] tabular-nums">{pin}</div>
+          <p className="mt-1 text-[13px] text-cz-muted">{copy.pinHelp}</p>
+        </div>
+      )}
       <div className="space-y-2">
         {call && (
           <a
             href={call}
             className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-cz-amber px-4 text-[17px] font-bold text-cz-amber-ink"
           >
-            <Phone className="h-5 w-5" /> Call {card.contactName ?? "the customer"}
+            <Phone className="h-5 w-5" /> Call{" "}
+            {card.contactName ?? (card.role === "driver" ? "the customer" : "your driver")}
           </a>
         )}
-        {links.geo && (
+        {card.role === "driver" && links.geo && (
           <a
             href={links.geo}
             className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-cz-border-strong px-4 text-[15px] font-semibold"
@@ -66,7 +74,7 @@ export function OfflineJobCard({ card }: { card: OfflineCard }) {
             <Navigation2 className="h-4 w-4" /> Open in a maps app
           </a>
         )}
-        {card.lat != null && (
+        {card.role === "driver" && card.lat != null && (
           <button
             type="button"
             onClick={copyPoint}

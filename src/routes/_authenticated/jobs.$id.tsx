@@ -49,13 +49,17 @@ import { friendlyPaymentError } from "@/lib/paymentErrors";
 import { ShieldCheck } from "lucide-react";
 import { isNetworkFailure, readContact, saveContact } from "@/lib/contact-cache";
 import { OfflineJobCard, ReadyOfflineChip } from "@/components/OfflineJobCard";
+import { useSaveOfflineCard } from "@/lib/use-save-offline-card";
 import {
   buildOfflineCard,
   isActiveJobStatus,
+  pinForDisplay,
   readOfflineCard,
+  readPin,
   removeOfflineCard,
   removePin,
   saveOfflineCard,
+  savePin,
 } from "@/lib/offline-card";
 import { telLink } from "@/lib/tel-link";
 import { loadStateCopy } from "@/lib/load-state";
@@ -357,10 +361,22 @@ function JobDetail() {
       job?.customer_id === userId &&
       ["accepted", "in_progress"].includes(job?.status ?? ""),
     queryFn: async () => {
-      const { data } = await (supabase.rpc as unknown as (
+      const store = typeof window === "undefined" ? null : window.localStorage;
+      const { data, error } = await (supabase.rpc as unknown as (
         f: string, a: Record<string, unknown>,
-      ) => Promise<{ data: string | null }>)("get_my_delivery_pin", { _job_id: id });
-      return (data as string | null) ?? null;
+      ) => Promise<{ data: string | null; error: { message?: string; code?: string } | null }>)(
+        "get_my_delivery_pin",
+        { _job_id: id },
+      );
+      // No signal at the gate: the customer can still show the PIN saved on their own phone (see lib/offline-card.ts).
+      const shown = pinForDisplay({
+        fetched: (data as string | null) ?? null,
+        networkFailed: !!error && isNetworkFailure(error),
+        cached: readPin(id, store),
+      });
+      if (shown.failed && error) throw error;
+      if (shown.pin && !error) savePin(id, shown.pin, store);
+      return shown.pin;
     },
   });
 
@@ -484,7 +500,10 @@ function JobDetail() {
     if (saved) {
       return (
         <AppShell>
-          <OfflineJobCard card={saved} />
+          <OfflineJobCard
+            card={saved}
+            pin={saved.role === "customer" ? readPin(id, typeof window === "undefined" ? null : window.localStorage) : null}
+          />
         </AppShell>
       );
     }
@@ -2951,32 +2970,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
   const { job, id } = ctx;
   const { other } = useJobContact(job, false);
   // Save the delivery details on this phone so they are still there with no signal (see lib/offline-card.ts).
-  const [readyOffline, setReadyOffline] = useState(false);
-  useEffect(() => {
-    if (!isActiveJobStatus(job.status)) return;
-    const card = buildOfflineCard({
-      job,
-      materialName: materialLabel(job.material as any, job.custom_material),
-      contact: other ? { full_name: other.full_name ?? null, phone: other.phone ?? null } : null,
-      role: "driver",
-    });
-    if (!card) return;
-    saveOfflineCard(card, window.localStorage);
-    setReadyOffline(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-save only when what the card shows changes
-  }, [
-    job.id,
-    job.status,
-    job.delivery_address,
-    job.delivery_lat,
-    job.delivery_lng,
-    job.notes,
-    job.pickup_address,
-    job.material,
-    job.quantity_m3,
-    other?.full_name,
-    other?.phone,
-  ]);
+  const readyOffline = useSaveOfflineCard(job, other, "driver");
   // Migration 0060: arrival is recorded server-side (driver_mark_arrived),
   // so the customer's step bar shows it too. Realtime on the job row
   // refreshes this screen when it lands.
@@ -3641,6 +3635,8 @@ function RaisePriceCard({ job, onRaised }: { job: any; onRaised: () => void }) {
 
 function useAcceptedDriver(ctx: JobScreenCtx) {
   const { name, other } = useJobContact(ctx.job, ctx.isOwner);
+  // The customer's own card (driver's number, the address, and the PIN) stays on this phone for no-signal moments.
+  useSaveOfflineCard(ctx.job, other, "customer");
   const bid = (ctx.bids ?? []).find((b: any) => b.status === "accepted");
   const fullName = other?.full_name ?? bid?.profile?.full_name ?? name;
   return {

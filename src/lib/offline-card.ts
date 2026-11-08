@@ -204,13 +204,28 @@ export function cardCopy(
   card: OfflineCard,
   clock: (ms: number) => string = (ms) =>
     new Date(ms).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }),
-): { ready: string; saved: string; coordinates: string } {
+): { ready: string; saved: string; coordinates: string; pinHelp: string } {
   return {
     ready: "Ready offline",
+    pinHelp:
+      "Show this PIN to the driver only after your load is delivered and checked. ConZ will never ask you for it.",
     saved: `Saved on this phone at ${clock(card.savedAt)}`,
     coordinates:
       card.lat != null && card.lng != null
         ? `${card.lat.toFixed(5)}, ${card.lng.toFixed(5)}`
         : "Map position not saved",
   };
+}
+
+/**
+ * Which PIN the customer's screen shows. A real answer from the server wins, including "no PIN" (a stale saved PIN must
+ * never come back to life). Only a request that failed for lack of signal falls back to the copy saved on this phone.
+ */
+export function pinForDisplay(i: {
+  fetched: string | null;
+  networkFailed: boolean;
+  cached: string | null;
+}): { pin: string | null; failed: boolean } {
+  if (!i.networkFailed) return { pin: i.fetched, failed: false };
+  return i.cached ? { pin: i.cached, failed: false } : { pin: null, failed: true };
 }
