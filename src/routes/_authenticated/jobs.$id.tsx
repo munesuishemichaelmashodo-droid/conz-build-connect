@@ -3975,7 +3975,13 @@ function CustomerDelivered({ ctx }: { ctx: JobScreenCtx }) {
         <ProofPhotos job={job} viewer="customer" />
 
         <div className="space-y-2.5 pt-1">
-          <Link to="/customer/book" className={czButtonClass("primary")}>Book another load</Link>
+          <Link
+            to="/customer/book"
+            search={bookAgainSearch(job) ?? {}}
+            className={czButtonClass("primary")}
+          >
+            Book this delivery again
+          </Link>
           {ctx.showBookAgain && (
             <Link
               to="/customer/book"
