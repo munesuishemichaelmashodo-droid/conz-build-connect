@@ -107,8 +107,8 @@ select is((select count(*)::int from public.profiles where id = auth.uid()), 1, 
 select is((select count(*)::int from public.profiles where id <> auth.uid()), 0, 'and no one else''s');
 update public.profiles set phone = '+263779999999' where id = current_setting('t.cust')::uuid;
 select tests.login_as(current_setting('t.cust')::uuid);
-select is((select count(*)::int from public.profiles where id = current_setting('t.drv')::uuid), 1,
-  'A customer reads the profile of a driver who bid on their job');
+select is((select count(*)::int from public.profiles where id = current_setting('t.drv')::uuid), 0,
+  'A customer does not read the profile row of a driver who only bid (0153; they get a safe card instead)');
 select is((select count(*)::int from public.profiles where id = current_setting('t.drv2')::uuid), 0,
   'but not of a driver who did not');
 select is((select phone from public.profiles where id = auth.uid()), null::text, 'Another user could not change this customer''s phone');
