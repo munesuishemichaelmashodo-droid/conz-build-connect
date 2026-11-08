@@ -437,3 +437,27 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
 - Live `hold_job_commission` / `release_job_commission` are the OLDER versions (md5 `959e1824…` / `28707533…`); the local stack builds
   newer ones (0091/0134). Money-path tests (820, 870) pass on both; check live before assuming a newer behaviour.
 - Details: `docs/marketplace/RELIABILITY-2026-11-07.md`, `docs/marketplace/RETENTION-TRUST-2026-11-07.md`.
+
+## 08/11/2026 — overnight improvements and offline work (PRs #74–#80, all merged to `main`, web only, no migrations)
+
+- #74 repost cancelled/expired requests, waiting screen shows posted time and close time, prefilled repeat on the delivered
+  screen, customer-home wording that stays true under dispatch assignment. #75/#76 same honesty fix in the repeat notice and the
+  driver walkthrough. #77 a malformed tracking link says "not found". #78 driver location sharing resumes after leaving the page
+  or a reload and warns when the customer cannot see the driver; the customer's ETA is truck time (road time x 1.4) everywhere,
+  and the route request bug (timer cancelled by an effect re-run; destination arriving late) is fixed.
+- #79 offline phase 0: only a real server answer signs someone out of a screen (`src/lib/auth-guard.ts`, `route-guards.ts`; admin
+  screens deliberately untouched), failed profile/role reads no longer wipe roles, TanStack Router's own page reload is held back
+  while offline (`stale-build.ts`), a "No signal" banner, job page "Waiting for signal", Call button works from a number saved on the phone.
+- #80 "Ready offline": per-job card (address, map position, notes, other person's number; customer's delivery PIN) saved in
+  localStorage for 7 days (`offline-card.ts`), shown when the job cannot load, cleared at sign-out BEFORE the sign-out request
+  (`sign-out.ts`) and when the job ends; `public/sw.js` now also serves `public/offline.html` for failed page navigations.
+- Research and plan: `docs/offline/OFFLINE-RESEARCH-2026-11-08.md`, `docs/superpowers/plans/2026-11-08-offline-ready-card.md`.
+  Owner findings and reserved decisions: `docs/marketplace/OWNER-DECISIONS-2026-11-08.md` (seven jobs stuck 19-88 days; dispatch
+  honesty; no drivers online overnight; Android background GPS needs a native release).
+- NOT verified: the service worker inside the Android shell's WebView, any real phone, push delivery. Signing out with no signal does not end
+  the session (the sign-in library gives up on a network error): saved data is cleared, the session fix is a follow-up.
+- Owner approved the recommended answers (08/11): next slice needs the database (photo outbox with capture-time columns, late-evidence labels in
+  the admin dispute panel, "delivered, waiting for confirmation"), and must leave the commission/reserve/escrow clocks (24 h no-show
+  sweep, 72 h auto-release) alone and flag them.
+- Gotchas: Playwright's offline switch does not stop a service worker's own requests (stop the dev server to test the fallback page);
+  never branch from local `main` (it is stale): `git fetch` and branch from `origin/main`.
