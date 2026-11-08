@@ -1,14 +1,11 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { createFileRoute } from "@tanstack/react-router";
+import { requireRole, requireUser } from "@/lib/route-guards";
 import { RoleDashboard } from "@/components/RoleDashboard";
 
 export const Route = createFileRoute("/_authenticated/driver")({
   beforeLoad: async () => {
-    const { data: u } = await supabase.auth.getUser();
-    if (!u.user) throw redirect({ to: "/auth" });
-    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
-    const list = (roles ?? []).map((r: { role: string }) => r.role);
-    if (!list.includes("driver")) throw redirect({ to: "/home" });
+    const user = await requireUser();
+    await requireRole(user, ["driver"], "/home");
   },
   component: () => <RoleDashboard role="driver" />,
 });

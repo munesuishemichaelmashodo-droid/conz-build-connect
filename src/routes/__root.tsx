@@ -10,7 +10,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { recoverFromStaleBuild } from "../lib/stale-build";
+import { isDefinitelyOffline, isStaleBuildError, recoverFromStaleBuild } from "../lib/stale-build";
 import appCss from "../styles.css?url";
 import "../lib/fonts";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -52,11 +52,45 @@ function ErrorComponent({ error: rawError, reset }: { error: unknown; reset: () 
   const error = rawError instanceof Error ? rawError : new Error(typeof rawError === "string" ? rawError : "Unknown error");
   console.error(error);
   const router = useRouter();
+  // A page file that fails to load with no signal is not a crash: say so, and try again when the signal returns.
+  const noSignal = isStaleBuildError(error) && isDefinitelyOffline();
   useEffect(() => {
+    if (!noSignal) return;
+    const retry = () => {
+      router.invalidate();
+      reset();
+    };
+    window.addEventListener("online", retry);
+    return () => window.removeEventListener("online", retry);
+  }, [noSignal, reset, router]);
+  useEffect(() => {
+    if (noSignal) return;
     // A tab left open across a release can't load the new page files: reload once instead.
     if (recoverFromStaleBuild(error)) return;
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
+  }, [error, noSignal]);
+  if (noSignal) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div role="status" className="max-w-md text-center">
+          <h1 className="text-xl font-display font-bold">No signal right now</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            This screen needs an internet connection to open. Screens you already have open keep working. We will try
+            again by ourselves when your signal is back.
+          </p>
+          <button
+            onClick={() => {
+              router.invalidate();
+              reset();
+            }}
+            className="mt-6 inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">

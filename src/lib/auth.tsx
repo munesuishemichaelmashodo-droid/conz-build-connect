@@ -1,4 +1,6 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { keepIfFailed } from "@/lib/auth-guard";
+import { clearContacts } from "@/lib/contact-cache";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,7 +51,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const activate = useServerFn(activateAccount);
   const qc = useQueryClient();
 
-  const load = async (uid: string | null, repair = false) => {
+  const latestUid = useRef<string | null>(null);
+
+  const load = async (uid: string | null, repair = false, attempt = 0): Promise<void> => {
+    if (attempt === 0) latestUid.current = uid;
     if (!uid) {
       setProfile(null);
       setRoles([]);
@@ -66,12 +71,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("Account activation failed", error);
       }
     }
-    const [{ data: p }, { data: r }] = await Promise.all([
+    const [pRes, rRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", uid).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", uid),
     ]);
-    setProfile((p as Profile) ?? null);
-    setRoles(((r ?? []) as { role: AppRole }[]).map((x) => x.role));
+    // A failed read (no signal) keeps what we already knew instead of wiping the profile and roles.
+    setProfile((prev) =>
+      keepIfFailed<Profile | null>(prev, pRes, (d) => (d as Profile | null) ?? null),
+    );
+    setRoles((prev) =>
+      keepIfFailed<AppRole[]>(prev, rRes, (d) =>
+        ((d ?? []) as { role: AppRole }[]).map((x) => x.role),
+      ),
+    );
+    // Try again shortly if either read failed, so roles arrive once the signal does (a few tries, then stop).
+    if ((pRes.error || rRes.error) && attempt < 3) {
+      window.setTimeout(
+        () => {
+          if (latestUid.current === uid) void load(uid, false, attempt + 1); // not if they signed out meanwhile
+        },
+        4000 * (attempt + 1),
+      );
+    }
   };
 
   useEffect(() => {
@@ -86,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }, 0);
       if (event === "SIGNED_OUT") {
         qc.clear();
+        clearContacts(window.localStorage); // numbers saved for offline calling go with the session
       } else if (event === "SIGNED_IN" || event === "USER_UPDATED") {
         qc.invalidateQueries();
       }
