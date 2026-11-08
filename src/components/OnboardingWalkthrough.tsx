@@ -37,7 +37,7 @@ const DRIVER_SLIDES: Slide[] = [
   {
     icon: Briefcase,
     title: "Welcome to Con Z",
-    body: "See the load, size and delivery area, then offer a price that suits your truck. No one assigns work to you; you choose what is worth pursuing.",
+    body: "See the load, size and delivery area, then offer a price that suits your truck, or accept a job sent to you. You choose what is worth taking.",
   },
   {
     icon: Wallet,
