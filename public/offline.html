@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>No signal · Con Z</title>
+<style>
+  :root { color-scheme: light dark; --bg:#faf8f5; --card:#fff; --text:#1a1612; --muted:#6a6259; --line:#e3ded6; --amber:#ff7716; --amber-ink:#1a1612; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#110e0c; --card:#1b1713; --text:#f3eee8; --muted:#a79e93; --line:#322c26; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:30rem; margin:0 auto; padding:20px 16px 40px; }
+  h1 { font-size:1.4rem; margin:0 0 4px; }
+  .lead { color:var(--muted); margin:0 0 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin:0 0 14px; }
+  .title { font-weight:700; }
+  .muted { color:var(--muted); font-size:.9rem; }
+  .pin { margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:12px; }
+  .pin b { display:block; font-size:2rem; letter-spacing:.2em; font-variant-numeric:tabular-nums; }
+  a.btn, button.btn { display:flex; align-items:center; justify-content:center; min-height:48px; margin-top:10px; border-radius:12px; border:1px solid var(--line); background:transparent; color:var(--text); font:inherit; font-weight:600; text-decoration:none; width:100%; cursor:pointer; }
+  a.primary { background:var(--amber); border-color:var(--amber); color:var(--amber-ink); font-weight:700; font-size:1.05rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>No signal</h1>
+  <p class="lead">This page needs an internet connection. Here is what is saved on this phone.</p>
+  <div id="cards"></div>
+  <p id="none" class="muted" hidden>Nothing is saved on this phone yet. Open your delivery once while you have signal and its details will be kept here for next time.</p>
+  <button id="retry" class="btn" type="button">Try again</button>
+</main>
+<script>
+// Reads the cards and PINs the app saves in localStorage (see src/lib/offline-card.ts: same keys, 7-day life).
+// Written with textContent only, so nothing stored can inject markup.
+(function () {
+  var CARD = "conz.offlinecard.", PIN = "conz.offlinepin.", TTL = 7 * 24 * 60 * 60 * 1000, now = Date.now();
+  function read(key) { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { return null; } }
+  function tel(phone) {
+    if (!phone) return null;
+    var p = String(phone).replace(/[^\d+]/g, "");
+    if (p.charAt(0) === "+") p = p.slice(1);
+    if (p.indexOf("00") === 0) p = p.slice(2);
+    if (p.charAt(0) === "0") p = "263" + p.slice(1);
+    return p.length < 9 ? null : "tel:+" + p;
+  }
+  function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text) n.textContent = text; return n; }
+  function link(href, cls, text) { var a = el("a", "btn " + cls, text); a.href = href; return a; }
+  function time(ms) { var d = new Date(ms); return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2); }
+
+  var cards = [];
+  try {
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.indexOf(CARD) === 0) {
+        var c = read(k);
+        if (c && typeof c.savedAt === "number" && now - c.savedAt <= TTL) cards.push(c);
+      }
+    }
+  } catch (e) {}
+  cards.sort(function (a, b) { return b.savedAt - a.savedAt; });
+
+  var box = document.getElementById("cards");
+  cards.forEach(function (c) {
+    var card = el("section", "card");
+    card.appendChild(el("div", "title", c.title || "Delivery"));
+    if (c.deliveryAddress) card.appendChild(el("div", "", c.deliveryAddress));
+    var hasPoint = typeof c.lat === "number" && typeof c.lng === "number";
+    card.appendChild(el("div", "muted", hasPoint ? c.lat.toFixed(5) + ", " + c.lng.toFixed(5) : "Map position not saved"));
+    if (c.notes) card.appendChild(el("p", "muted", c.notes));
+    card.appendChild(el("div", "muted", "Saved on this phone at " + time(c.savedAt)));
+    if (c.role === "customer") {
+      var pin = read(PIN + c.jobId);
+      if (pin && typeof pin.pin === "string" && typeof pin.savedAt === "number" && now - pin.savedAt <= TTL) {
+        var box2 = el("div", "pin");
+        box2.appendChild(el("span", "muted", "Your delivery PIN"));
+        box2.appendChild(el("b", "", pin.pin));
+        box2.appendChild(el("span", "muted", "Show this PIN to the driver only after your load is delivered and checked. ConZ will never ask you for it."));
+        card.appendChild(box2);
+      }
+    }
+    var call = tel(c.contactPhone);
+    var who = c.contactName || (c.role === "driver" ? "the customer" : "your driver");
+    if (call) card.appendChild(link(call, "primary", "Call " + who));
+    if (c.role === "driver" && hasPoint) {
+      var q = c.lat + "," + c.lng;
+      card.appendChild(link("geo:" + q + "?q=" + q + (c.deliveryAddress ? "(" + encodeURIComponent(c.deliveryAddress) + ")" : ""), "", "Open in a maps app"));
+    }
+    box.appendChild(card);
+  });
+  if (!cards.length) document.getElementById("none").hidden = false;
+
+  function retry() { location.reload(); }
+  document.getElementById("retry").addEventListener("click", retry);
+  window.addEventListener("online", retry);
+})();
+</script>
+</body>
+</html>
