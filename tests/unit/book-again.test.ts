@@ -166,10 +166,11 @@ describe("repeatNoticeText", () => {
     expect(n.details).toBe("River sand · 12 m³ · to Harward Road, Harare");
     expect(n.note).toMatch(/change anything/i);
   });
-  it("says the price is quoted fresh and nothing is assigned until the customer chooses", () => {
+  it("says the price is quoted fresh and does not promise the customer always chooses", () => {
     const n = repeatNoticeText(search, "River sand")!;
     expect(n.note).toMatch(/price is worked out fresh/i);
-    expect(n.note).toMatch(/nothing is assigned until you choose/i);
+    expect(n.note).toMatch(/every offer and driver update/i);
+    expect(n.note).not.toMatch(/nothing is assigned until you choose/i);
   });
   it("an invited previous driver is not assigned and has no priority", () => {
     const n = repeatNoticeText({ ...search, driverId: "d1" }, "River sand")!;
