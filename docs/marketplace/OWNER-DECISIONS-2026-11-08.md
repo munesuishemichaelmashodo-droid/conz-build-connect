@@ -31,3 +31,19 @@ Reserved because they need you (nothing below was changed):
 10. Screens checked in a browser against the sample-data stand-in at 390 px (customer, driver, applicant, admin: 39 screens): no page
     errors, broken text or horizontal overflow. Repost and the corrected notice confirmed visually. Not checked: real production data,
     a real phone, push delivery.
+
+## Driver location sharing and customer ETA (08/11/2026, after the owner's test)
+
+Fixed in code: sharing was kept only in the open page's memory, so leaving the screen, reloading, or the phone suspending the app
+ended it silently and it showed "Off" again. It now remembers that the driver started it for that job, resumes by itself when they
+come back, restarts if updates stop for 90 s, and shows a clear warning whenever the customer cannot see the driver (not started,
+stopped updating, blocked by the phone, or switched off in privacy settings).
+
+**Limit that code cannot remove (owner decision):** a web page or the Capacitor shell cannot read GPS while the phone screen is
+off or Con Z is in the background (for example while using Google Maps). Sharing pauses then and resumes when the driver returns
+to Con Z. The only real fix is a native background-location plugin in the Android app (a new app release, a Play Store
+"background location" declaration, a battery/notification trade-off) or asking drivers to keep Con Z open on screen. Say which you want.
+
+Customer ETA: the customer's own job screen showed raw car time while the shared link showed truck time (x1.4), and the route was
+sometimes never requested at all (a timing bug). Both fixed; the two screens now give the same estimate. The 1.4 factor is still
+an assumption; compare with `job_route_points` once real trips exist.
