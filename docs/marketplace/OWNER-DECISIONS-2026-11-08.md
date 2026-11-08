@@ -69,3 +69,26 @@ From the report "ConZ offline and poor network features". Built and checked in a
 Still reserved for you (Phase 1 and later, see the report): photo outbox and "Ready offline" card (changes how evidence is timed and
 touches the 72-hour release and 24-hour no-show clocks), the PIN question, SMS/WhatsApp, a native Android release for
 background GPS and a start-up screen, and measuring real dead zones (needs your OK to log per-driver network data).
+
+## Offline "Ready offline" card (08/11/2026): built, web only, no database or payment change
+
+You approved the recommended answers. This is the first slice of Phase 1 that needs no database change:
+- A driver's phone saves the delivery (address, map position, notes, the customer's name and number) while there is signal and shows
+  a quiet "Ready offline" note. A customer's phone saves the driver's number, the address and the delivery PIN.
+- If the job cannot load, the screen shows that saved card with a Call button and (for drivers) an "Open in a maps app" link.
+- If a whole page cannot load, a small service-worker fallback page shows the same saved cards instead of the browser's error page.
+- Saved cards and PINs live only on the person's own phone, for at most 7 days, and are removed at sign-out and when the delivery ends.
+
+Verified in a Chromium browser against the sample-data stand-in, including with the dev server truly stopped (the fallback page, the
+Call and maps links, and "Try again" once the server returned). NOT verified: the Android app's WebView. Whether the service worker
+registers and answers inside the `com.conz.app` shell (which loads the live site by URL) must be checked on a real phone; if it does
+not, the in-app saved card still works whenever the app is already open, and nothing else changes.
+
+Still to build (next plan, needs the database): the photo outbox ("save now, send later") with the capture-time columns, the
+late-evidence labels in the admin dispute panel, and the "waiting for confirmation" status. Those follow your approved answers but
+touch how evidence is timed; they will leave the commission/reserve/escrow clocks alone and flag them to you.
+
+Found while reviewing the offline card (not changed): signing out with NO signal does not end the session. The sign-in library asks
+the server first and gives up on a network error, so the "Sign out" button appears to work but the phone stays signed in. The saved
+cards, PINs and numbers are now removed first, so nothing of the last person's delivery stays on a shared phone, but the session
+itself should be fixed in a follow-up (remove the stored session when the server cannot be reached).

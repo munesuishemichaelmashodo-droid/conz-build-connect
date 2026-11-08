@@ -48,6 +48,21 @@ import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/pay
 import { friendlyPaymentError } from "@/lib/paymentErrors";
 import { ShieldCheck } from "lucide-react";
 import { isNetworkFailure, readContact, saveContact } from "@/lib/contact-cache";
+import { OfflineJobCard, ReadyOfflineChip } from "@/components/OfflineJobCard";
+import { useSaveOfflineCard } from "@/lib/use-save-offline-card";
+import {
+  buildOfflineCard,
+  isActiveJobStatus,
+  pinForDisplay,
+  readOfflineCard,
+  readPin,
+  removeOfflineCard,
+  removePin,
+  saveOfflineCard,
+  savePin,
+  shouldPruneSavedJob,
+} from "@/lib/offline-card";
+import { telLink } from "@/lib/tel-link";
 import { loadStateCopy } from "@/lib/load-state";
 import { bookAgainSearch, repostSearch } from "@/lib/book-again";
 import { isDriverArrangedPickup, saveLoadedAt } from "@/lib/pickup-check";
@@ -101,19 +116,6 @@ import { ChevronDown, ChevronRight, Clock, Info, Navigation2, TrendingUp } from 
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
   component: JobDetail,
 });
-
-// Plain tap-to-dial link — opens the phone's own dialer. Deliberately not a
-// masked/in-app call: it's simple, free, and needs no calling provider, at
-// the cost of showing each party the other's real phone number.
-const telLink = (phone: string | null | undefined) => {
-  if (!phone) return null;
-  let p = phone.replace(/[^\d+]/g, "");
-  if (p.startsWith("+")) p = p.slice(1);
-  if (p.startsWith("00")) p = p.slice(2);
-  if (p.startsWith("0")) p = "263" + p.slice(1);
-  if (p.length < 9) return null;
-  return `tel:+${p}`;
-};
 
 // Live-tracking share panel — lets either party hand off a login-free
 // tracking link to someone outside Con Z (e.g. a foreman waiting on site).
@@ -265,6 +267,7 @@ function JobDetail() {
     data: job,
     isLoading,
     isError: jobFailed,
+    error: jobError,
     fetchStatus: jobFetchStatus,
     refetch: refetchJob,
   } = useQuery({
@@ -277,6 +280,18 @@ function JobDetail() {
       return (await fetchOpenJob(supabase, id)) as typeof data;
     },
   });
+
+  // Saved offline details belong only to a delivery that is under way; a finished or cancelled job must not leave an
+  // old address (or PIN) on the phone.
+  useEffect(() => {
+    // "settled": the server really answered. A driver cannot read a job once it is cancelled, so "answered, no row"
+    // also means the delivery is over.
+    const settled = !isLoading && !jobFailed && jobFetchStatus === "idle";
+    if (shouldPruneSavedJob({ job, settled })) {
+      removeOfflineCard(id, window.localStorage);
+      removePin(id, window.localStorage);
+    }
+  }, [id, job?.status, isLoading, jobFailed, jobFetchStatus]);
 
   // Without this, a driver who had this page open when their bid got
   // accepted (or a customer watching a job change status) kept seeing the
@@ -351,10 +366,22 @@ function JobDetail() {
       job?.customer_id === userId &&
       ["accepted", "in_progress"].includes(job?.status ?? ""),
     queryFn: async () => {
-      const { data } = await (supabase.rpc as unknown as (
+      const store = typeof window === "undefined" ? null : window.localStorage;
+      const { data, error } = await (supabase.rpc as unknown as (
         f: string, a: Record<string, unknown>,
-      ) => Promise<{ data: string | null }>)("get_my_delivery_pin", { _job_id: id });
-      return (data as string | null) ?? null;
+      ) => Promise<{ data: string | null; error: { message?: string; code?: string } | null }>)(
+        "get_my_delivery_pin",
+        { _job_id: id },
+      );
+      // No signal at the gate: the customer can still show the PIN saved on their own phone (see lib/offline-card.ts).
+      const shown = pinForDisplay({
+        fetched: (data as string | null) ?? null,
+        networkFailed: !!error && isNetworkFailure(error),
+        cached: readPin(id, store),
+      });
+      if (shown.failed && error) throw error;
+      if (shown.pin && !error) savePin(id, shown.pin, store);
+      return shown.pin;
     },
   });
 
@@ -470,6 +497,23 @@ function JobDetail() {
 
   if (isLoading || !job) {
     const state = loadStateCopy({ error: jobFailed && !job, paused: jobFetchStatus === "paused" });
+    // The job cannot be loaded: show the delivery details saved on this phone while there was signal.
+    // Only for a missing signal: a real server error (for example an expired session) must say so, not "No signal".
+    const noSignal =
+      state.kind === "paused" ||
+      (state.kind === "error" && isNetworkFailure(jobError as { message?: string; code?: string } | null));
+    const saved =
+      !job && noSignal ? readOfflineCard(id, typeof window === "undefined" ? null : window.localStorage) : null;
+    if (saved) {
+      return (
+        <AppShell>
+          <OfflineJobCard
+            card={saved}
+            pin={saved.role === "customer" ? readPin(id, typeof window === "undefined" ? null : window.localStorage) : null}
+          />
+        </AppShell>
+      );
+    }
     return (
       <AppShell>
         <div role={state.kind === "error" ? "alert" : "status"} className="text-center text-muted-foreground py-10 space-y-2">
@@ -2932,6 +2976,8 @@ function JobSummaryCard({ job, id = "tour-job-header" }: { job: any; id?: string
 function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
   const { job, id } = ctx;
   const { other } = useJobContact(job, false);
+  // Save the delivery details on this phone so they are still there with no signal (see lib/offline-card.ts).
+  const readyOffline = useSaveOfflineCard(job, other, "driver");
   // Migration 0060: arrival is recorded server-side (driver_mark_arrived),
   // so the customer's step bar shows it too. Realtime on the job row
   // refreshes this screen when it lands.
@@ -3154,6 +3200,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
         </div>
 
         <ContactCard ctx={ctx} role="customer" subtitle={`${mat} · ${Number(job.quantity_m3)} m³`} />
+        {readyOffline && <ReadyOfflineChip />}
 
         <SupplyConfirmationCard job={job} viewer="driver" />
 
@@ -3595,6 +3642,8 @@ function RaisePriceCard({ job, onRaised }: { job: any; onRaised: () => void }) {
 
 function useAcceptedDriver(ctx: JobScreenCtx) {
   const { name, other } = useJobContact(ctx.job, ctx.isOwner);
+  // The customer's own card (driver's number, the address, and the PIN) stays on this phone for no-signal moments.
+  useSaveOfflineCard(ctx.job, other, "customer");
   const bid = (ctx.bids ?? []).find((b: any) => b.status === "accepted");
   const fullName = other?.full_name ?? bid?.profile?.full_name ?? name;
   return {

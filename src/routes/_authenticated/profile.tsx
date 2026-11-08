@@ -1,3 +1,4 @@
+import { clearDeviceData } from "@/lib/sign-out";
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
@@ -331,6 +332,7 @@ function DeleteAccountCard() {
         return toast.error(res.message, { duration: 10000 });
       }
       toast.success("Your account has been deleted.");
+      clearDeviceData();
       await supabase.auth.signOut();
       window.location.href = "/";
     } catch (err) {
