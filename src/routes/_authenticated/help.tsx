@@ -132,7 +132,7 @@ function HelpPage() {
       <div className="space-y-6 max-w-2xl mx-auto">
         <section className="rounded-2xl dark bg-gradient-dark text-white p-5">
           <LifeBuoy className="w-8 h-8 text-cz-amber-text" />
-          <h1 className="font-display font-bold text-2xl mt-2">Need a hand?</h1>
+          <h2 className="font-display font-bold text-2xl mt-2">Need a hand?</h2>
           <p className="text-sm text-white/70 mt-1">Check the FAQ below or reach us directly.</p>
         </section>
 

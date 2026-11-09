@@ -75,3 +75,9 @@ Anything touching live money, RLS on sensitive data, legal text, provider settin
   Not done here: a human walk-through of the admin KYC review screen, and a test of every role against every table over HTTP.
 - **Stage 6 payments:** `docs/payments/CONZ_PAYMENT_INTEGRATION_HANDOVER.md` written (settings verified live; Linkwa out of scope).
 - **F-AGR-1 resolved (09/11):** 0162 makes the deposit Driver-proposed: a customer's new version keeps the latest non-declined deposit, a different amount is refused (`Only the driver can propose or change a deposit`). Card shows customers a read-only deposit line. Local checks: pgTAP full suite 90 files / 1827 tests PASS, undo script and re-apply tested on the local stack, 857 unit tests.
+- **Stage 7 UI / accessibility sweep (09/11, local stand-in with sample data, headless Chromium):** 136 page loads = 3 roles (public, customer, driver) x widths 360 / 390 / 768 / 1280 x light and dark, over
+  public (/, /terms, /privacy, /auth, /quote, /open-jobs), customer (/customer, /jobs, /wallet, /help, /profile, two job pages) and driver (/driver, /wallet, /help, /profile) screens.
+  Results: **0 pages with horizontal overflow**, 0 console errors (known local noise excluded), 0 images without alt text, 0 unlabeled form fields. One checker hit (an "unnamed" 20 px checkbox) was a false
+  positive: it is the Terms-gate checkbox inside a `<label>` with text. Small targets are inline text links, required map-attribution links and a 44x24 switch (all within WCAG 2.2 AA's 24 px minimum; not 44 px).
+  Fixed: driver home had no `h1` (hidden "Driver home" added); Help had two `h1` (in-page title is now `h2`). Agreement card checked at 390 px as a customer: read-only deposit line, no deposit input, layout clean.
+  **Not covered:** colour-contrast measurement, a screen reader, keyboard-only walk-through, admin screens, real devices, production data, performance budgets.
