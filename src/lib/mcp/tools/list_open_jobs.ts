@@ -45,7 +45,8 @@ export default defineTool({
       }));
     return {
       content: [{ type: "text", text: JSON.stringify(data ?? []) }],
-      structuredContent: { jobs: data ?? [] },
+      // JSON-safe copy: the fields come from an untyped row, so the SDK's strict JSON type needs a plain value.
+      structuredContent: { jobs: JSON.parse(JSON.stringify(data ?? [])) },
     };
   },
 });
