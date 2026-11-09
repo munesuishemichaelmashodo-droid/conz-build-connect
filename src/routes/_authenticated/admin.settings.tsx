@@ -567,7 +567,7 @@ function MaterialPriceRow({
             </div>
             <p className="text-[11px] text-muted-foreground">
               Distance/price for this material is calculated from here.{" "}
-              {pickupCoords ? "Currently set." : "Not set yet — falls back to the default Harare point."}
+              {pickupCoords ? "Currently set." : "Not set yet. No default point is assumed: pick the real location."}
             </p>
             <AddressPicker
               value={pickupLabel}

@@ -6,7 +6,7 @@ Nothing here was done. Each item says what is blocked and the safest default.
 | --- | --- | --- | --- |
 | 1 | **Legal company name**: code says "Navysky Innovations (Private) Limited" (no. 145174A02102026); the spec also mentions "Sky Innovations Limited" | Legal identity; not guessed or equated | Keep current wording; no legal text edits |
 | 2 | **Protected demo accounts**: the two emails to keep are not named in the spec or repo docs | Needed before any demo cleanup | Dry-run inventory only; no delete or modify; backup first |
-| 3 | **$20 promo commission credit** replacing first-job-free: live migration (0134 is old, has open finding M4) | Live financial behaviour | Stay as is; a corrected migration will be written, tested locally, not applied |
+| 3 | **$20 promo commission credit** replacing first-job-free: live migration (0134 is old, has open finding M4) | Live financial behaviour | Stay as is. First-job-free is still live and true, so its 6 copy places stay until you approve; they change together with the migration |
 | 4 | **Turn on delivery-only (transport) pricing** (`system_settings.transport_pricing_enabled`) and re-check the $500 cap | Money rule | Off (your 09/11 decision) |
 | 5 | **Licensed truck-profile road router** instead of the free car-profile router | Cost/provider choice | Free router with a stated caveat |
 | 6 | **Payment providers**: Paynow settings, Payonify (PR #38, not merged), Linkwa (treated as unapproved) | Provider credentials/legal | No change; handover doc will list questions |
@@ -17,3 +17,4 @@ Nothing here was done. Each item says what is blocked and the safest default.
 | 11 | Lawyer/regulatory questions in `CONZ-COMMISSION-CREDIT-RISK-NOTE.md` (commission credit, directors, ZIMRA TIN for the company) | Legal conclusions | None made |
 | 12 | Real-device tests (Android phone, push delivery) | Needs hardware | Reported as unverified |
 | 13 | Repair `schema_migrations` for 0077-0108 before any `supabase db push` | Touches migration history | Never run `db push` |
+| 14 | **Deposit rule (F-AGR-1)**: agreements let either side propose a deposit; spec says the Driver proposes it. Fix = small migration + card change | Rights rule | Not changed; confirm and I will build it with tests |
