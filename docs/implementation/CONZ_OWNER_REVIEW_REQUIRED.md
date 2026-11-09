@@ -17,4 +17,4 @@ Nothing here was done. Each item says what is blocked and the safest default.
 | 11 | Lawyer/regulatory questions in `CONZ-COMMISSION-CREDIT-RISK-NOTE.md` (commission credit, directors, ZIMRA TIN for the company) | Legal conclusions | None made |
 | 12 | Real-device tests (Android phone, push delivery) | Needs hardware | Reported as unverified |
 | 13 | Repair `schema_migrations` for 0077-0108 before any `supabase db push` | Touches migration history | Never run `db push` |
-| 14 | ~~Deposit rule (F-AGR-1)~~ **Built 09/11** to the spec's rule (Driver proposes, Customer accepts): migration 0162 + card change, pgTAP 930 (22 tests), undo script tested. Live apply is recorded in the execution status | None needed unless you want the old behaviour back | Undo: `supabase/rollbacks/20261109170000_0162_rollback.sql` |
+| 14 | ~~Deposit rule (F-AGR-1)~~ **Built 09/11** to the spec's rule (Driver proposes, Customer accepts): migration 0162 + card change, pgTAP 930 (22 tests), undo script tested. Live since 09/11 (production had 0 agreements) | None needed unless you want the old behaviour back | Undo: `supabase/rollbacks/20261109170000_0162_rollback.sql` |
