@@ -26,8 +26,9 @@ Fuller matrix and invariants: `docs/marketplace/CONZ-MARKETPLACE-UPGRADE-AUDIT.m
   escrow paths. Only shown when the switch is on; the spec puts customer fare collection/escrow out of V1. Stage 7.
 - Withdrawal copy: `withdrawalStatus.ts`, `account-deletion.ts` ("withdraw the money in your wallet"), `LedgerCharts` label. Account-deletion text should say commission
   credit is not withdrawable. Stage 7.
-- "90-day" verification: `driver-onboarding.ts` and `DriverHome.tsx` state that bidding is paused when the 90-day check expires. The spec asks that no automatic blanket
-  90-day block be claimed unless the backend enforces it. **U**: need to confirm the backend rule (0023 periodic re-verification) before changing copy. Stage 5/7.
+- "90-day" verification: **supported by the backend (V, read-only live query 09/11).** `bids` insert policy and 7 public functions reference `reverify_due_at`
+  (0023); 5 verified drivers, 0 overdue. The copy in `driver-onboarding.ts` / `DriverHome.tsx` is accurate; no change. Not a "blanket" block: it applies only
+  when a driver's own re-check date has passed.
 - "Live tracking" appears in internal comments and the walkthrough; to be checked against what actually updates (offline/fresh-location rules exist). Stage 7.
 - Not found in `src/`: "first job free" (grep clean outside admin). Terms/help may still describe it in long text: re-check in Stage 7 with full-page read.
 

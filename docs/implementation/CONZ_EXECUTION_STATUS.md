@@ -10,7 +10,7 @@ Rule: nothing below is called "done", "live" or "tested" without the evidence na
 | Repo / base | `munesuishemichaelmashodo-droid/conz-build-connect`, `main` at `eb363a5` (PR #104 merged) | `git log` |
 | Working branch | `impl/stage0-baseline` (from `origin/main`) | `git status` |
 | Production Supabase | `ovwrsocjmkpiygipmrdk` (`conz-build-connect`), ACTIVE_HEALTHY | `list_projects` 09/11 |
-| Staging Supabase | `conz-staging` (`fpckydgssuefzzxivvig`): **paused by owner request 09/11** (status `PAUSING` at last check) so `venmax-admin` can run | `pause_project` -> success |
+| Staging Supabase | `conz-staging` (`fpckydgssuefzzxivvig`): **paused by owner request 09/11** (confirmed `INACTIVE` 09/11) so `venmax-admin` can run | `pause_project` -> success |
 | Hosting | Vercel, https://www.conz.co.zw, auto-deploy from `main` | CLAUDE.md |
 | Android | Capacitor shell `com.conz.app` loading the live site; CI `build-android-apk` green on PR #104 | check run 09/11 |
 | iOS | **No `ios/` project exists in the repo** | `ls ios` -> not found |
