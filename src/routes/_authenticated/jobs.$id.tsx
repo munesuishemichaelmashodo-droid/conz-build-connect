@@ -1643,7 +1643,9 @@ function BidForm({
             <p>
               {firstJobFree
                 ? `Your first completed job on Con Z has no Con Z fee. After that, the fee is ${pctLabel} of your full offer price.`
-                : `Con Z keeps ${pctLabel} of your full offer price, material and transport included. It is reserved from your wallet when the customer accepts and charged when the job is completed.`}
+                : job?.pricing_basis === "transport_only"
+                  ? `Con Z keeps ${pctLabel} of your delivery fare; material is not part of it. It is reserved from your commission credit when the customer accepts and charged when the job is completed.`
+                  : `Con Z keeps ${pctLabel} of your full offer price, material and transport included. It is reserved from your wallet when the customer accepts and charged when the job is completed.`}
             </p>
             {take && (
               <p data-testid="fee-example">

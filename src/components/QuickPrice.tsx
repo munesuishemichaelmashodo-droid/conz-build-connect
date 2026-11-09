@@ -8,6 +8,7 @@ import { MaterialThumb } from "@/components/ds/media";
 import { LoadPicker } from "@/components/ds/load-picker";
 import { MATERIALS, money, type MaterialCategory } from "@/lib/domain";
 import { isValidQuantity } from "@/lib/load-size";
+import { useTransportPricingEnabled } from "@/lib/transport-pricing";
 import {
   computePublicOffer,
   OPEN_REQUEST_HAUL_KM,
@@ -46,6 +47,7 @@ const MATERIAL_OPTIONS = MATERIALS.filter((m) => m.value !== "custom").map((m) =
  */
 export function QuickPrice({ titleAs = "h2" }: { titleAs?: "h1" | "h2" }) {
   const runOffer = useServerFn(computePublicOffer);
+  const transportOn = useTransportPricingEnabled();
   const [material, setMaterial] = useState<MaterialCategory>("river_sand");
   const [quantity, setQuantity] = useState(12);
   const [address, setAddress] = useState("");
@@ -111,6 +113,23 @@ export function QuickPrice({ titleAs = "h2" }: { titleAs?: "h1" | "h2" }) {
       },
     });
   };
+
+  // Delivery-only pricing needs the customer's own loading point, which the quick check does not ask for.
+  if (transportOn) {
+    return (
+      <DocketPanel title="Check a price" titleAs={titleAs} reference="Delivery only">
+        <div className="space-y-4 px-4 py-4">
+          <Notice tone="info" title="Prices now cover the delivery trip only">
+            Choose where the load will be collected and where it goes, and we measure the road distance
+            and show a guide range. The material itself is arranged separately with whoever supplies it.
+          </Notice>
+          <Link to="/customer/book" className={czButtonClass("primary", "lg")}>
+            Get a delivery price
+          </Link>
+        </div>
+      </DocketPanel>
+    );
+  }
 
   return (
     <DocketPanel title="Check a price" titleAs={titleAs} reference="No account needed">

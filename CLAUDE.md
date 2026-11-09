@@ -493,5 +493,4 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
 
 - **Owner decisions 09/11/2026:** delivery-only pricing stays OFF for now (the wording that follows the switch is built: `src/lib/commission-copy.ts`, `useTransportPricingEnabled()`,
   and `0161` lets signed-out visitors read the one-boolean `transport_pricing_enabled()`; live 20261109160000); the $500 launch cap stays; diesel stays $2.04/L;
-  dispute refunds on direct jobs go back to the driver (0160). To launch delivery-only pricing: set `system_settings.transport_pricing_enabled` to `true` (and re-check the
-  cap, the driver offer form wording and the public price check, which still describe supplier pricing).
+  dispute refunds on direct jobs go back to the driver (0160). To launch delivery-only pricing: set `system_settings.transport_pricing_enabled` to `true` (the wording on the terms, home, wallet, help, walkthrough, driver offer form and public price check already follows the switch; re-check the $500 cap first).
