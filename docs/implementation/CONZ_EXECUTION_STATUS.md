@@ -33,7 +33,7 @@ Playwright MCP failed to connect this session (timeout); browser checks use the 
 | --- | --- | --- |
 | 0 | Verify repo and production, status + baseline docs | In progress: this document, `CONZ_BASELINE_AUDIT.md`, `CONZ_OWNER_REVIEW_REQUIRED.md` written; PR pending |
 | 1 | Onboarding | Verified existing flow meets spec; no change needed (baseline audit s.7) |
-| 2 | Agreement | Verified 0157; one finding (deposit proposer) to owner review |
+| 2 | Agreement | Verified 0157; deposit rule fixed by 0162 + card change (see log) |
 | 3 | Demo isolation | Dry-run inventory written (`CONZ_DEMO_DATA_INVENTORY.md`); no deletion; blocked on protected accounts |
 | 4 | Pricing | Origin check done (no hidden origin; stale admin text fixed); competitor refresh + calibration report pending |
 | 5 | Admin/KYC/RLS | Read-only live audit clean (baseline audit s.7) |
@@ -49,3 +49,4 @@ Playwright MCP failed to connect this session (timeout); browser checks use the 
 - 09/11 Stage 0: PR #104 merged (CI: build-and-verify, database-tests, build-android-apk all success). ConZ staging paused. Live migration list compared with git: matches through 0161; 0134 (promo) not live.
 - 09/11 Stage 1-2: onboarding and agreement verified against the spec by reading code/migration; first-job-free correction recorded (still true live).
 - 09/11 Stage 7 (copy, first slice): wallet note no longer promises that support returns unused credit; account-deletion blocker no longer says to withdraw while withdrawals are paused. Checks: tsc 0, 851 tests, lint:security exit 0, build exit 0. First-job-free copy deliberately kept (true live).
+- 09/11 Stage 2 fix: 0162 (Driver-proposed deposit) written with undo, pgTAP 930 updated (22 tests), full suite PASS (90 files, 1827 tests), unit 857, lint:security 0, build 0. Not yet applied live (app deploys first).

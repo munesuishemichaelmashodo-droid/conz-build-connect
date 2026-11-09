@@ -8,6 +8,7 @@ import {
   PAYMENT_METHODS,
   PAYMENT_TIMINGS,
   agreementView,
+  carriedDeposit,
   currentAgreement,
   methodLabel,
   payLine,
@@ -31,10 +32,13 @@ export function AgreementCard({
   jobId,
   jobStatus,
   userId,
+  customerId,
 }: {
   jobId: string;
   jobStatus: string;
   userId: string | null;
+  /** The job's customer: only the driver may propose or change a deposit (0162). */
+  customerId?: string | null;
 }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -81,6 +85,8 @@ export function AgreementCard({
   }
 
   const current = currentAgreement(rows);
+  const isCustomer = !!userId && userId === customerId;
+  const carried = carriedDeposit(rows);
   const view = agreementView(current, userId);
   const open = ["accepted", "in_progress"].includes(jobStatus);
   const refresh = () => qc.invalidateQueries({ queryKey: ["job-agreements", jobId] });
@@ -102,7 +108,7 @@ export function AgreementCard({
         _job: jobId,
         _payment_method: method,
         _payment_timing: timing,
-        _deposit_amount: Number(deposit) || 0,
+        _deposit_amount: isCustomer ? carried : Number(deposit) || 0,
         _pickup_window: pickup,
         _delivery_window: delivery,
         _inclusions: inc,
@@ -229,15 +235,24 @@ export function AgreementCard({
               ))}
             </select>
           </label>
-          <label className="block text-sm">
-            Deposit paid to the driver (USD, optional)
-            <Input
-              inputMode="decimal"
-              value={deposit}
-              onChange={(e) => setDeposit(e.target.value)}
-              placeholder="0"
-            />
-          </label>
+          {isCustomer ? (
+            <p className="text-sm">
+              <span className="text-cz-muted">Deposit: </span>
+              {carried > 0
+                ? `$${carried.toFixed(2)}, proposed by the driver and paid directly to them`
+                : "None. Only the driver can propose a deposit."}
+            </p>
+          ) : (
+            <label className="block text-sm">
+              Deposit paid to the driver (USD, optional)
+              <Input
+                inputMode="decimal"
+                value={deposit}
+                onChange={(e) => setDeposit(e.target.value)}
+                placeholder="0"
+              />
+            </label>
+          )}
           <label className="block text-sm">
             Pickup time
             <Input

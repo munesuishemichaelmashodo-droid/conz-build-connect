@@ -65,3 +65,15 @@ export function payLine(
       : "";
   return `${fare} paid directly to the driver by ${methodLabel(row.payment_method).toLowerCase()}, ${timingLabel(row.payment_timing).toLowerCase()}${deposit}.`;
 }
+
+/**
+ * The deposit is the driver's to propose (migration 0162). A customer's new version keeps the deposit of the latest
+ * version that was not declined; the database refuses any other amount. `rows` are newest first.
+ */
+export function carriedDeposit(
+  rows: Pick<JobAgreement, "status" | "deposit_amount">[] | null | undefined,
+): number {
+  const latest = (rows ?? []).find((r) => r.status !== "declined");
+  const n = Number(latest?.deposit_amount ?? 0);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
