@@ -461,3 +461,23 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
   sweep, 72 h auto-release) alone and flag them.
 - Gotchas: Playwright's offline switch does not stop a service worker's own requests (stop the dev server to test the fallback page);
   never branch from local `main` (it is stale): `git fetch` and branch from `origin/main`.
+
+## 08-09/11/2026 — marketplace upgrade programme (audit + first slices)
+
+- Brief, audit and decisions: `docs/marketplace/CONZ-MARKETPLACE-UPGRADE-AUDIT.md` (baseline matrix, commission invariants, plan),
+  `CONZ-NATIONWIDE-PRICING.md` (transport-only formula, UNCALIBRATED, switch default off), `CONZ-COMPETITOR-RESEARCH.md`,
+  `CONZ-COMMISSION-CREDIT-RISK-NOTE.md` (legal questions only; not legal advice).
+- Product rules (owner's brief): two participants only (clients and independent drivers); pickup places are locations, not accounts; client pays
+  the driver directly, ConZ never holds the fare; ConZ earns 7% of the agreed TRANSPORT fare from the driver's prepaid commission credit
+  (reserve on accept, one release on cancel, one charge at verified completion; first job free); no cash-out of commission credit; wording: "commission
+  credit", never "wallet/escrow/we hold". Today's commission base is still the whole accepted price including materials; the switch to
+  transport-only is designed but NOT built or live (owner go required).
+- **LIVE and recorded 09/11:** `0152` offer_bidder_cards + declared truck facts (20261108100000), `0153` closes the bidder exposure
+  (20261108110000: customers no longer read a bidding driver's profile row/phone/email or truck row before choosing), `0154` a driver's answer
+  to a dispatch request is now an offer the customer must accept (20261108120000; undo restores the 0105 body). Apps merged: PRs #82, #83, #84.
+  Live hashes (whitespace-stripped): offer_bidder_cards `a75845e6…`, accept_dispatch_offer `eb2edb77…`. Live-vs-local hash for 0152's trigger differs only by
+  one stripped trailing comment.
+- Audit findings still open (see the audit doc, section 4): H1 `jobs.held_commission_promo` is client-writable in git (0134 NOT live: do not apply
+  0134 before fixing it); M1 any admin can write money columns on `jobs`; M2 apply 0113; M3 dispute refund credits the customer's wallet on direct
+  jobs; M5 referral credit; the old note "complete_job has no PIN" is stale (0096 requires PIN + evidence).
+- `scripts/db-concurrency-check.sh`: S8 fails since 0144 (it accepts two jobs for one driver in one transaction); run `tests.enable_launch_features()` first.
