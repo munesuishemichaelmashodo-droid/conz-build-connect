@@ -478,8 +478,7 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
   Live hashes (whitespace-stripped): offer_bidder_cards `a75845e6…`, accept_dispatch_offer `eb2edb77…`. Live-vs-local hash for 0152's trigger differs only by
   one stripped trailing comment.
 - Audit findings (see the audit doc, section 4): H1 (`held_commission_promo` client-writable) and M1 (admin direct writes to money columns) are CLOSED by 0155;
-  0134 is still not live and has its own open finding M4 (promo reserve skips the ledger): do not apply it before fixing M4. M2 is CLOSED: `0113` applied live 09/11 (recorded 20261025100000; live `settle_direct_pay_job` prosrc md5 `80b4769f…` equals the committed text minus comments; undo in `supabase/rollbacks/`). Still open: M3 dispute refund credits the customer's wallet on direct
-  jobs; M5 referral credit; the old note "complete_job has no PIN" is stale (0096 requires PIN + evidence).
+  0134 is still not live and has its own open finding M4 (promo reserve skips the ledger): do not apply it before fixing M4. M2 is CLOSED: `0113` applied live 09/11 (recorded 20261025100000; live `settle_direct_pay_job` prosrc md5 `80b4769f…` equals the committed text minus comments; undo in `supabase/rollbacks/`). M3 is CLOSED by owner decision 09/11: `0160` (20261109150000) returns a direct-job dispute refund to the DRIVER's commission credit, not the customer (live `resolve_dispute` md5 `b9fcbc8e…` = committed text; undo restores the 0093 body). Still open: M5 referral credit; the old note "complete_job has no PIN" is stale (0096 requires PIN + evidence).
 - `scripts/db-concurrency-check.sh`: S8 fails since 0144 (it accepts two jobs for one driver in one transaction); run `tests.enable_launch_features()` first.
 - **Also LIVE and recorded 09/11:** `0155` jobs money-column guard, admins included (20261109100000), `0156` review fixes: revived dispatch offer gets a
   fresh 30-min expiry, trucks policy limited to the accepted offer's truck, no 5+ digits in declared truck facts (20261109110000; live
@@ -491,3 +490,8 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
   delivery-only quote behind the switch (`src/lib/transport-quote.functions.ts`, `transport-offer-view.ts`). Turning the switch on, or changing the commission
   wording/terms, needs the owner's explicit go. Verification report:
   `docs/marketplace/CONZ-MARKETPLACE-UPGRADE-REPORT.md`.
+
+- **Owner decisions 09/11/2026:** delivery-only pricing stays OFF for now (the wording that follows the switch is built: `src/lib/commission-copy.ts`, `useTransportPricingEnabled()`,
+  and `0161` lets signed-out visitors read the one-boolean `transport_pricing_enabled()`; live 20261109160000); the $500 launch cap stays; diesel stays $2.04/L;
+  dispute refunds on direct jobs go back to the driver (0160). To launch delivery-only pricing: set `system_settings.transport_pricing_enabled` to `true` (and re-check the
+  cap, the driver offer form wording and the public price check, which still describe supplier pricing).
