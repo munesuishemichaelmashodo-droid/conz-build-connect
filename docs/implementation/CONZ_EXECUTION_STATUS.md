@@ -48,3 +48,4 @@ Playwright MCP failed to connect this session (timeout); browser checks use the 
 
 - 09/11 Stage 0: PR #104 merged (CI: build-and-verify, database-tests, build-android-apk all success). ConZ staging paused. Live migration list compared with git: matches through 0161; 0134 (promo) not live.
 - 09/11 Stage 1-2: onboarding and agreement verified against the spec by reading code/migration; first-job-free correction recorded (still true live).
+- 09/11 Stage 7 (copy, first slice): wallet note no longer promises that support returns unused credit; account-deletion blocker no longer says to withdraw while withdrawals are paused. Checks: tsc 0, 851 tests, lint:security exit 0, build exit 0. First-job-free copy deliberately kept (true live).

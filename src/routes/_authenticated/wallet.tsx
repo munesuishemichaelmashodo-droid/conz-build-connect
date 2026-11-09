@@ -452,7 +452,7 @@ function WalletPage() {
         {!canWithdraw && (
           <p className="text-xs text-white/75 mt-4 relative">
             {commissionCopy("Your ConZ credit pays ConZ commission: 7% of the full job price, materials and transport included.", transportOn)} Your first completed job has no commission. Part of it is held while a job is
-            active. Withdrawals are paused for now; to get unused credit back, contact support. You
+            active. Withdrawals are paused for now. You
             can hold up to {money(launch.maxWalletBalance)} in credit.
           </p>
         )}
