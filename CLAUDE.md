@@ -481,3 +481,10 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
   0134 before fixing it); M1 any admin can write money columns on `jobs`; M2 apply 0113; M3 dispute refund credits the customer's wallet on direct
   jobs; M5 referral credit; the old note "complete_job has no PIN" is stale (0096 requires PIN + evidence).
 - `scripts/db-concurrency-check.sh`: S8 fails since 0144 (it accepts two jobs for one driver in one transaction); run `tests.enable_launch_features()` first.
+- **Also LIVE and recorded 09/11:** `0155` jobs money-column guard, admins included (20261109100000), `0156` review fixes: revived dispatch offer gets a
+  fresh 30-min expiry, trucks policy limited to the accepted offer's truck, no 5+ digits in declared truck facts (20261109110000; live
+  `accept_dispatch_offer` md5 `5b04701b…`), `0157` job agreement card: `job_agreements` + propose/accept/decline functions, fare copied from the
+  job, no direct writes (20261109120000). Agreement card UI is in `src/components/AgreementCard.tsx`; it hides itself if the table is missing.
+- `0158` (transport-only pricing engine `compute_transport_offer`, `system_settings.transport_pricing_enabled=false`, `jobs.pricing_basis`) is additive and OFF;
+  nothing calls it. Do not wire it or change the commission base/terms without the owner's explicit go. Verification report:
+  `docs/marketplace/CONZ-MARKETPLACE-UPGRADE-REPORT.md`.
