@@ -364,6 +364,34 @@ db.driver_locations = [
 
 // --- RPCs (answers shaped like the real functions; values are synthetic) --------
 const rpc = {
+  // Same behaviour as the real 0157 functions (fare from the job; the other side confirms; versions kept).
+  propose_job_agreement: (a, me) => {
+    const job = db.jobs.find((j) => j.id === a._job);
+    if (!me || !job || ![job.customer_id, job.driver_id].includes(me.id)) return null;
+    db.job_agreements ??= [];
+    db.job_agreements.forEach((r) => { if (r.job_id === job.id && r.status === "proposed") r.status = "superseded"; });
+    const row = {
+      id: randomUUID(), job_id: job.id, version: db.job_agreements.filter((r) => r.job_id === job.id).length + 1,
+      proposed_by: me.id, fare: Number(job.final_price ?? job.budget), payment_method: a._payment_method,
+      payment_timing: a._payment_timing, deposit_amount: Number(a._deposit_amount ?? 0),
+      pickup_window: a._pickup_window || null, delivery_window: a._delivery_window || null,
+      inclusions: a._inclusions || null, exclusions: a._exclusions || null, status: "proposed",
+      customer_accepted_at: me.id === job.customer_id ? new Date().toISOString() : null,
+      driver_accepted_at: me.id === job.driver_id ? new Date().toISOString() : null,
+      created_at: new Date().toISOString(),
+    };
+    db.job_agreements.push(row);
+    return row;
+  },
+  accept_job_agreement: (a, me) => {
+    const row = (db.job_agreements ?? []).find((r) => r.id === a._agreement);
+    const job = row && db.jobs.find((j) => j.id === row.job_id);
+    if (!me || !row || row.status !== "proposed" || row.proposed_by === me.id) return null;
+    if (me.id === job.customer_id) row.customer_accepted_at = new Date().toISOString();
+    if (me.id === job.driver_id) row.driver_accepted_at = new Date().toISOString();
+    row.status = "accepted";
+    return row;
+  },
   // Shaped like the live RPC (0088): customers only, idempotent on the key, returns the id.
   create_material_sourcing_request: (a, me) => {
     if (!me) return null;
