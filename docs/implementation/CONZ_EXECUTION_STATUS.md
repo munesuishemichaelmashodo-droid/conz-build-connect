@@ -38,7 +38,8 @@ Playwright MCP failed to connect this session (timeout); browser checks use the 
 | 4 | Pricing | Origin check done (no hidden origin; stale admin text fixed); competitor refresh + calibration report pending |
 | 5 | Admin/KYC/RLS | Read-only live audit clean (baseline audit s.7) |
 | 6 | Payments | Handover doc written |
-| 7-10 | Copy fixes, UI pass, tests, release, final report | In progress |
+| 7 | Copy and UI | Copy fixes done; width/scheme/accessibility sweep done (baseline audit s.7); contrast, screen reader, keyboard-only and admin screens not covered |
+| 8-10 | QA review, release, final report | Report and release evidence written; independent review pending |
 
 ## Already merged before this spec (carried forward, evidence in `docs/marketplace/CONZ-MARKETPLACE-UPGRADE-REPORT.md`)
 
@@ -53,3 +54,4 @@ Playwright MCP failed to connect this session (timeout); browser checks use the 
 - 09/11 0162 LIVE: PR #108 merged (`9da59f0`; CI build-and-verify, database-tests, build-android-apk all success). Production serves the new card (live job-page chunk contains the new text). Migration applied via `execute_sql` after proving the target (project `ovwrsocjmkpiygipmrdk`), the live function equalled the 0157 body (md5 `32cef48f...`) and production had 0 agreements; live body md5 after = `2a21534304acbac17fe1835d0a80c9b1` (= committed text minus comments); grants unchanged (anon no, authenticated yes); recorded as `20261109170000`. Undo: `supabase/rollbacks/20261109170000_0162_rollback.sql`.
 - 09/11 Stage 4 competitor refresh: `docs/marketplace/CONZ-COMPETITOR-REFRESH-2026-11-09.md` (none of the six names in the spec were found; sourced leads listed; calibration report not produced: 11 completed jobs in total).
 - 09/11 CI note: the push run on `main` after PR #106 showed `build-android-apk` red; cause = Gradle wrapper could not download its distribution (network error in the log), every other job green, and the next run on the same code was green. Infrastructure flake, no code change.
+- 09/11 Stage 7: sweep of 136 loads (4 widths x 2 schemes x 3 roles): no overflow, no console errors; headings fixed (driver home h1, Help one h1). Checks: tsc 0, 857 tests, lint:security 0, build 0.

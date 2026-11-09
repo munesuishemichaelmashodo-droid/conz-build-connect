@@ -161,6 +161,7 @@ export function DriverHome({
       <CzScreen className={DRIVER_NAV_SPACE}>
         {userId && <OnboardingWalkthrough userId={userId} role="driver" />}
 
+        <h1 className="sr-only">Driver home</h1>
         <header className="flex items-center justify-between gap-2 px-5 pt-4 pb-3">
           <div className="min-w-0">
             <LogoLockup role="Driver" to="/driver" />
