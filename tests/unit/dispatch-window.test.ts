@@ -45,4 +45,10 @@ describe("offerFootnote", () => {
     expect(offerFootnote(60_000)).not.toMatch(/10 seconds/);
     expect(offerFootnote(300_000)).toMatch(/few minutes/);
   });
+  it("says the customer chooses and never that the job is taken (0154)", () => {
+    for (const ms of [60_000, 300_000]) {
+      expect(offerFootnote(ms)).toMatch(/customer .*chooses/);
+      expect(offerFootnote(ms)).not.toMatch(/accept|assigned|you.ve got/i);
+    }
+  });
 });

@@ -219,7 +219,7 @@ function OfferModal({
     if (error) {
       const msg = error.message ?? "Could not accept";
       if (/insufficient wallet balance/i.test(msg)) {
-        toast.error("Wallet too low to accept — top up first");
+        toast.error("Commission credit too low to send an offer — top up first");
         onClose();
         nav({ to: "/wallet" });
         return;
@@ -233,7 +233,7 @@ function OfferModal({
       onClose();
       return;
     }
-    toast.success("Job accepted!");
+    toast.success("Offer sent — the customer will choose a driver");
     onClose();
     if (data) nav({ to: "/jobs/$id", params: { id: String(data) } });
   };
@@ -334,7 +334,7 @@ function OfferModal({
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <>
-                <Truck className="w-5 h-5 mr-2" /> Accept job
+                <Truck className="w-5 h-5 mr-2" /> Send my offer
               </>
             )}
           </Button>
