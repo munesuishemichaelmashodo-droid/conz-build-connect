@@ -52,3 +52,10 @@ Each migration has an undo file in `supabase/rollbacks/` (0152, 0153, 0154, 0155
 ## Known gaps
 
 Agreement card and truck form not exercised in a real browser; plate shows first 3 characters; a revived dispatch offer sends no new-offer notification; truck photos not built (no authentic photo source); the client pickup input and delivery-only quote are built and browser-tested (against the real road router, switch on in the local stand-in) but invisible until you turn the switch on; the terms and commission wording have not been changed (gated on your go); the supplier-flavoured copy in the booking and quote screens stays until the pricing switch ships; admin calibration report is unchanged.
+
+## Update 9 November 2026 (owner decisions)
+
+- Delivery-only pricing stays **off**. Built so that turning it on is one setting: the terms, home page, wallet note, help and driver walkthrough say "7% of the agreed delivery fare (materials are not part of it)" only while the switch is on, and keep today's wording while it is off (browser-checked both ways). `0161` lets visitors read the on/off boolean (live, recorded 20261109160000).
+- Launch cap stays $500. Diesel stays $2.04/L.
+- Dispute refunds on direct-pay jobs now return the commission to the **driver** (`0160`, live, recorded 20261109150000; hash equals the committed text). pgTAP 130 and 190 updated; full suite 90 files / 1,820 pass.
+- Still yours: the licensed truck-profile router, the lawyer and Paynow questions, and the decision to turn the switch on. Before turning it on, also update the driver offer form and public price check wording, which still describe supplier pricing.
