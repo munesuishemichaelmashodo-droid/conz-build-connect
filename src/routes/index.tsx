@@ -1,5 +1,6 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useTransportPricingEnabled } from "@/lib/transport-pricing";
+import { promoCopy, usePromoCredit } from "@/lib/promo-credit";
 import { useEffect, type ReactNode } from "react";
 import {
   BadgeCheck,
@@ -149,6 +150,7 @@ function SectionHead({ id, title, lead }: { id: string; title: string; lead?: st
 
 function Welcome() {
   const transportOn = useTransportPricingEnabled();
+  const promo = usePromoCredit();
   useRedirectWhenSignedIn();
   const bookHref = { mode: "register", next: "/customer/book" } as never;
   return (
@@ -465,7 +467,7 @@ function Welcome() {
                   {transportOn
                     ? "7% commission on the agreed delivery fare; materials are not part of it."
                     : "7% commission on eligible job value, including materials and transport."}{" "}
-                  Your first completed job is commission-free.
+                  {promoCopy("Your first completed job is commission-free.", promo)}
                 </p>
                 <p className="mt-3 text-[14px] leading-relaxed text-cz-muted">
                   The commission is reserved from your Con Z credit when a customer accepts your

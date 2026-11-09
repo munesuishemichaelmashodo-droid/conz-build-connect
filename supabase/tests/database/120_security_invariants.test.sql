@@ -36,8 +36,8 @@ select is(
   (select coalesce(array_agg(distinct p.proname::text order by p.proname::text), '{}')
      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.prosecdef and has_function_privilege('anon', p.oid, 'EXECUTE')),
-  array['compute_material_offer','get_public_tracking','has_role','public_material_pickups','public_open_job_previews','transport_pricing_enabled']::text[],
-  'Anonymous EXECUTE is limited to the public read helpers (0137 adds the area-only open-jobs preview; 0161 adds transport_pricing_enabled, a single boolean the public pages need to word the commission correctly)');
+  array['compute_material_offer','get_public_tracking','has_role','promo_credit_public','public_material_pickups','public_open_job_previews','transport_pricing_enabled']::text[],
+  'Anonymous EXECUTE is limited to the public read helpers (0137 adds the area-only open-jobs preview; 0161 adds transport_pricing_enabled, a single boolean the public pages need to word the commission correctly; 0134 adds promo_credit_public, the on/off flag and amount of the one-time promotional credit)');
 
 -- 5. Every SECURITY DEFINER function pins its search_path
 select is(

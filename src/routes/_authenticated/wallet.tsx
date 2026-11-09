@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { rpcFailure } from "@/lib/rpc-result";
 import { useLaunchSwitches } from "@/lib/launch-switches";
+import { promoCopy, usePromoCredit } from "@/lib/promo-credit";
 import { toast } from "sonner";
 import { withdrawalStage } from "@/lib/withdrawalStatus";
 
@@ -132,6 +133,7 @@ function WalletPage() {
   const [topUpOpen, setTopUpOpen] = useState(topupFromLink != null);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const launch = useLaunchSwitches();
+  const promoCredit = usePromoCredit();
   const canWithdraw = launch.withdrawalsEnabled;
 
   const { data: wallet } = useQuery({
@@ -451,7 +453,7 @@ function WalletPage() {
 
         {!canWithdraw && (
           <p className="text-xs text-white/75 mt-4 relative">
-            {commissionCopy("Your ConZ credit pays ConZ commission: 7% of the full job price, materials and transport included.", transportOn)} Your first completed job has no commission. Part of it is held while a job is
+            {commissionCopy("Your ConZ credit pays ConZ commission: 7% of the full job price, materials and transport included.", transportOn)} {promoCopy("Your first completed job has no commission.", promoCredit)} Part of it is held while a job is
             active. Withdrawals are paused for now; questions
             about your credit? Contact support. You can hold up to {money(launch.maxWalletBalance)} in credit.
           </p>
@@ -496,7 +498,7 @@ function WalletPage() {
         <div className="mt-4 space-y-4">
           <dl className="rounded-2xl border bg-card p-4 text-xs space-y-1.5" aria-label="What the numbers mean">
             <div><dt className="inline font-semibold">Total credit: </dt><dd className="inline text-muted-foreground">your top-ups and earnings in Con Z.</dd></div>
-            <div><dt className="inline font-semibold">Held: </dt><dd className="inline text-muted-foreground">the commission reserved while a job is active. It is charged when the job is completed (your first completed job has no commission), and released on a valid cancellation.</dd></div>
+            <div><dt className="inline font-semibold">Held: </dt><dd className="inline text-muted-foreground">the commission reserved while a job is active. It is charged when the job is completed ({promoCredit.enabled ? "promotional credit is spent first" : "your first completed job has no commission"}), and released on a valid cancellation.</dd></div>
             <div><dt className="inline font-semibold">Available: </dt><dd className="inline text-muted-foreground">total minus held. This is what covers commission on new jobs.</dd></div>
             {!canWithdraw && <div><dt className="inline font-semibold">Withdrawals: </dt><dd className="inline text-muted-foreground">paused for now.</dd></div>}
           </dl>
