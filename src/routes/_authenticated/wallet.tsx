@@ -41,6 +41,11 @@ import { toast } from "sonner";
 import { withdrawalStage } from "@/lib/withdrawalStatus";
 
 export const Route = createFileRoute("/_authenticated/wallet")({
+  // ?topup=12.5 opens the top-up with that amount filled in (the shortfall shown on a job offer).
+  validateSearch: (search: Record<string, unknown>): { topup?: number } => {
+    const n = Number(search.topup);
+    return Number.isFinite(n) && n > 0 && n <= 10000 ? { topup: Math.ceil(n) } : {};
+  },
   component: WalletPage,
 });
 
@@ -120,7 +125,8 @@ function WalletPage() {
   const { userId, is } = useAuth();
   const qc = useQueryClient();
   const [tab, setTab] = useState<"summary" | "history" | "requests">("summary");
-  const [topUpOpen, setTopUpOpen] = useState(false);
+  const { topup: topupFromLink } = Route.useSearch();
+  const [topUpOpen, setTopUpOpen] = useState(topupFromLink != null);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const launch = useLaunchSwitches();
   const canWithdraw = launch.withdrawalsEnabled;
@@ -681,7 +687,7 @@ function WalletPage() {
         </div>
       )}
 
-      <TopUpDialog open={topUpOpen} onOpenChange={setTopUpOpen} />
+      <TopUpDialog open={topUpOpen} onOpenChange={setTopUpOpen} initialAmount={topupFromLink} />
       <WithdrawDialog
         open={withdrawOpen}
         onOpenChange={setWithdrawOpen}
@@ -856,11 +862,13 @@ function SummaryRow({
 function TopUpDialog({
   open,
   onOpenChange,
+  initialAmount,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  initialAmount?: number;
 }) {
-  const [amount, setAmount] = useState<number>(50);
+  const [amount, setAmount] = useState<number>(initialAmount ?? 50);
   const [submitting, setSubmitting] = useState(false);
   const presets = [10, 20, 50, 100];
 

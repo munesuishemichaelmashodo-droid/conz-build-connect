@@ -1667,8 +1667,8 @@ function BidForm({
               <div className="text-sm">
                 <div className="font-bold">Top up to take this job</div>
                 <p className="mt-1 opacity-90">
-                  You need {money(shortfall)} more in your wallet to take jobs like this — commission is reserved when a
-                  bid is accepted.
+                  You need {money(shortfall)} more commission credit to take jobs like this — commission is reserved
+                  from your credit when your offer is accepted.
                 </p>
                 <p className="mt-1 text-xs opacity-80">
                   Commission required {money(Number(funds?.required ?? 0))} · Available{" "}
@@ -1676,7 +1676,13 @@ function BidForm({
                 </p>
               </div>
             </div>
-            <Link to="/wallet" className={czButtonClass("ghost", "sm")}>Top up wallet</Link>
+            <Link
+              to="/wallet"
+              search={{ topup: Math.ceil(shortfall) }}
+              className={czButtonClass("ghost", "sm")}
+            >
+              Top up {money(Math.ceil(shortfall))}
+            </Link>
           </div>
         )}
 
