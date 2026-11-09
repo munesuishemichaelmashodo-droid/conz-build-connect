@@ -503,7 +503,6 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
 - The MCP issuer is derived from `VITE_SUPABASE_URL` (`src/lib/mcp/issuer.ts`). Before this, production advertised the STAGING project as its authorization server because
   `VITE_SUPABASE_PROJECT_ID` in the production build held the staging id. **Owner: set `VITE_SUPABASE_PROJECT_ID=ovwrsocjmkpiygipmrdk` in Vercel's Production environment**;
   keep staging values scoped to Preview.
-- Remaining production advisories: `zod` (high: memory exhaustion on oversized constrained collections; the fix is zod 4, a major migration; our public inputs are bounded),
-  plus moderate/low (hono node-server, seroval, esbuild dev server on Windows). Re-run `npm audit --omit=dev` after dependency changes.
+- `zod` is now 4.6.x (was 3.x, high advisory) and `seroval` is patched; the only production advisory left is low (esbuild's dev server on Windows). Re-run `npm audit --omit=dev` after dependency changes.
 - CI gotcha: `database-tests` can fail on a GitHub 504 while the Supabase CLI downloads an image library; re-run the failed job (`rerun_failed_jobs`) before suspecting the change.
 - Check lint with its exit code (`npm run lint:security; echo $?`), not by tailing the last line.
