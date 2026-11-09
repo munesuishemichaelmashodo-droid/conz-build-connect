@@ -68,3 +68,9 @@ Anything touching live money, RLS on sensitive data, legal text, provider settin
   old versions kept (no client write grants, no delete path), fare copied from the job. **Finding F-AGR-1:** either party can propose a nonzero deposit; the spec says
   deposit is Driver-proposed, Customer-accepted. Fix needs a migration plus AgreementCard change: carry the driver's deposit over when the customer re-proposes and refuse a
   customer-set deposit. Rights rule, so listed for owner confirmation (owner-review #14).
+- **Stage 5 access-control audit (V, read-only live queries 09/11):** all public tables have row-level security (0 without); the 3 storage buckets (`driver-docs`, `job-proof-photos`,
+  `chat-media`) are private; no storage SELECT policy for anon/public; anon can execute only 5 SECURITY DEFINER functions (`transport_pricing_enabled`, `has_role`,
+  `compute_material_offer`, `public_material_pickups`, `get_public_tracking`), each already on the reviewed list; the only `using (true)` policies for anon are public reference
+  data (prices, price buckets, small-load settings, supply locations, supplier listings; supplier contact columns were hidden by 0115). pgTAP `060_kyc_protection` covers KYC.
+  Not done here: a human walk-through of the admin KYC review screen, and a test of every role against every table over HTTP.
+- **Stage 6 payments:** `docs/payments/CONZ_PAYMENT_INTEGRATION_HANDOVER.md` written (settings verified live; Linkwa out of scope).

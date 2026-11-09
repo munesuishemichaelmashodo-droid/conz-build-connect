@@ -34,7 +34,11 @@ Playwright MCP failed to connect this session (timeout); browser checks use the 
 | 0 | Verify repo and production, status + baseline docs | In progress: this document, `CONZ_BASELINE_AUDIT.md`, `CONZ_OWNER_REVIEW_REQUIRED.md` written; PR pending |
 | 1 | Onboarding | Verified existing flow meets spec; no change needed (baseline audit s.7) |
 | 2 | Agreement | Verified 0157; one finding (deposit proposer) to owner review |
-| 3-10 | Per spec | Not started (plan: baseline audit s.6) |
+| 3 | Demo isolation | Dry-run inventory written (`CONZ_DEMO_DATA_INVENTORY.md`); no deletion; blocked on protected accounts |
+| 4 | Pricing | Origin check done (no hidden origin; stale admin text fixed); competitor refresh + calibration report pending |
+| 5 | Admin/KYC/RLS | Read-only live audit clean (baseline audit s.7) |
+| 6 | Payments | Handover doc written |
+| 7-10 | Copy fixes, UI pass, tests, release, final report | In progress |
 
 ## Already merged before this spec (carried forward, evidence in `docs/marketplace/CONZ-MARKETPLACE-UPGRADE-REPORT.md`)
 
