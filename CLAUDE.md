@@ -477,8 +477,8 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
   to a dispatch request is now an offer the customer must accept (20261108120000; undo restores the 0105 body). Apps merged: PRs #82, #83, #84.
   Live hashes (whitespace-stripped): offer_bidder_cards `a75845e6…`, accept_dispatch_offer `eb2edb77…`. Live-vs-local hash for 0152's trigger differs only by
   one stripped trailing comment.
-- Audit findings still open (see the audit doc, section 4): H1 `jobs.held_commission_promo` is client-writable in git (0134 NOT live: do not apply
-  0134 before fixing it); M1 any admin can write money columns on `jobs`; M2 apply 0113; M3 dispute refund credits the customer's wallet on direct
+- Audit findings (see the audit doc, section 4): H1 (`held_commission_promo` client-writable) and M1 (admin direct writes to money columns) are CLOSED by 0155;
+  0134 is still not live and has its own open finding M4 (promo reserve skips the ledger): do not apply it before fixing M4. Still open: M2 apply 0113; M3 dispute refund credits the customer's wallet on direct
   jobs; M5 referral credit; the old note "complete_job has no PIN" is stale (0096 requires PIN + evidence).
 - `scripts/db-concurrency-check.sh`: S8 fails since 0144 (it accepts two jobs for one driver in one transaction); run `tests.enable_launch_features()` first.
 - **Also LIVE and recorded 09/11:** `0155` jobs money-column guard, admins included (20261109100000), `0156` review fixes: revived dispatch offer gets a
