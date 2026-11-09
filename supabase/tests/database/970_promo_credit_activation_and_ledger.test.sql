@@ -5,7 +5,7 @@
 --     free first job was still unused (they lose the free job, so they are made whole), first-job-free retired
 --   * new drivers after activation never get a free job
 begin;
-select plan(17);
+select plan(18);
 select tests.enable_launch_features();
 
 select set_config('t.cust', tests.create_user('pa_cust')::text, true);
@@ -38,7 +38,12 @@ $$;
 select set_config('t.i0', pg_temp.invariant()::text, true);
 
 -- 4. Activation
-select is((public.activate_promo_credit_program() ->> 'granted')::int, 1, 'activation grants the one eligible driver (free job unused)');
+-- a driver whose login is locked (banned) must not receive credit, even with the free job unused
+select set_config('t.dlocked', tests.create_driver('pa_dlocked', 0, false)::text, true);
+update auth.users set banned_until = 'infinity'::timestamptz where id = current_setting('t.dlocked')::uuid;
+
+select is((public.activate_promo_credit_program() ->> 'granted')::int, 1, 'activation grants the one eligible driver (free job unused, login not locked)');
+select is((select promo_balance from public.wallets where user_id = current_setting('t.dlocked')::uuid), 0.00::numeric, 'a driver whose login is locked gets no credit');
 select is((public.launch_switches() ->> 'promoCreditEnabled'), 'true', 'the switch is on');
 select is((public.promo_credit_public() ->> 'enabled'), 'true', '... and visitors see it too');
 select is((select promo_balance from public.wallets where user_id = current_setting('t.dfree')::uuid), 20.00::numeric, 'that driver now has $20 promo credit');

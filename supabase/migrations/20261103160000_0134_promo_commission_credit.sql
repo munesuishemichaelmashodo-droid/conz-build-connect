@@ -605,8 +605,12 @@ declare _r record; _granted int := 0; _retired int;
 begin
   insert into public.system_settings (key, value) values ('promo_credit_enabled', 'true'::jsonb)
   on conflict (key) do update set value = 'true'::jsonb, updated_at = now();
-  for _r in select user_id from public.driver_profiles
-             where coalesce(first_job_free_used, false) = false and verification_status = 'verified' loop
+  -- Only live accounts: not banned or deleted in the app, and with a login that is not locked.
+  for _r in select d.user_id from public.driver_profiles d
+             where coalesce(d.first_job_free_used, false) = false and d.verification_status = 'verified'
+               and not exists (select 1 from public.profiles p
+                                where p.id = d.user_id and (p.deleted_at is not null or p.status::text = 'banned'))
+               and not exists (select 1 from auth.users a where a.id = d.user_id and a.banned_until is not null) loop
     if public.grant_promo_credit(_r.user_id) then _granted := _granted + 1; end if;
   end loop;
   with u as (update public.driver_profiles set first_job_free_used = true
