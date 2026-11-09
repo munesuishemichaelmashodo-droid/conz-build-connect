@@ -26,6 +26,23 @@ export type CustomerCard = {
   rating_count: number | null;
 };
 
+/** One offer's safe driver card (migration 0152): no phone or email; plate masked until chosen. */
+export type OfferBidderCard = {
+  bid_id: string;
+  driver_id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  last_active_at: string | null;
+  body_type: string | null;
+  make: string | null;
+  model: string | null;
+  colour: string | null;
+  capacity_m3: number | null;
+  plate_display: string | null;
+};
+export const offerBidderCards = (jobId: string) =>
+  call<OfferBidderCard[]>("offer_bidder_cards", { _job: jobId });
+
 export const withdrawBid = (bidId: string) => call<null>("withdraw_bid", { _bid_id: bidId });
 export const jobOfferSummary = (jobId: string) =>
   call<OfferSummary>("job_offer_summary", { _job_id: jobId });
