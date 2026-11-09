@@ -93,6 +93,7 @@ import {
 } from "@/components/redesign";
 import { OfferCard } from "@/components/redesign/OfferCard";
 import { truckFactsLine } from "@/lib/truck-facts";
+import { AgreementCard } from "@/components/AgreementCard";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import {
   OFFER_SORTS,
@@ -3219,6 +3220,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
 
         <ContactCard ctx={ctx} role="customer" subtitle={`${mat} · ${Number(job.quantity_m3)} m³`} />
         {readyOffline && <ReadyOfflineChip />}
+        <AgreementCard jobId={id} jobStatus={job.status} userId={ctx.userId} />
 
         <SupplyConfirmationCard job={job} viewer="driver" />
 
@@ -4026,6 +4028,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
         )}
         <SupplyConfirmationCard job={job} viewer="customer" />
         <ContactCard ctx={ctx} role="driver" subtitle={d.bid?.truck_reg ? `Truck ${d.bid.truck_reg} · ${mat}` : mat} />
+        <AgreementCard jobId={id} jobStatus={job.status} userId={ctx.userId} />
         <ProofPhotos job={job} viewer="customer" />
 
         <div className="space-y-2.5">
