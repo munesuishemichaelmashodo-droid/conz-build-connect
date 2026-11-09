@@ -414,6 +414,31 @@ const rpc = {
     return { ok: available >= required, required, available, shortfall: Math.max(0, Math.round((required - available) * 100) / 100) };
   },
   job_offer_summary: () => ({ others: 0, min: null, max: null }),
+  // Same shape as the real offer_bidder_cards (0152): no phone or email; plate masked until chosen.
+  offer_bidder_cards: ({ _job }) => {
+    const job = db.jobs.find((j) => j.id === _job);
+    return db.bids
+      .filter((b) => b.job_id === _job)
+      .map((b) => {
+        const p = db.profiles.find((x) => x.id === b.driver_id);
+        const t = db.trucks.find((x) => x.id === b.truck_id);
+        const reg = t?.registration?.replace(/\s/g, "") ?? null;
+        const chosen = job?.driver_id === b.driver_id && ["accepted", "in_progress", "completed"].includes(job?.status);
+        return {
+          bid_id: b.id,
+          driver_id: b.driver_id,
+          full_name: p?.full_name ?? null,
+          avatar_url: null,
+          last_active_at: p?.last_active_at ?? null,
+          body_type: t ? "tipper" : null,
+          make: t ? "Isuzu" : null,
+          model: t ? "FVZ" : null,
+          colour: t ? "white" : null,
+          capacity_m3: t?.capacity_m3 ?? null,
+          plate_display: !reg ? null : chosen ? t.registration : reg.length <= 3 ? "••••" : reg.slice(0, 3) + " ••••",
+        };
+      });
+  },
   // Same shape as the real get_public_tracking (0079): the driver's location only
   // while the job is accepted or in progress, and null for an unknown token.
   get_public_tracking: ({ _token }) => {
