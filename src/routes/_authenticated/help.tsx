@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useTransportPricingEnabled } from "@/lib/transport-pricing";
+import { commissionCopy } from "@/lib/commission-copy";
 import { AppShell } from "@/components/AppShell";
 import { LifeBuoy, Mail, Phone, MessageSquareWarning, Compass, RotateCcw } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -122,6 +124,7 @@ const SECTIONS: FaqSection[] = [
 ];
 
 function HelpPage() {
+  const transportOn = useTransportPricingEnabled();
   const { is } = useAuth();
 
   return (
@@ -157,7 +160,7 @@ function HelpPage() {
                       +
                     </span>
                   </summary>
-                  <p className="text-sm text-muted-foreground mt-2">{f.a}</p>
+                  <p className="text-sm text-muted-foreground mt-2">{commissionCopy(f.a, transportOn)}</p>
                 </details>
               ))}
             </div>

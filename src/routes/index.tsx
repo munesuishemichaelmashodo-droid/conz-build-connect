@@ -1,4 +1,5 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
+import { useTransportPricingEnabled } from "@/lib/transport-pricing";
 import { useEffect, type ReactNode } from "react";
 import {
   BadgeCheck,
@@ -147,6 +148,7 @@ function SectionHead({ id, title, lead }: { id: string; title: string; lead?: st
 }
 
 function Welcome() {
+  const transportOn = useTransportPricingEnabled();
   useRedirectWhenSignedIn();
   const bookHref = { mode: "register", next: "/customer/book" } as never;
   return (
@@ -460,8 +462,10 @@ function Welcome() {
               <div className="rounded-2xl border border-cz-amber/50 bg-gradient-to-b from-cz-amber/15 to-cz-surface p-6 md:p-8">
                 <h3 className="cz-display text-[28px] font-bold">What Con Z charges</h3>
                 <p className="mt-3 text-[17px] leading-relaxed">
-                  7% commission on eligible job value, including materials and transport. Your first
-                  completed job is commission-free.
+                  {transportOn
+                    ? "7% commission on the agreed delivery fare; materials are not part of it."
+                    : "7% commission on eligible job value, including materials and transport."}{" "}
+                  Your first completed job is commission-free.
                 </p>
                 <p className="mt-3 text-[14px] leading-relaxed text-cz-muted">
                   The commission is reserved from your Con Z credit when a customer accepts your
