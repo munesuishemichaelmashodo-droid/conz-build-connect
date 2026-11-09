@@ -27,6 +27,16 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service-role RPCs/tables added by 0073+ are not in the generated Supabase types yet
     const db = supabaseAdmin as any;
 
+    // Cap unfinished top-ups per user: each call writes a payments row and calls Paynow.
+    const { count: pendingTopups } = await db
+      .from("payments")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", context.userId)
+      .eq("type", "topup")
+      .eq("status", "initiated")
+      .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString());
+    if ((pendingTopups ?? 0) >= 10) return { ok: false, error: "too_many_pending_topups" };
+
     const { data: payment, error } = await db
       .from("payments")
       .insert({

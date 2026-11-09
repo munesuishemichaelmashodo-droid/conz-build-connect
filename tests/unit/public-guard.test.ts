@@ -28,5 +28,12 @@ describe("public endpoint guard", () => {
   it("uses the first forwarded address", () => {
     expect(clientKey(new Headers({ "x-forwarded-for": "1.2.3.4, 10.0.0.1" }))).toBe("1.2.3.4");
     expect(clientKey(new Headers())).toBe("unknown");
+    // a platform-set address beats a client-supplied x-forwarded-for
+    expect(
+      clientKey(new Headers({ "x-forwarded-for": "6.6.6.6", "x-vercel-forwarded-for": "1.2.3.4" })),
+    ).toBe("1.2.3.4");
+    expect(clientKey(new Headers({ "x-forwarded-for": "6.6.6.6", "x-real-ip": "1.2.3.4" }))).toBe(
+      "1.2.3.4",
+    );
   });
 });
