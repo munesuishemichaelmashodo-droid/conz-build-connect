@@ -15,6 +15,6 @@ Nothing here was done. Each item says what is blocked and the safest default.
 | 9 | **Staging paused** (09/11, your request): Payonify sandbox (#82), passkey staging (#91) and payments-left (#85) tasks are blocked until you restore `conz-staging`. Restoring may need `venmax-admin` paused first if the plan allows two active projects | Plan limit | Left paused |
 | 10 | `venmax-admin` is INACTIVE: restore it from the Supabase dashboard (or ask me) | Not part of ConZ | Not touched |
 | 11 | Lawyer/regulatory questions in `CONZ-COMMISSION-CREDIT-RISK-NOTE.md` (commission credit, directors, ZIMRA TIN for the company) | Legal conclusions | None made |
-| 12 | Real-device tests (Android phone, push delivery) | Needs hardware | Reported as unverified |
+| 12 | Real-device tests (Android phone, push delivery) | Needs hardware. **Script ready: `CONZ_PLATFORM_TEST_PLAN.md` (about 20 minutes, 12 steps)**. Evidence today: 0 native push tokens ever registered; 6 web-push subscriptions | Reported as unverified |
 | 13 | Repair `schema_migrations` for 0077-0108 before any `supabase db push` | Touches migration history | Never run `db push` |
 | 14 | ~~Deposit rule (F-AGR-1)~~ **Built 09/11** to the spec's rule (Driver proposes, Customer accepts): migration 0162 + card change, pgTAP 930 (22 tests), undo script tested. Live since 09/11 (production had 0 agreements) | None needed unless you want the old behaviour back | Undo: `supabase/rollbacks/20261109170000_0162_rollback.sql` |
