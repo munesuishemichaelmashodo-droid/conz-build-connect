@@ -25,7 +25,7 @@ For one trip of road distance `d` km:
 
 - `d <= 10`: $20; `<= 20`: $30; `<= 30`: $40; `<= 50`: $60 (the current urban bands, kept for continuity).
 - `d > 50`: `60 + (d - 50) x rate_per_km`, where `rate_per_km = fuel_l_per_100km / 100 x diesel_price x allowance` = 32 / 100 x 1.87 x 1.87 = **$1.119/km** at today's settings.
-- Transport fare for the job = per-trip fare x trips. Show the low / recommended / high guide as today (-13% / 0 / +15%, existing spread).
+- Transport fare for the job = per-trip fare x trips. Show the low / recommended / high guide as today (-15% / 0 / +15%, existing spread).
 - Return-empty and waiting time are **not** modelled separately; they sit inside the allowance. UNCALIBRATED.
 
 This reuses the v1.4 transport component, so a nearby urban job prices the same as today minus the material line. It is a continuity baseline, not a claim that these rates are right for every corridor.
