@@ -511,7 +511,7 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
 
 - Controlling spec: owner's `ConZ_Complete_Autonomous_Implementation_Prompt.md`. Status, baseline audit, owner-review list, demo-data inventory and final report live in
   `docs/implementation/`; release evidence in `docs/release/CONZ_RELEASE_EVIDENCE.md`; Paynow handover in `docs/payments/CONZ_PAYMENT_INTEGRATION_HANDOVER.md`. Start with `CONZ_EXECUTION_STATUS.md`.
-- `conz-staging` is **paused** (owner, 09/11) so `venmax-admin` can run. Restore it from the Supabase dashboard before any Payonify or passkey staging work.
+- `conz-staging` is **paused** (owner, 09/11); `venmax-admin` was restored and is running. Restore staging from the Supabase dashboard before any Payonify or passkey staging work (the plan allows two active projects).
 - First-job-free is still LIVE in `hold_job_commission`/`settle_direct_pay_job` and its copy is true (6 places). Replace it only together with the owner-approved $20 promo migration (0134 is old, open finding M4).
 - The 90-day driver re-check is enforced in the database (bids policy + 7 functions); the "re-checked every 90 days" copy is accurate.
 - Production holds 15 users, 94 jobs (74 cancelled); no demo mode exists in the app; do not delete test data without the two protected accounts being named, a backup and owner approval.
@@ -519,3 +519,8 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
 - Competitor refresh: `docs/marketplace/CONZ-COMPETITOR-REFRESH-2026-11-09.md` (the six names in the spec were not found; leads only).
 - UI: 136-load width/scheme sweep and an axe-core WCAG 2.2 AA run (88 loads, 0 violations) done on the local stand-in; admin data panels, real screen reader and real devices not covered. Open: real-device Android; iOS project does not exist.
 - `0164_pin_cancellation_helper_search_path` is LIVE (recorded 20261109190000): the two 0148 helpers have a pinned search_path (advisor `function_search_path_mutable` cleared). Remaining advisor items are known/accepted: `driver_public_profiles` definer view, `pg_net` in public, leaked-password protection (Free plan), the 5 reviewed anon-executable functions, 3 deny-all tables (`app_secrets`, `material_sourcing_status_history`, `super_admin_owners`).
+
+## 09/11/2026 — owner decisions
+- Legal entity: **Navysky Innovations (Private) Limited** (confirmed by the owner). Protected accounts (never clear): `munesuishemichaelmashodo@gmail.com`, `ngaatendwew@gmail.com` (super admins). `web***@gmail.com` also kept by the owner's answer.
+- 9 test accounts were anonymised and locked on 09/11 (history kept). Three more (`con***`, `taw***`, `mas***`) are locked, waiting for the owner to cancel two stuck test jobs and delete their KYC files in the Storage dashboard. Never delete jobs, payments, ledger or audit rows.
+- $20 one-time promo commission credit approved by the owner as demo (non-cash, non-withdrawable, non-transferable) money, replacing first-job-free. Do NOT apply old `0134` (open finding M4); a corrected migration is being built and tested.
