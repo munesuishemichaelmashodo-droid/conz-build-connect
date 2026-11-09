@@ -67,13 +67,14 @@ export function payLine(
 }
 
 /**
- * The deposit is the driver's to propose (migration 0162). A customer's new version keeps the deposit of the latest
- * version that was not declined; the database refuses any other amount. `rows` are newest first.
+ * The deposit is the driver's to propose (migrations 0162, 0163). A customer's new version keeps the deposit that is in
+ * force: the newest version still proposed or accepted (never a superseded or declined one). The database refuses any
+ * other amount. `rows` are newest first.
  */
 export function carriedDeposit(
   rows: Pick<JobAgreement, "status" | "deposit_amount">[] | null | undefined,
 ): number {
-  const latest = (rows ?? []).find((r) => r.status !== "declined");
+  const latest = (rows ?? []).find((r) => r.status === "proposed" || r.status === "accepted");
   const n = Number(latest?.deposit_amount ?? 0);
   return Number.isFinite(n) && n > 0 ? n : 0;
 }

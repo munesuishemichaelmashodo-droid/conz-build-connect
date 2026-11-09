@@ -66,13 +66,24 @@ describe("payLine", () => {
 });
 
 describe("carriedDeposit", () => {
-  it("keeps the deposit of the newest version that was not declined", () => {
+  it("keeps the deposit of the newest version still proposed or accepted", () => {
     expect(
       carriedDeposit([
         { status: "declined", deposit_amount: 50 },
-        { status: "superseded", deposit_amount: 20 },
+        { status: "proposed", deposit_amount: 20 },
+        { status: "accepted", deposit_amount: 10 },
       ]),
     ).toBe(20);
+  });
+  it("never carries a superseded or declined deposit (driver v1 $20 accepted, v2 $30 superseded, v3 $40 declined)", () => {
+    expect(
+      carriedDeposit([
+        { status: "declined", deposit_amount: 40 },
+        { status: "superseded", deposit_amount: 30 },
+        { status: "accepted", deposit_amount: 20 },
+      ]),
+    ).toBe(20);
+    expect(carriedDeposit([{ status: "superseded", deposit_amount: 30 }])).toBe(0);
   });
   it("is zero with no versions or no deposit", () => {
     expect(carriedDeposit(null)).toBe(0);

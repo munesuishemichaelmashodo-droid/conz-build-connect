@@ -95,7 +95,16 @@ export function AgreementCard({
     setBusy(true);
     const { error } = await call(fn, args);
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      // The driver changed the deposit while this form was open: show the new one instead of a bare refusal.
+      if (/only the driver can propose or change a deposit/i.test(error.message)) {
+        refresh();
+        return toast.error(
+          "The driver changed the deposit. Close this form and open it again to see it.",
+        );
+      }
+      return toast.error(error.message);
+    }
     toast.success(ok);
     setEditing(false);
     refresh();

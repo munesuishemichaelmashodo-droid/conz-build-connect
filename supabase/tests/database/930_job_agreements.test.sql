@@ -1,7 +1,7 @@
 -- 0157: the agreement card. Fare comes from the job; both sides accept; versions are kept; only participants and
 -- admins can read; nothing about money moves.
 begin;
-select plan(22);
+select plan(25);
 select tests.enable_launch_features();
 alter table public.jobs disable trigger trg_jobs_one_active_per_driver;
 
@@ -72,6 +72,42 @@ select throws_ok(format($$select public.propose_job_agreement(%L, 'cash', 'on_de
 -- money untouched
 select tests.as_owner();
 select is(pg_temp.money(), current_setting('t.money'), 'no wallet, ledger, payment, price or reserve changed');
+
+-- 0163: the deposit a customer's version carries is the one in force (proposed or accepted), never a superseded or declined one
+select tests.as_owner();
+select set_config('t.job3', tests.create_job(current_setting('t.cust')::uuid, 100, 'direct')::text, true);
+do $$
+declare b uuid;
+begin
+  b := tests.create_bid(current_setting('t.job3')::uuid, current_setting('t.d')::uuid, 100);
+  perform tests.login_as(current_setting('t.cust')::uuid);
+  perform public.accept_bid(b);
+  perform tests.as_owner();
+end $$;
+
+-- a customer who proposes first, with a deposit nobody offered, is refused
+select tests.login_as(current_setting('t.cust')::uuid);
+select throws_ok(format($$select public.propose_job_agreement(%L, 'cash', 'on_delivery', 25)$$, current_setting('t.job3')), null, 'Only the driver can propose or change a deposit', 'a customer cannot make the first proposal with a deposit');
+
+do $$
+declare a uuid;
+begin
+  perform tests.login_as(current_setting('t.d')::uuid);
+  perform public.propose_job_agreement(current_setting('t.job3')::uuid, 'cash', 'on_delivery', 20);          -- v1, $20
+  select id into a from public.job_agreements where job_id = current_setting('t.job3')::uuid and version = 1;
+  perform tests.login_as(current_setting('t.cust')::uuid);
+  perform public.accept_job_agreement(a);                                                                     -- v1 accepted
+  perform tests.login_as(current_setting('t.d')::uuid);
+  perform public.propose_job_agreement(current_setting('t.job3')::uuid, 'cash', 'on_delivery', 30);          -- v2, $30
+  perform public.propose_job_agreement(current_setting('t.job3')::uuid, 'cash', 'on_delivery', 40);          -- v3, $40 (v2 superseded)
+  select id into a from public.job_agreements where job_id = current_setting('t.job3')::uuid and version = 3;
+  perform tests.login_as(current_setting('t.cust')::uuid);
+  perform public.decline_job_agreement(a);                                                                    -- customer declines v3
+end $$;
+
+select tests.login_as(current_setting('t.cust')::uuid);
+select is((public.propose_job_agreement(current_setting('t.job3')::uuid, 'cash', 'on_delivery', 20)).deposit_amount, 20.00, 'after the driver''s latest offer is declined, the customer''s version keeps the deposit that is in force');
+select throws_ok(format($$select public.propose_job_agreement(%L, 'cash', 'on_delivery', 30)$$, current_setting('t.job3')), null, 'Only the driver can propose or change a deposit', 'a superseded driver deposit is not forced on the customer');
 
 select * from finish();
 rollback;

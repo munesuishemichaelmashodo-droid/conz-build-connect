@@ -22,7 +22,7 @@ export type DeleteAccountResult =
 
 const BLOCKER_TEXT: Record<string, string> = {
   wallet_balance_positive:
-    "contact support about the credit in your wallet (withdrawals are paused)",
+    "deal with the credit in your wallet (contact support if withdrawals are paused)",
   wallet_balance_owed: "settle the amount you owe in your wallet",
   commission_held: "finish the jobs that are holding commission",
   withdrawal_pending: "wait for your pending withdrawal to be processed (or cancel it)",
