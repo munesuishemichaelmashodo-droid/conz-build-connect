@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTransportPricingEnabled } from "@/lib/transport-pricing";
 import { commissionCopy } from "@/lib/commission-copy";
+import { promoCopy, usePromoCredit } from "@/lib/promo-credit";
 import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,7 @@ export function OnboardingWalkthrough({
   role: "customer" | "driver";
 }) {
   const transportOn = useTransportPricingEnabled();
+  const promo = usePromoCredit();
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
   const [notifGranted, setNotifGranted] = useState(false);
@@ -211,7 +213,9 @@ export function OnboardingWalkthrough({
                 {Icon && <Icon className="w-8 h-8" />}
               </div>
               <h2 className="font-display font-bold text-2xl">{slide!.title}</h2>
-              <p className="text-muted-foreground max-w-xs mx-auto">{commissionCopy(slide!.body, transportOn)}</p>
+              <p className="text-muted-foreground max-w-xs mx-auto">
+                {promoCopy(commissionCopy(slide!.body, transportOn), promo)}
+              </p>
             </motion.div>
           )}
         </AnimatePresence>

@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useTransportPricingEnabled } from "@/lib/transport-pricing";
+import { promoCreditTerms, usePromoCredit } from "@/lib/promo-credit";
 import { ArrowLeft } from "lucide-react";
 
 export const Route = createFileRoute("/terms")({
@@ -16,6 +17,7 @@ export const Route = createFileRoute("/terms")({
 
 function TermsPage() {
   const transportOn = useTransportPricingEnabled();
+  const promo = usePromoCredit();
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-3xl px-5 py-8">
@@ -80,8 +82,10 @@ function TermsPage() {
               commission for that job from the Driver's wallet credit. The reservation is confirmed
               against the job, it is not a fee for browsing or offering, and it is released if the job
               is cancelled before the load is collected. The commission is earned when the delivery
-              is verified (see section 8). The first completed job for each newly verified Driver is
-              exempt from commission under the first-job-free policy.
+              is verified (see section 8).{" "}
+              {promo.enabled
+                ? promoCreditTerms(promo.amount)
+                : "The first completed job for each newly verified Driver is exempt from commission under the first-job-free policy."}
             </p>
             <p>
               Wallet top-ups, balances and withdrawals are governed by the in-app Wallet and its

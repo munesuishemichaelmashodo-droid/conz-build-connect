@@ -21,7 +21,7 @@
 --
 -- Safe by default: nothing is granted until system_settings.promo_credit_enabled = true (default false).
 -- Existing drivers are NOT granted anything automatically (admin_grant_promo_credit is available).
--- Requires 0113 to be applied first (apply 0113, then 0134). No DROP. Undo: supabase/rollbacks/20261103160000_0134_rollback.sql
+-- Requires 0113 to be applied first (apply 0113, then 0134). No DROP. Corrected 09/11 (finding M4: ledger lines on reserve and release; owner decision: replaces first-job-free via activate_promo_credit_program(), a separate service-role step). Undo: supabase/rollbacks/20261103160000_0134_rollback.sql
 -- -----------------------------------------------------------------------------
 
 begin;
@@ -53,17 +53,14 @@ create unique index if not exists promo_one_grant_per_driver on public.promo_cre
 create unique index if not exists promo_one_reserve_per_job on public.promo_credit_ledger (job_id) where kind = 'reserve';
 create unique index if not exists promo_one_release_per_job on public.promo_credit_ledger (job_id) where kind = 'release';
 
-drop trigger if exists trg_promo_credit_ledger_immutable on public.promo_credit_ledger;
-create trigger trg_promo_credit_ledger_immutable
+create or replace trigger trg_promo_credit_ledger_immutable
   before update or delete on public.promo_credit_ledger
   for each row execute function public.append_only_guard();
 
 alter table public.promo_credit_ledger enable row level security;
 revoke all on public.promo_credit_ledger from public, anon, authenticated;
 grant select on public.promo_credit_ledger to authenticated;
-drop policy if exists "Users read own promo credit" on public.promo_credit_ledger;
 create policy "Users read own promo credit" on public.promo_credit_ledger for select to authenticated using (user_id = auth.uid());
-drop policy if exists "Admins read promo credit" on public.promo_credit_ledger;
 create policy "Admins read promo credit" on public.promo_credit_ledger for select to authenticated
   using (public.has_role(auth.uid(), 'admin'::public.app_role) or public.has_role(auth.uid(), 'super_admin'::public.app_role));
 
@@ -130,6 +127,13 @@ begin
     values (_job.driver_id, 'adjustment', _promo, _bal, _job_id, 'Promotional credit reserved for commission (not cash)');
     insert into public.promo_credit_ledger (user_id, amount, kind, job_id, note)
     values (_job.driver_id, -_promo, 'reserve', _job_id, 'Reserved for the commission on this job');
+    -- (M4) The promo funds are now inside the wallet balance as reserved funds, so the platform ledger must say so too
+    -- or -sum(user_wallets) would drift from sum(wallets.balance). The other side is a promotional expense.
+    perform public.post_ledger('promo_credit_reserve',
+      jsonb_build_array(
+        jsonb_build_object('account', 'admin_adjustments', 'amount', _promo),
+        jsonb_build_object('account', 'user_wallets', 'amount', -(_promo))),
+      null, _job_id, _job.driver_id, 'Promotional credit reserved for commission (not cash)');
   end if;
 
   update public.wallets
@@ -185,6 +189,12 @@ begin
     insert into public.promo_credit_ledger (user_id, amount, kind, job_id, note)
     values (_job.driver_id, _promo, 'release', _job_id, 'Reservation released')
     on conflict do nothing;
+    -- (M4) mirror of the reserve: the funds leave the wallet balance again, so the ledger reverses the same entry.
+    perform public.post_ledger('promo_credit_release',
+      jsonb_build_array(
+        jsonb_build_object('account', 'user_wallets', 'amount', _promo),
+        jsonb_build_object('account', 'admin_adjustments', 'amount', -(_promo))),
+      null, _job_id, _job.driver_id, 'Promotional credit returned to the promo balance (not cash)');
   end if;
 
   update public.jobs set held_commission = null, held_commission_promo = 0 where id = _job_id;
@@ -493,8 +503,7 @@ begin
   return new;
 end $$;
 revoke all on function public.tg_grant_promo_on_verification() from public, anon, authenticated;
-drop trigger if exists trg_grant_promo_on_verification on public.driver_profiles;
-create trigger trg_grant_promo_on_verification
+create or replace trigger trg_grant_promo_on_verification
   after update of verification_status on public.driver_profiles
   for each row execute function public.tg_grant_promo_on_verification();
 
@@ -581,5 +590,80 @@ begin
 end $$;
 revoke all on function public.promo_credit_reconciliation() from public, anon;
 grant execute on function public.promo_credit_reconciliation() to authenticated;
+
+-- Activation: ONE controlled step (service role only), run when the owner says go ------------------------------
+-- Owner decision 09/11/2026: the $20 promotional credit (demo money, never cash) REPLACES first-job-free.
+-- Switches the programme on, grants the one-time credit to verified drivers whose free first job was still unused
+-- (they lose that job, so they are made whole), and retires the free job for everyone. Idempotent.
+create or replace function public.activate_promo_credit_program()
+returns jsonb
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare _r record; _granted int := 0; _retired int;
+begin
+  insert into public.system_settings (key, value) values ('promo_credit_enabled', 'true'::jsonb)
+  on conflict (key) do update set value = 'true'::jsonb, updated_at = now();
+  for _r in select user_id from public.driver_profiles
+             where coalesce(first_job_free_used, false) = false and verification_status = 'verified' loop
+    if public.grant_promo_credit(_r.user_id) then _granted := _granted + 1; end if;
+  end loop;
+  with u as (update public.driver_profiles set first_job_free_used = true
+              where coalesce(first_job_free_used, false) = false returning 1)
+  select count(*) into _retired from u;
+  return jsonb_build_object('enabled', true, 'granted', _granted, 'free_job_retired_for', _retired);
+end $$;
+revoke all on function public.activate_promo_credit_program() from public, anon, authenticated;
+grant execute on function public.activate_promo_credit_program() to service_role;
+
+-- From activation on, a new driver profile never starts with a free first job.
+create or replace function public.tg_retire_free_first_job()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+begin
+  if coalesce((select (value #>> '{}')::boolean from public.system_settings where key = 'promo_credit_enabled'), false) then
+    new.first_job_free_used := true;
+  end if;
+  return new;
+end $$;
+revoke all on function public.tg_retire_free_first_job() from public, anon, authenticated;
+create or replace trigger trg_retire_free_first_job
+  before insert on public.driver_profiles
+  for each row execute function public.tg_retire_free_first_job();
+
+-- The app reads the programme state to show the right wording (flags only).
+create or replace function public.launch_switches()
+returns jsonb
+language sql stable security definer set search_path = public
+as $$
+  select jsonb_build_object(
+    'escrowEnabled',      public._launch_setting_bool('escrow_enabled', false),
+    'withdrawalsEnabled', public._launch_setting_bool('withdrawals_enabled', false),
+    'maxJobBudget',       public._launch_setting_num('max_job_budget', 500),
+    'maxWalletBalance',   public._launch_setting_num('max_wallet_balance', 150),
+    'minTopup',           public._launch_setting_num('min_topup', 1),
+    'promoCreditEnabled', public._launch_setting_bool('promo_credit_enabled', false),
+    'promoCreditAmount',  public._launch_setting_num('promo_credit_amount', 20)
+  );
+$$;
+revoke all on function public.launch_switches() from public, anon;
+grant execute on function public.launch_switches() to authenticated, service_role;
+
+-- The public pages (home, Terms) must word the commission correctly: one read of on/off + amount, nothing else.
+-- Same pattern as transport_pricing_enabled() (0161).
+create or replace function public.promo_credit_public()
+returns jsonb
+language sql stable security definer set search_path = public
+as $$
+  select jsonb_build_object(
+    'enabled', public._launch_setting_bool('promo_credit_enabled', false),
+    'amount',  public._launch_setting_num('promo_credit_amount', 20));
+$$;
+revoke all on function public.promo_credit_public() from public;
+grant execute on function public.promo_credit_public() to anon, authenticated, service_role;
 
 commit;
