@@ -8,7 +8,7 @@
    - A dispatch "yes" assigned a driver the customer never chose: **fixed and live** (0154, 0156). Trade-off: dispatch is slower; undo file exists.
    - Admins (and, in git, drivers/customers via `held_commission_promo`) could write money columns of `jobs` directly: **fixed and live** (0155).
    - Not fixed, owner decision needed: commission still includes materials; live settlement recomputes commission at completion (apply 0113); a dispute refund on a direct job credits the customer's wallet; referral credit is withdrawable; do not apply 0134 before its own findings are fixed.
-3. **What was added for clients and drivers?** Safe driver cards (name, photo, last active, truck type/make/model/colour marked "declared by driver", capacity, masked plate until chosen); optional truck fields on the driver form; an agreement card (fare from the job, payment method and timing, deposit paid to the driver, times, inclusions, versions, both sides confirm) (0157, in review); a transport-only pricing engine, off (0158, in review).
+3. **What was added for clients and drivers?** Safe driver cards (name, photo, last active, truck type/make/model/colour marked "declared by driver", capacity, masked plate until chosen); optional truck fields on the driver form; an agreement card (fare from the job, payment method and timing, deposit paid to the driver, times, inclusions, versions, both sides confirm) (0157, live); a transport-only pricing engine, off (0158, live).
 4. **How does pricing work nationwide now?** Live pricing is unchanged (material plus transport from a listed supplier). The nationwide transport-only formula is designed (`CONZ-NATIONWIDE-PRICING.md`), built as a function that nothing calls yet, and every value is uncalibrated. Switching it on needs your go plus decisions on the $500 launch cap and a licensed truck-profile router.
 5. **How is ConZ paid?** Unchanged: 7% of the accepted price, reserved from the driver's prepaid commission credit when the customer accepts, released once on a legitimate cancel, charged once on verified completion, first job free. The brief wants the base to be the transport fare only; that is designed but NOT live.
 6. **What did research say about competitors?** None of the verified competitors (MoveZW, ZimboHaul, eTruckConnect) shows truck make, model, payload, plate or photo publicly; Truck on the Move gates job acceptance behind a prepaid wallet. Movu and Takurirwa could not be verified. Competitor prices are context only.
@@ -24,8 +24,8 @@
 | Close bidder exposure | #84 (merged) | 0153 | live, 20261108110000 |
 | Dispatch answer is an offer | #83 (merged) | 0154 | live, 20261108120000 |
 | Jobs money-column guard + review fixes | #86 (merged) | 0155, 0156 | live, 20261109100000 and 20261109110000 |
-| Agreement card | #87 | 0157 | not applied until merge and deploy |
-| Transport pricing engine (off) | #88 | 0158 | not applied |
+| Agreement card | #87 (merged) | 0157 | live, recorded 20261109120000 |
+| Transport pricing engine (off) | #88 (merged) | 0158 | live, recorded 20261109130000; switch off, nothing calls it |
 
 Live hash checks (whitespace-stripped md5): `offer_bidder_cards` `a75845e6…` equals the local build; `accept_dispatch_offer` after 0154 `eb2edb77…`, after 0156 `5b04701b…`. The local database could not be compared for 0154/0156 (it was not running after an environment restart); the applied text equals the committed file with comment-only lines removed, which is the established practice. `tg_truck_change_needs_review` differs from the committed file only by one stripped trailing comment.
 
@@ -43,9 +43,9 @@ Each migration has an undo file in `supabase/rollbacks/` (0152, 0153, 0154, 0155
 
 ## Deployment steps still open
 
-1. Merge #87 after CI; deploy; apply 0157 (additive); verify; record `20261109120000`.
-2. Merge #88; apply 0158 any time (additive, off); record `20261109130000`.
-3. Owner decisions above. Do not run `supabase db push` before `schema_migrations` is repaired for 0077-0108.
+1. Nothing else is pending for 0152-0158: all are merged, applied and recorded.
+2. Owner decisions above, including which diesel price is intended (live setting is $2.04; earlier notes said $1.87; the fuel-use and allowance rows are unset, so defaults apply).
+3. Do not run `supabase db push` before `schema_migrations` is repaired for 0077-0108.
 
 ## Known gaps
 
