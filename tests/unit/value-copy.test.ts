@@ -62,6 +62,12 @@ describe("customer and driver wording stays honest", () => {
     );
   });
 
+  it("words the driver's fee for delivery-only jobs as a share of the delivery fare, in commission-credit terms", () => {
+    const form = text("src/routes/_authenticated/jobs.$id.tsx");
+    expect(form).toMatch(/of your delivery fare; material is not part of it/);
+    expect(form).toMatch(/reserved from your commission credit when the customer accepts/);
+  });
+
   it("describes an invited previous driver as invited, not assigned", () => {
     expect(text("src/routes/_authenticated/customer.book.tsx")).toMatch(
       /invite your previous driver to bid/,
