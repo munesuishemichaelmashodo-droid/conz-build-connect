@@ -23,8 +23,8 @@ create or replace function pg_temp.status_of(_uid uuid) returns text language sq
 -- 1. Visibility
 -- ---------------------------------------------------------------------------
 select tests.login_as(current_setting('t.cust')::uuid);
-select is((select count(*)::int from public.trucks where id = current_setting('t.truck')::uuid), 1,
-  'A customer sees the truck of a driver who bid on their job');
+select is((select count(*)::int from public.trucks where id = current_setting('t.truck')::uuid), 0,
+  'A customer does not read the truck row of a driver who only bid (0153; they get a masked card instead)');
 select is((select count(*)::int from public.trucks where driver_id = current_setting('t.drv2')::uuid), 0,
   'A customer does not see trucks of drivers who did not bid for them');
 select tests.login_as(current_setting('t.cust2')::uuid);
