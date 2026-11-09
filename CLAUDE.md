@@ -494,3 +494,16 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
 - **Owner decisions 09/11/2026:** delivery-only pricing stays OFF for now (the wording that follows the switch is built: `src/lib/commission-copy.ts`, `useTransportPricingEnabled()`,
   and `0161` lets signed-out visitors read the one-boolean `transport_pricing_enabled()`; live 20261109160000); the $500 launch cap stays; diesel stays $2.04/L;
   dispute refunds on direct jobs go back to the driver (0160). To launch delivery-only pricing: set `system_settings.transport_pricing_enabled` to `true` (the wording on the terms, home, wallet, help, walkthrough, driver offer form and public price check already follows the switch; re-check the $500 cap first).
+
+## 09/11/2026 — dependency and MCP endpoint security (PRs #100, #101, merged)
+
+- `/mcp` (read-only tools behind Supabase OAuth) now runs `@lovable.dev/mcp-js` 3.4.0 / `@modelcontextprotocol/sdk` 1.32.2, which fixes six high advisories (bearer
+  accepted for another service, memory exhaustion, no body/batch limit, cross-origin credential redirects). The helper routes `/.mcp/list-tools` and `/.mcp/invoke-tool/$tool`
+  no longer exist (3.x). `package.json` has `"overrides": {"lightningcss": "^1.33.0"}` so a plain `npm ci` works (the new library's optional peer vs Tailwind's pin).
+- The MCP issuer is derived from `VITE_SUPABASE_URL` (`src/lib/mcp/issuer.ts`). Before this, production advertised the STAGING project as its authorization server because
+  `VITE_SUPABASE_PROJECT_ID` in the production build held the staging id. **Owner: set `VITE_SUPABASE_PROJECT_ID=ovwrsocjmkpiygipmrdk` in Vercel's Production environment**;
+  keep staging values scoped to Preview.
+- Remaining production advisories: `zod` (high: memory exhaustion on oversized constrained collections; the fix is zod 4, a major migration; our public inputs are bounded),
+  plus moderate/low (hono node-server, seroval, esbuild dev server on Windows). Re-run `npm audit --omit=dev` after dependency changes.
+- CI gotcha: `database-tests` can fail on a GitHub 504 while the Supabase CLI downloads an image library; re-run the failed job (`rerun_failed_jobs`) before suspecting the change.
+- Check lint with its exit code (`npm run lint:security; echo $?`), not by tailing the last line.
