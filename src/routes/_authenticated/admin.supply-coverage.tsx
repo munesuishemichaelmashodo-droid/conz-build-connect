@@ -170,7 +170,12 @@ function SupplyCoveragePage() {
         })}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border">
+      <div
+        className="overflow-x-auto rounded-xl border focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        role="region"
+        aria-label="Supply coverage by region and material"
+        tabIndex={0}
+      >
         <table className="w-full text-xs">
           <thead>
             <tr className="bg-muted/40">
