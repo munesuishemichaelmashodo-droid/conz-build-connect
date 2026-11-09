@@ -5,7 +5,7 @@
 --   D. an admin debit could take a wallet below the funds held for active jobs
 
 begin;
-select plan(16);
+select plan(17);
 select tests.enable_launch_features();
 
 select set_config('t.cust',  tests.create_user('af_cust')::text, true);
@@ -77,7 +77,8 @@ select lives_ok(format($$select public.resolve_dispute(%L, 'refund', 'commission
 select throws_like(format($$select public.resolve_dispute(%L, 'refund', 'refunding the same commission again')$$, current_setting('t.d2')),
   '%already been refunded%', 'C: a second refund outcome on the same job is refused');
 select tests.as_owner();
-select is(tests.balance(current_setting('t.cust')::uuid), 28.00::numeric, 'C: the customer received the $28.00 commission exactly once');
+select is(tests.balance(current_setting('t.cust')::uuid), 0.00::numeric, 'C (0160): the customer is credited nothing');
+select is((select coalesce(sum(amount),0) from public.wallet_transactions where job_id = current_setting('t.job')::uuid and type = 'refund' and user_id = current_setting('t.drv')::uuid), 28.00::numeric, 'C (0160): the driver got the $28.00 commission back exactly once');
 select is((select count(*)::int from public.wallet_transactions where job_id = current_setting('t.job')::uuid and type = 'refund'), 1,
   'C: exactly one refund transaction exists for the job');
 
