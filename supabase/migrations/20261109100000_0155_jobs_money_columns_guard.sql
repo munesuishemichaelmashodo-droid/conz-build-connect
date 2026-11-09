@@ -25,8 +25,11 @@ begin
   end if;
   _old := to_jsonb(old);
   _new := to_jsonb(new);
-  foreach _col in array array['status', 'commission', 'final_price', 'held_commission', 'held_commission_promo',
-                              'payment_method', 'driver_id', 'accepted_bid_id', 'completed_at'] loop
+  foreach _col in array array['status', 'commission', 'final_price', 'budget', 'held_commission', 'held_commission_promo',
+                              'payment_method', 'driver_id', 'customer_id', 'accepted_bid_id', 'completed_at',
+                              'delivery_pin', 'tracking_token', 'delivered_quantity_m3',
+                              'cancelled_at', 'cancelled_by', 'cancellation_stage', 'cancellation_reason',
+                              'pickup_photo_taken_at', 'delivery_photo_taken_at'] loop
     if _new -> _col is distinct from _old -> _col then
       raise exception 'This field can only be changed through the app''s job actions (accept / complete / cancel).'
         using errcode = '42501';

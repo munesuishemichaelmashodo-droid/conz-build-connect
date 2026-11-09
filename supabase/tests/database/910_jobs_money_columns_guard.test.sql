@@ -2,7 +2,7 @@
 -- money or assignment column. The job actions (functions) still work. Closes audit findings M1 (admin direct write)
 -- and H1 (held_commission_promo writable by the driver or customer).
 begin;
-select plan(11);
+select plan(16);
 select tests.enable_launch_features();
 alter table public.jobs disable trigger trg_jobs_one_active_per_driver;
 
@@ -28,6 +28,12 @@ select throws_ok(format($$update public.jobs set final_price = 1 where id = %L$$
 select throws_ok(format($$update public.jobs set held_commission = 0 where id = %L$$, current_setting('t.job')), '42501', null, 'an admin cannot clear the reserve directly');
 select throws_ok(format($$update public.jobs set commission = 0 where id = %L$$, current_setting('t.job')), '42501', null, 'an admin cannot set the commission directly');
 select lives_ok(format($$update public.jobs set notes = 'checked by admin' where id = %L$$, current_setting('t.job')), 'an admin can still edit non-money fields');
+
+select throws_ok(format($$update public.jobs set budget = 1 where id = %L$$, current_setting('t.job')), '42501', null, 'an admin cannot change the budget directly');
+select throws_ok(format($$update public.jobs set delivery_pin = 'x' where id = %L$$, current_setting('t.job')), '42501', null, 'an admin cannot rewrite the delivery PIN directly');
+select throws_ok(format($$update public.jobs set cancelled_at = now() where id = %L$$, current_setting('t.job')), '42501', null, 'an admin cannot stamp a cancellation directly');
+select throws_ok(format($$update public.jobs set delivery_photo_taken_at = now() where id = %L$$, current_setting('t.job')), '42501', null, 'an admin cannot move the photo time that starts the auto-release clock');
+select throws_ok(format($$update public.jobs set driver_id = null where id = %L$$, current_setting('t.job')), '42501', null, 'an admin cannot unassign the driver directly');
 
 -- driver and customer on the promo column (present in this build)
 select tests.login_as(current_setting('t.d')::uuid);
