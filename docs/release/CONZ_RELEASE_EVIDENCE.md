@@ -21,3 +21,12 @@ Rollback for this session's code: revert PR #106 (two one-line copy changes and 
 | Rollback | `supabase/rollbacks/20261109170000_0162_rollback.sql` (applied then re-applied cleanly on the local stack) |
 | Not exercised | A real customer/driver agreement on production (0 agreements exist); only the local pgTAP covers the customer-refused and carried-deposit paths |
 | CI note | The push run on `main` after PR #106 had `build-android-apk` red: Gradle wrapper download failed (network error in the job log); other jobs green; the next main run was green |
+
+## Addendum: 0163 (09/11/2026, later)
+| What | Evidence |
+| --- | --- |
+| Code | PR #111 merged as `427c549`; CI build-and-verify, database-tests (full pgTAP 90 files / 1830 tests) and build-android-apk all success |
+| Deployed | Production job-page chunk `jobs._id-BoMkvQ-u.js` contains "The driver changed the deposit" |
+| Database | `propose_job_agreement` replaced. Pre-check md5 `2a21534304acbac17fe1835d0a80c9b1`, 0 agreements; post-check `11b918d150ecc0bbee7e8c8e8b9b59f6` = committed text; security definer; anon cannot execute, authenticated can. Recorded `20261109180000` |
+| Rollback | `supabase/rollbacks/20261109180000_0163_rollback.sql` (restores the 0162 body) |
+| Not exercised | A real agreement on production (0 exist); local pgTAP covers the customer-refused, carried-deposit and superseded-deposit paths |
