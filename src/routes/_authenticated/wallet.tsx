@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useTransportPricingEnabled } from "@/lib/transport-pricing";
+import { commissionCopy } from "@/lib/commission-copy";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -122,6 +124,7 @@ type WithdrawReq = {
 };
 
 function WalletPage() {
+  const transportOn = useTransportPricingEnabled();
   const { userId, is } = useAuth();
   const qc = useQueryClient();
   const [tab, setTab] = useState<"summary" | "history" | "requests">("summary");
@@ -448,7 +451,7 @@ function WalletPage() {
 
         {!canWithdraw && (
           <p className="text-xs text-white/75 mt-4 relative">
-            Your ConZ credit pays ConZ commission: 7% of the full job price, materials and transport included. Your first completed job has no commission. Part of it is held while a job is
+            {commissionCopy("Your ConZ credit pays ConZ commission: 7% of the full job price, materials and transport included.", transportOn)} Your first completed job has no commission. Part of it is held while a job is
             active. Withdrawals are paused for now; to get unused credit back, contact support. You
             can hold up to {money(launch.maxWalletBalance)} in credit.
           </p>

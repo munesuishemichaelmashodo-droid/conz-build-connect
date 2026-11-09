@@ -28,6 +28,7 @@ import { bookingOutcome, newBookingAttemptId } from "@/lib/booking-attempt";
 import { useAuth } from "@/lib/auth";
 import { useLaunchSwitches } from "@/lib/launch-switches";
 import { computeTransportOffer } from "@/lib/transport-quote.functions";
+import { useTransportPricingEnabled } from "@/lib/transport-pricing";
 import { transportJobFields, transportToOfferResult } from "@/lib/transport-offer-view";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
@@ -101,15 +102,7 @@ function BookDelivery() {
 
   // Pricing by the customer's own pickup and delivery point (off unless the owner turns it on).
   const runTransport = useServerFn(computeTransportOffer);
-  const { data: transportOn } = useQuery({
-    queryKey: ["transport-pricing-enabled"],
-    staleTime: 5 * 60_000,
-    queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 0158 function is newer than the generated types
-      const { data, error } = await (supabase as any).rpc("transport_pricing_enabled");
-      return !error && data === true;
-    },
-  });
+  const transportOn = useTransportPricingEnabled();
   const [pickupAddress, setPickupAddress] = useState("");
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
 

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useTransportPricingEnabled } from "@/lib/transport-pricing";
 import { ArrowLeft } from "lucide-react";
 
 export const Route = createFileRoute("/terms")({
@@ -14,6 +15,7 @@ export const Route = createFileRoute("/terms")({
 });
 
 function TermsPage() {
+  const transportOn = useTransportPricingEnabled();
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-3xl px-5 py-8">
@@ -70,8 +72,11 @@ function TermsPage() {
           <Section title="6. Commission and Wallet">
             <p>
               Registering, verification, browsing jobs and sending offers are free for Drivers. Con Z
-              charges a flat platform commission of <b>7%</b> of the full job price, including
-              materials and transport. When a Customer selects a Driver, Con Z reserves the
+              charges a flat platform commission of <b>7%</b> of{" "}
+              {transportOn
+                ? "the agreed delivery fare. Where a job is priced for delivery only, the material is arranged separately between the Customer and the supplier or Driver and is not part of the fare or the commission"
+                : "the full job price, including materials and transport"}
+              . When a Customer selects a Driver, Con Z reserves the
               commission for that job from the Driver's wallet credit. The reservation is confirmed
               against the job, it is not a fee for browsing or offering, and it is released if the job
               is cancelled before the load is collected. The commission is earned when the delivery
