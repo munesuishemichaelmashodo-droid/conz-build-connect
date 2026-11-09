@@ -485,6 +485,9 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
   fresh 30-min expiry, trucks policy limited to the accepted offer's truck, no 5+ digits in declared truck facts (20261109110000; live
   `accept_dispatch_offer` md5 `5b04701b…`), `0157` job agreement card: `job_agreements` + propose/accept/decline functions, fare copied from the
   job, no direct writes (20261109120000). Agreement card UI is in `src/components/AgreementCard.tsx`; it hides itself if the table is missing.
-- `0158` (transport-only pricing engine `compute_transport_offer`, `system_settings.transport_pricing_enabled=false`, `jobs.pricing_basis`) is additive and OFF;
-  nothing calls it. Do not wire it or change the commission base/terms without the owner's explicit go. Verification report:
+- `0158` (transport-only pricing engine `compute_transport_offer`, `system_settings.transport_pricing_enabled=false`, `jobs.pricing_basis`) and `0159`
+  (transport quotes written only by the server, validating trigger `tg_validate_transport_job`, one early return added to `tg_validate_job_budget`; live prosrc
+  md5 `e1909ee1…`; undo restores the 0108 body) are LIVE and OFF (recorded 20261109130000 / 20261109140000). The booking form has a pickup picker and
+  delivery-only quote behind the switch (`src/lib/transport-quote.functions.ts`, `transport-offer-view.ts`). Turning the switch on, or changing the commission
+  wording/terms, needs the owner's explicit go. Verification report:
   `docs/marketplace/CONZ-MARKETPLACE-UPGRADE-REPORT.md`.

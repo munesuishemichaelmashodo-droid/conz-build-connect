@@ -363,7 +363,30 @@ db.driver_locations = [
 ];
 
 // --- RPCs (answers shaped like the real functions; values are synthetic) --------
+// Delivery-only pricing (0158/0159). Off unless MOCK_TRANSPORT=on. Same formula as compute_transport_offer
+// at the live diesel setting (2.04, fuel 32, allowance 1.87), uncalibrated.
+const transportGuide = (km, qty) => {
+  const rate = 0.32 * 2.04 * 1.87;
+  const per = km <= 10 ? 20 : km <= 20 ? 30 : km <= 30 ? 40 : km <= 50 ? 60 : 60 + (km - 50) * rate;
+  const trips = Math.ceil(qty / 20);
+  const r = (n) => Math.round(n * 100) / 100;
+  return {
+    basis: "transport_only", enabled: process.env.MOCK_TRANSPORT === "on", calibration: "uncalibrated", roadKm: km, trips,
+    perTrip: { low: r(per * 0.85), recommended: r(per), high: r(per * 1.15) },
+    total: { low: r(per * 0.85 * trips), recommended: r(per * trips), high: r(per * 1.15 * trips) },
+    assumptions: { note: "Estimate for a car-profile road route; confirm suitability for a loaded truck. Not a quote." },
+  };
+};
 const rpc = {
+  transport_pricing_enabled: () => process.env.MOCK_TRANSPORT === "on",
+  compute_transport_offer: (a) => transportGuide(Number(a._road_km), Number(a._quantity_m3)),
+  create_transport_quote_for: (a) => {
+    db.transport_quotes ??= [];
+    const row = { id: randomUUID(), customer_id: a._customer_id, quantity_m3: a._quantity_m3, road_km: a._road_km,
+      pickup_lat: a._pickup_lat, pickup_lng: a._pickup_lng, delivery_lat: a._delivery_lat, delivery_lng: a._delivery_lng };
+    db.transport_quotes.push(row);
+    return row.id;
+  },
   // Same behaviour as the real 0157 functions (fare from the job; the other side confirms; versions kept).
   propose_job_agreement: (a, me) => {
     const job = db.jobs.find((j) => j.id === a._job);

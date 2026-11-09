@@ -27,6 +27,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { bookingOutcome, newBookingAttemptId } from "@/lib/booking-attempt";
 import { useAuth } from "@/lib/auth";
 import { useLaunchSwitches } from "@/lib/launch-switches";
+import { computeTransportOffer } from "@/lib/transport-quote.functions";
+import { transportJobFields, transportToOfferResult } from "@/lib/transport-offer-view";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -96,6 +98,20 @@ function BookDelivery() {
     queryFn: () => runSourcingEnabled().catch(() => ({ enabled: false })),
   });
   const [requestingQuote, setRequestingQuote] = useState(false);
+
+  // Pricing by the customer's own pickup and delivery point (off unless the owner turns it on).
+  const runTransport = useServerFn(computeTransportOffer);
+  const { data: transportOn } = useQuery({
+    queryKey: ["transport-pricing-enabled"],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 0158 function is newer than the generated types
+      const { data, error } = await (supabase as any).rpc("transport_pricing_enabled");
+      return !error && data === true;
+    },
+  });
+  const [pickupAddress, setPickupAddress] = useState("");
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const [step, setStep] = useState<number>(0);
   const [address, setAddress] = useState(search.address ?? "");
@@ -205,6 +221,31 @@ function BookDelivery() {
 
     if (!quantity || quantity < MIN_QUANTITY_M3) return toast.error("Enter quantity");
 
+    if (transportOn) {
+      if (!pickupCoords) return toast.error("Choose where the load will be collected.");
+      setComputing(true);
+      try {
+        const t = await runTransport({
+          data: {
+            pickupLat: pickupCoords.lat,
+            pickupLng: pickupCoords.lng,
+            deliveryLat: coords.lat,
+            deliveryLng: coords.lng,
+            quantity,
+          },
+        });
+        const o = transportToOfferResult(t, quantity);
+        setOfferData(o);
+        setOffer(o.offer);
+        setStep(5);
+      } catch (e: any) {
+        toast.error(e?.message ?? "Could not calculate the delivery price");
+      } finally {
+        setComputing(false);
+      }
+      return;
+    }
+
     setComputing(true);
 
     try {
@@ -292,16 +333,24 @@ function BookDelivery() {
         custom_material: offerData.openRequest ? offerData.label : null,
         quantity_m3: quantity,
         quote_id: offerData.openRequest ? null : offerData.quoteId,
+        // Delivery-only pricing from the customer's own pickup point (off unless the switch is on).
+        ...(offerData.dataSource === "transport" && pickupCoords
+          ? { ...transportJobFields(offerData, { address: pickupAddress, ...pickupCoords }), custom_material: materialLabel(material, null) }
+          : {}),
 
         delivery_address: address.trim(),
         delivery_lat: coords.lat,
         delivery_lng: coords.lng,
 
-        pickup_address: offerData.resolvedSource
-          ? (offerData.resolvedSource.label ?? offerData.resolvedSource.address ?? "Listed supplier location")
-          : "Driver arranges pickup",
-        pickup_lat: offerData.resolvedSource ? offerData.resolvedSource.lat : null,
-        pickup_lng: offerData.resolvedSource ? offerData.resolvedSource.lng : null,
+        ...(offerData.dataSource === "transport" && pickupCoords
+          ? {}
+          : {
+              pickup_address: offerData.resolvedSource
+                ? (offerData.resolvedSource.label ?? offerData.resolvedSource.address ?? "Listed supplier location")
+                : "Driver arranges pickup",
+              pickup_lat: offerData.resolvedSource ? offerData.resolvedSource.lat : null,
+              pickup_lng: offerData.resolvedSource ? offerData.resolvedSource.lng : null,
+            }),
 
 
         budget: offer,
@@ -455,6 +504,25 @@ function BookDelivery() {
                 <LoadPicker id="qty" value={quantity} onChange={setQuantity} />
               </div>
 
+              {transportOn && (
+                <div data-testid="pickup-block" className="space-y-2 rounded-xl border border-cz-border bg-cz-surface p-3.5">
+                  <div className="font-semibold">Where will the load be collected?</div>
+                  <p className="text-[13px] text-cz-muted">
+                    You are pricing the delivery trip only, from this point to your delivery address. Arrange the
+                    material itself directly with whoever supplies it.
+                  </p>
+                  <AddressPicker
+                    label="Loading point"
+                    value={pickupAddress}
+                    initialCoords={pickupCoords}
+                    onChange={(a, c) => {
+                      setPickupAddress(a);
+                      setPickupCoords(c ?? null);
+                    }}
+                  />
+                </div>
+              )}
+
               <details
                 id="tour-book-review"
                 data-tour="book-review"
@@ -501,8 +569,9 @@ function BookDelivery() {
               </details>
 
               <p className="text-[13px] text-cz-muted">
-                You don't choose a supplier. We find a listed one near your delivery point and price the road
-                trip. If none covers it, drivers arrange the pickup and you get a guide range.
+                {transportOn
+                  ? "We measure the road distance from your loading point to your delivery point and give a guide range for the trip. Drivers send offers and you choose."
+                  : "You don't choose a supplier. We find a listed one near your delivery point and price the road trip. If none covers it, drivers arrange the pickup and you get a guide range."}
               </p>
               {address.trim().length > 2 && !coords && (
                 <p className="text-[13px] text-cz-danger-text">
@@ -681,6 +750,14 @@ function BookDelivery() {
               <div className="px-4 py-3">
                 <StockStatusNote status={offerData.resolvedSource.stockStatus} />
               </div>
+            </>
+          ) : offerData.dataSource === "transport" ? (
+            <>
+              <DocketRow label="Collected from">{pickupAddress || "Your loading point"}</DocketRow>
+              <p className="px-4 pb-3 text-[13px] text-cz-muted">
+                This price is for the delivery trip only. Pay the driver directly; Con Z does not hold the fare. The
+                material itself is arranged separately and is not part of this price.
+              </p>
             </>
           ) : (
             <>
