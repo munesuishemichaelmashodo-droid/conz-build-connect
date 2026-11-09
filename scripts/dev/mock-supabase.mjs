@@ -364,6 +364,34 @@ db.driver_locations = [
 
 // --- RPCs (answers shaped like the real functions; values are synthetic) --------
 const rpc = {
+  // Same behaviour as the real 0157 functions (fare from the job; the other side confirms; versions kept).
+  propose_job_agreement: (a, me) => {
+    const job = db.jobs.find((j) => j.id === a._job);
+    if (!me || !job || ![job.customer_id, job.driver_id].includes(me.id)) return null;
+    db.job_agreements ??= [];
+    db.job_agreements.forEach((r) => { if (r.job_id === job.id && r.status === "proposed") r.status = "superseded"; });
+    const row = {
+      id: randomUUID(), job_id: job.id, version: db.job_agreements.filter((r) => r.job_id === job.id).length + 1,
+      proposed_by: me.id, fare: Number(job.final_price ?? job.budget), payment_method: a._payment_method,
+      payment_timing: a._payment_timing, deposit_amount: Number(a._deposit_amount ?? 0),
+      pickup_window: a._pickup_window || null, delivery_window: a._delivery_window || null,
+      inclusions: a._inclusions || null, exclusions: a._exclusions || null, status: "proposed",
+      customer_accepted_at: me.id === job.customer_id ? new Date().toISOString() : null,
+      driver_accepted_at: me.id === job.driver_id ? new Date().toISOString() : null,
+      created_at: new Date().toISOString(),
+    };
+    db.job_agreements.push(row);
+    return row;
+  },
+  accept_job_agreement: (a, me) => {
+    const row = (db.job_agreements ?? []).find((r) => r.id === a._agreement);
+    const job = row && db.jobs.find((j) => j.id === row.job_id);
+    if (!me || !row || row.status !== "proposed" || row.proposed_by === me.id) return null;
+    if (me.id === job.customer_id) row.customer_accepted_at = new Date().toISOString();
+    if (me.id === job.driver_id) row.driver_accepted_at = new Date().toISOString();
+    row.status = "accepted";
+    return row;
+  },
   // Shaped like the live RPC (0088): customers only, idempotent on the key, returns the id.
   create_material_sourcing_request: (a, me) => {
     if (!me) return null;
@@ -414,6 +442,31 @@ const rpc = {
     return { ok: available >= required, required, available, shortfall: Math.max(0, Math.round((required - available) * 100) / 100) };
   },
   job_offer_summary: () => ({ others: 0, min: null, max: null }),
+  // Same shape as the real offer_bidder_cards (0152): no phone or email; plate masked until chosen.
+  offer_bidder_cards: ({ _job }) => {
+    const job = db.jobs.find((j) => j.id === _job);
+    return db.bids
+      .filter((b) => b.job_id === _job)
+      .map((b) => {
+        const p = db.profiles.find((x) => x.id === b.driver_id);
+        const t = db.trucks.find((x) => x.id === b.truck_id);
+        const reg = t?.registration?.replace(/\s/g, "") ?? null;
+        const chosen = job?.driver_id === b.driver_id && ["accepted", "in_progress", "completed"].includes(job?.status);
+        return {
+          bid_id: b.id,
+          driver_id: b.driver_id,
+          full_name: p?.full_name ?? null,
+          avatar_url: null,
+          last_active_at: p?.last_active_at ?? null,
+          body_type: t ? "tipper" : null,
+          make: t ? "Isuzu" : null,
+          model: t ? "FVZ" : null,
+          colour: t ? "white" : null,
+          capacity_m3: t?.capacity_m3 ?? null,
+          plate_display: !reg ? null : chosen ? t.registration : reg.length <= 3 ? "••••" : reg.slice(0, 3) + " ••••",
+        };
+      });
+  },
   // Same shape as the real get_public_tracking (0079): the driver's location only
   // while the job is accepted or in progress, and null for an unknown token.
   get_public_tracking: ({ _token }) => {

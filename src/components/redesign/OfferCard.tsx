@@ -195,12 +195,11 @@ export function OfferCard({
 
       {(truckFactsLine(bid.truck_facts) || bid.truck_reg) && (
         <p className="mx-4 mt-2 text-xs text-cz-muted">
-          {[
-            truckFactsLine(bid.truck_facts) ? `${truckFactsLine(bid.truck_facts)} (declared by driver)` : null,
-            bid.truck_reg ? `Plate ${bid.truck_reg}` : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
+          {truckFactsLine(bid.truck_facts) ? (
+            <span>{truckFactsLine(bid.truck_facts)} (declared by driver)</span>
+          ) : null}
+          {truckFactsLine(bid.truck_facts) && bid.truck_reg ? " · " : null}
+          {bid.truck_reg ? <span className="whitespace-nowrap">Plate {bid.truck_reg}</span> : null}
         </p>
       )}
 
