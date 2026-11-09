@@ -32,7 +32,9 @@ Playwright MCP failed to connect this session (timeout); browser checks use the 
 | Stage | Scope | Status |
 | --- | --- | --- |
 | 0 | Verify repo and production, status + baseline docs | In progress: this document, `CONZ_BASELINE_AUDIT.md`, `CONZ_OWNER_REVIEW_REQUIRED.md` written; PR pending |
-| 1-10 | Per spec | Not started (see the plan in the baseline audit, section 6) |
+| 1 | Onboarding | Verified existing flow meets spec; no change needed (baseline audit s.7) |
+| 2 | Agreement | Verified 0157; one finding (deposit proposer) to owner review |
+| 3-10 | Per spec | Not started (plan: baseline audit s.6) |
 
 ## Already merged before this spec (carried forward, evidence in `docs/marketplace/CONZ-MARKETPLACE-UPGRADE-REPORT.md`)
 
@@ -41,3 +43,4 @@ Playwright MCP failed to connect this session (timeout); browser checks use the 
 ## Log
 
 - 09/11 Stage 0: PR #104 merged (CI: build-and-verify, database-tests, build-android-apk all success). ConZ staging paused. Live migration list compared with git: matches through 0161; 0134 (promo) not live.
+- 09/11 Stage 1-2: onboarding and agreement verified against the spec by reading code/migration; first-job-free correction recorded (still true live).

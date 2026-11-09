@@ -30,7 +30,10 @@ Fuller matrix and invariants: `docs/marketplace/CONZ-MARKETPLACE-UPGRADE-AUDIT.m
   (0023); 5 verified drivers, 0 overdue. The copy in `driver-onboarding.ts` / `DriverHome.tsx` is accurate; no change. Not a "blanket" block: it applies only
   when a driver's own re-check date has passed.
 - "Live tracking" appears in internal comments and the walkthrough; to be checked against what actually updates (offline/fresh-location rules exist). Stage 7.
-- Not found in `src/`: "first job free" (grep clean outside admin). Terms/help may still describe it in long text: re-check in Stage 7 with full-page read.
+- **Correction (Stage 1):** "first completed job has no commission" IS present in 6 places (`OnboardingWalkthrough.tsx`, `terms.tsx` s.83, `jobs.$id.tsx`, `wallet.tsx` x2,
+  `index.tsx`). It is **true today**: live `hold_job_commission` and `settle_direct_pay_job` still apply `first_job_free_used`, and no promo logic is live (V, read-only
+  live query 09/11). Removing it before the owner-gated $20 promo change would make the copy false, so it stays until the promo migration is approved; then all 6 places
+  change together. The earlier "grep clean" line in this audit was wrong.
 
 ## 4. Legal identity
 Code and legal pages use **"Navysky Innovations (Private) Limited"**, company no. 145174A02102026 (terms, privacy, home, side panel, tracking footer).
@@ -56,3 +59,12 @@ Code and legal pages use **"Navysky Innovations (Private) Limited"**, company no
 7. Copy audit fixes (code only), UI/accessibility pass at 360/390/768/1280, light and dark.
 8. Tests and docs; 9. PR -> CI -> merge -> verify deploy (code-only); 10. Final owner report.
 Anything touching live money, RLS on sensitive data, legal text, provider settings or deletion goes to the owner-review document, not to production.
+
+## 7. Stage results
+- **Stage 1 onboarding (V, code read):** `OnboardingWalkthrough` (2 slides + optional permissions step) is skippable (X and "Skip for now"), waits until Terms are accepted
+  (`firstRunStage`), separate from consent. Notifications/location are optional taps, never forced. Help tours replay with Start / Continue / Restart (`tour_progress` 0039 live).
+  No code change needed. Remaining nuance: the permission step asks in the walkthrough rather than only at point of use; both prompts are optional, so left as is.
+- **Stage 2 agreement (V, migration 0157 read):** versioned (`unique (job_id, version)`), both parties accept the same version, a new proposal supersedes the open one (reconfirmation),
+  old versions kept (no client write grants, no delete path), fare copied from the job. **Finding F-AGR-1:** either party can propose a nonzero deposit; the spec says
+  deposit is Driver-proposed, Customer-accepted. Fix needs a migration plus AgreementCard change: carry the driver's deposit over when the customer re-proposes and refuse a
+  customer-set deposit. Rights rule, so listed for owner confirmation (owner-review #14).
