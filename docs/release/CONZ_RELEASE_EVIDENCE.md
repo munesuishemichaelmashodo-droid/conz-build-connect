@@ -11,3 +11,13 @@
 | Not verified | Vercel deployment id (no Vercel tool in this session; the live site served 200 after merge); real Android device; iOS (no project); push delivery; real Google sign-in; Paynow live payment |
 
 Rollback for this session's code: revert PR #106 (two one-line copy changes and a label). No migrations to undo.
+
+## Addendum: 0162 (09/11/2026, later)
+| What | Evidence |
+| --- | --- |
+| Code | PR #108 merged as `9da59f0`; CI build-and-verify, database-tests (full pgTAP: 90 files / 1827 tests) and build-android-apk all success |
+| Deployed | Production job-page chunk `jobs._id-qylzq-bK.js` contains "Only the driver can propose a deposit" (fetched from www.conz.co.zw after the merge) |
+| Database (the only production write this session) | `propose_job_agreement` replaced. Pre-check: live body md5 `32cef48ff10fd6da5f14a8cebfc43167` = the undo file; 0 rows in `job_agreements`. Post-check: `2a21534304acbac17fe1835d0a80c9b1` = committed text; security definer; anon cannot execute, authenticated can. Recorded in `schema_migrations` as `20261109170000` |
+| Rollback | `supabase/rollbacks/20261109170000_0162_rollback.sql` (applied then re-applied cleanly on the local stack) |
+| Not exercised | A real customer/driver agreement on production (0 agreements exist); only the local pgTAP covers the customer-refused and carried-deposit paths |
+| CI note | The push run on `main` after PR #106 had `build-android-apk` red: Gradle wrapper download failed (network error in the job log); other jobs green; the next main run was green |
