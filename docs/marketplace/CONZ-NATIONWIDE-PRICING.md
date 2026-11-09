@@ -30,6 +30,9 @@ For one trip of road distance `d` km:
 
 This reuses the v1.4 transport component, so a nearby urban job prices the same as today minus the material line. It is a continuity baseline, not a claim that these rates are right for every corridor.
 
+
+> **Correction (9 November 2026, after applying 0158).** The sample fares in the table below were calculated with diesel at $1.87/L (rate $1.119/km), the figure written in earlier notes. A live read shows `diesel_price_per_liter` = **$2.04**, and the fuel-use and allowance rows are unset (defaults 32 L/100 km and 1.87 apply). The current engine and `compute_transport_offer` both use the live setting, so today's long-haul rate is **$1.2207/km**, not $1.119. Fares at the live setting: Harare to Chinhoyi (117.0 km) **$141.79**, Mutare to Nyanga (107.4 km) **$130.07**, Kwekwe to Gokwe (143.8 km) **$174.51**, Harare to Mutare (262.0 km) **$318.80** per trip ($ 637.59 for two trips), Harare to Bulawayo (435.7 km) **$530.84**, Bulawayo to Victoria Falls (445.5 km) **$542.80**. Flat bands (up to 50 km) are unchanged. Both long hauls, and the two-trip Mutare job, exceed the $500 launch cap. The owner should confirm which diesel price is intended; the setting is changed only through the audited admin setter.
+
 ## 4. Sample calculations (road km from OSRM, 8 Nov 2026, car profile; per trip, one 20 m3 load)
 
 | Segment | Route | Road km | Fare (v2, UNCALIBRATED) | Note |
