@@ -506,3 +506,13 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
 - `zod` is now 4.6.x (was 3.x, high advisory) and `seroval` is patched; the only production advisory left is low (esbuild's dev server on Windows). Re-run `npm audit --omit=dev` after dependency changes.
 - CI gotcha: `database-tests` can fail on a GitHub 504 while the Supabase CLI downloads an image library; re-run the failed job (`rerun_failed_jobs`) before suspecting the change.
 - Check lint with its exit code (`npm run lint:security; echo $?`), not by tailing the last line.
+
+## 09/11/2026 — implementation spec session (Stages 0-6 verified, docs in `docs/implementation/`)
+
+- Controlling spec: owner's `ConZ_Complete_Autonomous_Implementation_Prompt.md`. Status, baseline audit, owner-review list, demo-data inventory and final report live in
+  `docs/implementation/`; release evidence in `docs/release/CONZ_RELEASE_EVIDENCE.md`; Paynow handover in `docs/payments/CONZ_PAYMENT_INTEGRATION_HANDOVER.md`. Start with `CONZ_EXECUTION_STATUS.md`.
+- `conz-staging` is **paused** (owner, 09/11) so `venmax-admin` can run. Restore it from the Supabase dashboard before any Payonify or passkey staging work.
+- First-job-free is still LIVE in `hold_job_commission`/`settle_direct_pay_job` and its copy is true (6 places). Replace it only together with the owner-approved $20 promo migration (0134 is old, open finding M4).
+- The 90-day driver re-check is enforced in the database (bids policy + 7 functions); the "re-checked every 90 days" copy is accurate.
+- Production holds 15 users, 94 jobs (74 cancelled); no demo mode exists in the app; do not delete test data without the two protected accounts being named, a backup and owner approval.
+- Open: agreement deposit can be proposed by either party (spec: Driver); competitor refresh with dated sources; UI pass at 360/390/768/1280; real-device Android; iOS project does not exist.
