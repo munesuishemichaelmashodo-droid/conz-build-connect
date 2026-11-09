@@ -41,8 +41,14 @@ export function createRateLimiter(limit: number, windowMs: number, maxKeys = 500
   };
 }
 
-/** The visitor's address as Vercel reports it (first x-forwarded-for entry). */
+/**
+ * The visitor's address. Vercel sets x-vercel-forwarded-for / x-real-ip itself (a client cannot
+ * override them), so those win; the first x-forwarded-for entry is only a fallback.
+ */
 export function clientKey(headers: Headers | undefined | null): string {
+  const platform =
+    headers?.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() ||
+    headers?.get("x-real-ip")?.trim();
   const fwd = headers?.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return fwd || headers?.get("x-real-ip")?.trim() || "unknown";
+  return platform || fwd || "unknown";
 }
