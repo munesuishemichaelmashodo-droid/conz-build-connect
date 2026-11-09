@@ -74,3 +74,4 @@ Anything touching live money, RLS on sensitive data, legal text, provider settin
   data (prices, price buckets, small-load settings, supply locations, supplier listings; supplier contact columns were hidden by 0115). pgTAP `060_kyc_protection` covers KYC.
   Not done here: a human walk-through of the admin KYC review screen, and a test of every role against every table over HTTP.
 - **Stage 6 payments:** `docs/payments/CONZ_PAYMENT_INTEGRATION_HANDOVER.md` written (settings verified live; Linkwa out of scope).
+- **F-AGR-1 resolved (09/11):** 0162 makes the deposit Driver-proposed: a customer's new version keeps the latest non-declined deposit, a different amount is refused (`Only the driver can propose or change a deposit`). Card shows customers a read-only deposit line. Local checks: pgTAP full suite 90 files / 1827 tests PASS, undo script and re-apply tested on the local stack, 857 unit tests.

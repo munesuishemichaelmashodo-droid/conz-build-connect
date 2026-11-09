@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { agreementView, currentAgreement, payLine, type JobAgreement } from "@/lib/agreement";
+import {
+  agreementView,
+  carriedDeposit,
+  currentAgreement,
+  payLine,
+  type JobAgreement,
+} from "@/lib/agreement";
 
 const base: JobAgreement = {
   id: "a",
@@ -56,5 +62,21 @@ describe("payLine", () => {
   });
   it("omits the deposit when there is none", () => {
     expect(payLine(base)).not.toMatch(/deposit/);
+  });
+});
+
+describe("carriedDeposit", () => {
+  it("keeps the deposit of the newest version that was not declined", () => {
+    expect(
+      carriedDeposit([
+        { status: "declined", deposit_amount: 50 },
+        { status: "superseded", deposit_amount: 20 },
+      ]),
+    ).toBe(20);
+  });
+  it("is zero with no versions or no deposit", () => {
+    expect(carriedDeposit(null)).toBe(0);
+    expect(carriedDeposit([])).toBe(0);
+    expect(carriedDeposit([{ status: "proposed", deposit_amount: 0 }])).toBe(0);
   });
 });

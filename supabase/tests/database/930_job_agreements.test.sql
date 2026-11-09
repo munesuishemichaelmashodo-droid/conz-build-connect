@@ -1,7 +1,7 @@
 -- 0157: the agreement card. Fare comes from the job; both sides accept; versions are kept; only participants and
 -- admins can read; nothing about money moves.
 begin;
-select plan(17);
+select plan(22);
 select tests.enable_launch_features();
 alter table public.jobs disable trigger trg_jobs_one_active_per_driver;
 
@@ -38,14 +38,22 @@ select throws_ok(format($$select public.accept_job_agreement(%L)$$, (select id f
 
 -- customer changes it: new version, old kept
 select tests.login_as(current_setting('t.cust')::uuid);
-select is((public.propose_job_agreement(current_setting('t.job')::uuid, 'cash', 'on_delivery', 0, 'Tue morning', null, 'Loading and offloading', null)).version, 2, 'the customer proposes a changed version 2');
+select throws_ok(format($$select public.propose_job_agreement(%L, 'cash', 'on_delivery', 0)$$, current_setting('t.job')), null, 'Only the driver can propose or change a deposit', 'a customer cannot remove the driver''s deposit');
+select throws_ok(format($$select public.propose_job_agreement(%L, 'cash', 'on_delivery', 50)$$, current_setting('t.job')), null, 'Only the driver can propose or change a deposit', 'a customer cannot raise the deposit');
+select is((public.propose_job_agreement(current_setting('t.job')::uuid, 'cash', 'on_delivery', 20, 'Tue morning', null, 'Loading and offloading', null)).version, 2, 'the customer proposes a changed version 2');
 select is((select status from public.job_agreements where job_id = current_setting('t.job')::uuid and version = 1), 'superseded', 'version 1 is kept as history');
+select is((select deposit_amount from public.job_agreements where job_id = current_setting('t.job')::uuid and version = 2), 20.00, 'the customer''s version keeps the driver''s deposit');
+-- a customer proposing the first version of an agreement can only have no deposit
+select throws_ok(format($$select public.propose_job_agreement(%L, 'cash', 'on_delivery', 10)$$, current_setting('t.job')), null, 'Only the driver can propose or change a deposit', 'a customer cannot set a deposit that the driver did not propose');
 
 -- driver accepts v2
 select tests.login_as(current_setting('t.d')::uuid);
 select is((public.accept_job_agreement((select id from public.job_agreements where job_id = current_setting('t.job')::uuid and version = 2))).status, 'accepted', 'the driver accepts version 2');
 select ok((select customer_accepted_at is not null and driver_accepted_at is not null from public.job_agreements where job_id = current_setting('t.job')::uuid and version = 2), 'both acceptance times are recorded');
 select throws_ok(format($$select public.accept_job_agreement(%L)$$, (select id from public.job_agreements where job_id = current_setting('t.job')::uuid and version = 2)), null, 'This version is no longer open', 'an accepted version cannot be accepted again');
+
+-- the driver can change the deposit in a later version
+select is((public.propose_job_agreement(current_setting('t.job')::uuid, 'cash', 'on_delivery', 30)).deposit_amount, 30.00, 'the driver can change the deposit in a new version');
 
 -- validation
 select throws_ok(format($$select public.propose_job_agreement(%L, 'cash', 'on_delivery', 500)$$, current_setting('t.job')), null, 'The deposit cannot be more than the fare', 'a deposit above the fare is refused');
@@ -56,7 +64,7 @@ select tests.login_as(current_setting('t.other')::uuid);
 select is((select count(*)::int from public.job_agreements), 0, 'an unrelated user reads no agreements');
 select throws_ok(format($$select public.propose_job_agreement(%L, 'cash', 'on_delivery', 0)$$, current_setting('t.job')), null, 'Only the customer or the driver of this job can do that', 'an unrelated user cannot propose');
 select tests.login_as(current_setting('t.admin')::uuid);
-select is((select count(*)::int from public.job_agreements where job_id = current_setting('t.job')::uuid), 2, 'an admin can read both versions');
+select is((select count(*)::int from public.job_agreements where job_id = current_setting('t.job')::uuid), 3, 'an admin can read every version');
 select tests.login_as(current_setting('t.cust')::uuid);
 select throws_ok(format($$update public.job_agreements set fare = 1 where job_id = %L$$, current_setting('t.job')), '42501', null, 'nobody can edit an agreement row directly');
 select throws_ok(format($$select public.propose_job_agreement(%L, 'cash', 'on_delivery', 0)$$, current_setting('t.job2')), null, 'The agreement can only be set while the job is assigned and not yet finished', 'a job that is not assigned has no agreement');
