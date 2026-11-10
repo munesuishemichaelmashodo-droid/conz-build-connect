@@ -20,5 +20,6 @@ drop table if exists public.driver_payouts;
 drop function if exists public.normalize_zw_mobile(text);
 alter table public.driver_profiles drop constraint if exists driver_profiles_payout_number_format;
 alter table public.driver_profiles drop column if exists payout_number_changed_at;
+alter table public.driver_profiles drop column if exists payout_hold_until;
 alter table public.driver_profiles drop column if exists payout_ecocash_number;
 commit;

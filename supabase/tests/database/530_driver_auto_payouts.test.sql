@@ -1,6 +1,6 @@
 -- 0121: automatic driver payouts for Con Z Pay jobs paid through Payonify.
 begin;
-select plan(52);
+select plan(60);
 select tests.enable_launch_features();
 
 select set_config('t.cust',  tests.create_user('cust')::text, true);
@@ -89,6 +89,13 @@ select is(tests.balance(current_setting('t.drv')::uuid), 0::numeric, 'B: wallet 
 select ok(tests.ledger_matches(current_setting('t.drv')::uuid), 'B: wallet transactions match the balance');
 select is((select count(*)::int from public.platform_ledger where kind = 'withdrawal_paid'
              and job_id = current_setting('t.j1')::uuid), 2, 'B: ledger records the payout (balanced pair)');
+
+-- Review fix P2-2: nothing is sent until the owner switches payouts on.
+select tests.as_service();
+select is((select count(*)::int from public.payout_claim_next(10, false)), 0, 'R1: payouts are off by default: nothing is claimed');
+select tests.as_owner();
+insert into public.system_settings (key, value) values ('payouts_enabled', 'true'::jsonb)
+  on conflict (key) do update set value = excluded.value;
 
 -- C. Server-only sending functions ---------------------------------------------------------------------
 select tests.login_as(current_setting('t.drv')::uuid);
@@ -187,6 +194,45 @@ select is((public.admin_retry_payout((pg_temp.payout(current_setting('t.j2')::uu
 select tests.as_owner();
 select is(tests.balance(current_setting('t.drv')::uuid), 0::numeric, 'I: ... which takes it out of the wallet again');
 select ok(tests.ledger_matches(current_setting('t.drv')::uuid), 'I: wallet transactions still match');
+
+-- Review fixes P2-2 (limited wallet), P2-3 (hold after a number change), P2-4 (retry cap) ------------
+select tests.as_owner();
+select set_config('t.rv', (select id::text from public.driver_payouts order by created_at limit 1), true);
+update public.driver_payouts set status = 'queued', attempts = 0, next_attempt_at = now() - interval '1 minute', created_at = now()
+ where id = current_setting('t.rv')::uuid;
+update public.driver_payouts set next_attempt_at = now() + interval '1 day' where id <> current_setting('t.rv')::uuid;
+
+update public.wallets set limited = true where user_id = (select driver_id from public.driver_payouts where id = current_setting('t.rv')::uuid);
+select tests.as_service();
+select is((select count(*)::int from public.payout_claim_next(10, false)), 0, 'R2: a limited wallet is not paid out');
+select tests.as_owner();
+update public.wallets set limited = false where user_id = (select driver_id from public.driver_payouts where id = current_setting('t.rv')::uuid);
+
+update public.driver_profiles set payout_hold_until = now() + interval '23 hours'
+ where user_id = (select driver_id from public.driver_payouts where id = current_setting('t.rv')::uuid);
+select tests.as_service();
+select is((select count(*)::int from public.payout_claim_next(10, false)), 0, 'R3: a payout waits while the number-change hold is running');
+select tests.as_owner();
+update public.driver_profiles set payout_hold_until = now() - interval '1 minute'
+ where user_id = (select driver_id from public.driver_payouts where id = current_setting('t.rv')::uuid);
+select tests.as_service();
+select is((select count(*)::int from public.payout_claim_next(10, false)), 1, 'R4: ... and goes once the hold has ended');
+
+select tests.as_owner();
+update public.driver_payouts set status = 'sending', attempts = 20, next_attempt_at = now() - interval '1 minute'
+ where id = current_setting('t.rv')::uuid;
+select tests.as_service();
+select is((select count(*)::int from public.payout_claim_next(10, false)), 0, 'R5: after 20 unclear tries it is not sent again');
+select tests.as_owner();
+select is((select status from public.driver_payouts where id = current_setting('t.rv')::uuid), 'needs_review', 'R6: ... it is parked for review');
+select ok(exists (select 1 from public.notifications where title = 'Automatic payout needs review'), 'R7: ... and admins are told');
+
+select tests.as_owner();
+update public.system_settings set value = 'false'::jsonb where key = 'payouts_enabled';
+update public.driver_payouts set status = 'queued', attempts = 0, next_attempt_at = now() - interval '1 minute' where id = current_setting('t.rv')::uuid;
+select tests.as_service();
+select is((select count(*)::int from public.payout_claim_next(10, false)), 0, 'R8: switching payouts off stops sending at once');
+select tests.as_owner();
 
 select * from finish();
 rollback;

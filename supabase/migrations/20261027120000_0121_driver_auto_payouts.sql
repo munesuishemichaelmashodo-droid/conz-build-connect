@@ -25,7 +25,10 @@ begin;
 
 alter table public.driver_profiles
   add column if not exists payout_ecocash_number text,
-  add column if not exists payout_number_changed_at timestamptz;
+  add column if not exists payout_number_changed_at timestamptz,
+  -- review fix P2-3: after CHANGING an existing number, payouts wait 24 hours (a hijacked session
+  -- cannot redirect the next payout at once; the driver gets the 'number changed' notice first)
+  add column if not exists payout_hold_until timestamptz;
 
 do $$ begin
   if not exists (select 1 from pg_constraint where conname = 'driver_profiles_payout_number_format') then
@@ -66,7 +69,8 @@ begin
   if _check = 'wrong' then return 'wrong_pin'; end if;
 
   update public.driver_profiles
-     set payout_ecocash_number = _n, payout_number_changed_at = now()
+     set payout_ecocash_number = _n, payout_number_changed_at = now(),
+         payout_hold_until = case when _old is not null then now() + interval '24 hours' else payout_hold_until end
    where user_id = _uid;
 
   insert into public.wallet_audit_log(user_id, actor_id, action, meta)
@@ -97,7 +101,7 @@ create table if not exists public.driver_payouts (
   livemode         boolean not null,
   ecocash_number   text check (ecocash_number is null or ecocash_number ~ '^7[1-8][0-9]{7}$'),
   status           text not null check (status in
-                     ('waiting_for_number', 'queued', 'sending', 'sent', 'succeeded', 'returned')),
+                     ('waiting_for_number', 'queued', 'sending', 'sent', 'succeeded', 'returned', 'needs_review')),
   idempotency_key  uuid not null default gen_random_uuid(),
   provider_reference text,
   net_amount       numeric(12,2),
@@ -261,19 +265,47 @@ revoke all on function public.payout_release_waiting(uuid) from public, anon, au
 
 -- Claims the next due payouts for sending. 'sending' rows older than 10 minutes come back too, so an
 -- unclear attempt is looked up / re-sent with the SAME idempotency key.
+-- Review fixes:
+--   P2-2  nothing is sent unless system_settings 'payouts_enabled' is true (default: off), and a
+--         driver whose wallet is limited is skipped;
+--   P2-3  a driver who changed their payout number in the last 24 hours is skipped until the hold ends;
+--   P2-4  an unclear payout is not retried for ever: after 20 attempts or 24 hours it is parked as
+--         'needs_review' (the money stays debited, nothing more is sent) and admins are told.
 create or replace function public.payout_claim_next(_limit integer default 10, _livemode boolean default false)
 returns setof public.driver_payouts
 language plpgsql security definer set search_path to 'public' as $$
+declare _r public.driver_payouts;
 begin
+  if coalesce((select value #>> '{}' from public.system_settings where key = 'payouts_enabled'), 'false') <> 'true' then
+    return;
+  end if;
+
+  for _r in
+    update public.driver_payouts d
+       set status = 'needs_review', updated_at = now(),
+           failure_code = 'unclear_too_long',
+           failure_message = 'No clear answer from the provider after repeated tries. Check the provider dashboard before doing anything.'
+     where d.livemode = _livemode and d.status = 'sending' and d.next_attempt_at <= now()
+       and (d.attempts >= 20 or d.created_at < now() - interval '24 hours')
+    returning d.*
+  loop
+    perform public.notify_payment_anomaly(_r.payment_id, 'Automatic payout needs review',
+      format('Payout of $%s for job %s had no clear answer after %s tries. It was NOT sent again. Check it in the provider dashboard.',
+             _r.amount, _r.job_id, _r.attempts));
+  end loop;
+
   return query
   update public.driver_payouts d
      set status = 'sending', attempts = d.attempts + 1, updated_at = now(), next_attempt_at = now() + interval '10 minutes'
    where d.id in (
-     select id from public.driver_payouts
-      where livemode = _livemode
-        and ((status = 'queued' and next_attempt_at <= now())
-          or (status = 'sending' and next_attempt_at <= now()))
-      order by created_at
+     select p.id from public.driver_payouts p
+      where p.livemode = _livemode
+        and ((p.status = 'queued' and p.next_attempt_at <= now())
+          or (p.status = 'sending' and p.next_attempt_at <= now()))
+        and not exists (select 1 from public.wallets w where w.user_id = p.driver_id and w.limited)
+        and not exists (select 1 from public.driver_profiles dp
+                         where dp.user_id = p.driver_id and dp.payout_hold_until > now())
+      order by p.created_at
       limit greatest(1, least(_limit, 50))
       for update skip locked)
   returning d.*;
