@@ -56,6 +56,29 @@ export function payonifyMissingSettings(env: Env): string[] {
   return names.filter((n) => !(env[n] ?? "").trim());
 }
 
+/** The only hosted database test mode may talk to (the staging project). */
+export const STAGING_SUPABASE_REF = "fpckydgssuefzzxivvig";
+
+/**
+ * Test keys must never reach real jobs or wallets. Test mode is allowed only against the staging
+ * project or a local stack (an allow-list), and never on a production deployment. A custom domain
+ * or alias in front of the production database is refused because it is not on the list; before
+ * this was a check that the address did not contain the production id, which an alias would pass.
+ */
+export function isTestDatabase(env: Env): boolean {
+  if ((env["VERCEL_ENV"] ?? "").trim() === "production") return false;
+  let host: string;
+  try {
+    host = new URL((env["SUPABASE_URL"] ?? "").trim()).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  if (host.includes(PRODUCTION_SUPABASE_REF)) return false;
+  return (
+    host === `${STAGING_SUPABASE_REF}.supabase.co` || host === "127.0.0.1" || host === "localhost"
+  );
+}
+
 /** Server-side switch for the whole integration (webhook included). */
 export function payonifyServerGate(env: Env): GateResult {
   const raw = (env["PAYONIFY_MODE"] ?? "").trim();
@@ -68,7 +91,7 @@ export function payonifyServerGate(env: Env): GateResult {
     return { ok: false, reason: "bad_keys" };
   }
   if (!cfg) return { ok: false, reason: "not_configured" };
-  if (mode === "test" && (env["SUPABASE_URL"] ?? "").includes(PRODUCTION_SUPABASE_REF)) {
+  if (mode === "test" && !isTestDatabase(env)) {
     return { ok: false, reason: "production_database" };
   }
   return { ok: true, cfg, mode };

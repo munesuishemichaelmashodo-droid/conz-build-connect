@@ -7,6 +7,8 @@ import {
   paynowAllowed,
   paynowCardsAfterSwitch,
   PRODUCTION_SUPABASE_REF,
+  STAGING_SUPABASE_REF,
+  isTestDatabase,
   readPaymentSwitch,
   startPayonifyCharge,
   type RpcDb,
@@ -533,5 +535,34 @@ describe("Paynow after the switch to Payonify", () => {
     expect(paynowAllowed({}, "payonify")).toBe(false);
     expect(paynowAllowed({ PAYNOW_CARDS_AFTER_SWITCH: "yes" }, "payonify")).toBe(false);
     expect(paynowAllowed({ PAYNOW_CARDS_AFTER_SWITCH: " ON " }, "payonify")).toBe(true);
+  });
+
+  describe("test mode only reaches a test database (review finding P2-1)", () => {
+    const local = { SUPABASE_URL: "http://127.0.0.1:55431" };
+    it("allows the local stack and the staging project", () => {
+      expect(isTestDatabase(local)).toBe(true);
+      expect(isTestDatabase({ SUPABASE_URL: "http://localhost:54321" })).toBe(true);
+      expect(isTestDatabase({ SUPABASE_URL: `https://${STAGING_SUPABASE_REF}.supabase.co` })).toBe(
+        true,
+      );
+    });
+    it("refuses production, an alias in front of it, any unknown host and a missing address", () => {
+      expect(
+        isTestDatabase({ SUPABASE_URL: `https://${PRODUCTION_SUPABASE_REF}.supabase.co` }),
+      ).toBe(false);
+      expect(isTestDatabase({ SUPABASE_URL: "https://db.conz.co.zw" })).toBe(false);
+      expect(isTestDatabase({ SUPABASE_URL: "https://someotherproject.supabase.co" })).toBe(false);
+      expect(
+        isTestDatabase({
+          SUPABASE_URL: `https://${STAGING_SUPABASE_REF}.supabase.co.evil.example`,
+        }),
+      ).toBe(false);
+      expect(isTestDatabase({ SUPABASE_URL: "" })).toBe(false);
+      expect(isTestDatabase({})).toBe(false);
+    });
+    it("refuses a production deployment even when the address looks like a test one", () => {
+      expect(isTestDatabase({ ...local, VERCEL_ENV: "production" })).toBe(false);
+      expect(isTestDatabase({ ...local, VERCEL_ENV: "preview" })).toBe(true);
+    });
   });
 });
