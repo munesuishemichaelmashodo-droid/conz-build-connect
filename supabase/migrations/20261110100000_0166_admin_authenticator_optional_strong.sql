@@ -133,6 +133,7 @@ begin
   perform set_config('conz.authenticator_reset_by', _me::text, true);
   delete from auth.mfa_factors f where f.user_id = _target;
   get diagnostics _n = row_count;
+  perform set_config('conz.authenticator_reset_by', '', true);
   if _n = 0 then
     raise exception 'That account has no authenticator set up';
   end if;

@@ -68,7 +68,7 @@ select ok(exists (select 1 from public.notifications where type = 'admin_action'
 select pg_temp.login_google(current_setting('t.o1')::uuid, 5);
 select throws_like($$select public.require_aal2()$$, '%MFA_REQUIRED: enter the code from your authenticator app%',
   '6: with an authenticator, a fresh Google sign-in alone is refused');
-select throws_like($$select public.admin_set_commission(7)$$, '%MFA_REQUIRED%', '7: ... so a real money setting is refused too');
+select throws_like($$select public.admin_set_diesel_price(2.04)$$, '%MFA_REQUIRED%', '7: ... so a real money setting is refused too');
 
 select tests.login_as_mfa(current_setting('t.o1')::uuid);
 select lives_ok($$select public.require_aal2()$$, '8: the authenticator code is accepted');
