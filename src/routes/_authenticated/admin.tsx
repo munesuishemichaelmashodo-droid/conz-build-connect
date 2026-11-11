@@ -1,9 +1,28 @@
 import { createFileRoute, Outlet, Link, useRouterState, redirect } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { Search, LayoutDashboard, Users, ShieldCheck, Gavel, Settings as SettingsIcon, TrendingUp, ScrollText, BookOpen, MessageSquareWarning, Gift, MapPin, HandCoins, PackageSearch, Briefcase, Sparkles } from "lucide-react";
+import {
+  Search,
+  LayoutDashboard,
+  Users,
+  ShieldCheck,
+  Gavel,
+  Settings as SettingsIcon,
+  TrendingUp,
+  ScrollText,
+  BookOpen,
+  MessageSquareWarning,
+  Gift,
+  MapPin,
+  HandCoins,
+  PackageSearch,
+  Briefcase,
+  Sparkles,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { AuthenticatorStrip } from "@/components/admin/AuthenticatorStrip";
+import { mustVerifyBeforeAdmin, parsePolicy } from "@/lib/admin-authenticator";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: async ({ location }) => {
@@ -17,6 +36,25 @@ export const Route = createFileRoute("/_authenticated/admin")({
     if (!list.includes("admin") && !list.includes("super_admin")) {
       throw redirect({ to: "/home" });
     }
+    // 30-day rule (0169): an admin with an authenticator app whose last accepted code is older than
+    // 30 days is sent to the code screen first. Unreadable answer (e.g. 0169 not applied yet) = no block;
+    // the database still demands a fresh code for every crucial action.
+    let mustVerify = false;
+    try {
+      // in place, not a detached reference, so the client keeps its `this`
+      const { data: raw, error } = await (
+        supabase.rpc as unknown as (f: string) => PromiseLike<{ data: unknown; error: unknown }>
+      )("admin_authenticator_policy");
+      mustVerify = !error && mustVerifyBeforeAdmin(parsePolicy(raw));
+    } catch {
+      mustVerify = false;
+    }
+    if (mustVerify) {
+      throw redirect({
+        to: "/mfa",
+        search: { next: location.pathname + (location.searchStr ?? "") },
+      });
+    }
     // Admin pages open with password + role. Super-admin MONEY actions
     // (credits, approvals, refunds, reversals) additionally require an MFA
     // (aal2) session, enforced in the database (0074/0076); the UI sends the
@@ -25,7 +63,14 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminLayout,
 });
 
-type Tab = { to: string; label: string; icon: typeof Users; exact?: boolean; superOnly?: boolean; group: string };
+type Tab = {
+  to: string;
+  label: string;
+  icon: typeof Users;
+  exact?: boolean;
+  superOnly?: boolean;
+  group: string;
+};
 
 // Same sections and the same super-admin filter as before; grouped for the
 // desktop sidebar. Visibility here is convenience only: every screen and RPC
@@ -46,12 +91,19 @@ const TABS: Tab[] = [
   { to: "/admin/sourcing", label: "Sourcing", icon: PackageSearch, group: "Supply" },
   { to: "/admin/supply-coverage", label: "Supply", icon: MapPin, group: "Supply" },
   { to: "/admin/audit", label: "Audit", icon: ScrollText, superOnly: true, group: "System" },
-  { to: "/admin/settings", label: "Settings", icon: SettingsIcon, superOnly: true, group: "System" },
+  {
+    to: "/admin/settings",
+    label: "Settings",
+    icon: SettingsIcon,
+    superOnly: true,
+    group: "System",
+  },
 ];
 const GROUPS = ["Overview", "Money", "People", "Supply", "System"];
 
 // Current section: ink text on a raised neutral fill, never orange (DESIGN.md).
-const ON = "bg-muted text-foreground font-semibold shadow-[inset_0_0_0_1px_var(--cz-border-strong)]";
+const ON =
+  "bg-muted text-foreground font-semibold shadow-[inset_0_0_0_1px_var(--cz-border-strong)]";
 const OFF = "text-muted-foreground hover:bg-muted hover:text-foreground";
 
 function AdminLayout() {
@@ -80,7 +132,10 @@ function AdminLayout() {
                           <Link
                             to={t.to as "/admin"}
                             aria-current={active ? "page" : undefined}
-                            className={cn("flex min-h-11 items-center gap-2.5 rounded-lg px-3 text-sm", active ? ON : OFF)}
+                            className={cn(
+                              "flex min-h-11 items-center gap-2.5 rounded-lg px-3 text-sm",
+                              active ? ON : OFF,
+                            )}
                           >
                             <Icon aria-hidden className="h-4 w-4 shrink-0" />
                             {t.label}
@@ -118,6 +173,7 @@ function AdminLayout() {
               })}
             </div>
           </nav>
+          <AuthenticatorStrip />
           <Outlet />
         </div>
       </div>

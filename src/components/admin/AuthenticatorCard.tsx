@@ -5,6 +5,7 @@ import { ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { parsePolicy } from "@/lib/admin-authenticator";
 import {
   hasVerifiedAuthenticator,
   isMfaRequiredError,
@@ -24,7 +25,9 @@ type Rpc = (
   f: string,
   a?: Record<string, unknown>,
 ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
-const rpc = supabase.rpc as unknown as Rpc; // 0166 functions are newer than the generated types
+// 0166/0169 functions are newer than the generated types. Called through `supabase.rpc(...)` in place
+// (never a detached reference) so the client keeps its `this`.
+const rpc: Rpc = (f, a) => (supabase.rpc as unknown as Rpc)(f, a);
 
 /**
  * Optional authenticator app for an admin account (0166). Set up: money and role actions on
@@ -61,6 +64,41 @@ export function AuthenticatorCard({
       return (data ?? []) as Row[];
     },
   });
+
+  const policy = useQuery({
+    queryKey: ["admin-authenticator-policy"],
+    retry: false,
+    queryFn: async () => {
+      const { data, error } = await rpc("admin_authenticator_policy");
+      if (error) return null;
+      return parsePolicy(data);
+    },
+  });
+  const required = policy.data?.required === true;
+
+  const setRequired = async (next: boolean) => {
+    if (reason.trim().length < 5)
+      return void toast.error("Write a short reason (5 letters or more)");
+    setBusy(true);
+    const { error } = await rpc("admin_set_authenticator_required", {
+      _required: next,
+      _reason: reason.trim(),
+    });
+    setBusy(false);
+    if (error) {
+      return void toast.error(
+        readableRpcError(error),
+        isMfaRequiredError(error)
+          ? { action: { label: STEP_UP_ACTION_LABEL, onClick: () => void startStepUp() } }
+          : undefined,
+      );
+    }
+    toast.success(
+      next ? "Authenticator is now required for money and role changes" : "Switched off",
+    );
+    setReason("");
+    void qc.invalidateQueries({ queryKey: ["admin-authenticator-policy"] });
+  };
 
   const reset = async (target: string) => {
     if (reason.trim().length < 5)
@@ -104,19 +142,53 @@ export function AuthenticatorCard({
         <p className="text-sm">
           <span className="font-medium">On for your account.</span>{" "}
           <span className="text-muted-foreground">
-            Money and role actions ask for a code from your app. Lost your phone? Ask the other
-            owner to reset it here.
+            Money and role actions ask for a fresh code from your app each time, and the app is
+            checked at least every 30 days. Lost your phone? Ask the other owner to reset it here.
           </span>
         </p>
       ) : (
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">
-            Optional extra protection. Once set up, money and role actions on your account need a
-            code from an app on your phone. Signing in with Google alone will no longer be enough
-            for your account.
+            Money and role actions on your account then need a fresh code from an app on your phone,
+            and the app is checked at least every 30 days. Signing in with Google alone will no
+            longer be enough for your account.
           </p>
           <Button asChild variant="outline" size="sm" className="min-h-11">
             <a href="/mfa?next=%2Fadmin%2Fsettings">Set up authenticator app</a>
+          </Button>
+        </div>
+      )}
+
+      {isSuper && policy.data && (
+        <div className="pt-2 border-t space-y-2">
+          <p className="text-sm">
+            <span className="font-medium">
+              {required ? "Required for every admin." : "Not required yet."}
+            </span>{" "}
+            <span className="text-muted-foreground">
+              {required
+                ? "Money and role changes are refused without an authenticator code, even after a Google sign-in."
+                : "Switch it on once every admin who handles money has set up their app. You need your own app set up first."}
+            </span>
+          </p>
+          <label htmlFor="auth-required-reason" className="text-xs text-muted-foreground">
+            Reason for changing this
+          </label>
+          <Input
+            id="auth-required-reason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            maxLength={200}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant={required ? "outline" : "default"}
+            className="min-h-11"
+            disabled={busy || (!required && !mine.data)}
+            onClick={() => void setRequired(!required)}
+          >
+            {required ? "Switch off" : "Require authenticator for all admins"}
           </Button>
         </div>
       )}

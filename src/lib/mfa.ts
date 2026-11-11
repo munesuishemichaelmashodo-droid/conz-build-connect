@@ -1,6 +1,6 @@
 // Sensitive admin money and role actions need a fresh step-up, enforced in the
 // database (require_aal2 raises "MFA_REQUIRED: ..."). Since 0111 a Google sign-in
-// from the last 12 hours counts. Since 0166 an admin who has set up an authenticator
+// from the last 12 hours counts (unless the owners switched "authenticator required" on, 0169). Since 0166 an admin who has set up an authenticator
 // app must use its code instead (Google alone is refused for that account), so the
 // step-up button goes to the code screen for them and to Google for everyone else. Credits above the
 // second-approval threshold raise "SECOND_APPROVAL_REQUIRED: ...".
@@ -57,6 +57,15 @@ export async function startStepUp(): Promise<void> {
   try {
     const { data } = await supabase.auth.mfa.listFactors();
     if (hasVerifiedAuthenticator(data as FactorList)) {
+      window.location.assign(authenticatorHref());
+      return;
+    }
+    // 0169: when the owners require the authenticator, Google alone is refused, so the only way forward
+    // for an admin without one is to set it up on the code page.
+    const { data: policy, error } = await (
+      supabase.rpc as unknown as (f: string) => PromiseLike<{ data: unknown; error: unknown }>
+    )("admin_authenticator_policy");
+    if (!error && (policy as { required?: boolean } | null)?.required === true) {
       window.location.assign(authenticatorHref());
       return;
     }
