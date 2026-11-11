@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { TipperIllustration } from "@/components/ds/media";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { splitPastJobs } from "@/lib/past-jobs";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchOpenJobs } from "@/lib/open-jobs";
@@ -129,11 +130,15 @@ function JobsPage() {
     (j) => j.status === "open" && (isDriver ? j.customer_id !== userId : true),
   );
   const cards = useCustomerCards(isDriver && !isCustomer ? openLoads.map((j) => j.id) : []);
-  const past = all.filter(
+  const [showOlder, setShowOlder] = useState(false);
+  const pastAll = all.filter(
     (j) =>
       (isDriver ? j.driver_id === userId : true) &&
       (j.status === "completed" || j.status === "cancelled"),
   );
+  // Old finished jobs are only tucked away from this list (never deleted); history stays one tap away.
+  const { recent, older } = splitPastJobs(pastAll, Date.now());
+  const past = showOlder ? pastAll : recent;
 
   return (
     <>
@@ -205,10 +210,23 @@ function JobsPage() {
                 </JobGroup>
               )}
               {past.length > 0 && (
-                <JobGroup title={isDriver && !isCustomer ? "Completed & cancelled" : "Past deliveries"}>
+                <JobGroup
+                  title={isDriver && !isCustomer ? "Completed & cancelled" : "Past deliveries"}
+                >
                   {past.map((j) => (
                     <JobRow key={j.id} j={j} />
                   ))}
+                  {older.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowOlder((v) => !v)}
+                      className="min-h-11 rounded-xl border border-cz-border-strong px-3 text-sm font-semibold"
+                    >
+                      {showOlder
+                        ? "Hide older jobs"
+                        : `Show ${older.length} older ${older.length === 1 ? "job" : "jobs"}`}
+                    </button>
+                  )}
                 </JobGroup>
               )}
             </>
