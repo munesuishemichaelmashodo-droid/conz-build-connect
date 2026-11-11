@@ -133,6 +133,15 @@ function MfaPage() {
           : verifyError.message,
       );
     }
+    // Record the check for the 30-day rule (0169). Best effort: the database re-checks every crucial
+    // action with a fresh code anyway, and this call simply does nothing before 0169 is applied.
+    try {
+      await (supabase.rpc as unknown as (f: string) => PromiseLike<unknown>)(
+        "admin_note_authenticator_check",
+      );
+    } catch {
+      // ignore
+    }
     toast.success(stage === "enroll" ? "Authenticator app linked" : "Verified");
     nav({ to: safeNext as "/admin", replace: true });
   };
@@ -145,12 +154,12 @@ function MfaPage() {
             <ShieldCheck className="w-6 h-6 text-cz-amber-text" />
           </div>
           <h2 className="font-display font-bold text-lg">
-            {stage === "enroll" ? "Set up two-factor login" : "Enter your authenticator code"}
+            {stage === "enroll" ? "Set up your authenticator app" : "Enter your authenticator code"}
           </h2>
           <p className="text-sm text-muted-foreground">
             {stage === "enroll"
-              ? "Optional extra protection. Once set up, money and role actions on this account need a code from the app; signing in with Google alone will no longer be enough. Scan the code below with Google Authenticator, Authy or 1Password."
-              : "Enter the current code from your authenticator app to continue."}
+              ? "Money and role changes on this account will need a fresh code from the app, and the app is checked at least every 30 days. Scan the code below with Google Authenticator, Authy or 1Password, then enter the 6-digit code."
+              : "Enter the current code from your authenticator app to continue. Crucial changes ask for a fresh code each time; the app is checked at least every 30 days."}
           </p>
         </div>
 

@@ -47,3 +47,18 @@ How it works today (migration 0111, live since 23/10/2026):
 ## Cloudflare Access: assessed, not recommended now
 
 The site runs on Vercel, the admin screens are pages on the same address as the customer and driver app (`/admin/...`), and every admin action goes from the browser straight to Supabase, not through the website. A Cloudflare gate in front of `/admin` would therefore hide only the admin screens' empty shell; it would not protect the data or the actions (the database rules above do that), and putting Cloudflare in front of the whole site means moving the domain's DNS and risks the Android app, sign-in returns and the Paynow callback. Recommendation: do not add it now. If wanted later, the clean way is a separate admin address (for example `admin.conz.co.zw`) behind Cloudflare Access, as its own project with a rollback plan and the owner's approval for the DNS change.
+
+## Authenticator app: quick link, 30-day check, "required" switch (11/11/2026, migration 0169)
+
+- **Quick link on every admin page.** A strip at the top of each admin screen shows the authenticator state with one button
+  to the code screen, which brings you back to the same page: "Set up authenticator" (none yet), "Verify now" (30 days passed),
+  or a quiet "Authenticator verified, N days left".
+- **Every 30 days.** The database records when each admin last entered a valid code (`admin_authenticator_checks`, written only
+  from a verified session). Past 30 days the admin screens send that admin to the code screen first.
+- **Crucial changes.** Money and role actions ask for a fresh code (valid 15 minutes) every time, whatever the 30-day state. This
+  is enforced in the database (`require_aal2()`), not just the screen.
+- **"Required" switch** (Settings > Authenticator app, super admin). Off by default, because neither owner had set the app up when
+  this shipped. Set the app up on BOTH owner accounts first, then switch it on (needs your own app, a fresh code and a reason; it
+  is audited). While on, a Google sign-in alone is never accepted for money or role changes, for any admin.
+- Lost phone: the other owner resets it (Settings > Authenticator app > Reset), as before. Undo for 0169:
+  `supabase/rollbacks/20261111120000_0169_rollback.sql` (contains DROP: run in the SQL editor).

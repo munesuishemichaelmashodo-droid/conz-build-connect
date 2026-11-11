@@ -377,7 +377,20 @@ const transportGuide = (km, qty) => {
     assumptions: { note: "Estimate for a car-profile road route; confirm suitability for a loaded truck. Not a quote." },
   };
 };
+// MOCK_AUTH_STATE = setup | required | expired | ok (default setup): what the admin authenticator strip shows (0169).
+const authPolicy = () => {
+  const st = process.env.MOCK_AUTH_STATE ?? "setup";
+  return {
+    required: st === "required",
+    has_authenticator: st === "expired" || st === "ok",
+    last_verified_at: st === "ok" ? new Date(Date.now() - 18 * 864e5).toISOString() : null,
+    max_age_days: 30,
+    expired: st === "expired",
+    days_left: st === "ok" ? 12 : null,
+  };
+};
 const rpc = {
+  admin_authenticator_policy: () => authPolicy(),
   transport_pricing_enabled: () => process.env.MOCK_TRANSPORT === "on",
   compute_transport_offer: (a) => transportGuide(Number(a._road_km), Number(a._quantity_m3)),
   create_transport_quote_for: (a) => {
