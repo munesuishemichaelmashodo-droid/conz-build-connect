@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { money } from "@/lib/domain";
 import { useAuth } from "@/lib/auth";
 import { AdminAttention } from "@/components/AdminAttention";
+import { MarketplaceHealthCard } from "@/components/admin/MarketplaceHealthCard";
 import { Users, Truck, Briefcase, DollarSign, AlertOctagon, ShieldCheck, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
@@ -90,6 +91,7 @@ function AdminDashboard() {
   return (
     <div className="space-y-4">
       <AdminAttention isSuper={isSuper} />
+      <MarketplaceHealthCard />
       <div className="grid grid-cols-2 gap-3">
         <Stat icon={Users} label="Users" value={String(data?.users ?? 0)} sub={`${data?.drivers ?? 0} drivers`} to="/admin/users" />
         <Stat icon={Briefcase} label="Open jobs" value={String(data?.jobsOpen ?? 0)} sub={`${data?.jobsDone ?? 0} completed`} />

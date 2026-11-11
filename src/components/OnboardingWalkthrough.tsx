@@ -1,8 +1,21 @@
 import { useEffect, useState } from "react";
+import { useTransportPricingEnabled } from "@/lib/transport-pricing";
+import { commissionCopy } from "@/lib/commission-copy";
+import { promoCopy, usePromoCredit } from "@/lib/promo-credit";
 import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Package, Users, Briefcase, Wallet, X, Bell, MapPin, Check, type LucideIcon } from "lucide-react";
+import {
+  Package,
+  Users,
+  Briefcase,
+  Wallet,
+  X,
+  Bell,
+  MapPin,
+  Check,
+  type LucideIcon,
+} from "lucide-react";
 import { enablePushNotifications, pushPermissionState } from "@/lib/push";
 import { locateOnce } from "@/lib/geolocate";
 import { useAuth } from "@/lib/auth";
@@ -14,12 +27,12 @@ const CUSTOMER_SLIDES: Slide[] = [
   {
     icon: Package,
     title: "Welcome to Con Z",
-    body: "Book construction materials — sand, stone, soil — and get them delivered by a verified driver, tracked the whole way.",
+    body: "Book construction materials — sand, stone, soil — and get them delivered by a driver checked by Con Z. Follow the job's progress, and the truck's location while the driver shares it.",
   },
   {
     icon: Users,
     title: "You're in control",
-    body: "Set your quantity and location, drivers bid their price, you pick the offer that works. As you use the app, we'll point out what each new screen does.",
+    body: "Post one request, compare driver offers, prices, ratings and trucks, and make the final choice yourself. As you use the app, we'll point out what each new screen does.",
   },
 ];
 
@@ -27,16 +40,24 @@ const DRIVER_SLIDES: Slide[] = [
   {
     icon: Briefcase,
     title: "Welcome to Con Z",
-    body: "Find delivery jobs near you and bid your own price — no one assigns work to you, you choose what to take.",
+    body: "See the load, size and delivery area, then offer a price that suits your truck, or accept a job sent to you. You choose what is worth taking.",
   },
   {
     icon: Wallet,
     title: "You're in control",
-    body: "Your first job is commission-free, and you get paid automatically once delivery is confirmed. As you use the app, we'll point out what each new screen does.",
+    body: "Your first completed job has no commission. After that, Con Z commission is 7% of the full job value, materials and transport included. As you use the app, we'll point out what each new screen does.",
   },
 ];
 
-export function OnboardingWalkthrough({ userId, role }: { userId: string; role: "customer" | "driver" }) {
+export function OnboardingWalkthrough({
+  userId,
+  role,
+}: {
+  userId: string;
+  role: "customer" | "driver";
+}) {
+  const transportOn = useTransportPricingEnabled();
+  const promo = usePromoCredit();
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
   const [notifGranted, setNotifGranted] = useState(false);
@@ -52,7 +73,11 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
   useEffect(() => {
     let alive = true;
     (async () => {
-      const { data } = await supabase.from("profiles").select("onboarding_completed_at").eq("id", userId).maybeSingle();
+      const { data } = await supabase
+        .from("profiles")
+        .select("onboarding_completed_at")
+        .eq("id", userId)
+        .maybeSingle();
       if (alive && data && !data.onboarding_completed_at) setVisible(true);
       const state = await pushPermissionState();
       if (alive && state === "granted") setNotifGranted(true);
@@ -83,7 +108,10 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
 
   const finish = async () => {
     setVisible(false);
-    await supabase.from("profiles").update({ onboarding_completed_at: new Date().toISOString() }).eq("id", userId);
+    await supabase
+      .from("profiles")
+      .update({ onboarding_completed_at: new Date().toISOString() })
+      .eq("id", userId);
     // Let the notifications card and the tour offer know the walkthrough is done.
     await refresh();
   };
@@ -116,7 +144,8 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
               </div>
               <h2 className="font-display font-bold text-2xl">One last thing</h2>
               <p className="text-muted-foreground text-sm">
-                Turn these on now so job updates and live tracking work right away — you can always change them later in your phone settings.
+                Both are optional. You can use Con Z without them and turn them on later in your
+                phone settings.
               </p>
 
               <button
@@ -131,7 +160,9 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
                 <div className="flex-1">
                   <div className="font-semibold text-sm">Notifications</div>
                   <div className="text-xs text-muted-foreground">
-                    {role === "driver" ? "New job offers, messages, disputes" : "Bid updates, driver messages, delivery status"}
+                    {role === "driver"
+                      ? "Alerts about new requests, messages and updates on your jobs"
+                      : "Alerts when drivers send offers, and for messages and delivery status"}
                   </div>
                 </div>
                 {notifGranted ? (
@@ -155,7 +186,9 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
                 <div className="flex-1">
                   <div className="font-semibold text-sm">Location</div>
                   <div className="text-xs text-muted-foreground">
-                    {role === "driver" ? "So customers can see you on the way" : "So drivers near you can find your job"}
+                    {role === "driver"
+                      ? "Used for your availability and to share your location on an active job"
+                      : "Used to set your delivery pin. It does not find or promise a nearby driver"}
                   </div>
                 </div>
                 {locationGranted ? (
@@ -180,7 +213,9 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
                 {Icon && <Icon className="w-8 h-8" />}
               </div>
               <h2 className="font-display font-bold text-2xl">{slide!.title}</h2>
-              <p className="text-muted-foreground max-w-xs mx-auto">{slide!.body}</p>
+              <p className="text-muted-foreground max-w-xs mx-auto">
+                {promoCopy(commissionCopy(slide!.body, transportOn), promo)}
+              </p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -201,6 +236,15 @@ export function OnboardingWalkthrough({ userId, role }: { userId: string; role: 
         >
           {isLast ? "Get started" : "Next"}
         </Button>
+        {onPermissionsStep && !(notifGranted && locationGranted) && (
+          <button
+            type="button"
+            onClick={finish}
+            className="w-full min-h-11 text-sm font-semibold text-muted-foreground underline underline-offset-4"
+          >
+            Skip for now
+          </button>
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { fetchOpenJob } from "@/lib/open-jobs";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,12 @@ import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import { materialLabel, money } from "@/lib/domain";
 import { MapPin, Package, Truck, X, Loader2 } from "lucide-react";
+import {
+  countdownColor,
+  formatRemaining,
+  offerFootnote,
+  offerWindowMs,
+} from "@/lib/dispatch-window";
 
 type Offer = {
   id: string;
@@ -26,8 +33,6 @@ type Job = {
   delivery_address: string;
 };
 
-const WINDOW_MS = 10_000;
-
 /**
  * Short beep via WebAudio; also vibrate if supported.
  * `variant`:
@@ -41,8 +46,12 @@ export function alertPulse(variant: "dispatch" | "nudge" = "dispatch") {
   } catch {}
   try {
     const Ctx =
-      (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext })
-        .AudioContext ??
+      (
+        window as unknown as {
+          AudioContext?: typeof AudioContext;
+          webkitAudioContext?: typeof AudioContext;
+        }
+      ).AudioContext ??
       (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctx) return;
     const ctx = new Ctx();
@@ -60,7 +69,6 @@ export function alertPulse(variant: "dispatch" | "nudge" = "dispatch") {
   } catch {}
 }
 
-
 export function JobOfferListener() {
   const { userId, is } = useAuth();
   const [offer, setOffer] = useState<Offer | null>(null);
@@ -70,12 +78,9 @@ export function JobOfferListener() {
   const isDriver = is("driver");
 
   const loadJob = useCallback(async (jobId: string) => {
-    const { data } = await supabase
-      .from("jobs")
-      .select("id,material,custom_material,quantity_m3,budget,delivery_address")
-      .eq("id", jobId)
-      .maybeSingle();
-    if (data) setJob(data as Job);
+    // Area-only preview (0133): the exact address is shared once the customer selects the driver.
+    const row = await fetchOpenJob<Job>(supabase, jobId);
+    if (row) setJob(row);
   }, []);
 
   const openOffer = useCallback(
@@ -84,6 +89,10 @@ export function JobOfferListener() {
       // ignore if already expired
       if (new Date(o.expires_at).getTime() < Date.now()) return;
       seenIds.current.add(o.id);
+      // Honest "seen" evidence for the admin response metrics (best effort).
+      void (supabase as any)
+        .rpc("mark_dispatch_offer_viewed", { _offer_id: o.id })
+        .then(() => undefined);
       setOffer(o);
       setJob(null);
       loadJob(o.job_id);
@@ -151,13 +160,7 @@ export function JobOfferListener() {
   }, [userId, isDriver, openOffer]);
 
   if (!offer) return null;
-  return (
-    <OfferModal
-      offer={offer}
-      job={job}
-      onClose={() => setOffer(null)}
-    />
-  );
+  return <OfferModal offer={offer} job={job} onClose={() => setOffer(null)} />;
 }
 
 function OfferModal({
@@ -193,17 +196,9 @@ function OfferModal({
   }, [offer.expires_at, offer.job_id, onClose]);
 
   const secondsLeft = Math.ceil(remaining / 1000);
-  const pct = Math.max(0, Math.min(1, remaining / WINDOW_MS));
-
-  // Colour bands per the design guide.
-  const color =
-    secondsLeft >= 8
-      ? "#22c55e" // green
-      : secondsLeft >= 5
-      ? "#84cc16" // lime
-      : secondsLeft >= 2
-      ? "#f97316" // orange
-      : "#ef4444"; // red
+  const windowMs = offerWindowMs(offer);
+  const pct = Math.max(0, Math.min(1, remaining / windowMs));
+  const color = countdownColor(remaining, windowMs);
 
   // Dismissing the offer is a decision: tell the server so the next wave goes out now
   // instead of waiting for the timeout (best effort; the timeout still covers a failed call).
@@ -224,20 +219,24 @@ function OfferModal({
     if (error) {
       const msg = error.message ?? "Could not accept";
       if (/insufficient wallet balance/i.test(msg)) {
-        toast.error("Wallet too low to accept — top up first");
+        toast.error("Commission credit too low to send an offer — top up first");
         onClose();
         nav({ to: "/wallet" });
+        return;
+      }
+      if (msg.includes("DRIVER_BUSY")) {
+        toast.error("You are already on another job. Finish it before taking a new one.");
+        onClose();
         return;
       }
       toast.error(msg);
       onClose();
       return;
     }
-    toast.success("Job accepted!");
+    toast.success("Offer sent — the customer will choose a driver");
     onClose();
     if (data) nav({ to: "/jobs/$id", params: { id: String(data) } });
   };
-
 
   const R = 70;
   const C = 2 * Math.PI * R;
@@ -253,9 +252,7 @@ function OfferModal({
         <DialogTitle className="sr-only">New job request</DialogTitle>
         <div className="p-6 space-y-5">
           <div className="flex items-center justify-between">
-            <div className="text-xs text-cz-amber-text font-semibold">
-              New job request
-            </div>
+            <div className="text-xs text-cz-amber-text font-semibold">New job request</div>
             <button
               onClick={decline}
               className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"
@@ -267,11 +264,17 @@ function OfferModal({
 
           {job && (
             <div className="rounded-2xl bg-white/5 border border-white/10 p-4 space-y-2 text-sm">
-              <Row icon={Package} label={materialLabel(job.material as any, job.custom_material)} value={`${Number(job.quantity_m3)} m³`} />
+              <Row
+                icon={Package}
+                label={materialLabel(job.material as any, job.custom_material)}
+                value={`${Number(job.quantity_m3)} m³`}
+              />
               <Row icon={MapPin} label="Delivery to" value={job.delivery_address} />
               <div className="flex items-center justify-between pt-2 border-t border-white/10">
                 <span className="text-xs text-white/60">Trip value</span>
-                <span className="font-display font-bold text-cz-amber-text text-lg">{money(Number(job.budget))}</span>
+                <span className="font-display font-bold text-cz-amber-text text-lg">
+                  {money(Number(job.budget))}
+                </span>
               </div>
             </div>
           )}
@@ -279,7 +282,14 @@ function OfferModal({
           {/* Circular countdown */}
           <div className="relative mx-auto w-40 h-40">
             <svg viewBox="0 0 160 160" className="w-full h-full -rotate-90">
-              <circle cx="80" cy="80" r={R} stroke="rgba(255,255,255,0.1)" strokeWidth="10" fill="none" />
+              <circle
+                cx="80"
+                cy="80"
+                r={R}
+                stroke="rgba(255,255,255,0.1)"
+                strokeWidth="10"
+                fill="none"
+              />
               <circle
                 cx="80"
                 cy="80"
@@ -295,9 +305,11 @@ function OfferModal({
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <div className="font-display font-bold text-5xl" style={{ color }}>
-                {secondsLeft}
+                {formatRemaining(remaining)}
               </div>
-              <div className="text-xs text-white/60">seconds</div>
+              <div className="text-xs text-white/60">
+                {secondsLeft >= 60 ? "minutes" : "seconds"}
+              </div>
             </div>
           </div>
 
@@ -322,28 +334,18 @@ function OfferModal({
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <>
-                <Truck className="w-5 h-5 mr-2" /> Accept job
+                <Truck className="w-5 h-5 mr-2" /> Send my offer
               </>
             )}
           </Button>
-          <p className="text-[11px] text-center text-white/50">
-            Accept quickly — after 10 seconds this goes to the next driver.
-          </p>
+          <p className="text-[11px] text-center text-white/50">{offerFootnote(windowMs)}</p>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-function Row({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof MapPin;
-  label: string;
-  value: string;
-}) {
+function Row({ icon: Icon, label, value }: { icon: typeof MapPin; label: string; value: string }) {
   return (
     <div className="flex items-center gap-3">
       <Icon className="w-4 h-4 text-white/60 shrink-0" />

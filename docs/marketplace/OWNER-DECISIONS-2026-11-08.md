@@ -1,0 +1,94 @@
+# Owner decisions reserved overnight (08/11/2026)
+
+Built and tested, no production change: see the PR from `improve/honest-waiting-and-repost`
+(repost button on cancelled/expired requests, honest waiting facts, prefilled repeat on the delivered screen,
+customer-home wording that stays true under dispatch assignment, unused `NewJobListener` removed).
+
+Reserved because they need you (nothing below was changed):
+
+1. **Dispatch honesty.** `accept_dispatch_offer` can assign a driver without the customer choosing. Option B: customer
+   confirms a dispatch acceptance. Option C: rewrite the promise ("a driver may be assigned automatically").
+   Copy that claims the customer always chooses remains in `auth.tsx:496`, `RoleDashboard.tsx:229/252`,
+   `jobs.index.tsx:168`, the driver walkthrough, and the public tracking step "Driver chosen" (`status-stamp`).
+2. **Driver quick offer has no pickup time** (`useQuickAccept.ts`): adding one needs a UI choice (time chips) and a
+   decision on whether a default may be shown. Not invented.
+3. **What ConZ promises on no response**: needs an operational commitment first.
+4. **Reminder channel before pickup** (push, SMS, WhatsApp; cost).
+5. **Driver verification bar** (six photos, ~24 h manual review) and manual dispatch effort.
+6. **Payment-adjacent, deliberately untouched**: commission explanation, direct-pay leverage, payment config.
+7. **Operational**: diagnose the ~73 cancelled jobs with the new reason codes once real jobs flow; driver installs/interviews.
+
+## Found by read-only checks on production, 08/11/2026 (not changed)
+
+8. **Seven jobs are stuck in "accepted" / "in progress" for 19 to 88 days** (six `in_progress`, one `accepted`, all direct-pay,
+   all with a pickup photo and none with a delivery photo; ids start `e12f5117`, `b69b742c`, `eca034d4`, `12e9ef14`, `00cc47cf`,
+   `35f63f53`, `b2cf9b70`). Effects: each customer's home says "Your delivery is on the way", each driver is blocked from new jobs by the
+   one-active-job rule (0144), and the marketplace metrics count them as neither completed nor cancelled. Admins already see them under
+   "no update for 2+ days". Closing them means cancelling or completing, which releases or settles held commission, so it is left to you
+   (and possibly a call to the customer or driver). If they are test jobs, say so and they can be closed the same way.
+9. **No driver had a fresh availability row in the last 15 minutes** when checked overnight (5 verified drivers, 6 push subscriptions),
+   so dispatch could not have reached anyone at that moment. This is supply, not code.
+10. Screens checked in a browser against the sample-data stand-in at 390 px (customer, driver, applicant, admin: 39 screens): no page
+    errors, broken text or horizontal overflow. Repost and the corrected notice confirmed visually. Not checked: real production data,
+    a real phone, push delivery.
+
+## Driver location sharing and customer ETA (08/11/2026, after the owner's test)
+
+Fixed in code: sharing was kept only in the open page's memory, so leaving the screen, reloading, or the phone suspending the app
+ended it silently and it showed "Off" again. It now remembers that the driver started it for that job, resumes by itself when they
+come back, restarts if updates stop for 90 s, and shows a clear warning whenever the customer cannot see the driver (not started,
+stopped updating, blocked by the phone, or switched off in privacy settings).
+
+**Limit that code cannot remove (owner decision):** a web page or the Capacitor shell cannot read GPS while the phone screen is
+off or Con Z is in the background (for example while using Google Maps). Sharing pauses then and resumes when the driver returns
+to Con Z. The only real fix is a native background-location plugin in the Android app (a new app release, a Play Store
+"background location" declaration, a battery/notification trade-off) or asking drivers to keep Con Z open on screen. Say which you want.
+
+Customer ETA: the customer's own job screen showed raw car time while the shared link showed truck time (x1.4), and the route was
+sometimes never requested at all (a timing bug). Both fixed; the two screens now give the same estimate. The 1.4 factor is still
+an assumption; compare with `job_route_points` once real trips exist.
+
+## Offline Phase 0 (08/11/2026): done, web only, no database or payment change
+
+From the report "ConZ offline and poor network features". Built and checked in a browser on the sample-data stand-in:
+- A phone with no signal is no longer thrown to the sign-in screen when it opens a screen or a role area (driver, customer). Only a
+  real answer from the server (no user, expired or revoked session) signs someone out of a screen. Admin screens were deliberately left
+  as they were (finance and access-control surfaces).
+- A failed profile or role read no longer wipes what the app already knew; it retries a few times.
+- TanStack Router reloads the whole page when a screen's code fails to load, even with no signal, which lands on Android's error
+  page. While the phone is definitely offline that reload is held back; the driver sees "No signal right now" and the screen
+  retries by itself when signal returns.
+- A calm "No signal" banner on signed-in screens that says what still works and what will not go through (it does not promise that
+  anything is saved, because nothing is queued yet).
+- The job page says "Waiting for signal…" or "Couldn't load this" with a retry, instead of "Loading…" forever.
+- The Call button: a failed lookup no longer says "No phone number on their profile yet". The number seen on this phone is kept for
+  7 days per job (removed at sign-out) so the driver can still ring the customer with no data.
+- Production map tiles checked: the live build carries a valid CARTO key (a real tile loads; without a key it is a watermark).
+  CARTO's commercial terms change on 1 Dec 2026: confirm the plan.
+
+Still reserved for you (Phase 1 and later, see the report): photo outbox and "Ready offline" card (changes how evidence is timed and
+touches the 72-hour release and 24-hour no-show clocks), the PIN question, SMS/WhatsApp, a native Android release for
+background GPS and a start-up screen, and measuring real dead zones (needs your OK to log per-driver network data).
+
+## Offline "Ready offline" card (08/11/2026): built, web only, no database or payment change
+
+You approved the recommended answers. This is the first slice of Phase 1 that needs no database change:
+- A driver's phone saves the delivery (address, map position, notes, the customer's name and number) while there is signal and shows
+  a quiet "Ready offline" note. A customer's phone saves the driver's number, the address and the delivery PIN.
+- If the job cannot load, the screen shows that saved card with a Call button and (for drivers) an "Open in a maps app" link.
+- If a whole page cannot load, a small service-worker fallback page shows the same saved cards instead of the browser's error page.
+- Saved cards and PINs live only on the person's own phone, for at most 7 days, and are removed at sign-out and when the delivery ends.
+
+Verified in a Chromium browser against the sample-data stand-in, including with the dev server truly stopped (the fallback page, the
+Call and maps links, and "Try again" once the server returned). NOT verified: the Android app's WebView. Whether the service worker
+registers and answers inside the `com.conz.app` shell (which loads the live site by URL) must be checked on a real phone; if it does
+not, the in-app saved card still works whenever the app is already open, and nothing else changes.
+
+Still to build (next plan, needs the database): the photo outbox ("save now, send later") with the capture-time columns, the
+late-evidence labels in the admin dispute panel, and the "waiting for confirmation" status. Those follow your approved answers but
+touch how evidence is timed; they will leave the commission/reserve/escrow clocks alone and flag them to you.
+
+Found while reviewing the offline card (not changed): signing out with NO signal does not end the session. The sign-in library asks
+the server first and gives up on a network error, so the "Sign out" button appears to work but the phone stays signed in. The saved
+cards, PINs and numbers are now removed first, so nothing of the last person's delivery stays on a shared phone, but the session
+itself should be fixed in a follow-up (remove the stored session when the server cannot be reached).

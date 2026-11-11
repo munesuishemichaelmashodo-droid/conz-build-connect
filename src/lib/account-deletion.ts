@@ -21,7 +21,8 @@ export type DeleteAccountResult =
   { ok: true; warnings: string[] } | { ok: false; blockers: string[]; message: string };
 
 const BLOCKER_TEXT: Record<string, string> = {
-  wallet_balance_positive: "withdraw the money in your wallet",
+  wallet_balance_positive:
+    "deal with the credit in your wallet (contact support if withdrawals are paused)",
   wallet_balance_owed: "settle the amount you owe in your wallet",
   commission_held: "finish the jobs that are holding commission",
   withdrawal_pending: "wait for your pending withdrawal to be processed (or cancel it)",

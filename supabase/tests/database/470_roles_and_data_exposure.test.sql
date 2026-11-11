@@ -19,11 +19,8 @@ update public.profiles set phone = '+263771111111' where id = current_setting('t
 -- ---------------------------------------------------------------------------
 -- 1. Sign-up never grants a privileged role (S-3)
 -- ---------------------------------------------------------------------------
--- Production fires handle_new_user from auth.users (trigger on_auth_user_created,
--- checked 25/10). The test database's baseline has no auth-schema triggers, so add
--- the same trigger here; it is rolled back with the test.
-create trigger on_auth_user_created after insert on auth.users
-  for each row execute function public.handle_new_user();
+-- Production fires handle_new_user from auth.users (trigger on_auth_user_created). Migration 0141 creates it when missing,
+-- so the test database already has it.
 select set_config('t.owner_email_user', gen_random_uuid()::text, true);
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 values (current_setting('t.owner_email_user')::uuid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
@@ -101,15 +98,17 @@ select throws_ok($$select * from public.admin_list_supplier_contacts()$$, '42501
 -- 4. Profiles: consolidated policies, same access (S-4)
 -- ---------------------------------------------------------------------------
 select tests.as_owner();
-select is((select count(*)::int from pg_policy where polrelid = 'public.profiles'::regclass), 6,
-  'Six profile policies instead of nine');
+select is((select count(*)::int from pg_policy where polrelid = 'public.profiles'::regclass
+             and polname in ('Users read own profile', 'Job partners read each other')
+             and polroles = array['authenticated'::regrole]::oid[]), 2,
+  'Own-row and job-partner read policies are for signed-in users only');
 select tests.login_as(current_setting('t.cust2')::uuid);
 select is((select count(*)::int from public.profiles where id = auth.uid()), 1, 'A user reads their own profile');
 select is((select count(*)::int from public.profiles where id <> auth.uid()), 0, 'and no one else''s');
 update public.profiles set phone = '+263779999999' where id = current_setting('t.cust')::uuid;
 select tests.login_as(current_setting('t.cust')::uuid);
-select is((select count(*)::int from public.profiles where id = current_setting('t.drv')::uuid), 1,
-  'A customer reads the profile of a driver who bid on their job');
+select is((select count(*)::int from public.profiles where id = current_setting('t.drv')::uuid), 0,
+  'A customer does not read the profile row of a driver who only bid (0153; they get a safe card instead)');
 select is((select count(*)::int from public.profiles where id = current_setting('t.drv2')::uuid), 0,
   'but not of a driver who did not');
 select is((select phone from public.profiles where id = auth.uid()), null::text, 'Another user could not change this customer''s phone');

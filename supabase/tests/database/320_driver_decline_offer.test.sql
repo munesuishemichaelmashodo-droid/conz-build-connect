@@ -70,7 +70,9 @@ select is((select count(*)::int from public.job_dispatch_offers where job_id = c
 
 -- a decline after the job was taken does nothing
 select tests.login_as(current_setting('t.other')::uuid);
-select is(public.accept_dispatch_offer((select id from public.job_dispatch_offers where job_id = current_setting('t.job')::uuid and driver_id = current_setting('t.other')::uuid)), current_setting('t.job')::uuid, '13: another driver accepts the job');
+select is(public.accept_dispatch_offer((select id from public.job_dispatch_offers where job_id = current_setting('t.job')::uuid and driver_id = current_setting('t.other')::uuid)), current_setting('t.job')::uuid, '13: another driver answers yes (this sends the customer an offer, 0154)');
+select tests.as_owner();
+update public.jobs set status = 'cancelled' where id = current_setting('t.job')::uuid;  -- the job closes before mid answers
 select tests.login_as(current_setting('t.mid')::uuid);
 select is(public.decline_dispatch_offer((select id from public.job_dispatch_offers where job_id = current_setting('t.job')::uuid and driver_id = current_setting('t.mid')::uuid)), false, '14: declining an offer for a job that is no longer open is a no-op');
 select tests.as_owner();

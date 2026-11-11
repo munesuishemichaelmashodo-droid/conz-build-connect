@@ -14,6 +14,11 @@ describe("ratingLabel", () => {
   });
   it("shows the average and how many ratings it is based on", () => {
     expect(ratingLabel(4.66, 23)).toBe("4.7 (23)");
+    expect(ratingLabel(4.5, 3)).toBe("4.5 (3)");
+  });
+  it("does not show an average from one or two ratings, so a tiny sample cannot look like a track record", () => {
+    expect(ratingLabel(5, 1)).toBe("1 rating so far");
+    expect(ratingLabel(5, 2)).toBe("2 ratings so far");
   });
 });
 
@@ -31,8 +36,8 @@ describe("verificationBanner", () => {
   });
   it("follows the real application state", () => {
     expect(verificationBanner("pending", false)?.title).toBe("Finish your driver sign-up");
-    expect(verificationBanner("pending", true)?.title).toBe("Your application is under review");
-    expect(verificationBanner("rejected", true)?.title).toBe("Your application needs changes");
+    expect(verificationBanner("pending", true)?.title).toBe("Application received");
+    expect(verificationBanner("rejected", true)?.title).toBe("Not approved");
     expect(verificationBanner(null, false)?.title).toBe("Finish your driver sign-up");
   });
   it("no longer asks drivers to verify their phone by SMS", () => {
@@ -50,9 +55,9 @@ describe("verificationBanner", () => {
     const now = new Date("2026-10-26T12:00:00Z");
     expect(
       verificationBanner("verified", true, { reverifyDueAt: "2026-10-25T00:00:00Z", now })?.title,
-    ).toBe("Your 90-day check is due");
+    ).toBe("Re-verification overdue: bidding paused");
     expect(
-      verificationBanner("verified", true, { reverifyDueAt: "2026-11-25T00:00:00Z", now }),
+      verificationBanner("verified", true, { reverifyDueAt: "2026-12-25T00:00:00Z", now }),
     ).toBeNull();
   });
 });

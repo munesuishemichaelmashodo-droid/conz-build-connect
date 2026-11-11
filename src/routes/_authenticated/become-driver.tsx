@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -39,14 +39,16 @@ import {
   STAGES,
   applicationChecklist,
   detailsComplete,
+  driverStatus,
   firstUnfinishedStage,
   hasSubmitted,
   missingRequired,
   normalisePhone,
   phoneStatus,
   phoneStepComplete,
-  statusView,
+  REVIEW_TARGET_TEXT,
   type ChecklistState,
+  type DriverStatusKind,
   type PhoneStatus,
   validateDocFile,
   type DocKey,
@@ -64,10 +66,11 @@ type ProfileRow = DocMap & {
   nationality: string | null;
   verification_status: "pending" | "verified" | "rejected";
   verification_notes: string | null;
+  reverify_due_at?: string | null;
 };
 
 const PROFILE_COLUMNS =
-  "selfie_url,national_id_url,license_url,tipper_photo_url,tipper_photo_side_url,tipper_photo_back_url,operator_license_url,certificate_of_fitness_url,git_insurance_url,zinara_url,nationality,verification_status,verification_notes";
+  "selfie_url,national_id_url,license_url,tipper_photo_url,tipper_photo_side_url,tipper_photo_back_url,operator_license_url,certificate_of_fitness_url,git_insurance_url,zinara_url,nationality,verification_status,verification_notes,reverify_due_at";
 
 function BecomeDriverPage() {
   const { userId, profile, email, refresh, is } = useAuth();
@@ -144,8 +147,11 @@ function BecomeDriverPage() {
         if (r.nationality) setNationality(r.nationality);
       }
       const truckCount = t?.length ?? 0;
+      // An application with no phone number saved is incomplete, not "received".
       const submitted =
-        !!r && hasSubmitted(r.verification_status, r, truckCount > 0, r.nationality);
+        !!r &&
+        hasSubmitted(r.verification_status, r, truckCount > 0, r.nationality) &&
+        (r.verification_status !== "pending" || phoneStepComplete(phone));
       setStage(
         firstUnfinishedStage({
           submitted,
@@ -200,6 +206,19 @@ function BecomeDriverPage() {
 
   const submit = async () => {
     if (!userId) return;
+    // Never send an incomplete application: say exactly what is missing and reopen that step.
+    if (!phoneStepComplete(savedPhone)) {
+      toast.error("Add your phone number before submitting.");
+      return setStage(0);
+    }
+    if (!detailsComplete(name, nationality)) {
+      toast.error("Add your full name and nationality before submitting.");
+      return setStage(1);
+    }
+    if (missing.length > 0) {
+      toast.error(`Still needed: ${missing.join(", ")}.`);
+      return;
+    }
     setSubmitting(true);
     try {
       if (name.trim() && name.trim() !== profile?.full_name) {
@@ -311,15 +330,27 @@ function BecomeDriverPage() {
                 status: row?.verification_status,
                 isDriver: is("driver"),
               })}
-              status={row?.verification_status}
-              notes={row?.verification_notes}
+              view={driverStatus({
+                status: row?.verification_status,
+                notes: row?.verification_notes,
+                reverifyDueAt: row?.reverify_due_at,
+                submitted: true,
+              })}
               onFix={() => setStage(2)}
               onRefresh={() => refetchRow()}
-              onOpenDriverMode={() => nav({ to: "/home" })}
+              onFindJobs={() => nav({ to: "/home" })}
               onHome={() => nav({ to: "/home" })}
             />
           )}
         </div>
+
+        {stage < 3 && (
+          <SavedSummary
+            phoneSaved={phoneStepComplete(savedPhone)}
+            detailsDone={detailsComplete(name, nationality)}
+            missing={missing}
+          />
+        )}
 
         {stage < 3 && (
           <div className="flex gap-2">
@@ -515,18 +546,14 @@ function DocumentsStage({
       )}
 
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold text-muted-foreground">
-          You
-        </h3>
+        <h3 className="text-xs font-semibold text-muted-foreground">You</h3>
         {row("selfie_url", "user")}
         {row("national_id_url", "environment")}
         {row("license_url", "environment")}
       </section>
 
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold text-muted-foreground">
-          Truck
-        </h3>
+        <h3 className="text-xs font-semibold text-muted-foreground">Truck</h3>
         {row("tipper_photo_url", "environment")}
         {row("tipper_photo_side_url", "environment")}
         {row("tipper_photo_back_url", "environment")}
@@ -584,32 +611,48 @@ const CHECK_TONE: Record<ChecklistState, { dot: string; text: string }> = {
   problem: { dot: "bg-destructive", text: "text-destructive" },
 };
 
+const ACTIVE_KINDS: DriverStatusKind[] = [
+  "pending",
+  "rejected",
+  "approved",
+  "reverify_due_soon",
+  "reverify_overdue",
+  "reverify_submitted",
+];
+
+const NEXT_STEPS = [
+  "Application received",
+  "Documents and driver details under review",
+  "Approval, or a request for corrections",
+  "Access to driver jobs once approved",
+];
+
 function StatusStage({
   checklist,
-  status,
-  notes,
+  view,
   onFix,
   onRefresh,
-  onOpenDriverMode,
+  onFindJobs,
   onHome,
 }: {
   checklist: ReturnType<typeof applicationChecklist>;
-  status: "pending" | "verified" | "rejected" | null | undefined;
-  notes: string | null | undefined;
+  view: ReturnType<typeof driverStatus>;
   onFix: () => void;
   onRefresh: () => void;
-  onOpenDriverMode: () => void;
+  onFindJobs: () => void;
   onHome: () => void;
 }) {
-  const v = statusView(status, notes);
-  const Icon = v.kind === "approved" ? ShieldCheck : v.kind === "rejected" ? XCircle : Clock;
+  const Icon = view.canBid ? ShieldCheck : view.tone === "bad" ? XCircle : Clock;
   // Full class names (not built from a variable) so Tailwind keeps them.
   const tone =
-    v.kind === "approved"
+    view.tone === "ok"
       ? { ring: "bg-success/15 border-success/40", icon: "text-success" }
-      : v.kind === "rejected"
+      : view.tone === "bad"
         ? { ring: "bg-destructive/15 border-destructive/40", icon: "text-destructive" }
         : { ring: "bg-warning/15 border-warning/40", icon: "text-warning" };
+  const waiting = view.kind === "pending" || view.kind === "reverify_submitted";
+  // Step 2 is "now" while waiting for review; the first step is always done.
+  const stepState = (i: number) => (i === 0 ? "done" : i === 1 && waiting ? "now" : "later");
   return (
     <div className="text-center space-y-4 py-4">
       <div
@@ -621,40 +664,136 @@ function StatusStage({
         <Icon className={cn("w-10 h-10", tone.icon)} />
       </div>
       <div>
-        <h2 className="font-display font-bold text-2xl">{v.title}</h2>
-        <p className="text-sm text-muted-foreground mt-2">{v.body}</p>
+        <h2 className="font-display font-bold text-2xl">{view.title}</h2>
+        {view.kind === "pending" && (
+          <p className="text-sm mt-2">
+            Your documents have been submitted successfully. Our verification team will review your
+            application.
+          </p>
+        )}
+        <p className="text-sm text-muted-foreground mt-2">{view.meaning}</p>
+        <p className="text-sm font-semibold mt-2">{view.next}</p>
       </div>
-      <ul
-        className="rounded-xl border p-3 text-left text-sm space-y-2"
-        aria-label="Application status"
-      >
-        {checklist.map((row) => (
-          <li key={row.key} className="flex items-center gap-2">
-            <span
-              aria-hidden
-              className={cn("w-2.5 h-2.5 rounded-full shrink-0", CHECK_TONE[row.state].dot)}
-            />
-            <span className={CHECK_TONE[row.state].text}>{row.label}</span>
-          </li>
-        ))}
-      </ul>
+
+      {view.kind === "pending" && (
+        <>
+          <ol
+            className="rounded-xl border p-3 text-left text-sm space-y-2"
+            aria-label="What happens next"
+          >
+            {NEXT_STEPS.map((label, i) => {
+              const st = stepState(i);
+              return (
+                <li key={label} className="flex items-center gap-2">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold",
+                      st === "done"
+                        ? "bg-success text-white"
+                        : st === "now"
+                          ? "bg-warning text-black"
+                          : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {i + 1}
+                  </span>
+                  <span
+                    className={
+                      st === "now" ? "font-semibold" : st === "later" ? "text-muted-foreground" : ""
+                    }
+                  >
+                    {label}
+                    {st === "now" ? " (now)" : ""}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+          <p className="text-xs text-muted-foreground">{REVIEW_TARGET_TEXT}</p>
+        </>
+      )}
+
+      {ACTIVE_KINDS.includes(view.kind) && (
+        <ul
+          className="rounded-xl border p-3 text-left text-sm space-y-2"
+          aria-label="Application status"
+        >
+          {checklist.map((row) => (
+            <li key={row.key} className="flex items-center gap-2">
+              <span
+                aria-hidden
+                className={cn("w-2.5 h-2.5 rounded-full shrink-0", CHECK_TONE[row.state].dot)}
+              />
+              <span className={CHECK_TONE[row.state].text}>{row.label}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="rounded-xl border bg-muted/30 p-3 text-left text-xs text-muted-foreground flex gap-2">
         <ShieldCheck className="w-4 h-4 text-cz-amber-text shrink-0 mt-0.5" />
         <span>Your ID, licence and truck photos are only visible to you and Con Z admins.</span>
       </div>
       <div className="flex flex-col gap-2">
-        {v.canEnterDriverMode && <Button onClick={onOpenDriverMode}>Open Driver Mode</Button>}
-        {v.kind === "rejected" && <Button onClick={onFix}>Fix documents and resubmit</Button>}
-        {v.kind === "review" && (
+        {view.canBid && <Button onClick={onFindJobs}>Find jobs</Button>}
+        {view.kind === "rejected" && <Button onClick={onFix}>Fix and resubmit</Button>}
+        {(view.kind === "reverify_due_soon" || view.kind === "reverify_overdue") && (
+          <Button asChild variant={view.canBid ? "outline" : "default"}>
+            <Link to="/profile">{view.action?.label ?? "Update selfie"}</Link>
+          </Button>
+        )}
+        {waiting && (
           <Button variant="outline" onClick={onRefresh}>
             Check status
           </Button>
         )}
-        <Button variant="ghost" onClick={onHome}>
-          Go to home
+        <Button variant={view.canBid || waiting ? "ghost" : "outline"} onClick={onHome}>
+          Back to driver area
         </Button>
       </div>
     </div>
+  );
+}
+
+/** What is saved and what is still missing, shown under every step. */
+function SavedSummary({
+  phoneSaved,
+  detailsDone,
+  missing,
+}: {
+  phoneSaved: boolean;
+  detailsDone: boolean;
+  missing: string[];
+}) {
+  const row = (ok: boolean, text: string) => (
+    <li className="flex items-center gap-2">
+      <span
+        aria-hidden
+        className={cn(
+          "w-2.5 h-2.5 rounded-full shrink-0",
+          ok ? "bg-success" : "bg-muted-foreground/40",
+        )}
+      />
+      <span className={ok ? "" : "text-muted-foreground"}>{text}</span>
+    </li>
+  );
+  return (
+    <ul className="rounded-xl border bg-card p-3 text-xs space-y-1.5" aria-label="What is saved">
+      {row(phoneSaved, phoneSaved ? "Phone number saved" : "Phone number: not saved yet")}
+      {row(
+        detailsDone,
+        detailsDone ? "Name and nationality saved" : "Name and nationality: not saved yet",
+      )}
+      {row(
+        missing.length === 0,
+        missing.length === 0
+          ? "Truck and documents: all on file"
+          : `Truck and documents still needed: ${missing.join(", ")}`,
+      )}
+      <li className="pt-1 text-muted-foreground">
+        Nothing is sent for review until you press Submit with everything saved.
+      </li>
+    </ul>
   );
 }
 

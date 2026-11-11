@@ -21,11 +21,15 @@ import {
   ShieldCheck,
   HandCoins,
 } from "lucide-react";
-import { MATERIALS, type MaterialCategory, money } from "@/lib/domain";
+import { MATERIALS, type MaterialCategory, money, materialLabel } from "@/lib/domain";
 import { getSourcingRequestsEnabled, requestSourcingQuote } from "@/lib/sourcing-request.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { bookingOutcome, newBookingAttemptId } from "@/lib/booking-attempt";
 import { useAuth } from "@/lib/auth";
 import { useLaunchSwitches } from "@/lib/launch-switches";
+import { computeTransportOffer } from "@/lib/transport-quote.functions";
+import { useTransportPricingEnabled } from "@/lib/transport-pricing";
+import { transportJobFields, transportToOfferResult } from "@/lib/transport-offer-view";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -54,6 +58,7 @@ import { isValidQuantity, MIN_QUANTITY_M3 } from "@/lib/load-size";
 import { useNearbyTrucks } from "@/components/redesign/rpc";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
+import { repeatNoticeText } from "@/lib/book-again";
 
 const bookSearchSchema = z.object({
   material: z.string().optional(),
@@ -62,6 +67,9 @@ const bookSearchSchema = z.object({
   lat: z.coerce.number().optional(),
   lng: z.coerce.number().optional(),
   driverId: z.string().optional(),
+  // Set by "Order again": the screen then says which details were reused.
+  repeat: z.preprocess((v) => v === true || v === "true" || v === "1", z.boolean()).optional(),
+  source: z.literal("cancelled").optional().catch(undefined),
   // Set when the customer returns to book an admin-issued sourcing quote.
   sourcingRequestId: z.string().uuid().optional(),
 });
@@ -92,6 +100,12 @@ function BookDelivery() {
   });
   const [requestingQuote, setRequestingQuote] = useState(false);
 
+  // Pricing by the customer's own pickup and delivery point (off unless the owner turns it on).
+  const runTransport = useServerFn(computeTransportOffer);
+  const transportOn = useTransportPricingEnabled();
+  const [pickupAddress, setPickupAddress] = useState("");
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
+
   const [step, setStep] = useState<number>(0);
   const [address, setAddress] = useState(search.address ?? "");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
@@ -101,6 +115,8 @@ function BookDelivery() {
     BOOKABLE_MATERIALS.some((m) => m.value === search.material) ? (search.material as MaterialCategory) : "river_sand",
   );
   const [quantity, setQuantity] = useState<number>(search.quantity ?? 12);
+  // What was reused from a past delivery (null unless opened from "Order again").
+  const repeatNotice = repeatNoticeText(search, search.material ? materialLabel(search.material as MaterialCategory, null) : "");
   const [notes, setNotes] = useState("");
   const [date, setDate] = useState("");
   const [computing, setComputing] = useState(false);
@@ -118,6 +134,10 @@ function BookDelivery() {
     return attemptRef.current.key;
   };
   const [posting, setPosting] = useState(false);
+  // Retry safety (see booking-attempt.ts): a synchronous lock against double taps, and one job id per
+  // booking attempt so a retry after a lost reply finds the job instead of failing or duplicating it.
+  const postingLock = useRef(false);
+  const attemptId = useRef<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"direct" | "escrow">("direct");
   // MVP launch: Con Z Pay (escrow) stays hidden until the owner turns it on (database-enforced too).
   const launch = useLaunchSwitches();
@@ -194,6 +214,31 @@ function BookDelivery() {
 
     if (!quantity || quantity < MIN_QUANTITY_M3) return toast.error("Enter quantity");
 
+    if (transportOn) {
+      if (!pickupCoords) return toast.error("Choose where the load will be collected.");
+      setComputing(true);
+      try {
+        const t = await runTransport({
+          data: {
+            pickupLat: pickupCoords.lat,
+            pickupLng: pickupCoords.lng,
+            deliveryLat: coords.lat,
+            deliveryLng: coords.lng,
+            quantity,
+          },
+        });
+        const o = transportToOfferResult(t, quantity);
+        setOfferData(o);
+        setOffer(o.offer);
+        setStep(5);
+      } catch (e: any) {
+        toast.error(e?.message ?? "Could not calculate the delivery price");
+      } finally {
+        setComputing(false);
+      }
+      return;
+    }
+
     setComputing(true);
 
     try {
@@ -256,7 +301,7 @@ function BookDelivery() {
     setOffer(proposed);
   };
 
-  const confirm = async () => {
+  const submitBooking = async () => {
     if (!offerData) return;
 
     if (!coords) {
@@ -265,10 +310,13 @@ function BookDelivery() {
     }
 
     setPosting(true);
+    attemptId.current ??= newBookingAttemptId();
+    const jobId = attemptId.current;
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("jobs")
       .insert({
+        id: jobId,
         customer_id: userId!,
 
         // Open request (no ConZ supplier): posted as the existing unpriced
@@ -278,16 +326,24 @@ function BookDelivery() {
         custom_material: offerData.openRequest ? offerData.label : null,
         quantity_m3: quantity,
         quote_id: offerData.openRequest ? null : offerData.quoteId,
+        // Delivery-only pricing from the customer's own pickup point (off unless the switch is on).
+        ...(offerData.dataSource === "transport" && pickupCoords
+          ? { ...transportJobFields(offerData, { address: pickupAddress, ...pickupCoords }), custom_material: materialLabel(material, null) }
+          : {}),
 
         delivery_address: address.trim(),
         delivery_lat: coords.lat,
         delivery_lng: coords.lng,
 
-        pickup_address: offerData.resolvedSource
-          ? (offerData.resolvedSource.label ?? offerData.resolvedSource.address ?? "Listed supplier location")
-          : "Driver arranges pickup",
-        pickup_lat: offerData.resolvedSource ? offerData.resolvedSource.lat : null,
-        pickup_lng: offerData.resolvedSource ? offerData.resolvedSource.lng : null,
+        ...(offerData.dataSource === "transport" && pickupCoords
+          ? {}
+          : {
+              pickup_address: offerData.resolvedSource
+                ? (offerData.resolvedSource.label ?? offerData.resolvedSource.address ?? "Listed supplier location")
+                : "Driver arranges pickup",
+              pickup_lat: offerData.resolvedSource ? offerData.resolvedSource.lat : null,
+              pickup_lng: offerData.resolvedSource ? offerData.resolvedSource.lng : null,
+            }),
 
 
         budget: offer,
@@ -302,13 +358,37 @@ function BookDelivery() {
       .select()
       .single();
 
+    // After any failure, check whether this attempt's job was in fact saved (a lost reply).
+    let existingJobId: string | null = null;
+    if (error) {
+      const { data: found } = await supabase.from("jobs").select("id").eq("id", jobId).maybeSingle();
+      existingJobId = found?.id ?? null;
+    }
+    const outcome = bookingOutcome(error, existingJobId, jobId);
+
     setPosting(false);
 
-    if (error) return toast.error(error.message);
+    if (outcome.kind === "failed") return toast.error(outcome.message);
 
-    toast.success("Job posted. We'll notify you when drivers send offers.");
+    toast.success(
+      outcome.kind === "created"
+        ? "Job posted. We'll notify you when drivers send offers."
+        : "Your job was already posted. Opening it now.",
+    );
 
-    nav({ to: "/jobs/$id", params: { id: data.id } });
+    nav({ to: "/jobs/$id", params: { id: jobId } });
+  };
+
+  // One booking at a time: a second tap while the first is in flight does nothing.
+  const confirm = async () => {
+    if (postingLock.current) return;
+    postingLock.current = true;
+    try {
+      await submitBooking();
+    } finally {
+      postingLock.current = false;
+      setPosting(false);
+    }
   };
 
   const goBack = () => {
@@ -385,9 +465,16 @@ function BookDelivery() {
           <section ref={setSheetEl} className="absolute inset-x-0 bottom-0 z-30 max-h-[62dvh] overflow-y-auto rounded-t-3xl bg-cz-bg px-5 pt-2.5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgb(28_24_21/0.14)] dark:shadow-[0_-8px_30px_rgb(0_0_0/0.45)]">
             <div aria-hidden className="mx-auto mb-3.5 h-[5px] w-10 rounded-full bg-cz-border-strong" />
             <div className="space-y-4">
-              {search.driverId && (
+              {repeatNotice && (
                 <HintBox tone="green" icon={<CheckCircle2 className="w-4 h-4" />}>
-                  We'll notify your previous driver directly so they can bid first.
+                  <b>{repeatNotice.title}.</b> {repeatNotice.details}. {repeatNotice.note}
+                  {repeatNotice.invitation && <> {repeatNotice.invitation}</>}
+                </HintBox>
+              )}
+              {!repeatNotice && search.driverId && (
+                <HintBox tone="green" icon={<CheckCircle2 className="w-4 h-4" />}>
+                  We'll invite your previous driver to bid. They are not assigned and get no priority: other verified
+                  drivers can offer too, and you choose.
                 </HintBox>
               )}
 
@@ -409,6 +496,25 @@ function BookDelivery() {
               <div data-tour="book-quantity" className="rounded-xl border border-cz-border bg-cz-surface p-3.5">
                 <LoadPicker id="qty" value={quantity} onChange={setQuantity} />
               </div>
+
+              {transportOn && (
+                <div data-testid="pickup-block" className="space-y-2 rounded-xl border border-cz-border bg-cz-surface p-3.5">
+                  <div className="font-semibold">Where will the load be collected?</div>
+                  <p className="text-[13px] text-cz-muted">
+                    You are pricing the delivery trip only, from this point to your delivery address. Arrange the
+                    material itself directly with whoever supplies it.
+                  </p>
+                  <AddressPicker
+                    label="Loading point"
+                    value={pickupAddress}
+                    initialCoords={pickupCoords}
+                    onChange={(a, c) => {
+                      setPickupAddress(a);
+                      setPickupCoords(c ?? null);
+                    }}
+                  />
+                </div>
+              )}
 
               <details
                 id="tour-book-review"
@@ -456,8 +562,9 @@ function BookDelivery() {
               </details>
 
               <p className="text-[13px] text-cz-muted">
-                You don't choose a supplier. We find a listed one near your delivery point and price the road
-                trip. If none covers it, drivers arrange the pickup and you get a guide range.
+                {transportOn
+                  ? "We measure the road distance from your loading point to your delivery point and give a guide range for the trip. Drivers send offers and you choose."
+                  : "You don't choose a supplier. We find a listed one near your delivery point and price the road trip. If none covers it, drivers arrange the pickup and you get a guide range."}
               </p>
               {address.trim().length > 2 && !coords && (
                 <p className="text-[13px] text-cz-danger-text">
@@ -637,6 +744,14 @@ function BookDelivery() {
                 <StockStatusNote status={offerData.resolvedSource.stockStatus} />
               </div>
             </>
+          ) : offerData.dataSource === "transport" ? (
+            <>
+              <DocketRow label="Collected from">{pickupAddress || "Your loading point"}</DocketRow>
+              <p className="px-4 pb-3 text-[13px] text-cz-muted">
+                This price is for the delivery trip only. Pay the driver directly; Con Z does not hold the fare. The
+                material itself is arranged separately and is not part of this price.
+              </p>
+            </>
           ) : (
             <>
               <DocketRow label="Pickup">Driver arranges it</DocketRow>
@@ -739,7 +854,7 @@ function BookDelivery() {
         <CzButton id="tour-book-confirm" data-tour="book-confirm" onClick={confirm} disabled={posting}>
           {posting ? <Loader2 className="w-5 h-5 animate-spin" /> : `Post job · ${usd(offer)}`}
         </CzButton>
-        <p className="text-center text-xs text-cz-muted">Approved drivers near you see your request and can send offers.</p>
+        <p className="text-center text-xs text-cz-muted">Verified drivers can see your request and send offers. You compare them and make the final choice.</p>
       </footer>
     </CzScreen>
   );

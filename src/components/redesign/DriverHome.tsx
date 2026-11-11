@@ -5,7 +5,6 @@ import { ChevronRight, ShieldAlert, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { levelInfo } from "@/lib/domain";
 import { bestCapacityMatchTier } from "@/lib/capacityMatch";
-import { JobOfferListener } from "@/components/JobOfferListener";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
 import { DriverAvailabilityToggle } from "@/components/DriverAvailabilityToggle";
@@ -16,11 +15,12 @@ import { NotificationsBell } from "@/components/NotificationsBell";
 import { SidePanel } from "@/components/SidePanel";
 import { LogoLockup } from "@/components/ds";
 import { TipperIllustration } from "@/components/ds/media";
-import { CzScreen, MaterialChips, usd2 } from "@/components/redesign";
+import { CzScreen, MaterialChips, czButtonClass, usd2 } from "@/components/redesign";
 import { FeedJobCard, type FeedJob } from "@/components/redesign/FeedJobCard";
 import type { DriverFix } from "@/lib/jobDistance";
 import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 import { useQuickAccept } from "@/components/redesign/useQuickAccept";
+import { useInvitedJobIds } from "@/components/redesign/useInvitedJobs";
 import { driverTodayEarnings, useCustomerCards } from "@/components/redesign/rpc";
 import {
   hasSubmitted,
@@ -137,24 +137,31 @@ export function DriverHome({
       return data;
     },
   });
+  const invited = useInvitedJobIds(userId);
   const cards = useCustomerCards((jobs ?? []).map((j) => j.id));
   const shown = useMemo(() => filterJobs(jobs ?? [], filter), [jobs, filter]);
   const level = driver ? levelInfo(driver.level) : null;
-  const banner = showVerificationWarning
-    ? verificationBanner(
-        driver?.verification_status,
-        !!driver &&
-          hasSubmitted(driver.verification_status, driver, (trucks?.length ?? 0) > 0, driver.nationality),
-        { notes: driver?.verification_notes, reverifyDueAt: driver?.reverify_due_at },
-      )
-    : null;
+  // Also shown to an approved driver whose 90-day check is due soon (showVerificationWarning is only
+  // true once bidding is already blocked).
+  const banner = verificationBanner(
+    driver?.verification_status,
+    !!driver &&
+      hasSubmitted(
+        driver.verification_status,
+        driver,
+        (trucks?.length ?? 0) > 0,
+        driver.nationality,
+      ),
+    { notes: driver?.verification_notes, reverifyDueAt: driver?.reverify_due_at },
+  );
+  const canBid = !showVerificationWarning && !wallet?.limited;
 
   return (
     <>
       <CzScreen className={DRIVER_NAV_SPACE}>
         {userId && <OnboardingWalkthrough userId={userId} role="driver" />}
-        <JobOfferListener />
 
+        <h1 className="sr-only">Driver home</h1>
         <header className="flex items-center justify-between gap-2 px-5 pt-4 pb-3">
           <div className="min-w-0">
             <LogoLockup role="Driver" to="/driver" />
@@ -189,11 +196,11 @@ export function DriverHome({
                 </span>
               )}
               <span className="text-xs text-cz-faint whitespace-nowrap">
-                Wallet {wallet ? usd2(Number(wallet.balance)) : "—"}
+                Wallet credit {wallet ? usd2(Number(wallet.balance)) : "—"}
               </span>
               {wallet?.limited && (
                 <span className="text-xs font-semibold text-cz-danger-text">
-                  Limited — top up to bid
+                  Wallet limited: top up to bid
                 </span>
               )}
             </Link>
@@ -225,28 +232,41 @@ export function DriverHome({
           {banner && (
             <Link
               id="tour-driver-verification"
-              to="/become-driver"
+              to={banner.to}
               className="flex items-center gap-3 rounded-xl bg-cz-warn-tint p-3.5 text-cz-warn-text"
             >
               <ShieldAlert className="w-5 h-5 shrink-0" />
               <div className="text-sm min-w-0 flex-1">
                 <div className="font-semibold">{banner.title}</div>
                 <div className="text-xs opacity-90">{banner.body}</div>
+                <div className="mt-1 text-xs font-semibold underline underline-offset-2">
+                  {banner.action}
+                </div>
               </div>
               <ChevronRight className="w-4 h-4 shrink-0" />
+            </Link>
+          )}
+
+          {canBid && (
+            <Link to="/jobs" className={czButtonClass("primary")}>
+              Find jobs
             </Link>
           )}
         </div>
 
         <div className="flex items-center justify-between px-5 pt-5 pb-2.5">
           <h2 className="cz-display font-bold text-[22px]">
-            {shown.length} {shown.length === 1 ? "load" : "loads"} near you
+            {shown.length} open {shown.length === 1 ? "request" : "requests"}
           </h2>
           <span className="text-[13px] text-cz-muted flex items-center gap-1.5">
             <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-cz-green cz-blink" /> Updated
             live
           </span>
         </div>
+        <p className="px-5 pb-2.5 text-[13px] text-cz-muted" data-testid="offer-note">
+          These are open requests, not assigned jobs. Sending an offer does not win the job: the
+          customer compares offers and chooses a driver.
+        </p>
         <div className="px-5 pb-3.5">
           <MaterialChips options={FEED_FILTERS} value={filter} onChange={setFilter} size="sm" />
         </div>
@@ -255,10 +275,10 @@ export function DriverHome({
           {shown.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-cz-border-strong p-8 text-center">
               <TipperIllustration className="mx-auto w-40 opacity-90" />
-              <p className="mt-3 font-semibold">No open loads right now</p>
+              <p className="mt-3 font-semibold">No open requests right now</p>
               <p className="text-sm text-cz-muted">
                 {filter === "all"
-                  ? "Stay online — we'll notify you when a new job is posted."
+                  ? "Go online and keep notifications on, and we'll tell you when a new request is posted. You decide which ones are worth an offer."
                   : "Try another material filter."}
               </p>
             </div>
@@ -276,6 +296,7 @@ export function DriverHome({
                 onAccept={() => accept(j)}
                 accepting={busyJobId === j.id}
                 customer={cards[j.id]}
+                returning={invited.has(j.id)}
                 driverFix={driverFix}
               />
             ))
@@ -286,6 +307,12 @@ export function DriverHome({
             className="flex items-center justify-center gap-1 min-h-12 rounded-xl text-[15px] font-semibold text-cz-text underline underline-offset-4 hover:bg-cz-surface-2"
           >
             See all loads & my jobs <ChevronRight className="w-4 h-4" />
+          </Link>
+          <Link
+            to="/job-history"
+            className="flex items-center justify-center gap-1 min-h-12 rounded-xl text-[15px] font-semibold text-cz-muted underline underline-offset-4 hover:bg-cz-surface-2"
+          >
+            Your completed work and history <ChevronRight className="w-4 h-4" />
           </Link>
 
           <div className="pt-2">

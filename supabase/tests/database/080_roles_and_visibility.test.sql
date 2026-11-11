@@ -50,17 +50,18 @@ select is((select count(*)::int from public.find_next_loads_for_driver(auth.uid(
   'F8: next-load suggestions return nothing to an unverified driver');
 
 select tests.login_as(current_setting('t.drv')::uuid);
-select ok((select count(*) from public.jobs where id = current_setting('t.job')::uuid) = 1,
-  'A verified driver can see the open job to quote on it');
+select ok((select count(*) from public.driver_open_job(current_setting('t.job')::uuid)) = 1,
+  'A verified driver can see the open job (area only, 0133) to quote on it');
 select ok((select count(*) from public.driver_available_jobs() where id = current_setting('t.job')::uuid) = 1,
   'A verified driver sees it in driver_available_jobs');
+select tests.as_owner();  -- 0133: a driver can no longer read an open job's tracking token
 select set_config('t.token_open', (select tracking_token::text from public.jobs where id = current_setting('t.job')::uuid), true);
 
 -- Re-verification overdue = not verified any more
 select tests.as_owner();
 update public.driver_profiles set reverify_due_at = now() - interval '1 day' where user_id = current_setting('t.drv2')::uuid;
 select tests.login_as(current_setting('t.drv2')::uuid);
-select is((select count(*)::int from public.jobs where status = 'open'), 0, 'A driver past re-verification loses open-job access');
+select is((select count(*)::int from public.driver_open_jobs()), 0, 'A driver past re-verification loses open-job access');
 
 -- ---------------------------------------------------------------------------
 -- Tracking token rotation on acceptance
@@ -92,7 +93,8 @@ select is((select delivery_pin from public.jobs where id = current_setting('t.jo
 select tests.as_owner();
 update public.jobs set status = 'cancelled' where id = current_setting('t.job')::uuid;
 select tests.as_anon();
-select ok(public.get_public_tracking(current_setting('t.token_live')::uuid) is null, 'F8: tracking links stop for cancelled jobs');
+select is(public.get_public_tracking(current_setting('t.token_live')::uuid)::jsonb, '{"status": "cancelled"}'::jsonb,
+  'F8 + 0126: a cancelled job''s link shows only that it was cancelled');
 select tests.as_owner();
 update public.jobs set status = 'completed', completed_at = now() - interval '91 days' where id = current_setting('t.job')::uuid;
 select tests.as_anon();

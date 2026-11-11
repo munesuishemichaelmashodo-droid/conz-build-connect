@@ -3,6 +3,8 @@ import {
   isMfaRequiredError,
   isSecondApprovalError,
   readableRpcError,
+  authenticatorHref,
+  hasVerifiedAuthenticator,
   mfaVerifyHref,
   STEP_UP_ACTION_LABEL,
 } from "@/lib/mfa";
@@ -48,6 +50,17 @@ describe("admin step-up messaging", () => {
     expect(q.get("next")).toBe("/admin");
   });
   it("labels the step-up action in plain words", () => {
-    expect(STEP_UP_ACTION_LABEL).toBe("Sign in again with Google");
+    expect(STEP_UP_ACTION_LABEL).toBe("Verify it's you");
+  });
+  it("sends an admin with an authenticator app to the code screen and back (0166)", () => {
+    const href = authenticatorHref();
+    expect(href).toMatch(/^\/mfa\?/);
+    expect(new URLSearchParams(href.split("?")[1]).get("next")).toBe("/admin");
+  });
+  it("counts only a finished authenticator set-up", () => {
+    expect(hasVerifiedAuthenticator({ totp: [{ status: "verified" }] })).toBe(true);
+    expect(hasVerifiedAuthenticator({ totp: [{ status: "unverified" }] })).toBe(false);
+    expect(hasVerifiedAuthenticator({ totp: [] })).toBe(false);
+    expect(hasVerifiedAuthenticator(null)).toBe(false);
   });
 });

@@ -24,14 +24,15 @@ function PrivacyPage() {
         <header className="mt-6 mb-8">
           <div className="text-xs text-muted-foreground">Con Z Build Connect</div>
           <h1 className="font-display font-bold text-3xl tracking-tight">Privacy Policy</h1>
-          <p className="text-xs text-muted-foreground mt-2">Last updated: 14 October 2026</p>
+          <p className="text-xs text-muted-foreground mt-2">Last updated: 3 November 2026</p>
         </header>
 
         <div className="space-y-6">
           <Section title="1. Who We Are">
             <p>
               Con Z Build Connect ("Con Z", "we") is operated by Navysky Innovations (Private) Limited, a company
-              registered in Zimbabwe (company number 145174A02102026) with its registered
+              registered in Zimbabwe (company number 145174A02102026; ZIMRA tax identification
+              number (TIN) 2002683072) with its registered
               office at 12705 Timire Park, Ruwa. This policy explains
               what personal data we collect through the app, how we use it, and how we
               protect it.
@@ -125,7 +126,7 @@ function PrivacyPage() {
           <Section title="5. Retention">
             <p>
               We retain profile, job, wallet and dispute records for as long as your account is
-              active. Live location records are automatically deleted after 24 hours.
+              active. Live location records are automatically deleted after 24 hours. While a delivery is in progress we also keep a periodic route trail for that job (visible only to Con Z administrators, for dispute handling) for up to 90 days.
             </p>
             <p className="mt-2">
               When you delete your account we remove your name, phone number, e-mail address,

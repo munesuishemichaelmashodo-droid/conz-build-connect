@@ -234,7 +234,7 @@ function buildOfferResult(
   material: string,
   quantity: number,
   distanceKm: number,
-  quoteId: string,
+  quoteId: string | null,
   resolvedSource: ResolvedMaterialSource,
 ): OfferResult {
   const offer = Number(g.offer ?? 0);
@@ -265,7 +265,7 @@ function buildOfferResult(
     materialCost: Number(g.materialCost ?? 0),
     transportCost: Number(g.transportCost ?? 0),
     tripCount,
-    referenceCapacityM3: Number(g.referenceCapacityM3 ?? 10),
+    referenceCapacityM3: Number(g.referenceCapacityM3 ?? 20),
     pricingVersion: g.pricingVersion ?? "v1.1",
     quoteId,
     openRequest: false,
@@ -345,7 +345,7 @@ export async function buildOpenRequestOffer(
     materialCost: 0,
     transportCost: 0,
     tripCount,
-    referenceCapacityM3: Number(mid.referenceCapacityM3 ?? 10),
+    referenceCapacityM3: Number(mid.referenceCapacityM3 ?? 20),
     pricingVersion: mid.pricingVersion ?? "v1.1",
     quoteId: null,
     openRequest: true,
@@ -416,17 +416,10 @@ export const computePublicOffer = createServerFn({ method: "POST" })
     const { distanceKm, source, resolvedSource } = picked;
     if (distanceKm > MAX_SERVICE_KM) throw new Error(TOO_FAR_MESSAGE);
 
-    // Anonymous quotes aren't tied to a customer and never feed a real job
-    // insert from this page, but persisting them the same way keeps the
-    // pricing path identical and costs nothing (unused quotes just expire).
-    const quoteId = await tryCreateQuote(
-      null,
-      data.material,
-      data.quantity,
-      distanceKm,
-      source,
-      resolvedSource.supplyLocationId,
-    );
+    // Anonymous visitors get a read-only price guide. No quote row is stored: the page never
+    // books from it (a signed-in booking creates its own quote), and storing one per anonymous
+    // call let anyone grow price_quotes without limit.
+    const quoteId: string | null = null;
 
     const { data: guide, error } = await supabaseAdmin.rpc("compute_material_offer", {
       _material: data.material,

@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, Link, useRouterState, redirect } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { LayoutDashboard, Users, ShieldCheck, Gavel, Settings as SettingsIcon, TrendingUp, ScrollText, BookOpen, MessageSquareWarning, Gift, MapPin, HandCoins, PackageSearch } from "lucide-react";
+import { Search, LayoutDashboard, Users, ShieldCheck, Gavel, Settings as SettingsIcon, TrendingUp, ScrollText, BookOpen, MessageSquareWarning, Gift, MapPin, HandCoins, PackageSearch, Briefcase, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -32,14 +32,17 @@ type Tab = { to: string; label: string; icon: typeof Users; exact?: boolean; sup
 // still enforces its own role checks.
 const TABS: Tab[] = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true, group: "Overview" },
+  { to: "/admin/search", label: "Search", icon: Search, group: "Overview" },
   { to: "/admin/revenue", label: "Revenue", icon: TrendingUp, superOnly: true, group: "Money" },
   { to: "/admin/approvals", label: "Approvals", icon: HandCoins, superOnly: true, group: "Money" },
   { to: "/admin/ledger", label: "Ledger", icon: BookOpen, superOnly: true, group: "Money" },
+  { to: "/admin/jobs", label: "Jobs", icon: Briefcase, group: "People" },
   { to: "/admin/users", label: "Users", icon: Users, group: "People" },
   { to: "/admin/verifications", label: "Verify", icon: ShieldCheck, group: "People" },
   { to: "/admin/disputes", label: "Disputes", icon: Gavel, group: "People" },
   { to: "/admin/reports", label: "Reports", icon: MessageSquareWarning, group: "People" },
   { to: "/admin/referrals", label: "Referrals", icon: Gift, group: "People" },
+  { to: "/admin/points", label: "Points", icon: Sparkles, group: "People" },
   { to: "/admin/sourcing", label: "Sourcing", icon: PackageSearch, group: "Supply" },
   { to: "/admin/supply-coverage", label: "Supply", icon: MapPin, group: "Supply" },
   { to: "/admin/audit", label: "Audit", icon: ScrollText, superOnly: true, group: "System" },

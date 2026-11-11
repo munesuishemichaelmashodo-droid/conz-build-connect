@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
 import { useLocationSharingEnabled } from "@/lib/location-privacy";
 import { SpotlightCallout } from "@/components/SpotlightCallout";
+import { isPermissionDenied, readShareIntent, shareHealth, shareNotice, writeShareIntent } from "@/lib/location-share";
 import { RouteMap, type RouteResult } from "@/components/RouteMap";
 import { PinMap } from "@/components/redesign/PinMap";
 import { CARTO_VOYAGER_TILES } from "@/lib/map-tiles";
@@ -47,24 +48,175 @@ function ResizeFix() {
 
 type Loc = { lat: number; lng: number; updated_at: string; heading: number | null; accuracy: number | null; stationary_since: string | null; anomaly_alerted_at: string | null };
 
-export function DriverShareLocation({ jobId, driverId, compact = false }: { jobId: string; driverId: string; compact?: boolean }) {
-  const [sharing, setSharing] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const watchRef = useRef<number | null>(null);
-  const [privacyOn] = useLocationSharingEnabled();
+const NOTICE_TONE: Record<"ok" | "warn" | "danger", string> = {
+  ok: "border-cz-border bg-cz-surface",
+  warn: "border-warning/50 bg-warning/10",
+  danger: "border-destructive/50 bg-destructive/10",
+};
 
-  const stopWatch = () => {
-    if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current);
+/**
+ * Driver live-location sharing for one job. A browser location watch ends silently when the page is left,
+ * reloaded, backgrounded or the phone suspends the app, so this remembers that the driver started sharing,
+ * restarts the watch when they come back or updates stop, and says clearly when the customer cannot see them.
+ */
+function useDriverShare(jobId: string, driverId: string) {
+  const [privacyOn] = useLocationSharingEnabled();
+  const [intended, setIntended] = useState(() =>
+    readShareIntent(jobId, typeof window === "undefined" ? null : window.localStorage),
+  );
+  const [watching, setWatching] = useState(false);
+  const [denied, setDenied] = useState(false);
+  const [lastPushAt, setLastPushAt] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const watchRef = useRef<number | null>(null);
+  const lastRestartRef = useRef(0);
+
+  const stopWatch = useCallback(() => {
+    if (watchRef.current !== null && typeof navigator !== "undefined") {
+      navigator.geolocation.clearWatch(watchRef.current);
+    }
     watchRef.current = null;
+    setWatching(false);
+  }, []);
+
+  const push = useCallback(
+    async (pos: GeolocationPosition) => {
+      const { error } = await (supabase.from("driver_locations") as any).upsert(
+        {
+          job_id: jobId,
+          driver_id: driverId,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          heading: pos.coords.heading,
+          accuracy: pos.coords.accuracy,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "job_id" },
+      );
+      if (!error) setLastPushAt(Date.now());
+    },
+    [jobId, driverId],
+  );
+
+  const onWatchError = useCallback(
+    (err: GeolocationPositionError) => {
+      if (isPermissionDenied(err)) {
+        stopWatch();
+        setDenied(true);
+      }
+      // Timeouts and "position unavailable" are temporary: the stall check below retries.
+    },
+    [stopWatch],
+  );
+
+  const beginWatch = useCallback(() => {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) return;
+    if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current);
+    lastRestartRef.current = Date.now();
+    watchRef.current = navigator.geolocation.watchPosition(push, onWatchError, {
+      enableHighAccuracy: true,
+      maximumAge: 5000,
+      timeout: 20000,
+    });
+    setWatching(true);
+  }, [push, onWatchError]);
+
+  const start = async () => {
+    if (!privacyOn) return toast.error("Location sharing is off in privacy settings");
+    if (typeof navigator === "undefined" || !("geolocation" in navigator))
+      return toast.error("This phone or browser cannot share location");
+    setBusy(true);
+    try {
+      const { locateOnce } = await import("@/lib/geolocate");
+      const c = await locateOnce();
+      setDenied(false);
+      await push({
+        coords: { latitude: c.lat, longitude: c.lng, heading: null as any, accuracy: c.accuracy ?? (null as any) },
+      } as GeolocationPosition);
+      writeShareIntent(jobId, true, window.localStorage);
+      setIntended(true);
+      beginWatch();
+      toast.success("Live location sharing started");
+    } catch (e: any) {
+      if (isPermissionDenied(e)) setDenied(true);
+      toast.error(e?.message ?? "Could not get location");
+    } finally {
+      setBusy(false);
+    }
   };
 
-  useEffect(() => () => stopWatch(), []);
+  const stop = async () => {
+    writeShareIntent(jobId, false, window.localStorage);
+    setIntended(false);
+    stopWatch();
+    setLastPushAt(null);
+    await (supabase.from("driver_locations") as any).delete().eq("job_id", jobId);
+    toast.success("Stopped sharing");
+  };
 
-  // If the user turns off location sharing globally, tear down any active share.
+  // Resume after the driver left and came back, reloaded, or the phone returned from the maps app.
+  const resume = useCallback(async () => {
+    if (!intended || !privacyOn || denied) return;
+    try {
+      const perm = await (navigator as any).permissions?.query?.({ name: "geolocation" });
+      if (perm?.state === "denied") {
+        stopWatch();
+        setDenied(true);
+        return;
+      }
+    } catch {
+      /* permissions API not available: just try */
+    }
+    beginWatch();
+  }, [intended, privacyOn, denied, beginWatch, stopWatch]);
+
   useEffect(() => {
-    if (!privacyOn && (sharing || watchRef.current !== null)) {
+    void resume();
+    return () => stopWatch(); // leaving the screen ends the watch; intent stays, so it resumes on return
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intended, privacyOn]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void resume();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [resume]);
+
+  // Every 15 s: refresh the clock; if updates stopped, prove the phone still has a position (a stationary truck
+  // sends no movement events) and restart the watch.
+  useEffect(() => {
+    const t = setInterval(() => {
+      const n = Date.now();
+      setNow(n);
+      if (!intended || !privacyOn || denied) return;
+      const h = shareHealth({
+        intended,
+        watching: watchRef.current !== null,
+        denied,
+        lastPushAt,
+        watchStartedAt: lastRestartRef.current || null,
+        now: n,
+      });
+      if (h !== "stalled" || n - lastRestartRef.current < 30_000) return;
+      navigator.geolocation?.getCurrentPosition(
+        (p) => void push(p),
+        onWatchError,
+        { enableHighAccuracy: true, maximumAge: 10_000, timeout: 10_000 },
+      );
+      beginWatch();
+    }, 15_000);
+    return () => clearInterval(t);
+  }, [intended, privacyOn, denied, lastPushAt, push, onWatchError, beginWatch]);
+
+  // Turning location sharing off in privacy settings ends any share.
+  useEffect(() => {
+    if (!privacyOn && (intended || watchRef.current !== null)) {
       stopWatch();
-      setSharing(false);
+      writeShareIntent(jobId, false, window.localStorage);
+      setIntended(false);
       (supabase.from("driver_locations") as any).delete().eq("job_id", jobId).then(() => {
         toast.message("Live location sharing paused", { description: "You turned it off in privacy settings." });
       });
@@ -72,91 +224,78 @@ export function DriverShareLocation({ jobId, driverId, compact = false }: { jobI
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [privacyOn]);
 
-  const push = async (pos: GeolocationPosition) => {
-    await (supabase.from("driver_locations") as any).upsert({
-      job_id: jobId,
-      driver_id: driverId,
-      lat: pos.coords.latitude,
-      lng: pos.coords.longitude,
-      heading: pos.coords.heading,
-      accuracy: pos.coords.accuracy,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "job_id" });
-  };
+  const health = shareHealth({
+    intended,
+    watching,
+    denied,
+    lastPushAt,
+    watchStartedAt: lastRestartRef.current || null,
+    now,
+  });
+  return { privacyOn, health, busy, start, stop, notice: shareNotice(health, privacyOn) };
+}
 
-  const start = async () => {
-    if (!privacyOn) return toast.error("Location sharing is off in privacy settings");
-    if (!("geolocation" in navigator)) return toast.error("Geolocation not supported");
-    setBusy(true);
-    try {
-      const { locateOnce } = await import("@/lib/geolocate");
-      const c = await locateOnce();
-      await push({ coords: { latitude: c.lat, longitude: c.lng, heading: null as any, accuracy: c.accuracy ?? null as any } } as GeolocationPosition);
-      watchRef.current = navigator.geolocation.watchPosition(push, (err) => toast.error(err.message), {
-        enableHighAccuracy: true, maximumAge: 5000, timeout: 20000,
-      });
-      setSharing(true);
-      setBusy(false);
-      toast.success("Live location sharing started");
-    } catch (e: any) {
-      setBusy(false);
-      toast.error(e.message ?? "Could not get location");
-    }
-  };
+export function DriverShareLocation({ jobId, driverId, compact = false }: { jobId: string; driverId: string; compact?: boolean }) {
+  const { privacyOn, health, busy, start, stop, notice } = useDriverShare(jobId, driverId);
+  const sharingNow = health === "live" || health === "starting" || health === "stalled";
+  const startLabel = health === "blocked" ? "Try again" : health === "stalled" ? "Restart sharing" : "Start sharing";
 
-  const stop = async () => {
-    stopWatch();
-    setSharing(false);
-    await (supabase.from("driver_locations") as any).delete().eq("job_id", jobId);
-    toast.success("Stopped sharing");
-  };
+  const banner =
+    notice.tone !== "ok" ? (
+      <div role="alert" className={`rounded-xl border p-3 text-sm space-y-1 ${NOTICE_TONE[notice.tone]}`}>
+        <div className="flex items-center gap-2 font-semibold">
+          {privacyOn ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <ShieldOff className="w-4 h-4 shrink-0" />}
+          {notice.title}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {notice.detail}
+          {!privacyOn && (
+            <>
+              {" "}
+              <Link to="/profile" className="underline font-semibold">Open privacy settings</Link>
+            </>
+          )}
+        </p>
+      </div>
+    ) : null;
 
-  // Redesign: one-row "Live GPS" control for the active-job sheet. Same
-  // start()/stop() handlers and privacy gate as the full card below.
+  // Redesign: one-row "Live GPS" control for the active-job sheet. Same handlers and privacy gate as the full card.
   if (compact) {
     return (
       <div className="space-y-2">
-        <SpotlightCallout
-          id="driver-gps-share"
-          title="Don't forget to turn this on"
-          body="The customer can't see your progress at all until you tap 'Start sharing location' — do this every time you begin a delivery, or they'll have no idea where their order is."
-        />
+        {banner}
         <div className="flex items-center gap-3 rounded-xl border border-cz-border bg-cz-surface px-3.5 py-3">
-          <Navigation2 className={sharing ? "w-5 h-5 text-cz-green shrink-0" : "w-5 h-5 text-cz-amber-text shrink-0"} />
+          <Navigation2 className={health === "live" ? "w-5 h-5 text-cz-green shrink-0" : "w-5 h-5 text-cz-amber-text shrink-0"} />
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold">
               Live location{" "}
-              <span className={sharing ? "text-cz-green-text" : "text-cz-amber-text"}>
-                · {sharing ? "On" : "Off"}
+              <span className={health === "live" ? "text-cz-green-text" : "text-cz-amber-text"}>
+                · {health === "live" ? "On" : health === "starting" ? "Starting" : health === "stalled" ? "Not updating" : "Off"}
               </span>
             </div>
             <div className="text-xs text-cz-muted">
-              {!privacyOn ? (
-                <>Turned off in <Link to="/profile" className="underline font-semibold">privacy settings</Link></>
-              ) : sharing ? (
-                "The customer can follow you live."
-              ) : (
-                "Turn it on so the customer can follow you."
-              )}
+              {health === "live"
+                ? "The customer can follow you live. Keep Con Z open."
+                : "Start it every delivery so the customer can follow you."}
             </div>
           </div>
           {privacyOn &&
-            (!sharing ? (
-              <button
-                type="button"
-                onClick={start}
-                disabled={busy}
-                className="min-h-11 shrink-0 rounded-xl border-[1.5px] border-cz-amber px-3.5 text-sm font-bold text-cz-amber-text disabled:opacity-50"
-              >
-                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Start sharing"}
-              </button>
-            ) : (
+            (health === "live" || health === "starting" ? (
               <button
                 type="button"
                 onClick={stop}
                 className="min-h-11 shrink-0 rounded-xl border border-cz-border-strong px-3.5 text-sm font-semibold"
               >
                 <Square className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />Stop
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={start}
+                disabled={busy}
+                className="min-h-11 shrink-0 rounded-xl border-[1.5px] border-cz-amber px-3.5 text-sm font-bold text-cz-amber-text disabled:opacity-50"
+              >
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : startLabel}
               </button>
             ))}
         </div>
@@ -166,35 +305,21 @@ export function DriverShareLocation({ jobId, driverId, compact = false }: { jobI
 
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
-      <SpotlightCallout
-        id="driver-gps-share"
-        title="Don't forget to turn this on"
-        body="The customer can't see your progress at all until you tap 'Start sharing location' — do this every time you begin a delivery, or they'll have no idea where their order is."
-      />
       <div className="flex items-center gap-2 font-semibold text-sm">
         <Navigation2 className="w-4 h-4 text-cz-amber-text" /> Live GPS
       </div>
       <p className="text-xs text-muted-foreground">Share your live location with the customer while you deliver.</p>
-      {!privacyOn ? (
-        <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs space-y-2">
-          <div className="flex items-center gap-2 font-semibold text-warning">
-            <ShieldOff className="w-4 h-4" /> Location sharing is turned off
-          </div>
-          <p className="text-muted-foreground">
-            Turn it back on in{" "}
-            <Link to="/profile" className="underline font-semibold">privacy settings</Link>{" "}
-            to share your live GPS with customers.
-          </p>
-        </div>
-      ) : !sharing ? (
-        <Button onClick={start} disabled={busy} className="w-full">
-          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Start sharing location"}
-        </Button>
-      ) : (
-        <Button onClick={stop} variant="outline" className="w-full">
-          <Square className="w-4 h-4 mr-2" /> Stop sharing
-        </Button>
-      )}
+      {banner}
+      {privacyOn &&
+        (sharingNow && health !== "stalled" ? (
+          <Button onClick={stop} variant="outline" className="w-full">
+            <Square className="w-4 h-4 mr-2" /> Stop sharing
+          </Button>
+        ) : (
+          <Button onClick={start} disabled={busy} className="w-full">
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : startLabel}
+          </Button>
+        ))}
     </div>
   );
 }

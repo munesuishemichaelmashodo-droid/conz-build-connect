@@ -25,3 +25,25 @@ How it works today (migration 0111, live since 23/10/2026):
 1. Change that admin's Con Z password at once (Profile → Set / change login password) and tell the other owner.
 2. In Google: myaccount.google.com → Security → Your devices → sign out unknown devices; change the Google password.
 3. Check Admin → Audit for anything done in that window.
+
+---
+
+## Optional: authenticator app (migration 0166, built 10/11/2026, NOT live until applied)
+
+**What it is.** An extra lock for an admin account. Without it, money and role actions need a Google sign-in from the last 12 hours (as today). With it, those actions need a 6-digit code from an app on your phone, and a Google sign-in alone is refused for that account. A code stays good for 15 minutes; entering a new one does not sign you out. Nothing changes for an admin who has not set it up.
+
+**Set it up (2 minutes).**
+1. Install Google Authenticator (or Authy, 1Password) on your phone.
+2. In Con Z open Admin > Settings > "Authenticator app" > **Set up authenticator app**.
+3. Scan the square code with the app, type the 6-digit code it shows, press **Verify & continue**.
+4. Test: open Admin > Revenue and change nothing but press save on a money setting. You should be asked to "Verify it's you" and taken to the code screen.
+
+**If a phone is lost.** The OTHER owner opens Admin > Settings > "Authenticator app", finds the name, presses **Reset**, writes the reason (for example "lost phone") and confirms. The account goes back to the Google rule and can set up a new authenticator. An owner cannot reset their own. Every set-up, removal and reset is in Admin > Audit and both owners get a notification.
+
+**Recommended order.** One owner sets it up and tests a money action and a reset by the other owner; only then the second owner sets theirs up. Do not set up both on the same day, so one of you can always reset the other.
+
+**If both owners lose their phones at once.** A developer with access to the Supabase dashboard removes the factor under Authentication > Users. There is no hidden password or bypass account.
+
+## Cloudflare Access: assessed, not recommended now
+
+The site runs on Vercel, the admin screens are pages on the same address as the customer and driver app (`/admin/...`), and every admin action goes from the browser straight to Supabase, not through the website. A Cloudflare gate in front of `/admin` would therefore hide only the admin screens' empty shell; it would not protect the data or the actions (the database rules above do that), and putting Cloudflare in front of the whole site means moving the domain's DNS and risks the Android app, sign-in returns and the Paynow callback. Recommendation: do not add it now. If wanted later, the clean way is a separate admin address (for example `admin.conz.co.zw`) behind Cloudflare Access, as its own project with a rollback plan and the owner's approval for the DNS change.

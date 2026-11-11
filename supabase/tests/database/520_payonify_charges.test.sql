@@ -12,11 +12,15 @@ select set_config('t.admin', tests.create_user('admin', array['admin'])::text, t
 -- An accepted escrow job with a $300 Payonify payment (test mode). Payment id -> t.p_<name>.
 create or replace function pg_temp.payonify_job(_name text, _livemode boolean default false)
 returns uuid language plpgsql as $$
-declare _j uuid; _p uuid;
+declare _j uuid; _p uuid; _d uuid := current_setting('t.drv')::uuid;
 begin
   perform tests.as_owner();
   _j := tests.create_job(current_setting('t.cust')::uuid, 300, 'escrow');
-  update public.jobs set status = 'accepted', driver_id = current_setting('t.drv')::uuid, final_price = 300
+  -- 0144: a driver holds one accepted job at a time, so every job after the first gets its own driver.
+  if exists (select 1 from public.jobs where driver_id = _d and status in ('accepted', 'in_progress')) then
+    _d := tests.create_driver('drv_' || _name, 0);
+  end if;
+  update public.jobs set status = 'accepted', driver_id = _d, final_price = 300
    where id = _j;
   insert into public.payments (user_id, job_id, type, amount, currency, method, status, provider, provider_livemode)
   values (current_setting('t.cust')::uuid, _j, 'escrow', 300, 'USD', 'payonify', 'initiated', 'payonify', _livemode)

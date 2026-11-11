@@ -5,8 +5,9 @@ import { mmss, useSecondsLeft } from "@/components/redesign/rpc";
 import { levelInfo } from "@/lib/domain";
 import { cn } from "@/lib/utils";
 import { estimateDeliveryMinutes, formatDuration, presenceOf } from "@/lib/delivery-time";
-import { ratingLabel } from "@/lib/driver-onboarding";
+import { ratingLabel, MIN_RATINGS_FOR_AVERAGE } from "@/lib/driver-onboarding";
 import { tripsLabel, type GuideBand } from "@/lib/offer-compare";
+import { truckFactsLine, type TruckFacts } from "@/lib/truck-facts";
 import { InitialsAvatar, czButtonClass, usd } from "@/components/redesign";
 
 export type OfferBid = {
@@ -18,6 +19,8 @@ export type OfferBid = {
   delivery_date?: string | null;
   message?: string | null;
   truck_reg?: string | null;
+  /** Declared by the driver (migration 0152); shown as "declared by driver". */
+  truck_facts?: TruckFacts | null;
   capacity_m3_snapshot?: number | null;
   estimated_trips?: number | null;
   /** "I can reach pickup in" minutes (migration 0060). */
@@ -86,7 +89,8 @@ export function OfferCard({
   const first = name.split(" ")[0];
   const verified = bid.driver?.verification_status === "verified";
   const presence = presenceOf(bid.profile?.last_active_at);
-  const rated = Number(bid.driver?.rating_count ?? 0) > 0;
+  // The star only appears once the average is shown (three or more ratings).
+  const rated = Number(bid.driver?.rating_count ?? 0) >= MIN_RATINGS_FOR_AVERAGE;
   const eta = Number(bid.eta_minutes) > 0 ? Number(bid.eta_minutes) : null;
   const atSite = estimateDeliveryMinutes(deliveryKm, bid.eta_minutes);
   const trips = tripsLabel(bid.estimated_trips);
@@ -110,9 +114,12 @@ export function OfferCard({
           <div className="flex min-w-0 items-center gap-2">
             <span className="truncate font-semibold">{name}</span>
             {presence.online && (
-              <span className="inline-flex shrink-0 items-center gap-1 text-[12px] text-cz-muted">
+              <span
+                className="inline-flex shrink-0 items-center gap-1 text-[12px] text-cz-muted"
+                title="The driver's app was open in the last 2 minutes. This does not mean they are free for a job or will see a notification."
+              >
                 <span aria-hidden className="h-2 w-2 rounded-full bg-cz-green" />
-                Online
+                Active just now
               </span>
             )}
           </div>
@@ -186,8 +193,30 @@ export function OfferCard({
         />
       </dl>
 
+      {(truckFactsLine(bid.truck_facts) || bid.truck_reg) && (
+        <p className="mx-4 mt-2 text-xs text-cz-muted">
+          {truckFactsLine(bid.truck_facts) ? (
+            <span>{truckFactsLine(bid.truck_facts)} (declared by driver)</span>
+          ) : null}
+          {truckFactsLine(bid.truck_facts) && bid.truck_reg ? " · " : null}
+          {bid.truck_reg ? <span className="whitespace-nowrap">Plate {bid.truck_reg}</span> : null}
+        </p>
+      )}
+
       <div className="space-y-3 px-4 pb-4 pt-3">
         <OfferMessage message={bid.message} driverArranged={driverArranged} />
+        {(bid as unknown as { deposit_required?: boolean }).deposit_required && (
+          <DepositNote
+            bid={
+              bid as unknown as {
+                price: number;
+                deposit_amount: number;
+                deposit_reason: string;
+                deposit_terms: string;
+              }
+            }
+          />
+        )}
 
         {bid.counter_status === "countered" && (
           <div className="rounded-xl bg-cz-amber-tint px-3 py-2.5 text-[13px]">
@@ -269,6 +298,31 @@ function Fact({
           {sub}
         </dd>
       )}
+    </div>
+  );
+}
+
+/** Optional deposit stated in the offer (0135). Paid directly to the driver; Con Z does not hold it. */
+function DepositNote({
+  bid,
+}: {
+  bid: { price: number; deposit_amount: number; deposit_reason: string; deposit_terms: string };
+}) {
+  const dep = Number(bid.deposit_amount);
+  return (
+    <div
+      className="mt-2 rounded-xl border border-cz-border bg-cz-surface-2 p-3 text-xs space-y-1"
+      aria-label="Deposit requested"
+    >
+      <div className="font-semibold">
+        Deposit requested: ${dep.toFixed(2)} · balance ${(Number(bid.price) - dep).toFixed(2)}
+      </div>
+      <div>Why: {bid.deposit_reason}</div>
+      <div>Cancellation and refund terms: {bid.deposit_terms}</div>
+      <div className="text-cz-muted">
+        Paid directly to the driver. Con Z does not hold it or guarantee a refund. You will be asked
+        to accept these terms before choosing this driver.
+      </div>
     </div>
   );
 }

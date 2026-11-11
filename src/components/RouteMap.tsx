@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { shouldRefreshRoute, withTruckEta } from "@/lib/live-map";
 import { MapContainer, TileLayer, Marker, Polyline, Popup, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -57,7 +58,8 @@ function FitTrip({ points }: { points: [number, number][] }) {
   const key = points.map((p) => p.join(",")).join("|");
   useEffect(() => {
     if (points.length < 2) return;
-    map.fitBounds(points, { padding: [40, 40], maxZoom: 16 });
+    // Extra room at the top: the back and share buttons float over the map there.
+    map.fitBounds(points, { paddingTopLeft: [40, 84], paddingBottomRight: [40, 40], maxZoom: 16 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, map]);
   return null;
@@ -80,6 +82,7 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
   const [destination, setDestination] = useState<{ lat: number; lng: number } | null>(initialDestination);
   const [route, setRoute] = useState<RouteResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const lastAsk = useRef<{ from: { lat: number; lng: number }; at: number; dest: string } | null>(null);
 
   // A real delivery address is already fixed on the job in every actual use
   // of this component (customer tracking, driver navigation, public
@@ -87,6 +90,16 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
   // Only fall back to click-to-set when this map genuinely has no
   // destination yet.
   const locked = !!initialDestination;
+
+  // The delivery point can arrive after this map first renders (the truck's position and the job load
+  // separately). Without this the map kept "no destination" forever and never asked for a route, so the
+  // customer saw no distance or arrival time.
+  useEffect(() => {
+    if (!initialDestination) return;
+    setDestination((prev) =>
+      prev && prev.lat === initialDestination.lat && prev.lng === initialDestination.lng ? prev : initialDestination,
+    );
+  }, [initialDestination?.lat, initialDestination?.lng]);
 
   async function fetchRoute(dest: { lat: number; lng: number }) {
     setLoading(true);
@@ -99,9 +112,11 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
           destLng: dest.lng,
         },
       });
-      setRoute(r);
-      onRoute?.(r);
+      const shown = withTruckEta(r);
+      setRoute(shown);
+      onRoute?.(shown);
     } catch (e: any) {
+      lastAsk.current = null; // try again on the next position update
       console.error("Route fetch failed:", e);
       toast.error(e?.message ?? "Could not calculate route");
     } finally {
@@ -113,9 +128,18 @@ export function RouteMap({ driverLocation, initialDestination = null, onRoute, h
   // never fires when the destination is locked (the normal case for every
   // real job) — so Route & ETA silently never populated. Auto-fetch here
   // instead, debounced so live GPS updates during tracking don't spam OSRM.
+  // Re-ask only after the truck has moved ~250 m or 3 minutes passed (free route server).
   useEffect(() => {
     if (!destination) return;
-    const t = setTimeout(() => { void fetchRoute(destination); }, 400);
+    const destKey = `${destination.lat},${destination.lng}`;
+    const prev = lastAsk.current && lastAsk.current.dest === destKey ? lastAsk.current : null;
+    if (!shouldRefreshRoute(prev, driverLocation, Date.now())) return;
+    // Record "asked" only when the request really starts. Recording it before the timer fired meant a re-run of
+    // this effect inside the 400 ms (cleanup cancels the timer) saw "already asked" and never asked at all.
+    const t = setTimeout(() => {
+      lastAsk.current = { from: { ...driverLocation }, at: Date.now(), dest: destKey };
+      void fetchRoute(destination);
+    }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [destination?.lat, destination?.lng, driverLocation.lat, driverLocation.lng]);

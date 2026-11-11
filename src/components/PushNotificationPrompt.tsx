@@ -54,7 +54,7 @@ export function PushNotificationPrompt() {
     const res = native ? await enableNativePushNotifications(userId) : await enablePushNotifications(userId);
     setLoading(false);
     if (res.ok) {
-      toast.success("Notifications enabled — you'll be alerted even with the app closed.");
+      toast.success("Notifications enabled on this device.");
       setVisible(false);
     } else {
       toast.error(res.error ?? "Could not enable notifications");
@@ -78,7 +78,7 @@ export function PushNotificationPrompt() {
         </button>
       </div>
       <p className="text-sm text-muted-foreground">
-        Get alerted about new jobs, messages, and payments even when Con Z isn't open.
+        Get alerted about new jobs, messages and payments. Alerts while Con Z is closed depend on your phone's settings.
       </p>
       <Button onClick={enable} disabled={loading} variant="outline" className="w-full">
         {loading ? "Enabling…" : "Enable notifications"}

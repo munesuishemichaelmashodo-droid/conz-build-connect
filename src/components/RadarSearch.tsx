@@ -1,18 +1,34 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { Truck } from "lucide-react";
 import { useEffect, useState } from "react";
+import { closesText, postedAgoText } from "@/lib/waiting-status";
 
 // Only what is true while a job is open. nearbyDrivers comes from
 // count_available_verified_drivers: approved, active drivers with enough balance
 // for the commission, anywhere (not "online" or "near"). No wait time is shown,
 // because nothing measures one.
 const MESSAGES = [
-  "Your request is open to drivers near you…",
+  "Your request is open to verified drivers…",
   "Drivers send their own offers…",
   "You'll be notified when an offer arrives…",
 ];
 
-export function RadarSearch({ nearbyDrivers }: { nearbyDrivers?: number }) {
+export function RadarSearch({
+  nearbyDrivers,
+  createdAt,
+  expiresAt,
+}: {
+  nearbyDrivers?: number;
+  createdAt?: string | null;
+  expiresAt?: string | null;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(t);
+  }, []);
+  const posted = postedAgoText(createdAt, now);
+  const closes = closesText(expiresAt, now);
   const [i, setI] = useState(0);
   const reduceMotion = useReducedMotion();
   useEffect(() => {
@@ -90,6 +106,8 @@ export function RadarSearch({ nearbyDrivers }: { nearbyDrivers?: number }) {
         {MESSAGES[i]}
       </motion.div>
       <div className="text-center text-xs text-white/75 mt-2 space-y-0.5">
+        {posted && <div className="font-semibold text-white/90">{posted}</div>}
+        {closes && <div>{closes}</div>}
         {typeof nearbyDrivers === "number" &&
           (nearbyDrivers > 0 ? (
             <div>

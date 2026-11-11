@@ -190,6 +190,15 @@ const db = {
       delivery_address: "Harward Road, Belvedere, Harare, Zimbabwe",
       delivery_lat: -17.8322,
       delivery_lng: 31.0181,
+      pickup_photo_taken_at: minutesAgo(25),
+      sample_trail: [
+        [-17.758, 31.078],
+        [-17.7625, 31.0731],
+        [-17.7688, 31.0664],
+        [-17.7751, 31.0602],
+        [-17.7823, 31.0541],
+        [-17.7871, 31.0503],
+      ],
       created_at: hoursAgo(30),
       tracking_token: randomUUID(),
     },
@@ -339,8 +348,73 @@ const db = {
   })),
 };
 
+// Sample live truck position for the in-progress job (a002), between Pomona and Belvedere.
+// MOCK_LIVE_MINUTES_AGO=20 shows the "not live" (stale) state.
+db.driver_locations = [
+  {
+    job_id: "00000000-0000-4000-8000-00000000a002",
+    driver_id: ID.driver2,
+    lat: -17.7905,
+    lng: 31.0472,
+    heading: 225,
+    accuracy: 12,
+    updated_at: minutesAgo(Number(process.env.MOCK_LIVE_MINUTES_AGO ?? 0)),
+  },
+];
+
 // --- RPCs (answers shaped like the real functions; values are synthetic) --------
+// Delivery-only pricing (0158/0159). Off unless MOCK_TRANSPORT=on. Same formula as compute_transport_offer
+// at the live diesel setting (2.04, fuel 32, allowance 1.87), uncalibrated.
+const transportGuide = (km, qty) => {
+  const rate = 0.32 * 2.04 * 1.87;
+  const per = km <= 10 ? 20 : km <= 20 ? 30 : km <= 30 ? 40 : km <= 50 ? 60 : 60 + (km - 50) * rate;
+  const trips = Math.ceil(qty / 20);
+  const r = (n) => Math.round(n * 100) / 100;
+  return {
+    basis: "transport_only", enabled: process.env.MOCK_TRANSPORT === "on", calibration: "uncalibrated", roadKm: km, trips,
+    perTrip: { low: r(per * 0.85), recommended: r(per), high: r(per * 1.15) },
+    total: { low: r(per * 0.85 * trips), recommended: r(per * trips), high: r(per * 1.15 * trips) },
+    assumptions: { note: "Estimate for a car-profile road route; confirm suitability for a loaded truck. Not a quote." },
+  };
+};
 const rpc = {
+  transport_pricing_enabled: () => process.env.MOCK_TRANSPORT === "on",
+  compute_transport_offer: (a) => transportGuide(Number(a._road_km), Number(a._quantity_m3)),
+  create_transport_quote_for: (a) => {
+    db.transport_quotes ??= [];
+    const row = { id: randomUUID(), customer_id: a._customer_id, quantity_m3: a._quantity_m3, road_km: a._road_km,
+      pickup_lat: a._pickup_lat, pickup_lng: a._pickup_lng, delivery_lat: a._delivery_lat, delivery_lng: a._delivery_lng };
+    db.transport_quotes.push(row);
+    return row.id;
+  },
+  // Same behaviour as the real 0157 functions (fare from the job; the other side confirms; versions kept).
+  propose_job_agreement: (a, me) => {
+    const job = db.jobs.find((j) => j.id === a._job);
+    if (!me || !job || ![job.customer_id, job.driver_id].includes(me.id)) return null;
+    db.job_agreements ??= [];
+    db.job_agreements.forEach((r) => { if (r.job_id === job.id && r.status === "proposed") r.status = "superseded"; });
+    const row = {
+      id: randomUUID(), job_id: job.id, version: db.job_agreements.filter((r) => r.job_id === job.id).length + 1,
+      proposed_by: me.id, fare: Number(job.final_price ?? job.budget), payment_method: a._payment_method,
+      payment_timing: a._payment_timing, deposit_amount: Number(a._deposit_amount ?? 0),
+      pickup_window: a._pickup_window || null, delivery_window: a._delivery_window || null,
+      inclusions: a._inclusions || null, exclusions: a._exclusions || null, status: "proposed",
+      customer_accepted_at: me.id === job.customer_id ? new Date().toISOString() : null,
+      driver_accepted_at: me.id === job.driver_id ? new Date().toISOString() : null,
+      created_at: new Date().toISOString(),
+    };
+    db.job_agreements.push(row);
+    return row;
+  },
+  accept_job_agreement: (a, me) => {
+    const row = (db.job_agreements ?? []).find((r) => r.id === a._agreement);
+    const job = row && db.jobs.find((j) => j.id === row.job_id);
+    if (!me || !row || row.status !== "proposed" || row.proposed_by === me.id) return null;
+    if (me.id === job.customer_id) row.customer_accepted_at = new Date().toISOString();
+    if (me.id === job.driver_id) row.driver_accepted_at = new Date().toISOString();
+    row.status = "accepted";
+    return row;
+  },
   // Shaped like the live RPC (0088): customers only, idempotent on the key, returns the id.
   create_material_sourcing_request: (a, me) => {
     if (!me) return null;
@@ -393,11 +467,38 @@ const rpc = {
     return { ok: available >= required, required, available, shortfall: Math.max(0, Math.round((required - available) * 100) / 100) };
   },
   job_offer_summary: () => ({ others: 0, min: null, max: null }),
+  // Same shape as the real offer_bidder_cards (0152): no phone or email; plate masked until chosen.
+  offer_bidder_cards: ({ _job }) => {
+    const job = db.jobs.find((j) => j.id === _job);
+    return db.bids
+      .filter((b) => b.job_id === _job)
+      .map((b) => {
+        const p = db.profiles.find((x) => x.id === b.driver_id);
+        const t = db.trucks.find((x) => x.id === b.truck_id);
+        const reg = t?.registration?.replace(/\s/g, "") ?? null;
+        const chosen = job?.driver_id === b.driver_id && ["accepted", "in_progress", "completed"].includes(job?.status);
+        return {
+          bid_id: b.id,
+          driver_id: b.driver_id,
+          full_name: p?.full_name ?? null,
+          avatar_url: null,
+          last_active_at: p?.last_active_at ?? null,
+          body_type: t ? "tipper" : null,
+          make: t ? "Isuzu" : null,
+          model: t ? "FVZ" : null,
+          colour: t ? "white" : null,
+          capacity_m3: t?.capacity_m3 ?? null,
+          plate_display: !reg ? null : chosen ? t.registration : reg.length <= 3 ? "••••" : reg.slice(0, 3) + " ••••",
+        };
+      });
+  },
   // Same shape as the real get_public_tracking (0079): the driver's location only
   // while the job is accepted or in progress, and null for an unknown token.
   get_public_tracking: ({ _token }) => {
     const j = db.jobs.find((x) => x.tracking_token === _token);
     if (!j) return null;
+    // 0126: a cancelled link says only that.
+    if (j.status === "cancelled") return { status: "cancelled" };
     const loc = ["accepted", "in_progress"].includes(j.status)
       ? (db.driver_locations ?? []).find((l) => l.job_id === j.id)
       : null;
@@ -411,7 +512,21 @@ const rpc = {
       delivery_lng: j.delivery_lng ?? null,
       preferred_date: j.preferred_date ?? null,
       driver_name: db.profiles.find((x) => x.id === j.driver_id)?.full_name ?? null,
-      live: loc ? { lat: loc.lat, lng: loc.lng, updated_at: loc.updated_at } : null,
+      live: loc
+        ? {
+            lat: loc.lat,
+            lng: loc.lng,
+            heading: loc.heading == null ? null : (Math.round(loc.heading / 15) * 15) % 360,
+            updated_at: loc.updated_at,
+          }
+        : null,
+      // 0126 (sample): step times and the line driven since loading.
+      times: {
+        loaded_at: j.pickup_photo_taken_at ?? null,
+        arrived_at: j.driver_arrived_dropoff_at ?? null,
+        delivered_at: j.completed_at ?? null,
+      },
+      trail: j.status === "in_progress" ? (j.sample_trail ?? null) : null,
     };
   },
   count_available_verified_drivers: () => 2,

@@ -354,3 +354,195 @@ it adds up), driver copy no longer promises withdrawals while paused. Live check
 intended, public price check returns its guide range. Owner guide: `docs/security/ADMIN-GOOGLE-SIGNIN-GUIDE.md`.
 Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multiplier = super admin + `require_aal2()`
 (undo: `supabase/rollbacks/20261012350000_0103_rollback.sql`). Not in this release: PR #38 (Payonify + 0120/0121).
+
+## 28/10/2026 — shared tracking map + security sweep (branch `design/public-tracking-map`)
+
+- Shared tracking link `/track/$token`: one map (`src/components/tracking/LiveDeliveryMap.tsx`) instead of two;
+  truck ETA = car time × 1.4 (`src/lib/live-map.ts`); route re-asked only after 250 m / 3 min (also in
+  `RouteMap`). Review and free-service limits: `docs/design/PUBLIC-TRACKING-MAP.md` (CARTO commercial free tier
+  = 1M tiles/month from 1 Dec 2026; OSRM demo server also drives quote road distance).
+- `0126_public_tracking_details` (20261028100000) — **NOT applied**: step times, heading, trail since loading,
+  cancelled → `{"status":"cancelled"}`. No DROP. Deploy the app first. pgTAP 580.
+- No-login server functions (`getRoute`, geocode) refuse non-Zimbabwe coordinates and are rate-limited per
+  address (`src/lib/public-guard*`). Unused `src/lib/api/example.functions.ts` removed.
+- Security sweep (read-only, 28/10): **0114, 0115, 0119 are on `main` but NOT live** (no trigger/constraint/policy
+  changes live; live `handle_new_user` and `driver_profiles_guard_direct_write` still equal the 0115 rollback
+  definitions, so 0115 applies cleanly). 0114/0115 contain DROP POLICY (SQL editor, or the MCP hangs).
+  Demo edge functions `quick-responder` (spends the ORS key for anyone with the public key) and
+  `smooth-handler` (hello world) are still deployed and unused by the app. Advisor: 2 search_path warnings (fixed
+  by 0115), `driver_public_profiles` SECURITY DEFINER view (intentional), `pg_net` in public, leaked-password
+  protection off (owner setting).
+
+## 02/11/2026 — pricing engine v1.4 (branch `pricing/finalize-v14`, owner-approved release)
+
+- `0127_pricing_engine_v14` (20261102100000), no DROP, writes no settings: trips = ceil(qty/20) for every size;
+  >20 m³ history from completed, undisputed, road-distance-comparable jobs (≥10 jobs, ≥3 drivers, median), else the
+  deterministic calculation; low (1–20 m³) = bucket min + one delivery fee (≤ recommended); non-numeric settings fall
+  back (diesel $2.04, fuel 32 within 10–80, allowance 1.87 within 1–3); new `admin_set_fuel_assumptions`
+  (super admin + `require_aal2` + reason + audit) and `admin_price_accuracy_completed`. Live engine before 0127:
+  md5 `4b23d1de…` (= rollback file); after: `449eb457…`. Diesel stays $1.87 (owner). pgTAP 590; 360/490/550 updated
+  for the intended changes. Undo: `supabase/rollbacks/20261102100000_0127_rollback.sql`.
+- **Released 02/11/2026 (owner-approved):** PR #42 merged as `1427899` (Vercel deployed; new chunks verified on
+  www.conz.co.zw). 0127 applied via `execute_sql` (statement bodies without comment-only lines) and recorded as
+  `20261102100000`; live `compute_material_offer` md5 `0bf44570…` (= the applied body; the git file body with comments
+  hashes `449eb457…`). Live checks: river sand 12 m³ / 15 km = $174 / $200 / $230; 20 m³ = 1 trip $320; 20.01 m³ =
+  2 trips $340; 25 m³ $420; 30 m³ $480; anon quote via the site's public key works; anon call to
+  `admin_set_fuel_assumptions` refused (401); diesel still 1.87, commission 7, no fuel/markup rows written.
+  Not verified live: the Settings fuel card with a real super-admin step-up, and a driver offer on a real job.
+- App: `src/lib/pricing-assumptions.ts` (same fallbacks as the engine) used by Settings and the driver fuel estimate;
+  Settings card "Fuel use and long trips"; accuracy card has "Completed deliveries" / "Customer accepted".
+
+## 03/11/2026 — 0114 + 0115 applied live (owner: "Go ahead", then "No drop but proceed")
+
+- The Supabase MCP approval pop-up for DROP timed out three times, so both files were rewritten without DROP
+  (branch `fix/0114-0115-no-drop`, commit `f8688e6`): policies are renamed and changed with `ALTER POLICY`. Same access.
+  pgTAP 1259/1259 locally; both undo scripts tested locally.
+- `0115` recorded `20261026110000`: sign-up gives driver/customer only (no hard-coded email); admins can't edit a
+  driver's approval fields directly (use `admin_set_driver_verification`); supplier contact columns hidden
+  (`admin_list_supplier_contacts()` for admins); "Users read own profile" / "Job partners read each other" for
+  signed-in users only; search_path fixed on the two sourcing functions. Three duplicate profile policies remain
+  (`Users can insert/update/view their own profile`, same access as kept ones): remove them in the SQL editor sometime.
+- `0114` recorded `20261026100000`: truck add/change by a driver sends them back to review and withdraws pending
+  offers; a job can only be given to a driver passing `is_verified_driver`; trucks readable only by their driver,
+  admins, and customers whose jobs got an offer with that truck.
+- Live function hashes equal the local build (whitespace-stripped md5): handle_new_user `a787bfd6…`,
+  driver_profiles_guard_direct_write `6d40220f…`, admin_list_supplier_contacts `4cdf5334…`,
+  tg_truck_change_needs_review `51a8a13c…`, tg_jobs_driver_must_be_verified `f4cf6f2c…`.
+- Next in the permissions plan: revoke TRUNCATE and anon write grants (new migration); owner deletes demo edge functions
+  `quick-responder`/`smooth-handler` and turns on leaked-password protection; repair schema_migrations 0072–0108.
+
+## 03/11/2026 — 0138 grants + merged work (branch `security/revoke-unneeded-grants`)
+
+- `0138_revoke_unneeded_table_grants` is **LIVE** (applied 03/11 via `execute_sql`, recorded `20261103200000`; undo in
+  `supabase/rollbacks/`). anon lost INSERT/UPDATE/DELETE/TRUNCATE/TRIGGER/REFERENCES on public tables; authenticated lost
+  TRUNCATE/TRIGGER/REFERENCES; default privileges for new tables narrowed. Live check: anon_bad 0, auth_bad 0, authenticated
+  INSERT kept on 38 tables, anon SELECT kept on 46.
+- PR #43 (0114/0115 without DROP) is merged; both are live and recorded. Do not reapply.
+- On `main` but NOT live: 0113, 0116 (PR #18, still open), 0120/0121 (PR #38), 0129–0137 (privacy 0133 matters most).
+- Manual (no tool for it): delete demo edge functions `quick-responder` and `smooth-handler` (nothing in the repo uses
+  them; edge logs 03/11 show only `send-push` calls; keep `send-push` and `send-sms`); `pg_net` extension still in public.
+- **Plan limitation (owner decision 03/11: stay on Supabase Free, no paid services):** leaked-password protection
+  (Auth > Sign In / Providers > Email > "Prevent use of leaked passwords") is, as far as we know, a Pro-plan feature, so it
+  stays OFF while on Free. The advisor warning `auth_leaked_password_protection` is accepted for now. Compensating
+  controls: minimum password length and Google sign-in; revisit if the plan changes.
+
+## 04/11/2026 — privacy and notification release (owner approved: "Go ahead on all")
+
+- Merged to `main`: #58 `4e0440d` (0133 without the `pods` join), #57 `786f7ac` (0140), #56 `305f1b5` (notifications + 0139),
+  #55 `5a8e21e` (commission example), #54 `a67729c` (value proposition + repeat order).
+- **LIVE, applied via `execute_sql` and recorded:** `0133` (20261103150000, comment-only lines and one trailing comment stripped),
+  `0136` (20261103180000), `0139` (20261104100000), `0140` (20261104110000). Undo scripts in `supabase/rollbacks/`.
+  Live checks: Jobs visibility policy = customer / assigned driver (accepted, in_progress, completed) / admin; exact functions not callable
+  by clients; `archived_at` column and `notifications_user_active_idx` exist; trigger text updated.
+- Production probe (DB-level, as an unselected verified driver, a selected driver, the customer and a visitor, in a transaction that was
+  rolled back): unselected driver reads 0 rows by id or by status filter, masked function shows area and 2-decimal coordinates only,
+  notes phone hidden, no receiver or tracking token; selected driver reads the exact address; customer reads own job; visitor 0 rows;
+  `driver_job_history` runs. Not an HTTP-level test (no test tokens). Notification generation not exercised live (needs a real new job).
+- One-off redaction executed (see `supabase/maintenance/`): 248 old `new_job` notification bodies now show the area only.
+- Still NOT live: 0113, 0116, 0120/0121, 0129-0132, 0134, 0135, 0137. `public.pods` does not exist in production. The
+  `on_auth_user_created` trigger exists live but is not in git.
+
+## 07/11/2026 — reliability + retention (PR #71, #72 merged; retention branch `retention/trust-differentiation`)
+
+- **LIVE and recorded in `schema_migrations`** (applied 07/11, hashes checked against the local build): `0143` (20261107100000), `0144`
+  (…110000), `0145` (…120000), `0146` (…130000), `0147` (…140000). Undo scripts in `supabase/rollbacks/`. `0146`'s rollback restores the
+  verbatim original `create_dispatch_wave` / `expire_stale_dispatch_offers` (md5 `0cec3ec1…` / `4508d7f8…`).
+- **NOT applied anywhere but the local test stack:** `0148` structured cancellation reasons, `0149` post-delivery feedback, `0150`
+  admin marketplace metrics (+ `jobs.no_show_reopened_at`, re-creates `customer_reopen_no_show_job` with one extra assignment, so its
+  live md5 will change from `6a070c1e…`), `0151` dispatch notification content (re-creates `create_dispatch_wave`; undo restores
+  the 0146 body `61893547…`). Apply in that order, after the app from this branch is deployed.
+- **Supabase tool gotcha #2:** `execute_sql` asks the user a confirmation question (and times out after 60 s if it never reaches them) for
+  statements containing `delete from`, e.g. 0145 and 0147. Run those in the Supabase SQL editor, then verify hashes and record the
+  version with an `insert into supabase_migrations.schema_migrations (version, name, statements)`.
+- Guard triggers that must see the CALLER's role (`current_user in ('authenticated','anon')`) have to be SECURITY INVOKER; in a
+  SECURITY DEFINER function `current_user` is the owner (found and fixed in 0148).
+- Live `hold_job_commission` / `release_job_commission` are the OLDER versions (md5 `959e1824…` / `28707533…`); the local stack builds
+  newer ones (0091/0134). Money-path tests (820, 870) pass on both; check live before assuming a newer behaviour.
+- Details: `docs/marketplace/RELIABILITY-2026-11-07.md`, `docs/marketplace/RETENTION-TRUST-2026-11-07.md`.
+
+## 08/11/2026 — overnight improvements and offline work (PRs #74–#80, all merged to `main`, web only, no migrations)
+
+- #74 repost cancelled/expired requests, waiting screen shows posted time and close time, prefilled repeat on the delivered
+  screen, customer-home wording that stays true under dispatch assignment. #75/#76 same honesty fix in the repeat notice and the
+  driver walkthrough. #77 a malformed tracking link says "not found". #78 driver location sharing resumes after leaving the page
+  or a reload and warns when the customer cannot see the driver; the customer's ETA is truck time (road time x 1.4) everywhere,
+  and the route request bug (timer cancelled by an effect re-run; destination arriving late) is fixed.
+- #79 offline phase 0: only a real server answer signs someone out of a screen (`src/lib/auth-guard.ts`, `route-guards.ts`; admin
+  screens deliberately untouched), failed profile/role reads no longer wipe roles, TanStack Router's own page reload is held back
+  while offline (`stale-build.ts`), a "No signal" banner, job page "Waiting for signal", Call button works from a number saved on the phone.
+- #80 "Ready offline": per-job card (address, map position, notes, other person's number; customer's delivery PIN) saved in
+  localStorage for 7 days (`offline-card.ts`), shown when the job cannot load, cleared at sign-out BEFORE the sign-out request
+  (`sign-out.ts`) and when the job ends; `public/sw.js` now also serves `public/offline.html` for failed page navigations.
+- Research and plan: `docs/offline/OFFLINE-RESEARCH-2026-11-08.md`, `docs/superpowers/plans/2026-11-08-offline-ready-card.md`.
+  Owner findings and reserved decisions: `docs/marketplace/OWNER-DECISIONS-2026-11-08.md` (seven jobs stuck 19-88 days; dispatch
+  honesty; no drivers online overnight; Android background GPS needs a native release).
+- NOT verified: the service worker inside the Android shell's WebView, any real phone, push delivery. Signing out with no signal does not end
+  the session (the sign-in library gives up on a network error): saved data is cleared, the session fix is a follow-up.
+- Owner approved the recommended answers (08/11): next slice needs the database (photo outbox with capture-time columns, late-evidence labels in
+  the admin dispute panel, "delivered, waiting for confirmation"), and must leave the commission/reserve/escrow clocks (24 h no-show
+  sweep, 72 h auto-release) alone and flag them.
+- Gotchas: Playwright's offline switch does not stop a service worker's own requests (stop the dev server to test the fallback page);
+  never branch from local `main` (it is stale): `git fetch` and branch from `origin/main`.
+
+## 08-09/11/2026 — marketplace upgrade programme (audit + first slices)
+
+- Brief, audit and decisions: `docs/marketplace/CONZ-MARKETPLACE-UPGRADE-AUDIT.md` (baseline matrix, commission invariants, plan),
+  `CONZ-NATIONWIDE-PRICING.md` (transport-only formula, UNCALIBRATED, switch default off), `CONZ-COMPETITOR-RESEARCH.md`,
+  `CONZ-COMMISSION-CREDIT-RISK-NOTE.md` (legal questions only; not legal advice).
+- Product rules (owner's brief): two participants only (clients and independent drivers); pickup places are locations, not accounts; client pays
+  the driver directly, ConZ never holds the fare; ConZ earns 7% of the agreed TRANSPORT fare from the driver's prepaid commission credit
+  (reserve on accept, one release on cancel, one charge at verified completion; first job free); no cash-out of commission credit; wording: "commission
+  credit", never "wallet/escrow/we hold". Today's commission base is still the whole accepted price including materials; the switch to
+  transport-only is designed but NOT built or live (owner go required).
+- **LIVE and recorded 09/11:** `0152` offer_bidder_cards + declared truck facts (20261108100000), `0153` closes the bidder exposure
+  (20261108110000: customers no longer read a bidding driver's profile row/phone/email or truck row before choosing), `0154` a driver's answer
+  to a dispatch request is now an offer the customer must accept (20261108120000; undo restores the 0105 body). Apps merged: PRs #82, #83, #84.
+  Live hashes (whitespace-stripped): offer_bidder_cards `a75845e6…`, accept_dispatch_offer `eb2edb77…`. Live-vs-local hash for 0152's trigger differs only by
+  one stripped trailing comment.
+- Audit findings (see the audit doc, section 4): H1 (`held_commission_promo` client-writable) and M1 (admin direct writes to money columns) are CLOSED by 0155;
+  0134 (promo credit) had its own open finding M4 (promo reserve skipped the ledger): FIXED in the corrected file and live since 09/11 (see the 09/11 implementation section). M2 is CLOSED: `0113` applied live 09/11 (recorded 20261025100000; live `settle_direct_pay_job` prosrc md5 `80b4769f…` equals the committed text minus comments; undo in `supabase/rollbacks/`). M3 is CLOSED by owner decision 09/11: `0160` (20261109150000) returns a direct-job dispute refund to the DRIVER's commission credit, not the customer (live `resolve_dispute` md5 `b9fcbc8e…` = committed text; undo restores the 0093 body). Still open: M5 referral credit; the old note "complete_job has no PIN" is stale (0096 requires PIN + evidence).
+- `scripts/db-concurrency-check.sh`: S8 fails since 0144 (it accepts two jobs for one driver in one transaction); run `tests.enable_launch_features()` first.
+- **Also LIVE and recorded 09/11:** `0155` jobs money-column guard, admins included (20261109100000), `0156` review fixes: revived dispatch offer gets a
+  fresh 30-min expiry, trucks policy limited to the accepted offer's truck, no 5+ digits in declared truck facts (20261109110000; live
+  `accept_dispatch_offer` md5 `5b04701b…`), `0157` job agreement card: `job_agreements` + propose/accept/decline functions, fare copied from the
+  job, no direct writes (20261109120000). Agreement card UI is in `src/components/AgreementCard.tsx`; it hides itself if the table is missing.
+- `0158` (transport-only pricing engine `compute_transport_offer`, `system_settings.transport_pricing_enabled=false`, `jobs.pricing_basis`) and `0159`
+  (transport quotes written only by the server, validating trigger `tg_validate_transport_job`, one early return added to `tg_validate_job_budget`; live prosrc
+  md5 `e1909ee1…`; undo restores the 0108 body) are LIVE and OFF (recorded 20261109130000 / 20261109140000). The booking form has a pickup picker and
+  delivery-only quote behind the switch (`src/lib/transport-quote.functions.ts`, `transport-offer-view.ts`). Turning the switch on, or changing the commission
+  wording/terms, needs the owner's explicit go. Verification report:
+  `docs/marketplace/CONZ-MARKETPLACE-UPGRADE-REPORT.md`.
+
+- **Owner decisions 09/11/2026:** delivery-only pricing stays OFF for now (the wording that follows the switch is built: `src/lib/commission-copy.ts`, `useTransportPricingEnabled()`,
+  and `0161` lets signed-out visitors read the one-boolean `transport_pricing_enabled()`; live 20261109160000); the $500 launch cap stays; diesel stays $2.04/L;
+  dispute refunds on direct jobs go back to the driver (0160). To launch delivery-only pricing: set `system_settings.transport_pricing_enabled` to `true` (the wording on the terms, home, wallet, help, walkthrough, driver offer form and public price check already follows the switch; re-check the $500 cap first).
+
+## 09/11/2026 — dependency and MCP endpoint security (PRs #100, #101, merged)
+
+- `/mcp` (read-only tools behind Supabase OAuth) now runs `@lovable.dev/mcp-js` 3.4.0 / `@modelcontextprotocol/sdk` 1.32.2, which fixes six high advisories (bearer
+  accepted for another service, memory exhaustion, no body/batch limit, cross-origin credential redirects). The helper routes `/.mcp/list-tools` and `/.mcp/invoke-tool/$tool`
+  no longer exist (3.x). `package.json` has `"overrides": {"lightningcss": "^1.33.0"}` so a plain `npm ci` works (the new library's optional peer vs Tailwind's pin).
+- The MCP issuer is derived from `VITE_SUPABASE_URL` (`src/lib/mcp/issuer.ts`). Before this, production advertised the STAGING project as its authorization server because
+  `VITE_SUPABASE_PROJECT_ID` in the production build held the staging id. **Owner: set `VITE_SUPABASE_PROJECT_ID=ovwrsocjmkpiygipmrdk` in Vercel's Production environment**;
+  keep staging values scoped to Preview.
+- `zod` is now 4.6.x (was 3.x, high advisory) and `seroval` is patched; the only production advisory left is low (esbuild's dev server on Windows). Re-run `npm audit --omit=dev` after dependency changes.
+- CI gotcha: `database-tests` can fail on a GitHub 504 while the Supabase CLI downloads an image library; re-run the failed job (`rerun_failed_jobs`) before suspecting the change.
+- Check lint with its exit code (`npm run lint:security; echo $?`), not by tailing the last line.
+
+## 09/11/2026 — implementation spec session (Stages 0-6 verified, docs in `docs/implementation/`)
+
+- Controlling spec: owner's `ConZ_Complete_Autonomous_Implementation_Prompt.md`. Status, baseline audit, owner-review list, demo-data inventory and final report live in
+  `docs/implementation/`; release evidence in `docs/release/CONZ_RELEASE_EVIDENCE.md`; Paynow handover in `docs/payments/CONZ_PAYMENT_INTEGRATION_HANDOVER.md`. Start with `CONZ_EXECUTION_STATUS.md`.
+- `conz-staging` is **paused** (owner, 09/11); `venmax-admin` was restored and is running. Restore staging from the Supabase dashboard before any Payonify or passkey staging work (the plan allows two active projects).
+- **First-job-free is RETIRED (09/11, owner decision).** The corrected `0134_promo_commission_credit` is LIVE (recorded `20261103160000`, applied in 4 chunks, 15 function bodies verified by md5, undo = `supabase/rollbacks/20261103160000_0134_rollback.sql`, which restores the exact previous live bodies) and `activate_promo_credit_program()` was run once: switch on, `first_job_free_used = true` for every driver (5), one $20 grant (the owner's own account). A trigger keeps new driver profiles from starting with a free job. Promo credit = demo money: not cash, spent first on commission, returns to the promo bucket on release, spent on settlement, ledger lines posted both ways (finding M4 closed). Wording follows `promo_credit_public()` / `src/lib/promo-credit.ts` (live Terms and home verified). Reconciliation checks stayed 11/11 OK before and after. The Terms sentence is legal wording: owner's lawyer should review it.
+- The 90-day driver re-check is enforced in the database (bids policy + 7 functions); the "re-checked every 90 days" copy is accurate.
+- Production holds 15 users, 94 jobs (74 cancelled); no demo mode exists in the app; do not delete test data without the two protected accounts being named, a backup and owner approval.
+- `0162_deposit_proposed_by_driver` is LIVE (recorded 20261109170000; body md5 `2a215343...`; undo in `supabase/rollbacks/`): only the driver proposes or changes a deposit; a customer's new agreement version keeps the deposit in force. `AgreementCard` takes `customerId`. `0163_deposit_in_force` refines it is LIVE (recorded 20261109180000; body md5 `11b918d1...`; undo in `supabase/rollbacks/`): carry from versions still proposed or accepted, not superseded/declined; found by the independent review.
+- Competitor refresh: `docs/marketplace/CONZ-COMPETITOR-REFRESH-2026-11-09.md` (the six names in the spec were not found; leads only).
+- UI: 136-load width/scheme sweep and an axe-core WCAG 2.2 AA run (88 loads, 0 violations) done on the local stand-in; admin data panels, real screen reader and real devices not covered. Open: real-device Android; iOS project does not exist.
+- `0164_pin_cancellation_helper_search_path` is LIVE (recorded 20261109190000): the two 0148 helpers have a pinned search_path (advisor `function_search_path_mutable` cleared). Remaining advisor items are known/accepted: `driver_public_profiles` definer view, `pg_net` in public, leaked-password protection (Free plan), the 5 reviewed anon-executable functions, 3 deny-all tables (`app_secrets`, `material_sourcing_status_history`, `super_admin_owners`).
+
+## 09/11/2026 — owner decisions
+- Legal entity: **Navysky Innovations (Private) Limited** (confirmed by the owner). Protected accounts (never clear): `munesuishemichaelmashodo@gmail.com`, `ngaatendwew@gmail.com` (super admins). `web***@gmail.com` also kept by the owner's answer.
+- 9 test accounts were anonymised and locked on 09/11 (history kept). Three more (`con***`, `taw***`, `mas***`) are locked, waiting for the owner to cancel two stuck test jobs and delete their KYC files in the Storage dashboard. Never delete jobs, payments, ledger or audit rows.
+- $20 one-time promo commission credit approved by the owner as demo (non-cash, non-withdrawable, non-transferable) money, replacing first-job-free: now LIVE (see above). Never re-run the old uncorrected 0134; use the file in git.

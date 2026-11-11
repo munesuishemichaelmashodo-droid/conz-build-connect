@@ -1,15 +1,24 @@
-import { useEffect, useState } from "react";
-import { Bell, Check } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Archive, Bell, Check, Mail, MailOpen } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import {
+  CATEGORY_LABEL,
+  applyUpdated,
+  groupByDay,
+  isMissingArchiveColumn,
+  mergeInserted,
+  notificationCategory,
+  notificationDestination,
+  notificationHint,
+  unreadCount,
+  visibleNotifications,
+  type NotificationCategory,
+} from "@/lib/notifications";
 
 type Notification = {
   id: string;
@@ -19,6 +28,7 @@ type Notification = {
   job_id: string | null;
   read: boolean;
   created_at: string;
+  archived_at?: string | null;
 };
 function playChime() {
   try {
@@ -26,8 +36,12 @@ function playChime() {
   } catch {}
   try {
     const Ctx =
-      (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext })
-        .AudioContext ??
+      (
+        window as unknown as {
+          AudioContext?: typeof AudioContext;
+          webkitAudioContext?: typeof AudioContext;
+        }
+      ).AudioContext ??
       (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctx) return;
     const ctx = new Ctx();
@@ -47,21 +61,45 @@ export function NotificationsBell() {
   const { userId } = useAuth();
   const [items, setItems] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState<NotificationCategory | "all">("all");
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const nav = useNavigate();
 
-  const unread = items.filter((i) => !i.read).length;
+  // Ids already handled this session, so a redelivered realtime event never repeats the toast or chime.
+  const seen = useRef<Set<string>>(new Set());
+  const visible = visibleNotifications(items);
+  const unread = unreadCount(items);
+  const shown = visible.filter((i) => filter === "all" || notificationCategory(i.type) === filter);
 
   useEffect(() => {
     if (!userId) return;
     let active = true;
 
     const load = async () => {
-      const { data } = await supabase
+      // archived_at exists after migration 0136; before that, fall back to the plain list.
+      let res = await supabase
         .from("notifications")
         .select("*")
+        .is("archived_at" as never, null)
         .order("created_at", { ascending: false })
-        .limit(10);
-      if (active && data) setItems(data as Notification[]);
+        .limit(50);
+      // Only a missing column (before 0136) justifies the plain list. Any other error is a failed load,
+      // never a reason to fetch everything again.
+      if (res.error && isMissingArchiveColumn(res.error))
+        res = await supabase
+          .from("notifications")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(50);
+      if (!active) return;
+      if (res.error) setLoadError(true);
+      else {
+        setLoadError(false);
+        const rows = visibleNotifications((res.data ?? []) as Notification[]);
+        rows.forEach((r) => seen.current.add(r.id));
+        setItems(rows);
+      }
     };
     load();
 
@@ -77,8 +115,12 @@ export function NotificationsBell() {
         },
         (payload) => {
           const n = payload.new as Notification;
-          setItems((prev) => [n, ...prev].slice(0, 30));
-          toast(n.title, { description: n.body ?? undefined });
+          if (seen.current.has(n.id)) return; // redelivered: already listed, already announced
+          seen.current.add(n.id);
+          setItems((prev) => mergeInserted(prev, n).items);
+          toast(n.title, {
+            description: [n.body, notificationHint(n)].filter(Boolean).join(" ") || undefined,
+          });
           playChime();
         },
       )
@@ -92,7 +134,7 @@ export function NotificationsBell() {
         },
         (payload) => {
           const n = payload.new as Notification;
-          setItems((prev) => prev.map((i) => (i.id === n.id ? n : i)));
+          setItems((prev) => applyUpdated(prev, n));
         },
       )
       .subscribe();
@@ -101,46 +143,82 @@ export function NotificationsBell() {
       active = false;
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, reloadKey]);
 
-  const markAll = async () => {
-    if (!unread) return;
-    const ids = items.filter((i) => !i.read).map((i) => i.id);
-    setItems((prev) => prev.map((i) => ({ ...i, read: true })));
-    await supabase.from("notifications").update({ read: true }).in("id", ids);
+  const setRead = async (ids: string[], read: boolean) => {
+    if (!ids.length) return;
+    const before = items;
+    setItems((prev) => prev.map((i) => (ids.includes(i.id) ? { ...i, read } : i)));
+    const { error } = await supabase.from("notifications").update({ read }).in("id", ids);
+    if (error) {
+      // Put the previous read state back and say so.
+      setItems((prev) =>
+        prev.map((i) =>
+          ids.includes(i.id)
+            ? { ...i, read: before.find((b) => b.id === i.id)?.read ?? i.read }
+            : i,
+        ),
+      );
+      toast.error("Could not update notifications. Please try again.");
+    }
+  };
+
+  const markAll = () =>
+    setRead(
+      visible.filter((i) => !i.read).map((i) => i.id),
+      true,
+    );
+
+  // Archive hides a notification. It never deletes it, and it never touches the job, payment or evidence it was about.
+  const setArchived = async (ids: string[], archived: boolean) => {
+    const at = archived ? new Date().toISOString() : null;
+    setItems((prev) => prev.map((i) => (ids.includes(i.id) ? { ...i, archived_at: at } : i)));
+    const { error } = await supabase
+      .from("notifications")
+      .update({ archived_at: at } as never)
+      .in("id", ids);
+    if (error) {
+      setItems((prev) =>
+        prev.map((i) =>
+          ids.includes(i.id) ? { ...i, archived_at: archived ? null : i.archived_at } : i,
+        ),
+      );
+      toast.error("Could not update notifications. Please try again.");
+      return false;
+    }
+    return true;
+  };
+
+  const archiveOne = async (n: Notification) => {
+    if (await setArchived([n.id], true)) {
+      toast("Notification cleared", {
+        action: { label: "Undo", onClick: () => void setArchived([n.id], false) },
+      });
+    }
+  };
+
+  const clearShown = async () => {
+    const ids = shown.map((i) => i.id);
+    if (!ids.length) return;
+    const scope = filter === "all" ? "" : ` in ${CATEGORY_LABEL[filter]}`;
+    if (
+      !window.confirm(
+        `Clear ${ids.length} notification${ids.length === 1 ? "" : "s"}${scope}? Your jobs, payments, messages and records are not affected.`,
+      )
+    )
+      return;
+    if (await setArchived(ids, true)) {
+      toast(`${ids.length} cleared`, {
+        action: { label: "Undo", onClick: () => void setArchived(ids, false) },
+      });
+    }
   };
 
   const openItem = async (n: Notification) => {
-    if (!n.read) {
-      setItems((prev) => prev.map((i) => (i.id === n.id ? { ...i, read: true } : i)));
-      await supabase.from("notifications").update({ read: true }).eq("id", n.id);
-    }
+    if (!n.read) await setRead([n.id], true);
     setOpen(false);
-
-    // Route by notification type first — many notifications (admin actions,
-    // wallet events, disputes/reports) have no job_id at all, so relying on
-    // job_id alone left most of these going nowhere when tapped.
-    switch (n.type) {
-      case "dispute_raised":
-      case "dispute_overdue":
-        return nav({ to: "/admin/disputes" });
-      case "report_filed":
-        return nav({ to: "/admin/reports" });
-      case "wallet_topup":
-      case "wallet_withdrawal":
-        return nav({ to: "/wallet" });
-      case "driver_verification":
-        return nav({ to: "/profile" });
-      case "user_status_changed":
-        return nav({ to: "/profile" });
-      case "new_message":
-        if (n.job_id) return nav({ to: "/chat/$jobId", params: { jobId: n.job_id } });
-        break;
-      default:
-        break;
-    }
-
-    if (n.job_id) nav({ to: "/jobs/$id", params: { id: n.job_id } });
+    const dest = notificationDestination(n);
+    if (dest) nav({ to: dest.to as never, params: dest.params as never });
   };
 
   return (
@@ -148,7 +226,7 @@ export function NotificationsBell() {
       <PopoverTrigger asChild>
         <button
           className="relative flex h-11 w-11 items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"
-          aria-label="Notifications"
+          aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
         >
           <Bell aria-hidden className="w-5 h-5" />
           {unread > 0 && (
@@ -158,57 +236,132 @@ export function NotificationsBell() {
           )}
         </button>
       </PopoverTrigger>
-      {open && (
-        // Radix Popover has no backdrop by default, so page content bled
-        // through behind it and it looked like it was overlapping the rest
-        // of the screen instead of sitting cleanly on top. This dims the
-        // background and closes the dropdown on tap, same as any other
-        // overlay in the app.
-        <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setOpen(false)} />
-      )}
+      {open && <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setOpen(false)} />}
       <PopoverContent align="end" className="z-50 w-[calc(100vw-1.5rem)] max-w-sm p-0">
-        <div className="flex items-center justify-between px-3 py-2 border-b">
+        <div className="flex items-center justify-between px-3 py-2 border-b gap-2">
           <div className="font-semibold text-sm">Notifications</div>
-          <button
-            onClick={markAll}
-            disabled={!unread}
-            className="text-xs text-cz-amber-text disabled:text-muted-foreground inline-flex items-center gap-1"
-          >
-            <Check className="w-3 h-3" /> Mark all read
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={markAll}
+              disabled={!unread}
+              className="min-h-11 rounded-lg px-2 text-xs font-medium text-cz-amber-text hover:bg-muted disabled:text-muted-foreground inline-flex items-center gap-1"
+            >
+              <Check className="w-3.5 h-3.5" /> Mark all read
+            </button>
+            <button
+              onClick={clearShown}
+              disabled={!shown.length}
+              aria-label={`Clear ${shown.length} shown notification${shown.length === 1 ? "" : "s"}`}
+              className="min-h-11 rounded-lg px-2 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50 inline-flex items-center gap-1"
+            >
+              <Archive className="w-3.5 h-3.5" /> Clear shown
+            </button>
+          </div>
         </div>
-        <div className="max-h-[70vh] overflow-auto">
-          {items.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">
-              You're all caught up
+        <div
+          className="flex gap-1 overflow-x-auto border-b px-2 py-1.5"
+          role="tablist"
+          aria-label="Notification categories"
+        >
+          {(["all", "jobs", "payments", "verification", "account"] as const).map((c) => (
+            <button
+              key={c}
+              role="tab"
+              aria-selected={filter === c}
+              onClick={() => setFilter(c)}
+              className={cn(
+                "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium",
+                filter === c
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted",
+              )}
+            >
+              {CATEGORY_LABEL[c]}
+            </button>
+          ))}
+        </div>
+        <div className="max-h-[65vh] overflow-auto">
+          {shown.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground" role="status">
+              {loadError && visible.length === 0 ? (
+                <>
+                  <p>Could not load your notifications.</p>
+                  <button
+                    onClick={() => setReloadKey((k) => k + 1)}
+                    className="mt-2 min-h-11 rounded-lg px-3 text-sm font-semibold text-foreground underline underline-offset-4"
+                  >
+                    Try again
+                  </button>
+                </>
+              ) : visible.length === 0 ? (
+                "You're all caught up"
+              ) : (
+                `No ${CATEGORY_LABEL[filter].toLowerCase()} notifications`
+              )}
             </div>
           ) : (
-            items.map((n) => (
-              <button
-                key={n.id}
-                onClick={() => openItem(n)}
-                className={cn(
-                  "w-full text-left px-3 py-2.5 border-b last:border-0 hover:bg-muted transition-colors",
-                  !n.read && "bg-primary/5",
-                )}
-              >
-                <div className="flex items-start gap-2">
-                  {!n.read && (
-                    <span className="mt-1.5 w-2 h-2 rounded-full bg-primary shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{n.title}</div>
-                    {n.body && (
-                      <div className="text-xs text-muted-foreground line-clamp-2">
-                        {n.body}
-                      </div>
+            groupByDay(shown).map((g) => (
+              <section key={g.label} aria-label={g.label}>
+                <div className="sticky top-0 bg-card/95 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {g.label}
+                </div>
+                {g.items.map((n) => (
+                  <div
+                    key={n.id}
+                    className={cn(
+                      "flex items-start border-b last:border-0 hover:bg-muted/60 transition-colors",
+                      !n.read && "bg-primary/5",
                     )}
-                    <div className="text-[10px] text-muted-foreground mt-0.5">
-                      {new Date(n.created_at).toLocaleString()}
+                  >
+                    <button
+                      onClick={() => openItem(n)}
+                      className="flex-1 min-w-0 text-left px-3 py-2.5"
+                    >
+                      <div className="flex items-start gap-2">
+                        {!n.read && (
+                          <span
+                            aria-label="Unread"
+                            className="mt-1.5 w-2 h-2 rounded-full bg-primary shrink-0"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate">{n.title}</div>
+                          {n.body && (
+                            <div className="text-xs text-muted-foreground line-clamp-2">
+                              {n.body}
+                            </div>
+                          )}
+                          {notificationHint(n) && (
+                            <div className="text-xs font-medium mt-0.5">{notificationHint(n)}</div>
+                          )}
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            {CATEGORY_LABEL[notificationCategory(n.type)]} ·{" "}
+                            {new Date(n.created_at).toLocaleString("en-GB", {
+                              timeZone: "Africa/Harare",
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                    <div className="flex shrink-0 items-center py-0.5 pr-1">
+                      <button
+                        onClick={() => setRead([n.id], !n.read)}
+                        aria-label={n.read ? "Mark as unread" : "Mark as read"}
+                        className="flex h-11 w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted"
+                      >
+                        {n.read ? <Mail className="w-4 h-4" /> : <MailOpen className="w-4 h-4" />}
+                      </button>
+                      <button
+                        onClick={() => archiveOne(n)}
+                        aria-label="Clear this notification"
+                        className="flex h-11 w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted"
+                      >
+                        <Archive className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-                </div>
-              </button>
+                ))}
+              </section>
             ))
           )}
         </div>

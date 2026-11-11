@@ -212,59 +212,224 @@ export function hasSubmitted(
   return missingRequired(docs, hasTruck).length === 0 && !!nationality?.trim();
 }
 
+// ---------------------------------------------------------------------------
+// One status for the whole driver experience (onboarding, home, profile).
+// Everything comes from columns the database already has; no state is invented.
+// ---------------------------------------------------------------------------
+
+/** Business-hours review target (migration 0132 default). A target, never a promise. */
+export const REVIEW_TARGET_TEXT =
+  "Our target is to review applications within 24 business hours (weekdays, excluding public holidays). This is a target, not a guarantee.";
+
+/** The verification guard writes this note when an approved driver changes a document. */
+const REVERIFY_NOTE = /^Documents changed after verification/i;
+export const REVERIFY_DUE_SOON_DAYS = 14;
+
+export type DriverStatusKind =
+  | "not_submitted"
+  | "incomplete"
+  | "pending"
+  | "reverify_submitted"
+  | "approved"
+  | "reverify_due_soon"
+  | "reverify_overdue"
+  | "rejected";
+
+export interface DriverStatus {
+  kind: DriverStatusKind;
+  title: string;
+  /** What this status means. */
+  meaning: string;
+  /** What the driver should do next. */
+  next: string;
+  action: { label: string; to: "/become-driver" | "/profile" | "/driver" } | null;
+  canBid: boolean;
+  tone: "ok" | "warn" | "bad" | "info";
+  /** Whole days left on the 90-day check, when known. */
+  daysLeft: number | null;
+}
+
+export function reverifyDaysLeft(
+  due: string | null | undefined,
+  now: Date = new Date(),
+): number | null {
+  if (!due) return null;
+  const t = new Date(due).getTime();
+  if (Number.isNaN(t)) return null;
+  return Math.ceil((t - now.getTime()) / 86_400_000);
+}
+
+export function driverStatus(input: {
+  status: "pending" | "verified" | "rejected" | null | undefined;
+  notes?: string | null;
+  reverifyDueAt?: string | null;
+  /** Required documents and details are all on file. */
+  submitted: boolean;
+  /** Anything at all saved yet (a document, details or a truck). */
+  anyProgress?: boolean;
+  now?: Date;
+}): DriverStatus {
+  const note = input.notes?.trim() || null;
+  const daysLeft = reverifyDaysLeft(input.reverifyDueAt, input.now);
+  const base = { daysLeft };
+
+  if (input.status === "verified") {
+    if (daysLeft !== null && daysLeft <= 0) {
+      return {
+        ...base,
+        kind: "reverify_overdue",
+        title: "Re-verification overdue: bidding paused",
+        meaning:
+          "Your 90-day check has expired, so Con Z has paused bidding and new job alerts for your account.",
+        next: "Retake your selfie in your profile and submit it. Bidding stays paused until our team approves it.",
+        action: { label: "Re-verify now", to: "/profile" },
+        canBid: false,
+        tone: "bad",
+      };
+    }
+    if (daysLeft !== null && daysLeft <= REVERIFY_DUE_SOON_DAYS) {
+      return {
+        ...base,
+        kind: "reverify_due_soon",
+        title: `Verified. Re-verification due in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`,
+        meaning: "You can bid now. Drivers are re-checked every 90 days.",
+        next: "Submit your updated selfie before the due date. Bidding pauses from the moment you submit until our team approves it, so choose a quiet time.",
+        action: { label: "Update selfie", to: "/profile" },
+        canBid: true,
+        tone: "warn",
+      };
+    }
+    return {
+      ...base,
+      kind: "approved",
+      title: "Verified",
+      meaning:
+        "Your driver application is approved. You can find delivery requests and send offers.",
+      next: "Open Find Jobs to see current requests.",
+      action: { label: "Find jobs", to: "/driver" },
+      canBid: true,
+      tone: "ok",
+    };
+  }
+
+  if (input.status === "rejected") {
+    return {
+      ...base,
+      kind: "rejected",
+      title: note ? "Corrections needed" : "Not approved",
+      meaning: note
+        ? `Our team asked for changes: ${note}`
+        : "Your documents were not accepted. Fix what is missing and submit again.",
+      next: "Correct the items above, then resubmit your application. You cannot bid until it is approved.",
+      action: { label: "Fix and resubmit", to: "/become-driver" },
+      canBid: false,
+      tone: "bad",
+    };
+  }
+
+  // A pending profile with the guard's note is an approved driver re-checked after a change.
+  if (note && REVERIFY_NOTE.test(note)) {
+    return {
+      ...base,
+      kind: "reverify_submitted",
+      title: "Re-verification submitted",
+      meaning:
+        "You changed a document, so Con Z is re-checking your account. Bidding is paused until it is approved.",
+      next: "You do not need to submit again. We will notify you when it is approved.",
+      action: null,
+      canBid: false,
+      tone: "info",
+    };
+  }
+  if (note) {
+    return {
+      ...base,
+      kind: "reverify_submitted",
+      title: "We're checking your changes",
+      meaning: note,
+      next: "You do not need to submit again. We will notify you when there is an update.",
+      action: null,
+      canBid: false,
+      tone: "info",
+    };
+  }
+
+  if (input.submitted) {
+    return {
+      ...base,
+      kind: "pending",
+      title: "Application received",
+      meaning: "Your application has been received and is being reviewed.",
+      next: "You do not need to submit it again. We will notify you when there is an update.",
+      action: null,
+      canBid: false,
+      tone: "info",
+    };
+  }
+  if (input.anyProgress) {
+    return {
+      ...base,
+      kind: "incomplete",
+      title: "Application incomplete",
+      meaning:
+        "Some required details or documents are still missing, so nothing has been sent for review.",
+      next: "Finish the remaining steps, then submit your application.",
+      action: { label: "Continue sign-up", to: "/become-driver" },
+      canBid: false,
+      tone: "warn",
+    };
+  }
+  return {
+    ...base,
+    kind: "not_submitted",
+    title: "Finish your driver sign-up",
+    meaning: "You have not applied yet. Add your phone number, details, truck and documents.",
+    next: "Start the sign-up. It takes about five minutes.",
+    action: { label: "Start sign-up", to: "/become-driver" },
+    canBid: false,
+    tone: "warn",
+  };
+}
+
 /**
- * Driver home banner for an account that is not yet approved. The text follows
- * the real application state so a driver always knows the next step. Returns null
- * for an approved driver.
+ * Driver home banner. Returns null only when the driver can bid and nothing needs
+ * doing. Built on driverStatus so every screen tells the same story.
  */
 export function verificationBanner(
   status: "pending" | "verified" | "rejected" | null | undefined,
   submitted: boolean,
-  extra: { notes?: string | null; reverifyDueAt?: string | null; now?: Date } = {},
-): { title: string; body: string; action: string } | null {
-  if (status === "verified") {
-    // is_verified_driver() also requires the 90-day re-check to be in date; when it
-    // isn't, the database stops this driver bidding, so say so.
-    if (reverifyOverdue(extra.reverifyDueAt, extra.now)) {
-      return {
-        title: "Your 90-day check is due",
-        body: "Upload any updated documents so Con Z can check them. You can bid again once they're approved.",
-        action: "Update documents",
-      };
-    }
-    return null;
-  }
-  if (status === "rejected") {
-    return {
-      title: "Your application needs changes",
-      body: "See what to fix, upload it again and resubmit.",
-      action: "See what to fix",
-    };
-  }
-  // A note on a pending profile means an approved driver changed a truck or a
-  // document (0114 / document re-review) and is back in review; show the reason.
-  const note = extra.notes?.trim();
-  if (note) {
-    return { title: "We're checking your changes", body: note, action: "Check status" };
-  }
-  if (submitted) {
-    return {
-      title: "Your application is under review",
-      body: "You can bid as soon as Con Z approves your documents.",
-      action: "Check status",
-    };
-  }
+  extra: {
+    notes?: string | null;
+    reverifyDueAt?: string | null;
+    now?: Date;
+    anyProgress?: boolean;
+  } = {},
+): {
+  title: string;
+  body: string;
+  action: string;
+  to: "/become-driver" | "/profile" | "/driver";
+} | null {
+  const s = driverStatus({
+    status,
+    submitted,
+    notes: extra.notes,
+    reverifyDueAt: extra.reverifyDueAt,
+    anyProgress: extra.anyProgress,
+    now: extra.now,
+  });
+  if (s.kind === "approved") return null;
   return {
-    title: "Finish your driver sign-up",
-    body: "Add your phone number, truck and documents to start bidding.",
-    action: "Continue sign-up",
+    title: s.title,
+    body: `${s.meaning} ${s.next}`,
+    action: s.action?.label ?? "Check status",
+    to: s.action?.to === "/profile" ? "/profile" : "/become-driver",
   };
 }
 
 function reverifyOverdue(due: string | null | undefined, now = new Date()): boolean {
-  if (!due) return false;
-  const t = new Date(due).getTime();
-  return !Number.isNaN(t) && t <= now.getTime();
+  const d = reverifyDaysLeft(due, now);
+  return d !== null && d <= 0;
 }
 
 /** True when a driver can't bid right now and the home screen should say why. */
@@ -284,8 +449,13 @@ export function ratingLabel(
 ): string {
   const n = Number(count ?? 0);
   if (!(n > 0)) return "No ratings yet";
+  // One or two ratings are too few for an average to mean anything, so none is shown yet.
+  if (n < MIN_RATINGS_FOR_AVERAGE) return `${n} ${n === 1 ? "rating" : "ratings"} so far`;
   return `${Number(avg ?? 0).toFixed(1)} (${n})`;
 }
+
+/** Fewer ratings than this and the average is not shown (a single rating must not look like a record). */
+export const MIN_RATINGS_FOR_AVERAGE = 3;
 
 export function jobsDoneLabel(n: number | null | undefined): string {
   const v = Math.max(0, Number(n ?? 0));

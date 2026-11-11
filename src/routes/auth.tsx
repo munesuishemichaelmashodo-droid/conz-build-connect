@@ -195,8 +195,8 @@ function AuthPage() {
 
   const register = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim()) return toast.error("Please enter your full name");
-    if (password.length < 8) return toast.error("Password must be at least 8 characters");
+    if (!fullName.trim()) return toast.error("Enter your full name to create your account");
+    if (password.length < 8) return toast.error("Choose a password with at least 8 characters");
     if (!acceptedTerms) return toast.error("Please accept the Terms and Privacy Policy to continue");
     setAuthDebug(null);
     setExistingEmail(null);
@@ -356,7 +356,7 @@ function AuthPage() {
           <img src="/conz-icon-192.png" alt="" className="w-10 h-10 rounded-lg" width={40} height={40} />
           <div>
             <h1 className="cz-display font-bold text-[28px] leading-none">Con Z</h1>
-            <div className="text-sm text-muted-foreground">Construction made easy</div>
+            <div className="text-sm text-muted-foreground">Construction material delivery, matched with tipper-truck drivers</div>
           </div>
         </div>
 
@@ -487,9 +487,14 @@ function AuthPage() {
             <div>
               <Label>I am a…</Label>
               <RadioGroup value={role} onValueChange={(v) => setRole(v as "customer" | "driver")} className="grid grid-cols-2 gap-2 mt-1">
-                <RoleCard value="customer" label="Customer" hint="I need deliveries" current={role} />
-                <RoleCard value="driver" label="Driver" hint="I own a tipper" current={role} />
+                <RoleCard value="customer" label="Customer" hint="I need materials delivered" current={role} />
+                <RoleCard value="driver" label="Driver" hint="I own a tipper truck" current={role} />
               </RadioGroup>
+              <p className="mt-2 text-xs text-muted-foreground" data-testid="role-explainer">
+                {role === "driver"
+                  ? "Next you add your truck and documents. Con Z reviews them before you can send offers. You choose which requests to price."
+                  : "Next you request a delivery. Drivers send offers, you compare them and choose. You pay the driver directly."}
+              </p>
             </div>
             <div>
               <Label htmlFor="fn">Full name</Label>

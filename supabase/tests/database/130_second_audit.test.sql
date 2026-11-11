@@ -1,7 +1,7 @@
 -- Phase 19 — regressions for issues found by the second security audit.
 
 begin;
-select plan(16);
+select plan(17);
 
 select set_config('t.cust',  tests.create_user('cust')::text, true);
 select set_config('t.drv',   tests.create_driver('drv', 0)::text, true);
@@ -36,7 +36,8 @@ select tests.login_as_mfa(current_setting('t.super')::uuid);
 select lives_ok(format($$select public.resolve_dispute(%L, 'refund', 'refund commission')$$, current_setting('t.d')),
   'Super admin with MFA can refund the commission');
 select tests.as_owner();
-select is(tests.balance(current_setting('t.cust')::uuid), 28.00::numeric, 'Customer credited exactly the commission');
+select is(tests.balance(current_setting('t.drv')::uuid), 28.00::numeric, '0160: the DRIVER is credited exactly the commission');
+select is(tests.balance(current_setting('t.cust')::uuid), 0.00::numeric, '0160: the customer is credited nothing');
 select ok(exists(select 1 from public.admin_money_actions where kind = 'dispute_refund' and amount = 28),
   'Refund counted against the super admin''s daily credit cap');
 
@@ -64,7 +65,7 @@ select throws_like(format($$select public.admin_referral_action(%L, 'release')$$
 select lives_ok(format($$select public.admin_referral_action(%L, 'release')$$, current_setting('t.r_ok')),
   'Super admin with MFA can release a legitimate approved reward');
 select tests.as_owner();
-select is(tests.balance(current_setting('t.drv')::uuid), 15.00::numeric, 'Referrer credited once');
+select is(tests.balance(current_setting('t.drv')::uuid), 43.00::numeric, 'Referrer credited once ($15 reward on top of the $28 commission returned by 0160)');
 
 -- 4. Commission rate changes need MFA
 select tests.login_as(current_setting('t.super')::uuid);

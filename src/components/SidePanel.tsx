@@ -1,7 +1,24 @@
+import { clearDeviceData } from "@/lib/sign-out";
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Moon, Sun, Truck, HardHat, User, Bell, Shield, Settings as SettingsIcon, LogOut, LifeBuoy, MessageSquareWarning, FileText, Lock, Gift } from "lucide-react";
+import {
+  Menu,
+  Moon,
+  Sun,
+  Truck,
+  HardHat,
+  User,
+  Bell,
+  Shield,
+  Settings as SettingsIcon,
+  LogOut,
+  LifeBuoy,
+  MessageSquareWarning,
+  FileText,
+  Lock,
+  Gift,
+} from "lucide-react";
 import { useViewMode } from "@/lib/view-mode";
 import { useAuth } from "@/lib/auth";
 import { useNavigate } from "@tanstack/react-router";
@@ -25,6 +42,7 @@ export function SidePanel() {
     qc.clear();
     const { deactivateNativePushForCurrentUser } = await import("@/lib/native-push");
     await deactivateNativePushForCurrentUser();
+    clearDeviceData(); // before signing out: with no signal the sign-out event never fires
     await supabase.auth.signOut();
     nav({ to: "/auth", replace: true });
   };
@@ -38,7 +56,11 @@ export function SidePanel() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button type="button" className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-muted text-muted-foreground" aria-label="Open menu">
+        <button
+          type="button"
+          className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"
+          aria-label="Open menu"
+        >
           <Menu className="w-5 h-5" />
         </button>
       </SheetTrigger>
@@ -54,8 +76,18 @@ export function SidePanel() {
           {/* Screen mode */}
           <Section label="Screen mode">
             <div className="grid grid-cols-2 gap-2">
-              <ModeButton active={theme === "light"} onClick={() => theme !== "light" && toggleTheme()} icon={Sun} label="Light" />
-              <ModeButton active={theme === "dark"} onClick={() => theme !== "dark" && toggleTheme()} icon={Moon} label="Dark" />
+              <ModeButton
+                active={theme === "light"}
+                onClick={() => theme !== "light" && toggleTheme()}
+                icon={Sun}
+                label="Light"
+              />
+              <ModeButton
+                active={theme === "dark"}
+                onClick={() => theme !== "dark" && toggleTheme()}
+                icon={Moon}
+                label="Dark"
+              />
             </div>
           </Section>
 
@@ -64,10 +96,20 @@ export function SidePanel() {
             <Section label="View as">
               <div className="grid grid-cols-2 gap-2">
                 {availableRoles.includes("customer") && (
-                  <ModeButton active={activeRole === "customer"} onClick={() => switchRole("customer")} icon={HardHat} label="Customer" />
+                  <ModeButton
+                    active={activeRole === "customer"}
+                    onClick={() => switchRole("customer")}
+                    icon={HardHat}
+                    label="Customer"
+                  />
                 )}
                 {availableRoles.includes("driver") && (
-                  <ModeButton active={activeRole === "driver"} onClick={() => switchRole("driver")} icon={Truck} label="Driver" />
+                  <ModeButton
+                    active={activeRole === "driver"}
+                    onClick={() => switchRole("driver")}
+                    icon={Truck}
+                    label="Driver"
+                  />
                 )}
               </div>
               {availableRoles.length === 1 && availableRoles[0] === "customer" && (
@@ -87,13 +129,20 @@ export function SidePanel() {
             <NavItem to="/profile" icon={User} label="Profile" onClick={close} />
             <NavItem to="/refer" icon={Gift} label="Refer & Earn" onClick={close} />
             <NavItem to="/jobs" icon={Bell} label="Notifications & jobs" onClick={close} />
-            {isAdmin && <NavItem to="/admin" icon={Shield} label="Admin dashboard" onClick={close} />}
+            {isAdmin && (
+              <NavItem to="/admin" icon={Shield} label="Admin dashboard" onClick={close} />
+            )}
             <NavItem to="/profile" icon={SettingsIcon} label="Account settings" onClick={close} />
           </Section>
 
           <Section label="Support">
             <NavItem to="/help" icon={LifeBuoy} label="Help & FAQ" onClick={close} />
-            <NavItem to="/report" icon={MessageSquareWarning} label="Report an issue" onClick={close} />
+            <NavItem
+              to="/report"
+              icon={MessageSquareWarning}
+              label="Report an issue"
+              onClick={close}
+            />
           </Section>
 
           <Section label="Legal">
@@ -103,7 +152,10 @@ export function SidePanel() {
         </div>
 
         <div className="px-4 pt-2 pb-1 text-center">
-          <p className="text-[10px] text-muted-foreground">© {new Date().getFullYear()} Navysky Innovations (Private) Limited, trading as Con Z. All rights reserved.</p>
+          <p className="text-[10px] text-muted-foreground">
+            © {new Date().getFullYear()} Navysky Innovations (Private) Limited, trading as Con Z.
+            All rights reserved.
+          </p>
         </div>
         <div className="p-4 border-t">
           <button
@@ -127,13 +179,25 @@ function Section({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-function ModeButton({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof Sun; label: string }) {
+function ModeButton({
+  active,
+  onClick,
+  icon: Icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: typeof Sun;
+  label: string;
+}) {
   return (
     <button
       onClick={onClick}
       className={cn(
         "flex flex-col items-center gap-1 rounded-lg border p-3 text-xs font-semibold transition",
-        active ? "border-primary bg-primary/10 text-cz-amber-text" : "hover:bg-muted text-muted-foreground"
+        active
+          ? "border-primary bg-primary/10 text-cz-amber-text"
+          : "hover:bg-muted text-muted-foreground",
       )}
     >
       <Icon className="w-5 h-5" />
@@ -142,7 +206,17 @@ function ModeButton({ active, onClick, icon: Icon, label }: { active: boolean; o
   );
 }
 
-function NavItem({ to, icon: Icon, label, onClick }: { to: string; icon: typeof User; label: string; onClick: () => void }) {
+function NavItem({
+  to,
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  to: string;
+  icon: typeof User;
+  label: string;
+  onClick: () => void;
+}) {
   return (
     <Link
       to={to as "/profile"}

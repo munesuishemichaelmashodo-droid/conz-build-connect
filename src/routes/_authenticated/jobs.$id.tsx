@@ -3,10 +3,14 @@ import { kickJobPayout } from "@/lib/payonify.functions";
 import { DISPUTE_OPTIONS, disputeOption, disputeReason, MIN_DISPUTE_EXPLANATION, type DisputeSide } from "@/lib/dispute-options";
 import { useLaunchSwitches } from "@/lib/launch-switches";
 import { serverNow, syncServerClock } from "@/lib/server-clock";
+import { useInvitedJobIds, RETURNING_CUSTOMER_TEXT } from "@/components/redesign/useInvitedJobs";
 import { commissionFee, earnings, fuelEstimate } from "@/lib/driver-economics";
 import { composeOfferMessage, isDriverArranged, MAX_SOURCE_LENGTH, parseOfferMessage } from "@/lib/proposed-source";
 import { OfferMessage } from "@/components/redesign/ProposedSource";
-import { cancelPolicyText, customerCanCancel } from "@/lib/cancel-policy";
+import { fetchOpenJob } from "@/lib/open-jobs";
+import { DeliveryFeedbackCard } from "@/components/DeliveryFeedbackCard";
+import { cancellationReasonOptions, type CancellationReasonCode } from "@/lib/cancellation-reasons";
+import { ADMIN_CANCEL_REASON_MIN, DRIVER_RELEASE_POLICY_TEXT, adminCancelPolicyText, adminCanCancel, cancelPolicyText, customerCanCancel, customerCanReopenNoShow, driverCanRelease, friendlyAcceptError } from "@/lib/cancel-policy";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -46,7 +50,24 @@ import { PayonifyPay } from "@/components/payments/PayonifyPay";
 import { defaultPayChoice, ecocashDetail, ecocashLabel, paynowDetail, paynowLabel, usePaymentOptions } from "@/components/payments/usePaymentOptions";
 import { friendlyPaymentError } from "@/lib/paymentErrors";
 import { ShieldCheck } from "lucide-react";
-import { bookAgainSearch } from "@/lib/book-again";
+import { isNetworkFailure, readContact, saveContact } from "@/lib/contact-cache";
+import { OfflineJobCard, ReadyOfflineChip } from "@/components/OfflineJobCard";
+import { useSaveOfflineCard } from "@/lib/use-save-offline-card";
+import {
+  buildOfflineCard,
+  isActiveJobStatus,
+  pinForDisplay,
+  readOfflineCard,
+  readPin,
+  removeOfflineCard,
+  removePin,
+  saveOfflineCard,
+  savePin,
+  shouldPruneSavedJob,
+} from "@/lib/offline-card";
+import { telLink } from "@/lib/tel-link";
+import { loadStateCopy } from "@/lib/load-state";
+import { bookAgainSearch, repostSearch } from "@/lib/book-again";
 import { isDriverArrangedPickup, saveLoadedAt } from "@/lib/pickup-check";
 import { cn } from "@/lib/utils";
 import { SpotlightCallout } from "@/components/SpotlightCallout";
@@ -74,6 +95,8 @@ import {
   straightKm,
 } from "@/components/redesign";
 import { OfferCard } from "@/components/redesign/OfferCard";
+import { truckFactsLine } from "@/lib/truck-facts";
+import { AgreementCard } from "@/components/AgreementCard";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import {
   OFFER_SORTS,
@@ -81,10 +104,11 @@ import {
   guideBand,
   offerHighlights,
   priceCoversLine,
+  recommendOffer,
   sortOffers,
   type OfferSort,
 } from "@/lib/offer-compare";
-import { driverMarkArrived, jobOfferSummary, withdrawBid, raiseJobBudget, useBidderLocations, useSecondsLeft, mmss } from "@/components/redesign/rpc";
+import { driverMarkArrived, jobOfferSummary, offerBidderCards, withdrawBid, raiseJobBudget, useBidderLocations, useSecondsLeft, mmss } from "@/components/redesign/rpc";
 import { PinMap } from "@/components/redesign/PinMap";
 import { DriverBottomNav, DRIVER_NAV_SPACE } from "@/components/redesign/DriverBottomNav";
 import { DriverNavigationButtons } from "@/components/DriverNavigationButtons";
@@ -97,19 +121,6 @@ import { ChevronDown, ChevronRight, Clock, Info, Navigation2, TrendingUp } from 
 export const Route = createFileRoute("/_authenticated/jobs/$id")({
   component: JobDetail,
 });
-
-// Plain tap-to-dial link — opens the phone's own dialer. Deliberately not a
-// masked/in-app call: it's simple, free, and needs no calling provider, at
-// the cost of showing each party the other's real phone number.
-const telLink = (phone: string | null | undefined) => {
-  if (!phone) return null;
-  let p = phone.replace(/[^\d+]/g, "");
-  if (p.startsWith("+")) p = p.slice(1);
-  if (p.startsWith("00")) p = p.slice(2);
-  if (p.startsWith("0")) p = "263" + p.slice(1);
-  if (p.length < 9) return null;
-  return `tel:+${p}`;
-};
 
 // Live-tracking share panel — lets either party hand off a login-free
 // tracking link to someone outside Con Z (e.g. a foreman waiting on site).
@@ -126,18 +137,32 @@ function useJobContact(job: any, isOwner: boolean) {
   const material = materialLabel(job.material as any, job.custom_material);
   const ref = String(job.id).slice(0, 8);
 
-  const { data: other } = useQuery({
+  const {
+    data: other,
+    isError: contactFailed,
+    refetch: refetchContact,
+  } = useQuery({
     queryKey: ["wa-contact", job.id, otherId],
     enabled: !!otherId,
     retry: false,
     queryFn: async () => {
+      const store = typeof window === "undefined" ? null : window.localStorage;
       const { data, error } = await supabase
         .from("profiles")
         .select("id,full_name,phone")
         .eq("id", otherId)
         .maybeSingle();
-      // If the phone column or RLS blocks this read, degrade gracefully.
-      if (error) return null;
+      if (error) {
+        // No signal: use the number this phone saw earlier (a call needs voice, not data), or say it failed.
+        if (isNetworkFailure(error)) {
+          const saved = readContact(job.id, otherId, store);
+          if (saved) return { id: otherId, ...saved };
+          throw error;
+        }
+        // If the phone column or RLS blocks this read, degrade gracefully.
+        return null;
+      }
+      if (data) saveContact(job.id, otherId, { full_name: data.full_name, phone: data.phone }, store);
       return data;
     },
   });
@@ -189,11 +214,11 @@ function useJobContact(job: any, isOwner: boolean) {
     }
   };
 
-  return { other, name, call, trackUrl, shareTrackLink };
+  return { other, name, call, trackUrl, shareTrackLink, contactFailed, retryContact: () => void refetchContact() };
 }
 
 function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
-  const { name, call, trackUrl, shareTrackLink } = useJobContact(job, isOwner);
+  const { name, call, trackUrl, shareTrackLink, contactFailed, retryContact } = useJobContact(job, isOwner);
 
   return (
     <div className="rounded-2xl bg-card border p-4 space-y-3">
@@ -211,6 +236,13 @@ function WhatsAppPanel({ job, isOwner }: { job: any; isOwner: boolean }) {
             Call {name}
           </a>
         </Button>
+      ) : contactFailed ? (
+        <div className="text-xs text-muted-foreground space-y-2">
+          <p>Couldn't load their number. Check your signal and try again.</p>
+          <Button type="button" variant="outline" size="sm" onClick={retryContact}>
+            Try again
+          </Button>
+        </div>
       ) : (
         <p className="text-xs text-muted-foreground">
           No phone number on their profile yet — use in-app chat above.
@@ -236,14 +268,35 @@ function JobDetail() {
   const qc = useQueryClient();
   const nav = useNavigate();
 
-  const { data: job, isLoading } = useQuery({
+  const {
+    data: job,
+    isLoading,
+    isError: jobFailed,
+    error: jobError,
+    fetchStatus: jobFetchStatus,
+    refetch: refetchJob,
+  } = useQuery({
     queryKey: ["job", id],
     queryFn: async () => {
       const { data, error } = await supabase.from("jobs").select("*").eq("id", id).maybeSingle();
       if (error) throw error;
-      return data;
+      if (data) return data;
+      // Not readable as a row: an unselected verified driver gets the area-only preview (0133).
+      return (await fetchOpenJob(supabase, id)) as typeof data;
     },
   });
+
+  // Saved offline details belong only to a delivery that is under way; a finished or cancelled job must not leave an
+  // old address (or PIN) on the phone.
+  useEffect(() => {
+    // "settled": the server really answered. A driver cannot read a job once it is cancelled, so "answered, no row"
+    // also means the delivery is over.
+    const settled = !isLoading && !jobFailed && jobFetchStatus === "idle";
+    if (shouldPruneSavedJob({ job, settled })) {
+      removeOfflineCard(id, window.localStorage);
+      removePin(id, window.localStorage);
+    }
+  }, [id, job?.status, isLoading, jobFailed, jobFetchStatus]);
 
   // Without this, a driver who had this page open when their bid got
   // accepted (or a customer watching a job change status) kept seeing the
@@ -288,23 +341,40 @@ function JobDetail() {
       const { data: bids } = await supabase.from("bids").select("*").eq("job_id", id).order("price");
       if (!bids?.length) return [] as any[];
       const driverIds = [...new Set(bids.map((b) => b.driver_id))];
-      const truckIds = [...new Set(bids.map((b: any) => b.truck_id).filter(Boolean))];
+      // Safe cards first (customer and admin): name, photo, last active, truck facts and a
+      // masked plate. No phone, email or full truck row (migration 0152).
+      const cardRes = await offerBidderCards(id);
+      const cards = new Map((cardRes.data ?? []).map((c) => [c.bid_id, c]));
+      // A driver looking at their own offer gets no cards; fall back to what they may read.
+      const missing = bids.filter((b: any) => !cards.has(b.id));
+      const missingDriverIds = [...new Set(missing.map((b: any) => b.driver_id))];
+      const missingTruckIds = [...new Set(missing.map((b: any) => b.truck_id).filter(Boolean))];
       const [{ data: profs }, { data: drvs }, { data: trucksData }] = await Promise.all([
-        supabase.from("profiles").select("id,full_name,avatar_url,last_active_at").in("id", driverIds),
+        missingDriverIds.length
+          ? supabase.from("profiles").select("id,full_name,avatar_url,last_active_at").in("id", missingDriverIds)
+          : Promise.resolve({ data: [] as { id: string; full_name: string | null; avatar_url: string | null; last_active_at: string | null }[] }),
         supabase
           .from("driver_public_profiles")
           .select("user_id,rating_avg,rating_count,level,jobs_completed,verification_status")
           .in("user_id", driverIds),
-        truckIds.length
-          ? supabase.from("trucks").select("id,registration").in("id", truckIds)
+        missingTruckIds.length
+          ? supabase.from("trucks").select("id,registration").in("id", missingTruckIds)
           : Promise.resolve({ data: [] as { id: string; registration: string }[] }),
       ]);
-      return bids.map((b: any) => ({
-        ...b,
-        profile: profs?.find((p) => p.id === b.driver_id),
-        driver: drvs?.find((d) => d.user_id === b.driver_id),
-        truck_reg: trucksData?.find((t) => t.id === b.truck_id)?.registration,
-      }));
+      return bids.map((b: any) => {
+        const card = cards.get(b.id);
+        return {
+          ...b,
+          profile: card
+            ? { full_name: card.full_name, avatar_url: card.avatar_url, last_active_at: card.last_active_at }
+            : profs?.find((p) => p.id === b.driver_id),
+          driver: drvs?.find((d) => d.user_id === b.driver_id),
+          truck_reg: card ? card.plate_display : trucksData?.find((t) => t.id === b.truck_id)?.registration,
+          truck_facts: card
+            ? { body_type: card.body_type, make: card.make, model: card.model, colour: card.colour }
+            : null,
+        };
+      });
     },
   });
 
@@ -318,10 +388,22 @@ function JobDetail() {
       job?.customer_id === userId &&
       ["accepted", "in_progress"].includes(job?.status ?? ""),
     queryFn: async () => {
-      const { data } = await (supabase.rpc as unknown as (
+      const store = typeof window === "undefined" ? null : window.localStorage;
+      const { data, error } = await (supabase.rpc as unknown as (
         f: string, a: Record<string, unknown>,
-      ) => Promise<{ data: string | null }>)("get_my_delivery_pin", { _job_id: id });
-      return (data as string | null) ?? null;
+      ) => Promise<{ data: string | null; error: { message?: string; code?: string } | null }>)(
+        "get_my_delivery_pin",
+        { _job_id: id },
+      );
+      // No signal at the gate: the customer can still show the PIN saved on their own phone (see lib/offline-card.ts).
+      const shown = pinForDisplay({
+        fetched: (data as string | null) ?? null,
+        networkFailed: !!error && isNetworkFailure(error),
+        cached: readPin(id, store),
+      });
+      if (shown.failed && error) throw error;
+      if (shown.pin && !error) savePin(id, shown.pin, store);
+      return shown.pin;
     },
   });
 
@@ -436,12 +518,39 @@ function JobDetail() {
       .catch(() => {});
   }, [job, isEscrow, userId]);
 
-  if (isLoading || !job)
+  if (isLoading || !job) {
+    const state = loadStateCopy({ error: jobFailed && !job, paused: jobFetchStatus === "paused" });
+    // The job cannot be loaded: show the delivery details saved on this phone while there was signal.
+    // Only for a missing signal: a real server error (for example an expired session) must say so, not "No signal".
+    const noSignal =
+      state.kind === "paused" ||
+      (state.kind === "error" && isNetworkFailure(jobError as { message?: string; code?: string } | null));
+    const saved =
+      !job && noSignal ? readOfflineCard(id, typeof window === "undefined" ? null : window.localStorage) : null;
+    if (saved) {
+      return (
+        <AppShell>
+          <OfflineJobCard
+            card={saved}
+            pin={saved.role === "customer" ? readPin(id, typeof window === "undefined" ? null : window.localStorage) : null}
+          />
+        </AppShell>
+      );
+    }
     return (
       <AppShell>
-        <div className="text-center text-muted-foreground py-10">Loading…</div>
+        <div role={state.kind === "error" ? "alert" : "status"} className="text-center text-muted-foreground py-10 space-y-2">
+          <div className="font-semibold text-foreground">{state.title}</div>
+          {state.detail && <div className="text-sm">{state.detail}</div>}
+          {state.kind === "error" && (
+            <Button type="button" variant="outline" onClick={() => void refetchJob()}>
+              Try again
+            </Button>
+          )}
+        </div>
       </AppShell>
     );
+  }
 
   const isOwner = job.customer_id === userId;
   const isAssignedDriver = job.driver_id === userId;
@@ -471,8 +580,30 @@ function JobDetail() {
   };
 
   const acceptBid = async (bidId: string) => {
+    // Optional deposit (0135): the customer must accept the driver's stated terms before selecting them.
+    const offer = (bids ?? []).find((x) => x.id === bidId) as
+      | { deposit_required?: boolean; deposit_amount?: number; deposit_reason?: string; deposit_terms?: string; deposit_terms_accepted_at?: string | null; price: number }
+      | undefined;
+    if (offer?.deposit_required && !offer.deposit_terms_accepted_at) {
+      const dep = Number(offer.deposit_amount);
+      const ok = window.confirm(
+        `This driver asks for a deposit of ${money(dep)} (balance ${money(Number(offer.price) - dep)}).\n\nReason: ${offer.deposit_reason}\nCancellation and refund terms: ${offer.deposit_terms}\n\n` +
+          "The deposit is agreed and paid directly between you and the driver. Con Z does not hold it and cannot guarantee a refund.\n\nAccept these terms and select this driver?",
+      );
+      if (!ok) return;
+      const { error: ackError } = await (supabase.rpc as unknown as (f: string, a: Record<string, unknown>) => PromiseLike<{ error: { message: string } | null }>)(
+        "acknowledge_deposit_terms",
+        { _bid_id: bidId },
+      );
+      if (ackError) return toast.error(ackError.message);
+    }
     const { error } = await supabase.rpc("accept_bid", { _bid_id: bidId });
     if (error) {
+      const busy = friendlyAcceptError(error.message);
+      if (busy) {
+        qc.invalidateQueries({ queryKey: ["bids", id] });
+        return toast.error(busy);
+      }
       if (/insufficient wallet balance/i.test(error.message)) {
         return toast.error("This driver can no longer accept — ask them to top up, or accept another offer.");
       }
@@ -493,6 +624,9 @@ function JobDetail() {
   const acceptCounter = async (bidId: string) => {
     const { error } = await supabase.rpc("accept_counter", { _bid_id: bidId });
     if (error) {
+      if (error.message.includes("DRIVER_BUSY")) {
+        return toast.error("You are already on another job. Finish it before taking a new one.");
+      }
       if (/insufficient wallet balance/i.test(error.message)) {
         return toast.error("You can no longer accept — top up your wallet first.");
       }
@@ -566,7 +700,12 @@ function JobDetail() {
   const showDeliveryPinEntry = isAssignedDriver && (job.status === "accepted" || job.status === "in_progress") && !!job.delivery_photo_url;
   // Customers can cancel until the load is collected; after that cancel_job refuses and
   // "Report a problem" (a dispute) is the way to raise it.
-  const showCancel = isOwner && customerCanCancel(job.status);
+  const isAdminViewer = !isOwner && !isAssignedDriver && (is("admin") || is("super_admin"));
+  const showCancel =
+    (isOwner && customerCanCancel(job.status)) ||
+    (isAdminViewer && adminCanCancel(job.status)) ||
+    // 0145: the assigned driver can hand an accepted direct-pay job back until the load is collected.
+    (isAssignedDriver && driverCanRelease(job.status, !!job.pickup_photo_url, job.payment_method));
   const showActionSection = showRadar || showEscrowBanner || showBidForm || showPickupUpload || showDeliveryUpload || showDeliveryPinDisplay || showCompleteButton || showDeliveryPinEntry || showCancel;
 
   const showProofPhotos = !!(job.pickup_photo_url || job.delivery_photo_url);
@@ -617,6 +756,7 @@ function JobDetail() {
     showRadar,
     showCounterResponse,
     showCancel,
+    isAdminViewer,
     showDispute,
     showNextLoads,
     showBookAgain,
@@ -628,7 +768,7 @@ function JobDetail() {
     invalidateJob: () => qc.invalidateQueries({ queryKey: ["job", id] }),
     invalidateBids: () => qc.invalidateQueries({ queryKey: ["bids", id] }),
     invalidateRating: () => qc.invalidateQueries({ queryKey: ["my-rating", id, userId] }),
-    onCancelled: () => nav({ to: "/jobs" }),
+    onCancelled: () => nav({ to: isAdminViewer ? "/admin/jobs" : "/jobs" }),
   };
   if (isOwner) return <CustomerJobScreen ctx={ctx} />;
   if (!isOwner && (isAssignedDriver || (is("driver") && (job.status === "open" || !!myBid)))) {
@@ -670,6 +810,11 @@ function JobDetail() {
               <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
               <span>{job.delivery_address}</span>
             </div>
+            {job.status === "open" && !isOwner && !is("admin") && !is("super_admin") && (
+              <p className="mt-1 pl-6 text-xs text-muted-foreground">
+                Area only. The exact address and the customer's contact details are shared once you are selected.
+              </p>
+            )}
 
             {job.preferred_date && (
               <div className="mt-2 flex items-center gap-2 text-sm">
@@ -710,7 +855,7 @@ function JobDetail() {
         {showActionSection && (
           <Section id="tour-next-steps" title="What's next">
             <div className="space-y-4">
-              {showRadar && <RadarSearch nearbyDrivers={nearbyDrivers} />}
+              {showRadar && <RadarSearch nearbyDrivers={nearbyDrivers} createdAt={job.created_at} expiresAt={job.expires_at} />}
 
               {showEscrowBanner && (
                 <div className={cn(
@@ -835,7 +980,7 @@ function JobDetail() {
               )}
 
               {showCancel && (
-                <CancelJobDialog jobId={id} status={job.status} onCancelled={() => nav({ to: "/jobs" })} />
+                <CancelJobDialog jobId={id} status={job.status} asAdmin={isAdminViewer} asDriver={isAssignedDriver} onCancelled={() => nav({ to: isAdminViewer ? "/admin/jobs" : "/jobs" })} />
               )}
             </div>
           </Section>
@@ -959,7 +1104,7 @@ function JobDetail() {
                                   {Number(b.driver.rating_avg || 0).toFixed(1)}{" "}
                                   <span className="text-muted-foreground/70">({b.driver.rating_count ?? 0})</span>
                                 </span>
-                                <span>• {b.driver.jobs_completed ?? 0} rides completed</span>
+                                <span>• {b.driver.jobs_completed ?? 0} deliveries completed</span>
                               </>
                             )}
                           </div>
@@ -984,7 +1129,7 @@ function JobDetail() {
                       <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
                         <span className="inline-flex items-center gap-1 text-muted-foreground">
                           <Truck className="w-3.5 h-3.5" />
-                          {b.truck_reg} · {b.capacity_m3_snapshot} m³ truck
+                          {[truckFactsLine(b.truck_facts), b.truck_reg].filter(Boolean).join(" · ")} · {b.capacity_m3_snapshot} m³ truck
                         </span>
                         {b.capacity_match_tier && (
                           <StatusBadge
@@ -1091,7 +1236,7 @@ function JobDetail() {
                   search={bookAgainSearch(job, { sameDriver: true }) ?? {}}
                   className="block w-full text-center rounded-xl bg-primary text-primary-foreground font-display font-bold py-3"
                 >
-                  Book this driver again
+                  Invite this driver to bid again
                 </Link>
               )}
             </div>
@@ -1224,6 +1369,20 @@ function BidForm({
   const [truckId, setTruckId] = useState<string>(existing?.truck_id ?? "");
   // Migration 0060: optional "I can reach pickup in" (minutes).
   const [etaMinutes, setEtaMinutes] = useState<number | null>(existing?.eta_minutes ?? null);
+  // Optional mobilisation deposit (0135). Off by default; nothing is sent unless it is switched on.
+  const ex = existing as unknown as { deposit_required?: boolean; deposit_amount?: number; deposit_reason?: string; deposit_terms?: string } | null;
+  const [depositOn, setDepositOn] = useState(!!ex?.deposit_required);
+  const { data: depositsAvailable } = useQuery({
+    queryKey: ["bids-deposit-columns"],
+    staleTime: Infinity,
+    queryFn: async () => {
+      const { error } = await supabase.from("bids").select("deposit_required" as never).limit(1);
+      return !error;
+    },
+  });
+  const [depositAmount, setDepositAmount] = useState(ex?.deposit_amount ? String(ex.deposit_amount) : "");
+  const [depositReason, setDepositReason] = useState(ex?.deposit_reason ?? "");
+  const [depositTerms, setDepositTerms] = useState(ex?.deposit_terms ?? "");
   const [loading, setLoading] = useState(false);
 
   const { data: trucks } = useQuery({
@@ -1298,6 +1457,12 @@ function BidForm({
     const p = parseFloat(price);
     if (!p || p <= 0) return toast.error("Enter a valid price");
     if (!truckId) return toast.error("Select which truck you're bidding with");
+    const dep = parseFloat(depositAmount);
+    if (depositOn) {
+      if (!(dep > 0) || dep > p) return toast.error("The deposit must be more than 0 and no more than your price");
+      if (depositReason.trim().length < 5) return toast.error("Say why a deposit is needed");
+      if (depositTerms.trim().length < 10) return toast.error("State the cancellation and refund terms for the deposit");
+    }
     setLoading(true);
     const { error } = await supabase.from("bids").upsert(
       {
@@ -1308,6 +1473,12 @@ function BidForm({
         message: composeOfferMessage(driverArrangesPickup ? proposedSource : "", message),
         truck_id: truckId,
         eta_minutes: etaMinutes,
+        // Only sent when switched on, so offers without a deposit are saved exactly as before.
+        ...(depositOn
+          ? { deposit_required: true, deposit_amount: dep, deposit_reason: depositReason.trim(), deposit_terms: depositTerms.trim() }
+          : ex?.deposit_required
+            ? { deposit_required: false }
+            : {}),
       } as any,
       { onConflict: "job_id,driver_id" },
     );
@@ -1352,10 +1523,9 @@ function BidForm({
         .from("system_settings")
         .select("key,value")
         .in("key", ["diesel_price_per_liter", "fuel_l_per_100km"]);
-      const get = (k: string) => {
-        const v = Number((data ?? []).find((r: { key: string }) => r.key === k)?.value);
-        return Number.isFinite(v) ? v : null;
-      };
+      // Raw values: fuelEstimate applies the engine's own fallbacks (0127).
+      const get = (k: string): unknown =>
+        (data ?? []).find((r: { key: string }) => r.key === k)?.value ?? null;
       return { diesel: get("diesel_price_per_liter"), fuel: get("fuel_l_per_100km") };
     },
   });
@@ -1479,11 +1649,21 @@ function BidForm({
         )}
 
         {fee != null && (
-          <p className="text-[13px] leading-relaxed text-cz-muted" data-testid="fee-explainer">
-            {firstJobFree
-              ? "Your first job on Con Z is free of the Con Z fee."
-              : `Con Z keeps ${pctLabel} of your price. It is reserved from your wallet when the customer accepts and charged when the job is done.`}
-          </p>
+          <div className="space-y-1 text-[13px] leading-relaxed text-cz-muted" data-testid="fee-explainer">
+            <p>
+              {firstJobFree
+                ? `Your first completed job on Con Z has no Con Z fee. After that, the fee is ${pctLabel} of your full offer price.`
+                : job?.pricing_basis === "transport_only"
+                  ? `Con Z keeps ${pctLabel} of your delivery fare; material is not part of it. It is reserved from your commission credit when the customer accepts and charged when the job is completed.`
+                  : `Con Z keeps ${pctLabel} of your full offer price, material and transport included. It is reserved from your wallet when the customer accepts and charged when the job is completed.`}
+            </p>
+            {take && (
+              <p data-testid="fee-example">
+                On this offer: {usd2(priceNum)} − {usd2(fee)} Con Z fee = <b className="text-cz-text">{usd2(take.afterFee)}</b>{" "}
+                before fuel and other operating costs. This is not guaranteed profit.
+              </p>
+            )}
+          </div>
         )}
 
         {trucks && trucks.length === 0 && (
@@ -1499,8 +1679,8 @@ function BidForm({
               <div className="text-sm">
                 <div className="font-bold">Top up to take this job</div>
                 <p className="mt-1 opacity-90">
-                  You need {money(shortfall)} more in your wallet to take jobs like this — commission is reserved when a
-                  bid is accepted.
+                  You need {money(shortfall)} more commission credit to take jobs like this — commission is reserved
+                  from your credit when your offer is accepted.
                 </p>
                 <p className="mt-1 text-xs opacity-80">
                   Commission required {money(Number(funds?.required ?? 0))} · Available{" "}
@@ -1508,7 +1688,13 @@ function BidForm({
                 </p>
               </div>
             </div>
-            <Link to="/wallet" className={czButtonClass("ghost", "sm")}>Top up wallet</Link>
+            <Link
+              to="/wallet"
+              search={{ topup: Math.ceil(shortfall) }}
+              className={czButtonClass("ghost", "sm")}
+            >
+              Top up {money(Math.ceil(shortfall))}
+            </Link>
           </div>
         )}
 
@@ -1617,6 +1803,44 @@ function BidForm({
             </div>
           </div>
         </details>
+
+        {/* Offer deposits need migration 0135; until it is live the control is hidden instead of failing on send. */}
+        {(depositsAvailable || depositOn) && (
+        <details className="group rounded-xl border border-cz-border bg-cz-surface" open={depositOn}>
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-[15px] font-semibold">
+            Ask for a deposit <span className="text-cz-muted font-normal text-sm">(optional)</span>
+            <ChevronDown className="w-4 h-4 text-cz-muted transition group-open:rotate-180" />
+          </summary>
+          <div className="space-y-3 px-4 pb-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={depositOn} onChange={(e) => setDepositOn(e.target.checked)} />
+              This offer needs a deposit before the job starts
+            </label>
+            {depositOn && (
+              <>
+                <div>
+                  <Label htmlFor="dep-amt">Deposit amount (USD)</Label>
+                  <Input id="dep-amt" inputMode="decimal" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="min-h-11" />
+                  {parseFloat(price) > 0 && parseFloat(depositAmount) > 0 && (
+                    <p className="mt-1 text-xs text-cz-muted">Balance due on delivery: {money(parseFloat(price) - parseFloat(depositAmount))}</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="dep-why">Why a deposit is needed</Label>
+                  <Input id="dep-why" maxLength={300} value={depositReason} onChange={(e) => setDepositReason(e.target.value)} className="min-h-11" placeholder="e.g. to book the loader" />
+                </div>
+                <div>
+                  <Label htmlFor="dep-terms">Cancellation and refund terms</Label>
+                  <Textarea id="dep-terms" rows={2} maxLength={600} value={depositTerms} onChange={(e) => setDepositTerms(e.target.value)} placeholder="e.g. Refundable if I cancel; kept if you cancel after loading" />
+                </div>
+                <p className="text-xs text-cz-muted">
+                  The customer pays the deposit directly to you. Con Z does not hold it, collect it or guarantee a refund. The customer must accept these terms before choosing you.
+                </p>
+              </>
+            )}
+          </div>
+        </details>
+        )}
 
         {job && (
           <details className="group rounded-xl border border-cz-border bg-cz-surface">
@@ -1992,13 +2216,16 @@ function ProofUpload({ jobId, kind, label, hint, ctaLabel, onUploaded, beforeUpl
   );
 }
 
-function CancelJobDialog({ jobId, status, onCancelled }: { jobId: string; status: string; onCancelled: () => void }) {
+function CancelJobDialog({ jobId, status, onCancelled, asAdmin = false, asDriver = false }: { jobId: string; status: string; onCancelled: () => void; asAdmin?: boolean; asDriver?: boolean }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const [category, setCategory] = useState<CancellationReasonCode | "">("");
   const [loading, setLoading] = useState(false);
+  const categories = cancellationReasonOptions(asDriver ? "driver" : asAdmin ? "admin" : "customer");
 
   // cancel_job charges no fee; it records a strike once a driver has accepted.
-  const policy = cancelPolicyText(status);
+  const policy = asDriver ? DRIVER_RELEASE_POLICY_TEXT : asAdmin ? adminCancelPolicyText(status) : cancelPolicyText(status);
+  const reasonOk = !asAdmin || reason.trim().length >= ADMIN_CANCEL_REASON_MIN;
 
   const tone = status === "open" ? "text-muted-foreground" : "text-warning";
 
@@ -2007,7 +2234,12 @@ function CancelJobDialog({ jobId, status, onCancelled }: { jobId: string; status
     const { error } = await supabase.rpc("cancel_job", { _job_id: jobId, _reason: reason.trim() || "" });
     setLoading(false);
     if (error) { toast.error(error.message); return; }
-    toast.success("Job cancelled");
+    // Optional: the category never blocks or changes the cancellation; the server decides who the actor is.
+    if (category) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated types predate 0148
+      await (supabase as any).rpc("record_cancellation_reason", { _job_id: jobId, _code: category });
+    }
+    toast.success(asDriver ? "Job released. It is open to other drivers again." : "Job cancelled");
     setOpen(false);
     onCancelled();
   };
@@ -2017,30 +2249,45 @@ function CancelJobDialog({ jobId, status, onCancelled }: { jobId: string; status
       <DialogTrigger asChild>
         <button type="button" className={czButtonClass("danger", "md")}>
           <Trash2 className="w-4 h-4" />
-          Cancel job
+          {asDriver ? "I can't do this job" : "Cancel job"}
         </button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Cancel this job?</DialogTitle>
+          <DialogTitle>{asDriver ? "Hand this job back?" : "Cancel this job?"}</DialogTitle>
           <DialogDescription className={tone}>{policy}</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <Label htmlFor="cxr">Reason (optional)</Label>
+          <Label htmlFor="cxc">Main reason (optional)</Label>
+          <select
+            id="cxc"
+            value={category}
+            onChange={(e) => setCategory(e.target.value as CancellationReasonCode | "")}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">Prefer not to say</option>
+            {categories.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">This helps us fix what goes wrong. It does not change your cancellation.</p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="cxr">{asAdmin ? "Reason (required, shown to the customer and driver)" : "Details (optional)"}</Label>
           <Textarea
             id="cxr"
             rows={3}
             maxLength={300}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="Tell us why you're cancelling"
+            placeholder={asAdmin ? "Why is this job being cancelled?" : "Tell us why you're cancelling"}
           />
         </div>
         <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="ghost" onClick={() => setOpen(false)} disabled={loading}>
             Keep job
           </Button>
-          <Button variant="destructive" onClick={submit} disabled={loading}>
+          <Button variant="destructive" onClick={submit} disabled={loading || !reasonOk}>
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm cancellation"}
           </Button>
         </DialogFooter>
@@ -2261,6 +2508,7 @@ type JobScreenCtx = {
   invalidateBids: () => void;
   invalidateRating: () => void;
   onCancelled: () => void;
+  isAdminViewer: boolean;
 };
 
 /** Per-job UI flag kept for the browser session (e.g. "I've arrived at
@@ -2312,7 +2560,7 @@ function MapBackButton({ to, onClick }: { to?: string; onClick?: () => void }) {
 /** Other party card with Chat (existing chat route, unread badge) + Call
  *  (existing tel: link). */
 function ContactCard({ ctx, subtitle, role }: { ctx: JobScreenCtx; subtitle: ReactNode; role: "driver" | "customer" }) {
-  const { other, name, call } = useJobContact(ctx.job, ctx.isOwner);
+  const { other, name, call, contactFailed, retryContact } = useJobContact(ctx.job, ctx.isOwner);
   const who = role === "driver" ? "driver" : "customer";
   return (
     <div className="flex items-center gap-3 rounded-xl border border-cz-border bg-cz-surface px-3.5 py-3">
@@ -2343,6 +2591,14 @@ function ContactCard({ ctx, subtitle, role }: { ctx: JobScreenCtx; subtitle: Rea
         >
           <Phone className="w-5 h-5" />
         </a>
+      ) : contactFailed ? (
+        <IconButton
+          onClick={retryContact}
+          aria-label="Couldn't load their number. Tap to try again"
+          title="Couldn't load their number. Tap to try again"
+        >
+          <Phone className="w-5 h-5" />
+        </IconButton>
       ) : (
         <IconButton disabled aria-label="No phone number on their profile yet" title="No phone number on their profile yet">
           <Phone className="w-5 h-5" />
@@ -2443,6 +2699,33 @@ function ProofPhotos({ job, viewer }: { job: any; viewer: EvidenceViewer }) {
   );
 }
 
+function ReopenNoShowButton({ jobId }: { jobId: string }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-cz-muted">
+        Your driver did not turn up. You can put this request back in front of other drivers. Nothing is
+        charged, and you can cancel it again at any time.
+      </p>
+      <button
+        type="button"
+        disabled={busy}
+        className={czButtonClass("primary")}
+        onClick={async () => {
+          setBusy(true);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated types predate 0147
+          const { error } = await (supabase as any).rpc("customer_reopen_no_show_job", { _job_id: jobId });
+          setBusy(false);
+          if (error) return toast.error(error.message || "This request can't be reopened.");
+          toast.success("Your request is open again. Nearby drivers have been alerted.");
+        }}
+      >
+        {busy ? "Reopening…" : "Reopen my request"}
+      </button>
+    </div>
+  );
+}
+
 function CancelledScreen({ ctx, backTo }: { ctx: JobScreenCtx; backTo: string }) {
   return (
     <CzScreen>
@@ -2456,7 +2739,13 @@ function CancelledScreen({ ctx, backTo }: { ctx: JobScreenCtx; backTo: string })
           <p className="pt-2 text-sm text-cz-muted">This job was cancelled.</p>
           {ctx.job.cancellation_reason && <p className="text-sm text-cz-muted italic">"{ctx.job.cancellation_reason}"</p>}
         </CzCard>
-        <Link to={backTo as "/jobs"} className={czButtonClass("primary")}>
+        {ctx.isOwner && customerCanReopenNoShow(ctx.job as never) && <ReopenNoShowButton jobId={ctx.job.id} />}
+        {ctx.isOwner && !customerCanReopenNoShow(ctx.job as never) && repostSearch(ctx.job) && (
+          <Link to="/customer/book" search={repostSearch(ctx.job) ?? {}} className={czButtonClass("primary")}>
+            Post this request again
+          </Link>
+        )}
+        <Link to={backTo as "/jobs"} className={czButtonClass(ctx.isOwner ? "secondary" : "primary")}>
           {ctx.isOwner ? "Back to my jobs" : "Find another load"}
         </Link>
       </div>
@@ -2497,6 +2786,7 @@ function DriverJobScreen({ ctx }: { ctx: JobScreenCtx }) {
 /** D2 (offer form) / D3 (offer sent, waiting) / counter-offer response. */
 function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
   const { job, myBid } = ctx;
+  const invitedByPastCustomer = useInvitedJobIds(ctx.userId).has(ctx.id);
   const [editing, setEditing] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   // Migration 0060: count + price range of the OTHER offers (never their
@@ -2663,7 +2953,12 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
     <CzScreen>
       <CzHeader title={editing ? "Change your offer" : "Offer your price"} {...(editing ? { onBack: () => setEditing(false) } : { backTo: "/driver" })} />
       <div id="tour-place-bid" className="flex flex-1 flex-col">
-        <div className="px-5">
+        <div className="px-5 space-y-3">
+          {invitedByPastCustomer && (
+            <HintBox tone="info" icon={<Info className="w-4 h-4" />}>
+              <b>Returning customer.</b> {RETURNING_CUSTOMER_TEXT} Check the details below and decide whether it suits your truck.
+            </HintBox>
+          )}
           <SpotlightCallout
             id="driver-bidding"
             title="Bid your own price"
@@ -2723,6 +3018,8 @@ function JobSummaryCard({ job, id = "tour-job-header" }: { job: any; id?: string
 function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
   const { job, id } = ctx;
   const { other } = useJobContact(job, false);
+  // Save the delivery details on this phone so they are still there with no signal (see lib/offline-card.ts).
+  const readyOffline = useSaveOfflineCard(job, other, "driver");
   // Migration 0060: arrival is recorded server-side (driver_mark_arrived),
   // so the customer's step bar shows it too. Realtime on the job row
   // refreshes this screen when it lands.
@@ -2945,6 +3242,8 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
         </div>
 
         <ContactCard ctx={ctx} role="customer" subtitle={`${mat} · ${Number(job.quantity_m3)} m³`} />
+        {readyOffline && <ReadyOfflineChip />}
+        <AgreementCard jobId={id} jobStatus={job.status} userId={ctx.userId} customerId={job.customer_id} />
 
         <SupplyConfirmationCard job={job} viewer="driver" />
 
@@ -3129,14 +3428,11 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
     }, 15_000);
     return () => window.clearInterval(t);
   }, []);
-  const [sort, setSort] = useState<OfferSort>("price");
+  const [sort, setSort] = useState<OfferSort>("best");
   const isLive = (b: any) => b.status === "pending" && (!b.expires_at || new Date(b.expires_at).getTime() > now);
   const all = bids ?? [];
   const live = all.filter(isLive);
   const earlier = all.filter((b: any) => !isLive(b)); // expired / withdrawn, collapsed at the bottom
-  const sorted = sortOffers(live, sort);
-  const primaryId = sorted[0]?.id; // the one filled Choose button follows the top of the list
-  const highlights = offerHighlights(live);
   const breakdown = ((job as any).pricing_breakdown ?? null) as {
     low?: number;
     high?: number;
@@ -3147,6 +3443,13 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
   const rangeLow = Number(breakdown?.low);
   const rangeHigh = Number(breakdown?.high);
   const hasRange = rangeLow > 0 && rangeHigh >= rangeLow;
+  const sorted = sortOffers(live, sort, breakdown);
+  const primaryId = sorted[0]?.id; // the one filled Choose button follows the top of the list
+  // "Best match": only when one offer is clearly better overall (display only; the customer chooses).
+  const recommendation = recommendOffer(live, breakdown);
+  const highlights = offerHighlights(live);
+  if (recommendation) (highlights[recommendation.id] ??= []).unshift("Best match");
+  const recommended = recommendation ? live.find((b: any) => b.id === recommendation.id) : null;
   const covers = priceCoversLine(
     breakdown,
     `${Number(job.quantity_m3)} m³ ${materialLabel(job.material as any, job.custom_material)}`,
@@ -3180,6 +3483,9 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
             {live.length ? `${live.length} driver${live.length === 1 ? "" : "s"} offered` : "Waiting for offers"}
           </h1>
           {covers && <p className="text-sm text-cz-muted">{covers}</p>}
+          <p className="text-sm text-cz-muted">
+            Compare price, truck, rating and pickup time, then choose a driver. An offer is not accepted until you choose it.
+          </p>
         </div>
 
         <dl className={cn("grid gap-2", hasRange ? "grid-cols-2" : "grid-cols-1")}>
@@ -3197,7 +3503,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
           )}
         </dl>
 
-        {ctx.showRadar && <RadarSearch nearbyDrivers={ctx.nearbyDrivers} />}
+        {ctx.showRadar && <RadarSearch nearbyDrivers={ctx.nearbyDrivers} createdAt={ctx.job.created_at} expiresAt={ctx.job.expires_at} />}
 
         {live.length > 1 && (
           <ToggleGroupPrimitive.Root
@@ -3205,7 +3511,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
             value={sort}
             onValueChange={(v) => v && setSort(v as OfferSort)}
             aria-label="Sort offers"
-            className="grid grid-cols-3 gap-1 rounded-xl bg-cz-surface-2 p-1"
+            className="grid grid-cols-4 gap-1 rounded-xl bg-cz-surface-2 p-1"
           >
             {OFFER_SORTS.map((o) => (
               <ToggleGroupPrimitive.Item
@@ -3219,9 +3525,18 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
           </ToggleGroupPrimitive.Root>
         )}
 
+        {recommendation && recommended && sort === "best" && (
+          <p data-testid="best-match-note" className="rounded-xl bg-cz-surface-2 px-3 py-2 text-[13px] text-cz-muted">
+            <span className="font-semibold">Best match:</span>{" "}
+            {String((recommended as any).profile?.full_name ?? "A driver").split(" ")[0]}
+            {recommendation.reasons.length > 0 ? `. ${recommendation.reasons.join(" · ")}.` : "."} Based on price, truck fit,
+            ratings and experience. You choose.
+          </p>
+        )}
+
         <div id="tour-bids-received" className="space-y-3">
           {live.length === 0 ? (
-            <p className="text-sm text-cz-muted">No offers yet. Drivers near you are checking your request. This updates live.</p>
+            <p className="text-sm text-cz-muted">No offers yet. Verified drivers can see your request and send offers. This updates live.</p>
           ) : (
             sorted.map((b: any) => (
               <OfferCard
@@ -3292,7 +3607,7 @@ function CustomerOffers({ ctx }: { ctx: JobScreenCtx }) {
 
         {ctx.showCancel && (
           <div id="tour-next-steps">
-            <CancelJobDialog jobId={id} status={job.status} onCancelled={ctx.onCancelled} />
+            <CancelJobDialog jobId={id} status={job.status} asAdmin={ctx.isAdminViewer} asDriver={ctx.isAssignedDriver} onCancelled={ctx.onCancelled} />
           </div>
         )}
       </BottomSheet>
@@ -3370,6 +3685,8 @@ function RaisePriceCard({ job, onRaised }: { job: any; onRaised: () => void }) {
 
 function useAcceptedDriver(ctx: JobScreenCtx) {
   const { name, other } = useJobContact(ctx.job, ctx.isOwner);
+  // The customer's own card (driver's number, the address, and the PIN) stays on this phone for no-signal moments.
+  useSaveOfflineCard(ctx.job, other, "customer");
   const bid = (ctx.bids ?? []).find((b: any) => b.status === "accepted");
   const fullName = other?.full_name ?? bid?.profile?.full_name ?? name;
   return {
@@ -3513,7 +3830,7 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
         <div className="grid grid-cols-2 gap-2.5">
           <CzButton kind="ghost" size="sm" onClick={onViewTracking}>View tracking</CzButton>
           {ctx.showCancel ? (
-            <CancelJobDialog jobId={id} status={job.status} onCancelled={ctx.onCancelled} />
+            <CancelJobDialog jobId={id} status={job.status} asAdmin={ctx.isAdminViewer} asDriver={ctx.isAssignedDriver} onCancelled={ctx.onCancelled} />
           ) : (
             <span />
           )}
@@ -3797,6 +4114,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
         )}
         <SupplyConfirmationCard job={job} viewer="customer" />
         <ContactCard ctx={ctx} role="driver" subtitle={d.bid?.truck_reg ? `Truck ${d.bid.truck_reg} · ${mat}` : mat} />
+        <AgreementCard jobId={id} jobStatus={job.status} userId={ctx.userId} customerId={job.customer_id} />
         <ProofPhotos job={job} viewer="customer" />
 
         <div className="space-y-2.5">
@@ -3805,7 +4123,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
               <RaiseDisputeDialog jobId={id} against={job.driver_id} side="customer" label="Report a problem" />
             </div>
           )}
-          {ctx.showCancel && <CancelJobDialog jobId={id} status={job.status} onCancelled={ctx.onCancelled} />}
+          {ctx.showCancel && <CancelJobDialog jobId={id} status={job.status} asAdmin={ctx.isAdminViewer} asDriver={ctx.isAssignedDriver} onCancelled={ctx.onCancelled} />}
         </div>
       </BottomSheet>
     </CzScreen>
@@ -3855,17 +4173,25 @@ function CustomerDelivered({ ctx }: { ctx: JobScreenCtx }) {
           )}
         </div>
 
+        <DeliveryFeedbackCard jobId={id} />
+
         <ProofPhotos job={job} viewer="customer" />
 
         <div className="space-y-2.5 pt-1">
-          <Link to="/customer/book" className={czButtonClass("primary")}>Book another load</Link>
+          <Link
+            to="/customer/book"
+            search={bookAgainSearch(job) ?? {}}
+            className={czButtonClass("primary")}
+          >
+            Book this delivery again
+          </Link>
           {ctx.showBookAgain && (
             <Link
               to="/customer/book"
               search={bookAgainSearch(job, { sameDriver: true }) ?? {}}
               className={czButtonClass("secondary", "md")}
             >
-              Book {d.first} again
+              Invite {d.first} to bid again
             </Link>
           )}
           {ctx.showReceipt && (

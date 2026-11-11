@@ -14,6 +14,10 @@ type PastJob = {
 };
 
 export type BookAgainSearch = {
+  /** Marks a booking opened from a past delivery, so the screen can say which details were reused. */
+  repeat?: boolean;
+  /** "cancelled" when reposting a request that did not get delivered (changes the wording of the notice). */
+  source?: "cancelled";
   material?: string;
   quantity?: number;
   address?: string;
@@ -32,7 +36,7 @@ export function bookAgainSearch(
   { sameDriver = false }: { sameDriver?: boolean } = {},
 ): BookAgainSearch | null {
   if (job.status !== "completed") return null;
-  const s: BookAgainSearch = {};
+  const s: BookAgainSearch = { repeat: true };
   if (job.material && job.material !== "custom") s.material = job.material;
   const qty = num(job.quantity_m3);
   if (qty != null && qty > 0) s.quantity = qty;
@@ -46,4 +50,91 @@ export function bookAgainSearch(
   }
   if (sameDriver && job.driver_id) s.driverId = job.driver_id;
   return s;
+}
+
+/**
+ * "Post again" for a request that ended without a delivery (cancelled or expired): the same load and delivery
+ * point, a fresh quote, and no previous driver (they did not deliver, so nobody is invited by default).
+ */
+export function repostSearch(job: PastJob): BookAgainSearch | null {
+  if (job.status !== "cancelled" && job.status !== "expired") return null;
+  const s = bookAgainSearch({ ...job, status: "completed" });
+  if (!s) return null;
+  return { ...s, source: "cancelled" };
+}
+
+export type RepeatableJob = PastJob & {
+  id: string;
+  quantity_m3: number | string | null;
+  material: string;
+};
+
+// Minimal shape of the supabase query builder this helper uses, so it can be tested without a network.
+type Query = {
+  select: (cols: string) => Query;
+  eq: (col: string, val: string) => Query;
+  neq: (col: string, val: string) => Query;
+  order: (col: string, opts: { ascending: boolean }) => Query;
+  limit: (n: number) => Query;
+  maybeSingle: () => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+};
+
+const REPEAT_COLUMNS =
+  "id,status,material,custom_material,quantity_m3,delivery_address,delivery_lat,delivery_lng,driver_id";
+
+/**
+ * The customer's most recent completed delivery that the booking screen can pre-fill (no custom material),
+ * read straight from their history with one narrow query, so it does not matter how many newer jobs exist.
+ * Returns null when there is none or the read fails (the card is simply not shown).
+ */
+export async function latestRepeatableJob(
+  client: { from: (table: string) => unknown },
+  userId: string,
+): Promise<RepeatableJob | null> {
+  const q = client.from("jobs") as Query;
+  const { data, error } = await q
+    .select(REPEAT_COLUMNS)
+    .eq("customer_id", userId)
+    .eq("status", "completed")
+    .neq("material", "custom")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data as RepeatableJob;
+}
+
+/**
+ * What the booking screen says when it was opened from a past delivery: which details were reused, that they
+ * can be changed, that the price is quoted fresh, and (when a previous driver is invited) that the invitation
+ * is not an assignment and gives no priority. Pickup details are never reused: only the delivery point is.
+ */
+export function repeatNoticeText(
+  search: {
+    repeat?: boolean;
+    source?: "cancelled";
+    material?: string;
+    quantity?: number;
+    address?: string;
+    driverId?: string;
+  },
+  materialName: string,
+): { title: string; details: string; note: string; invitation: string | null } | null {
+  if (!search.repeat) return null;
+  const parts = [
+    search.material ? materialName : null,
+    search.quantity ? `${search.quantity} m³` : null,
+    search.address ? `to ${search.address}` : null,
+  ].filter(Boolean);
+  return {
+    title:
+      search.source === "cancelled"
+        ? "Same details as your earlier request"
+        : "Based on your last delivery",
+    details: parts.length ? parts.join(" · ") : "Your last delivery's details",
+    note: "Check these and change anything you need. The price is worked out fresh for this request, so it may differ from last time. You see every offer and driver update on the job page.",
+    invitation: search.driverId
+      ? "We'll invite your previous driver to bid. They are not assigned and get no priority: other verified drivers can offer too, and you choose."
+      : null,
+  };
 }

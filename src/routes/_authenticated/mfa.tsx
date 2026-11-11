@@ -149,8 +149,8 @@ function MfaPage() {
           </h2>
           <p className="text-sm text-muted-foreground">
             {stage === "enroll"
-              ? "Super admin money actions (credits, approvals, refunds) require an authenticator app. Scan the code below with Google Authenticator, Authy, or 1Password."
-              : "This admin account is protected with two-factor authentication."}
+              ? "Optional extra protection. Once set up, money and role actions on this account need a code from the app; signing in with Google alone will no longer be enough. Scan the code below with Google Authenticator, Authy or 1Password."
+              : "Enter the current code from your authenticator app to continue."}
           </p>
         </div>
 
@@ -224,8 +224,8 @@ function MfaPage() {
             </Button>
             {stage === "challenge" && (
               <p className="text-[11px] text-muted-foreground text-center">
-                Lost access to your authenticator app? The project owner can remove the factor in
-                the Supabase dashboard (Authentication → Users), then you can enrol again.
+                Lost the phone with your authenticator app? Ask the other owner to open Admin,
+                Settings, "Authenticator app" and reset it for you. You can then set it up again.
               </p>
             )}
           </form>

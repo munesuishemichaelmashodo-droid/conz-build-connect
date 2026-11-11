@@ -3,10 +3,14 @@ import listMyJobs from "./tools/list_my_jobs";
 import getWallet from "./tools/get_wallet";
 import listOpenJobs from "./tools/list_open_jobs";
 import getPriceGuide from "./tools/get_price_guide";
+import { supabaseProjectRef } from "./issuer";
 
 // Direct Supabase issuer — the runtime SUPABASE_URL becomes the .lovable.cloud
 // proxy on publish, which mcp-js rejects (RFC 8414 issuer mismatch).
-const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "project-ref-unset";
+const projectRef = supabaseProjectRef({
+  VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+  VITE_SUPABASE_PROJECT_ID: import.meta.env.VITE_SUPABASE_PROJECT_ID,
+});
 
 export default defineMcp({
   name: "conz-mcp",

@@ -1,6 +1,7 @@
--- 0118 — pricing engine v1.3. Proves: bucket and small-load quotes are identical to
--- v1.2 (copied here as pg_temp.cmo_v12); missing inputs are refused; market-priced
--- big loads no longer add transport twice; assumptions are reported.
+-- 0118 — pricing engine v1.3, as superseded by 0127 (v1.4). Proves: bucket and small-load
+-- recommended/high prices are identical to v1.2 (copied here as pg_temp.cmo_v12) — 0127
+-- intentionally raises low/min (delivery included) and re-prices loads over 20 m³ (20 m³
+-- reference, see 590); missing inputs are refused; assumptions are reported.
 begin;
 select plan(17);
 
@@ -266,16 +267,17 @@ $function$;
 create temp table grid as
 select m::public.material_category as m, q::numeric as q, d::numeric as d
   from unnest(array['river_sand','stones']) m,
-       unnest(array[0.5, 3, 5, 10, 12, 13, 15, 20, 25, 30]) q,
+       unnest(array[0.5, 3, 5, 10, 12, 13, 15, 20]) q,
        unnest(array[0, 5, 10, 15, 25, 40, 50, 80, 200]) d;
 
 -- 1. Everything the market branch doesn't touch is unchanged
 select is(
   (select count(*)::int from grid
-    where (public.compute_material_offer(m,q,d) - 'assumptions' - 'materialPriceUpdatedAt' - 'pricingVersion')
-          is distinct from (pg_temp.cmo_v12(m,q,d) - 'pricingVersion')),
-  0, 'All 180 quotes (no market data) are identical to v1.2 apart from the added fields');
-select is(public.compute_material_offer('river_sand',12,15)->>'pricingVersion', 'v1.3', 'Version is v1.3');
+    where (public.compute_material_offer(m,q,d) - 'assumptions' - 'materialPriceUpdatedAt' - 'pricingVersion'
+             - 'low' - 'min' - 'referenceCapacityM3')
+          is distinct from (pg_temp.cmo_v12(m,q,d) - 'pricingVersion' - 'low' - 'min' - 'referenceCapacityM3')),
+  0, 'All 144 quotes up to 20 m³ keep the v1.2 recommended and high prices (0127 changes only low/min)');
+select is(public.compute_material_offer('river_sand',12,15)->>'pricingVersion', 'v1.4', 'Version is v1.4 (0127)');
 
 -- 2. Missing inputs are refused, not guessed
 select is(public.compute_material_offer('river_sand',null,15)->>'error', 'missing_quantity', 'A missing quantity is refused');
@@ -310,9 +312,10 @@ do $$ declare j uuid; b uuid; begin
     update public.bids set status = 'accepted' where id = b;
   end loop;
 end $$;
-select is(public.compute_material_offer('river_sand',25,15)->>'dataSource', 'market', 'The 25 m³ quote uses market data');
-select is((public.compute_material_offer('river_sand',25,15)->>'offer')::numeric, 500::numeric,
-  'The estimate is the all-in market price ($20/m³ × 25 = $500), with no transport added on top');
+select is(public.compute_material_offer('river_sand',25,15)->>'dataSource', 'reference_capacity',
+  '0127: accepted offers on unfinished jobs are no longer used as market data');
+select is((public.compute_material_offer('river_sand',25,15)->>'tripCount')::int, 2,
+  '0127: 25 m³ is two 20 m³ loads');
 select cmp_ok((pg_temp.cmo_v12('river_sand',25,15)->>'offer')::numeric, '>', 500::numeric,
   'v1.2 added transport on top of an all-in price');
 

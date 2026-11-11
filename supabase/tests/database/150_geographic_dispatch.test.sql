@@ -5,7 +5,7 @@
 -- far80 ~80 km, Bulawayo ~350 km. Stages: 25 / 50 / 100 km (defaults).
 
 begin;
-select plan(40);
+select plan(43);
 
 select set_config('t.cust',  tests.create_user('geo_cust')::text, true);
 select set_config('t.admin', tests.create_user('geo_admin', array['admin'])::text, true);
@@ -176,15 +176,18 @@ select throws_ok(format('select public.accept_dispatch_offer(%L)',
   '42501', null, 'driver without a truck cannot accept');
 select tests.as_owner();
 
--- near driver accepts job B; the second eligible driver then loses the race
+-- near driver answers yes: that sends the customer an offer; it does NOT assign the job (0154)
 select tests.login_as(current_setting('t.near')::uuid);
-select is(public.accept_dispatch_offer(current_setting('t.offNear')::uuid), current_setting('t.jobB')::uuid, 'eligible driver accepts');
+select is(public.accept_dispatch_offer(current_setting('t.offNear')::uuid), current_setting('t.jobB')::uuid, 'eligible driver answers yes');
 select tests.as_owner();
-select is((select driver_id from public.jobs where id = current_setting('t.jobB')::uuid), current_setting('t.near')::uuid, 'job assigned to the near driver');
+select is((select driver_id from public.jobs where id = current_setting('t.jobB')::uuid), null, 'the job is not assigned: the customer chooses');
+select is((select status from public.jobs where id = current_setting('t.jobB')::uuid), 'open', 'and stays open');
+select is((select count(*)::int from public.bids where job_id = current_setting('t.jobB')::uuid and driver_id = current_setting('t.near')::uuid and status = 'pending'), 1, 'a pending offer was created for the customer');
+select is((select status::text from public.job_dispatch_offers where id = current_setting('t.offNear')::uuid), 'accepted', 'the driver''s request is marked answered');
 select tests.login_as(current_setting('t.mid')::uuid);
-select throws_ok(format('select public.accept_dispatch_offer(%L)', current_setting('t.offMid')), null, 'Offer no longer available', 'second driver cannot take an assigned job');
+select is(public.accept_dispatch_offer(current_setting('t.offMid')::uuid), current_setting('t.jobB')::uuid, 'a second driver can answer too, so the customer can compare');
 select tests.as_owner();
-select is((select status::text from public.job_dispatch_offers where id = current_setting('t.offMid')::uuid), 'superseded', 'losing offer is superseded');
+select is((select count(*)::int from public.bids where job_id = current_setting('t.jobB')::uuid and status = 'pending'), 2, 'the customer now has two offers');
 
 select * from finish();
 rollback;

@@ -378,3 +378,12 @@ html [data-sonner-toaster][data-sonner-theme] {
 .cz-tipper:where(.dark *) {
   --tipper-ink: #4a423c;
 }
+
+/* Map credit strip (OpenStreetMap / CARTO) readable in dark mode. */
+.dark .leaflet-container .leaflet-control-attribution {
+  background: rgba(20, 20, 20, 0.8);
+  color: #cfc9c2;
+}
+.dark .leaflet-container .leaflet-control-attribution a {
+  color: #ffb27a;
+}

@@ -132,7 +132,7 @@ HELD=$(Q -c "select held_commission from public.jobs where id='$JD'")
 [ "$ASG" = 1 ] && [ "$JST" = "accepted:true" ] && [ "$LOSE" -ge 1 ] && ok "S9 2 parallel accept_bid on one job -> 1 accepted bid, 1 rejected, held commission $HELD (not doubled)" || bad "S9 accepted_bids=$ASG job=$JST rejected=$LOSE held=$HELD"
 rm -f /tmp/cc_s9_*.out
 
-# ---- S10: parallel dispatch-offer acceptance. Two eligible drivers hold pending offers on ONE open job and accept at the same instant -> exactly one wins ---------
+# ---- S10: parallel dispatch-offer answers (0154). Two eligible drivers answer yes at the same instant -> no deadlock, two customer offers, job still open and unreserved ---------
 OA=$(Q -c "select tests.create_driver('cc_oa_$N',100,true)"); OB=$(Q -c "select tests.create_driver('cc_ob_$N',100,true)")
 Q -c "insert into public.driver_availability (driver_id, lat, lng, is_available, updated_at) values ('$OA',-18.25,31.55,true,now()),('$OB',-18.25,31.56,true,now()) on conflict (driver_id) do update set lat=excluded.lat, lng=excluded.lng, is_available=true, updated_at=now()" >/dev/null
 JO=$(Q -c "insert into public.jobs (customer_id, material, quantity_m3, delivery_address, budget, delivery_lat, delivery_lng, pickup_lat, pickup_lng) values ('$CUST','custom',12,'Marondera',400,-18.18,31.55,-18.18,31.55) returning id")
@@ -143,13 +143,14 @@ Q -c "begin; select tests.login_as('$OA'); select public.accept_dispatch_offer('
 Q -c "begin; select tests.login_as('$OB'); select public.accept_dispatch_offer('$OFB'); commit;" >/tmp/cc_s10_b.out 2>&1 &
 wait
 WON=$(Q -c "select count(*) from public.job_dispatch_offers where job_id='$JO' and status='accepted'")
-JD=$(Q -c "select status || ':' || (driver_id in ('$OA','$OB')) from public.jobs where id='$JO'")
-LOSE=$(cat /tmp/cc_s10_a.out /tmp/cc_s10_b.out | grep -ci 'no longer available')
-HLD=$(Q -c "select held_commission from public.jobs where id='$JO'")
-[ "$WON" = 1 ] && [ "$JD" = "accepted:true" ] && [ "$LOSE" = 1 ] && ok "S10 2 parallel accept_dispatch_offer -> exactly 1 winner, 1 'no longer available', job accepted once (held commission $HLD)" || bad "S10 accepted_offers=$WON job=$JD loser_msgs=$LOSE"
+NB=$(Q -c "select count(*) from public.bids where job_id='$JO' and status='pending'")
+JD=$(Q -c "select status || ':' || coalesce(driver_id::text,'none') from public.jobs where id='$JO'")
+DL=$(cat /tmp/cc_s10_a.out /tmp/cc_s10_b.out | grep -ci 'deadlock')
+HLD=$(Q -c "select coalesce(held_commission::text,'none') from public.jobs where id='$JO'")
+[ "$WON" = 2 ] && [ "$NB" = 2 ] && [ "$JD" = "open:none" ] && [ "$DL" = 0 ] && [ "$HLD" = none ] && ok "S10 2 parallel accept_dispatch_offer -> 2 customer offers, job still open, nothing reserved, no deadlock" || bad "S10 answered=$WON bids=$NB job=$JD deadlocks=$DL held=$HLD"
 rm -f /tmp/cc_s10_*.out
 
-# ---- S11: decline vs accept at the same instant on ONE open job -> no deadlock; exactly one assignment; the decliner never holds the job ---------
+# ---- S11: decline vs accept at the same instant on ONE open job -> no deadlock; the accepter's offer is recorded; nobody is assigned ---------
 OC=$(Q -c "select tests.create_driver('cc_oc_$N',100,true)"); OD=$(Q -c "select tests.create_driver('cc_od_$N',100,true)")
 Q -c "insert into public.driver_availability (driver_id, lat, lng, is_available, updated_at) values ('$OC',-18.25,31.55,true,now()),('$OD',-18.25,31.56,true,now()) on conflict (driver_id) do update set lat=excluded.lat, lng=excluded.lng, is_available=true, updated_at=now()" >/dev/null
 JX=$(Q -c "insert into public.jobs (customer_id, material, quantity_m3, delivery_address, budget, delivery_lat, delivery_lng, pickup_lat, pickup_lng) values ('$CUST','custom',12,'Marondera',400,-18.18,31.55,-18.18,31.55) returning id")
@@ -161,7 +162,8 @@ Q -c "begin; select tests.login_as('$OD'); select public.accept_dispatch_offer('
 wait
 DL=$(cat /tmp/cc_s11_a.out /tmp/cc_s11_b.out | grep -ci 'deadlock')
 JS=$(Q -c "select status || ':' || coalesce(driver_id::text,'none') from public.jobs where id='$JX'")
-[ "$DL" = 0 ] && [ "$JS" = "accepted:$OD" ] && ok "S11 parallel decline + accept -> no deadlock, job assigned to the accepter only" || bad "S11 deadlocks=$DL job=$JS"
+NBD=$(Q -c "select count(*) from public.bids where job_id='$JX' and driver_id='$OD' and status='pending'")
+[ "$DL" = 0 ] && [ "$JS" = "open:none" ] && [ "$NBD" = 1 ] && ok "S11 parallel decline + accept -> no deadlock, the accepter's offer recorded, nobody assigned" || bad "S11 deadlocks=$DL job=$JS offers=$NBD"
 rm -f /tmp/cc_s11_*.out
 
 # ---- S12: escrow refund_due, 8 parallel super-admin refund confirmations -> refunded once, ledger/audit/notice once ----

@@ -27,6 +27,8 @@ const PAYNOW_CODES: Record<string, string> = {
   paynow_bad_response: "Paynow sent an unexpected reply. Nothing was charged. Please try again.",
   paynow_bad_signature: "Paynow's reply could not be verified, so the payment was not started.",
   paynow_bad_poll_url: "Paynow's reply could not be verified, so the payment was not started.",
+  too_many_pending_topups:
+    "You have several top-ups waiting. Finish or wait for them to expire, then try again in a few minutes.",
   payment_create_failed: "We couldn't start this payment. Nothing was charged. Please try again.",
   escrow_unavailable: "Con Z Pay is not available yet. Please pay the driver directly.",
   already_paid: "This job has already been paid for.",

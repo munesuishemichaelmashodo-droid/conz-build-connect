@@ -1,4 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useTransportPricingEnabled } from "@/lib/transport-pricing";
+import { promoCopy, usePromoCredit } from "@/lib/promo-credit";
+import { commissionCopy } from "@/lib/commission-copy";
 import { AppShell } from "@/components/AppShell";
 import { LifeBuoy, Mail, Phone, MessageSquareWarning, Compass, RotateCcw } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -24,7 +27,7 @@ const SECTIONS: FaqSection[] = [
       },
       {
         q: "How does driver matching work?",
-        a: "When you post a job, verified drivers nearby get a short-window offer. The first driver to accept wins the job — you can also propose a counter-offer on any bid before accepting.",
+        a: "When you post a request, verified drivers can see it and send you offers with their own price. You compare the offers, prices, ratings and trucks, and you choose; nothing is assigned automatically. You can also propose a counter-offer on any bid before accepting.",
       },
       {
         q: "How do I cancel a job?",
@@ -32,11 +35,11 @@ const SECTIONS: FaqSection[] = [
       },
       {
         q: "Can I book the same driver again?",
-        a: "Yes — on any completed job, tap 'Book this driver again'. It pre-fills your booking and lets that driver bid first.",
+        a: "You can invite them to bid again. On a completed job, tap 'Invite this driver to bid again'. It pre-fills your booking and notifies that driver, but other verified drivers can bid too, the price is quoted fresh, and the driver is not assigned automatically — you choose.",
       },
       {
         q: "How does live tracking work?",
-        a: "Once a driver accepts, you can watch their real-time location on the map, plus a 'Navigate with Google Maps' shortcut to the delivery address.",
+        a: "Once a driver accepts and starts the trip, the map shows the truck's location while the driver's phone is sharing it, with the job's progress steps. If the driver's location is not available, you still see the job's status.",
       },
       {
         q: "Can I share the tracking link with someone else?",
@@ -61,7 +64,7 @@ const SECTIONS: FaqSection[] = [
       },
       {
         q: "How do I get paid as a driver?",
-        a: "Depends on how the customer paid: for direct-pay jobs, they pay you directly and Con Z's commission is deducted from your wallet on completion. For Con Z Pay jobs, the payout (minus commission) lands directly in your wallet once delivery is confirmed. Your first job is always commission-free.",
+        a: "Depends on how the customer paid: for direct-pay jobs, they pay you directly and Con Z's commission is deducted from your wallet on completion. For Con Z Pay jobs, the payout (minus commission) lands directly in your wallet once delivery is confirmed. Your first completed job has no Con Z commission. After that the commission is 7% of the full job price, materials and transport included.",
       },
       {
         q: "How do I top up my wallet?",
@@ -122,6 +125,8 @@ const SECTIONS: FaqSection[] = [
 ];
 
 function HelpPage() {
+  const transportOn = useTransportPricingEnabled();
+  const promo = usePromoCredit();
   const { is } = useAuth();
 
   return (
@@ -129,7 +134,7 @@ function HelpPage() {
       <div className="space-y-6 max-w-2xl mx-auto">
         <section className="rounded-2xl dark bg-gradient-dark text-white p-5">
           <LifeBuoy className="w-8 h-8 text-cz-amber-text" />
-          <h1 className="font-display font-bold text-2xl mt-2">Need a hand?</h1>
+          <h2 className="font-display font-bold text-2xl mt-2">Need a hand?</h2>
           <p className="text-sm text-white/70 mt-1">Check the FAQ below or reach us directly.</p>
         </section>
 
@@ -137,7 +142,9 @@ function HelpPage() {
           <section className="space-y-2">
             <h2 className="font-semibold text-sm">How to use Con Z</h2>
             <div className="space-y-2">
-              {is("customer") && <TourEntryCard config={customerTour} label="Customer walkthrough" />}
+              {is("customer") && (
+                <TourEntryCard config={customerTour} label="Customer walkthrough" />
+              )}
               {is("driver") && <TourEntryCard config={driverTour} label="Driver walkthrough" />}
             </div>
           </section>
@@ -151,9 +158,11 @@ function HelpPage() {
                 <details key={f.q} className="p-4 group">
                   <summary className="font-semibold cursor-pointer flex min-h-11 justify-between items-center gap-3">
                     <span>{f.q}</span>
-                    <span className="text-muted-foreground group-open:rotate-45 transition shrink-0">+</span>
+                    <span className="text-muted-foreground group-open:rotate-45 transition shrink-0">
+                      +
+                    </span>
                   </summary>
-                  <p className="text-sm text-muted-foreground mt-2">{f.a}</p>
+                  <p className="text-sm text-muted-foreground mt-2">{promoCopy(commissionCopy(f.a, transportOn), promo)}</p>
                 </details>
               ))}
             </div>
@@ -161,25 +170,39 @@ function HelpPage() {
         ))}
 
         <section className="grid gap-3">
-          <a href="mailto:navyskyinnovations@gmail.com" className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-muted transition">
+          <a
+            href="mailto:navyskyinnovations@gmail.com"
+            className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-muted transition"
+          >
             <Mail className="w-5 h-5 text-cz-amber-text" />
             <div>
               <div className="font-semibold">Email support</div>
-              <div className="text-xs text-muted-foreground">navyskyinnovations@gmail.com — we usually reply within a day.</div>
+              <div className="text-xs text-muted-foreground">
+                navyskyinnovations@gmail.com — we usually reply within a day.
+              </div>
             </div>
           </a>
-          <a href="tel:+263777770557" className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-muted transition">
+          <a
+            href="tel:+263777770557"
+            className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-muted transition"
+          >
             <Phone className="w-5 h-5 text-cz-amber-text" />
             <div>
               <div className="font-semibold">Call support</div>
               <div className="text-xs text-muted-foreground">+263 77 777 0557</div>
             </div>
           </a>
-          <Link to="/report" search={{jobId: undefined}} className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-muted transition">
+          <Link
+            to="/report"
+            search={{ jobId: undefined }}
+            className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-muted transition"
+          >
             <MessageSquareWarning className="w-5 h-5 text-cz-amber-text" />
             <div>
               <div className="font-semibold">Report an issue</div>
-              <div className="text-xs text-muted-foreground">Something wrong with a job, driver, or the app? Let admins know.</div>
+              <div className="text-xs text-muted-foreground">
+                Something wrong with a job, driver, or the app? Let admins know.
+              </div>
             </div>
           </Link>
         </section>
@@ -210,7 +233,11 @@ function TourEntryCard({ config, label }: { config: TourConfig; label: string })
       className="w-full flex items-center gap-3 rounded-2xl border bg-card p-4 text-left hover:bg-muted transition"
     >
       <div className="w-10 h-10 rounded-xl bg-primary/10 text-cz-amber-text flex items-center justify-center shrink-0">
-        {saved?.status === "in_progress" ? <RotateCcw className="w-5 h-5" /> : <Compass className="w-5 h-5" />}
+        {saved?.status === "in_progress" ? (
+          <RotateCcw className="w-5 h-5" />
+        ) : (
+          <Compass className="w-5 h-5" />
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="font-semibold">{label}</div>
