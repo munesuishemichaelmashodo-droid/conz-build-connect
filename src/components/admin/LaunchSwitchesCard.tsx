@@ -10,7 +10,8 @@ type Rpc = (
   f: string,
   a: Record<string, unknown>,
 ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
-const rpc = supabase.rpc as unknown as Rpc; // launch_switches / admin_set_launch_switch are newer than the generated types
+// Call rpc on the client itself: a detached `supabase.rpc` loses `this` and throws ("reading 'rest'").
+const rpc: Rpc = (f, a) => (supabase as unknown as { rpc: Rpc }).rpc(f, a); // launch_switches / admin_set_launch_switch are newer than the generated types
 
 const NUMBERS: { key: string; field: keyof LaunchSwitches; label: string; hint: string }[] = [
   {

@@ -17,7 +17,8 @@ type Rpc = (
   a: Record<string, unknown>,
 ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
 // The points tables and functions are newer than the generated types.
-const rpc = supabase.rpc as unknown as Rpc;
+// Call rpc on the client itself: a detached `supabase.rpc` loses `this` and throws ("reading 'rest'").
+const rpc: Rpc = (f, a) => (supabase as unknown as { rpc: Rpc }).rpc(f, a);
 const table = (supabase as unknown as { from: (t: string) => any }).from.bind(supabase); // eslint-disable-line @typescript-eslint/no-explicit-any
 
 interface Rule {
