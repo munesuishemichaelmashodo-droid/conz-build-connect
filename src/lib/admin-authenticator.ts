@@ -70,6 +70,16 @@ export function authenticatorPrompt(p: AuthenticatorPolicy): AuthenticatorPrompt
   };
 }
 
+/**
+ * What the admin area does with the policy answer: "open", "verify" (send to the code screen), or
+ * "unconfirmed" (no readable answer: stay closed and offer Try again). Fails closed.
+ */
+export function authenticatorGate(raw: unknown): "open" | "verify" | "unconfirmed" {
+  const p = parsePolicy(raw);
+  if (!p) return "unconfirmed";
+  return mustVerifyBeforeAdmin(p) ? "verify" : "open";
+}
+
 /** The admin area is closed to an admin whose authenticator check is older than the limit. */
 export function mustVerifyBeforeAdmin(p: AuthenticatorPolicy | null): boolean {
   return !!p && p.has_authenticator && p.expired;
