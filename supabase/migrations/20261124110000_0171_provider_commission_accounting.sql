@@ -225,6 +225,8 @@ alter table public.provider_fees enable row level security;
 
 revoke all on public.provider_payment_events, public.driver_payables, public.driver_payouts, public.provider_fees from anon, authenticated;
 grant select on public.provider_payment_events, public.driver_payables, public.driver_payouts, public.provider_fees to authenticated;
+-- The provider adapter (server, service role) reads these; it writes only through the functions below.
+grant select on public.provider_payment_events, public.driver_payables, public.driver_payouts, public.provider_fees to service_role;
 
 do $$ begin
   if not exists (select 1 from pg_policies where tablename = 'driver_payables' and policyname = 'driver_payables_read') then
