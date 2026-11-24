@@ -68,3 +68,27 @@ describe("mustVerifyBeforeAdmin", () => {
     expect(mustVerifyBeforeAdmin({ ...base, has_authenticator: true, expired: true })).toBe(true);
   });
 });
+
+describe("admin area gate (fails closed)", () => {
+  it("stays closed when the status cannot be read", async () => {
+    const { authenticatorGate } = await import("@/lib/admin-authenticator");
+    expect(authenticatorGate(undefined)).toBe("unconfirmed");
+    expect(authenticatorGate(null)).toBe("unconfirmed");
+    expect(authenticatorGate("oops")).toBe("unconfirmed");
+    expect(authenticatorGate({ required: true })).toBe("unconfirmed"); // no has_authenticator: unreadable
+  });
+  it("sends an admin whose 30-day check passed to the code screen, and opens otherwise", async () => {
+    const { authenticatorGate } = await import("@/lib/admin-authenticator");
+    expect(authenticatorGate({ has_authenticator: true, expired: true })).toBe("verify");
+    expect(authenticatorGate({ has_authenticator: true, expired: false, days_left: 12 })).toBe(
+      "open",
+    );
+    expect(authenticatorGate({ has_authenticator: false, expired: false })).toBe("open");
+  });
+  it("the admin layout never opens on an unconfirmed answer and never redirects into a setup", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("src/routes/_authenticated/admin.tsx", "utf8");
+    expect(src).toMatch(/if \(gate !== "open"\) return <AuthenticatorUnconfirmed \/>/);
+    expect(src).not.toMatch(/mustVerify = false/);
+  });
+});

@@ -40,6 +40,7 @@ live, so a push would apply them. Apply migrations one at a time in the SQL edit
 | 0171 `provider_commission_accounting` | PR #133: provider-paid jobs, payables, payouts, reversals (switches OFF) | Yes | Apply in the **SQL editor** (two allow-listed DROP CONSTRAINTs) after #133/#134 are deployed |
 | 0172 `remove_job_price_cap` | PR #138: no $500 ceiling; large-job alert | Yes | Apply **after 0129**, SQL editor |
 | 0173 `provider_post_payout_recovery` | Refund after a confirmed driver payout: recovery record, repaid / written off | Yes (needs 0171) | Apply **after 0171**, SQL editor (widens the ledger account CHECK) |
+| 0174 `admin_totp_only_stepup` | Step-up accepts only an authenticator-app (TOTP) code; no-amr tokens refused; owner-only requirement switch | No app dependency (the app already uses TOTP) | Apply any time after review; no DROP |
 
 "Parked" files stay in git because the pgTAP suite builds them; they must not be applied to production while parked.
 Retired: Payonify 0167/0168 were never on `main` (see `docs/payments/archive/`).
@@ -64,7 +65,7 @@ select p.proname, left(md5(regexp_replace(regexp_replace(p.prosrc, '--[^\n]*', '
 | # | Step | Needs first | How | Before → after (fingerprint) | Extra check after | Undo |
 |---|---|---|---|---|---|---|
 | 0 | History repair | — | SQL editor: `check`, `dry_run`, then `apply` | rows 183 → 213; 36 versions added, 6 stand-ins retired | `supabase migration list` shows 0072–0108 on both sides | `20261124_migration_history_repair_undo.sql` |
-| 1 | 0174 `20261124140000` `admin_totp_only_stepup` | #144 merged | SQL editor (no DROP, no delete) | require_aal2 9c57f886 → 9d3857f1; admin_note_authenticator_check 0d781d3b → 045b1c15; admin_set_authenticator_required 0b78c12e → 99a5450b | An owner signed in with Google in the last 12 h can still approve a money action (no authenticator yet, switch off) | `rollbacks/20261124140000_0174_rollback.sql` |
+| 1 | 0174 `20261124140000` `admin_totp_only_stepup` | #144 merged (done) | SQL editor (no DROP, no delete) | require_aal2 9c57f886 → 9d3857f1; admin_note_authenticator_check 0d781d3b → 045b1c15; admin_set_authenticator_required 0b78c12e → 99a5450b | An owner signed in with Google in the last 12 h can still approve a money action (no authenticator yet, switch off) | `rollbacks/20261124140000_0174_rollback.sql` |
 | 2 | 0141 `20261104120000` `auth_signup_trigger` | — | SQL editor | none (creates the trigger only if missing; it exists) | `select tgenabled from pg_trigger where tgname = 'on_auth_user_created'` = `O` | none needed |
 | 3 | 0129 `20261103110000` `admin_launch_switches` | — | SQL editor | admin_set_launch_switch absent → 7f2bfe3c | anon cannot execute it; Settings "Launch switches" card saves | `rollbacks/20261103110000_0129_rollback.sql` |
 | 4 | 0170 `20261124100000` `driver_public_profiles_verified_only` | — | SQL editor | view only | `pg_get_viewdef('public.driver_public_profiles')` contains `verification_status = 'verified'` | `rollbacks/20261124100000_0170_rollback.sql` |
