@@ -36,6 +36,7 @@ live, so a push would apply them. Apply migrations one at a time in the SQL edit
 | 0170 `driver_public_profiles_verified_only` | Branch `fix/mvp-security` | Yes | Apply after merge (see `docs/release/2026-11-24-SECURITY-FIXES.md`) |
 | 0171 `provider_commission_accounting` | PR #133: provider-paid jobs, payables, payouts, reversals (switches OFF) | Yes | Apply in the **SQL editor** (two allow-listed DROP CONSTRAINTs) after #133/#134 are deployed |
 | 0172 `remove_job_price_cap` | PR #138: no $500 ceiling; large-job alert | Yes | Apply **after 0129**, SQL editor |
+| 0173 `provider_post_payout_recovery` | Refund after a confirmed driver payout: recovery record, repaid / written off | Yes (needs 0171) | Apply **after 0171**, SQL editor (widens the ledger account CHECK) |
 
 "Parked" files stay in git because the pgTAP suite builds them; they must not be applied to production while parked.
 Retired: Payonify 0167/0168 were never on `main` (see `docs/payments/archive/`).
@@ -47,4 +48,5 @@ Retired: Payonify 0167/0168 were never on `main` (see `docs/payments/archive/`).
 3. 0170.
 4. 0171 (SQL editor).
 5. 0172 (SQL editor).
+6. 0173 (SQL editor), after 0171.
 After each: record the version in `schema_migrations`, then re-run `select * from public.financial_reconciliation()`.
