@@ -48,7 +48,10 @@ describe("migrations from 0152 on", () => {
   it.each(migrations)("%s contains no DROP statement", (file) => {
     let sql = sqlOf(file);
     for (const allowed of ALLOWED_DROPS[file] ?? []) {
-      expect(sql.toLowerCase().includes(allowed), `${file}: allow-listed "${allowed}" is not used; remove it`).toBe(true);
+      expect(
+        sql.toLowerCase().includes(allowed),
+        `${file}: allow-listed "${allowed}" is not used; remove it`,
+      ).toBe(true);
       sql = sql.replace(new RegExp(allowed.replace(/\s+/g, "\\s+"), "i"), "");
     }
     const drops = sql.match(
