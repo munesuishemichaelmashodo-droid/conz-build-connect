@@ -15,8 +15,10 @@
 -- What changes for existing jobs: nothing. 'direct' and 'escrow' jobs keep their exact code paths; the five
 -- replaced functions only gain an early branch for payment_method = 'provider'.
 --
--- Two CHECK constraints are widened and one is added, each as DROP CONSTRAINT IF EXISTS + ADD CONSTRAINT in one ALTER (atomic).
--- Because of that DROP, apply this file in the Supabase SQL editor, not through the MCP execute_sql tool.
+-- Two CHECK constraints must be WIDENED (jobs_payment_method_check, platform_ledger_account_check). Postgres cannot widen a
+-- CHECK in place, so each is DROP CONSTRAINT + ADD CONSTRAINT in ONE ALTER statement (atomic: never a moment without it).
+-- These two are the only DROPs; they are allow-listed by name in tests/unit/migration-hygiene.test.ts for owner review.
+-- Because of them, apply this file in the Supabase SQL editor, not through the MCP execute_sql tool.
 -- Undo: supabase/rollbacks/20261124110000_0171_rollback.sql (restores the exact previous live bodies).
 -- Tests: supabase/tests/database/1020_provider_commission_accounting.test.sql
 -- -----------------------------------------------------------------------------
@@ -43,10 +45,12 @@ alter table public.jobs
   add constraint jobs_payment_method_check check (payment_method = any (array['direct'::text, 'escrow'::text, 'provider'::text]));
 
 -- A provider-paid job never holds commission credit.
-alter table public.jobs
-  drop constraint if exists jobs_provider_no_credit_reserve,
-  add constraint jobs_provider_no_credit_reserve
-    check (payment_method <> 'provider' or (coalesce(held_commission, 0) = 0 and coalesce(held_commission_promo, 0) = 0));
+do $$ begin
+  if not exists (select 1 from pg_constraint where conrelid = 'public.jobs'::regclass and conname = 'jobs_provider_no_credit_reserve') then
+    alter table public.jobs add constraint jobs_provider_no_credit_reserve
+      check (payment_method <> 'provider' or (coalesce(held_commission, 0) = 0 and coalesce(held_commission_promo, 0) = 0));
+  end if;
+end $$;
 
 alter table public.platform_ledger
   drop constraint if exists platform_ledger_account_check,

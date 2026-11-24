@@ -14,6 +14,14 @@ import { describe, expect, it } from "vitest";
  */
 const FIRST_GUARDED = "20261108100000";
 const ANON_ALLOWED_FUNCTIONS = ["transport_pricing_enabled"];
+// Reviewed exceptions to rule 2. A CHECK constraint cannot be widened without DROP CONSTRAINT; each entry is one
+// DROP + ADD of the same constraint in a single ALTER (atomic). Keep this list tiny and name every constraint.
+const ALLOWED_DROPS: Record<string, string[]> = {
+  "20261124110000_0171_provider_commission_accounting.sql": [
+    "drop constraint if exists jobs_payment_method_check",
+    "drop constraint if exists platform_ledger_account_check",
+  ],
+};
 
 const root = join(__dirname, "..", "..", "supabase");
 const migrations = readdirSync(join(root, "migrations"))
@@ -38,7 +46,12 @@ describe("migrations from 0152 on", () => {
   });
 
   it.each(migrations)("%s contains no DROP statement", (file) => {
-    const drops = sqlOf(file).match(
+    let sql = sqlOf(file);
+    for (const allowed of ALLOWED_DROPS[file] ?? []) {
+      expect(sql.toLowerCase().includes(allowed), `${file}: allow-listed "${allowed}" is not used; remove it`).toBe(true);
+      sql = sql.replace(new RegExp(allowed.replace(/\s+/g, "\\s+"), "i"), "");
+    }
+    const drops = sql.match(
       /\bdrop\s+(table|function|trigger|policy|column|index|constraint|view|type|schema|extension)\b/gi,
     );
     expect(drops).toBeNull();
