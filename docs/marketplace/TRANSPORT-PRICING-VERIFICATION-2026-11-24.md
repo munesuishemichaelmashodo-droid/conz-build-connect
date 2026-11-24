@@ -18,7 +18,7 @@
 | 200 | 40 | 2 | $413.29 | $486.22 | $559.15 |
 
 Checks: continuous at the 50 km edge; never decreases with distance (1–600 km); trips = ceil(m³ / 20); out-of-range
-distance or load is refused, never priced. Commission is 7% of the transport fare (e.g. $243.11 → $17.02).
+distance or load is refused, never priced. Commission is 7% of the total agreed price (owner rule 24/11/2026: materials and transport together); for a transport-only job that total is the fare (e.g. $243.11 → $17.02).
 
 ## Owner decisions before `transport_pricing_enabled = true`
 
