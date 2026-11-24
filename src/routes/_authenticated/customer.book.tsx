@@ -59,6 +59,7 @@ import { useNearbyTrucks } from "@/components/redesign/rpc";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 import { repeatNoticeText } from "@/lib/book-again";
+import { useLinkwaSandboxAvailable } from "@/components/payments/LinkwaSandboxPay";
 
 const bookSearchSchema = z.object({
   material: z.string().optional(),
@@ -141,7 +142,11 @@ function BookDelivery() {
   const [paymentMethod, setPaymentMethod] = useState<"direct" | "escrow">("direct");
   // MVP launch: Con Z Pay (escrow) stays hidden until the owner turns it on (database-enforced too).
   const launch = useLaunchSwitches();
-  const effectivePaymentMethod = launch.escrowEnabled ? paymentMethod : "direct";
+  // Linkwa SANDBOX test option: offered only where the server allows the sandbox (never on the production database).
+  const linkwaSandbox = useLinkwaSandboxAvailable();
+  const [linkwaTest, setLinkwaTest] = useState(false);
+  const effectivePaymentMethod: "direct" | "escrow" | "provider" =
+    linkwaSandbox && linkwaTest ? "provider" : launch.escrowEnabled ? paymentMethod : "direct";
   // Redesign: the date/notes drawer grows the sheet, so the map controls move up.
   const [sheetOpenExtra, setSheetOpenExtra] = useState(false);
   // The booking sheet's real height, so the map's locate button / status pill
@@ -790,6 +795,20 @@ function BookDelivery() {
                 </span>
               </span>
             </div>
+            {linkwaSandbox && (
+              <label className="flex items-start gap-3 rounded-2xl border border-amber-500/50 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={linkwaTest}
+                  onChange={(e) => setLinkwaTest(e.target.checked)}
+                />
+                <span>
+                  <span className="block font-semibold">Pay online with Linkwa (sandbox test)</span>
+                  <span className="block text-[13px]">Test mode only: no real money moves.</span>
+                </span>
+              </label>
+            )}
           </div>
         )}
 

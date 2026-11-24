@@ -45,6 +45,7 @@ import {
 import { useNow } from "@/hooks/use-now";
 import { useServerFn } from "@tanstack/react-start";
 import { initiateEscrowPayment, reconcilePendingPaynowPayments } from "@/lib/paynow.functions";
+import { LinkwaSandboxPay } from "@/components/payments/LinkwaSandboxPay";
 import { friendlyPaymentError } from "@/lib/paymentErrors";
 import { ShieldCheck } from "lucide-react";
 import { isNetworkFailure, readContact, saveContact } from "@/lib/contact-cache";
@@ -3395,6 +3396,15 @@ function CustomerJobScreen({ ctx }: { ctx: JobScreenCtx }) {
   if (job.status === "open") return <CustomerOffers ctx={ctx} />;
   if (job.status === "completed") return <CustomerDelivered ctx={ctx} />;
   if (ctx.isEscrow && !ctx.escrowPaid && !skipPay) return <CustomerPay ctx={ctx} onViewTracking={() => setSkipPay(true)} />;
+  if (job.payment_method === "provider" && job.status === "accepted") {
+    // Linkwa SANDBOX only: the panel renders nothing unless the server allows the sandbox.
+    return (
+      <>
+        <LinkwaSandboxPay jobId={ctx.id} />
+        <CustomerTrack ctx={ctx} onPay={skipPay ? () => setSkipPay(false) : undefined} />
+      </>
+    );
+  }
   return <CustomerTrack ctx={ctx} onPay={skipPay ? () => setSkipPay(false) : undefined} />;
 }
 
