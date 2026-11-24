@@ -1,7 +1,7 @@
 -- 0173: a provider-paid job refunded AFTER the driver was paid out. The customer's whole payment becomes a refund owed,
 -- ConZ's commission is reversed, the driver's earnings become money owed back to ConZ, closed as repaid or written off.
 begin;
-select plan(26);
+select plan(30);
 
 select tests.as_owner();
 select set_config('t.cust',  tests.create_user('rc_customer')::text, true);
@@ -99,6 +99,47 @@ select is((public.admin_close_driver_recovery(current_setting('t.rec')::uuid, 'w
           '23: closing again the same way changes nothing');
 select throws_like($$select public.admin_close_driver_recovery(current_setting('t.rec')::uuid, 'repaid', 'rp-1', 'Paid after all')$$,
                    '%already written_off%', '24: a closed recovery cannot change outcome');
+
+-- Second and third jobs for the repayment path: provider-paid, settled, paid out, recovery opened.
+create function pg_temp.paid_out_recovery(_n int) returns uuid language plpgsql as $f$
+declare _job uuid; _bid uuid; _pay uuid; _po uuid; _payable uuid;
+begin
+  perform tests.as_owner();
+  _job := tests.create_job(current_setting('t.cust')::uuid, 300, 'direct');
+  update public.jobs set payment_method = 'provider' where id = _job;
+  _bid := tests.create_bid(_job, current_setting('t.drv')::uuid, 300);
+  perform tests.login_as(current_setting('t.cust')::uuid);
+  perform public.accept_bid(_bid);
+  perform tests.as_service();
+  _pay := (public.create_provider_job_payment(_job, 'testpay', 'rc-r' || _n)).id;
+  perform public.apply_provider_payment('testpay', 'rc-re' || _n, _pay, 'paid', 300, 'USD', 'rc-r' || _n);
+  perform tests.as_owner();
+  update public.jobs set status = 'in_progress' where id = _job;
+  perform tests.login_as(current_setting('t.cust')::uuid);
+  perform tests.complete(_job);
+  perform tests.as_owner();
+  select id into _payable from public.driver_payables where job_id = _job;
+  perform tests.as_service();
+  _po := (public.payout_prepare(_payable, 'testpay', '+263***123')).id;
+  perform public.payout_record_sent(_po, 'po-rc-r' || _n);
+  perform public.payout_record_result(_po, 'paid', null, null);
+  perform tests.login_as_mfa(current_setting('t.sa')::uuid);
+  return (public.admin_open_post_payout_refund(_job, 'Load never delivered to site')).id;
+end $f$;
+select set_config('t.rec2', pg_temp.paid_out_recovery(2)::text, true);
+select set_config('t.rec3', pg_temp.paid_out_recovery(3)::text, true);
+select tests.login_as_mfa(current_setting('t.sa')::uuid);
+select is((public.admin_close_driver_recovery(current_setting('t.rec2')::uuid, 'repaid', 'EC-778899', 'Driver repaid by EcoCash')).status, 'repaid',
+          '27: repaid with the provider reference');
+select throws_like($$select public.admin_close_driver_recovery(current_setting('t.rec3')::uuid, 'repaid', ' ec-778899 ', 'Driver repaid')$$,
+                   '%already used%', '28: the same repayment reference cannot close a second recovery');
+select tests.as_owner();
+select is((select sum(amount) from public.platform_ledger l join public.driver_recoveries r on r.job_id = l.job_id
+            where r.id = current_setting('t.rec2')::uuid and l.account = 'driver_recoverable'), 0::numeric,
+          '29: nothing left owed after repayment');
+select is((select sum(amount) from public.platform_ledger l join public.driver_recoveries r on r.job_id = l.job_id
+            where r.id = current_setting('t.rec2')::uuid and l.account = 'provider_clearing' and l.kind = 'driver_recovery_repaid'), 279.00::numeric,
+          '30: the repayment is recorded as money received at the provider');
 
 select tests.as_owner();
 select is((select coalesce(sum(amount), 0) from public.platform_ledger where account = 'driver_recoverable' and job_id = current_setting('t.job')::uuid)

@@ -48,6 +48,9 @@ create table if not exists public.driver_recoveries (
   closed_at         timestamptz
 );
 create index if not exists driver_recoveries_driver_idx on public.driver_recoveries (driver_id, status);
+-- One provider repayment reference closes at most one recovery (no reuse of a single repayment for two cases).
+create unique index if not exists driver_recoveries_repaid_reference_uidx
+  on public.driver_recoveries (lower(outcome_reference)) where status = 'repaid';
 alter table public.driver_recoveries enable row level security;
 revoke all on public.driver_recoveries from public, anon, authenticated;
 grant select on public.driver_recoveries to authenticated, service_role;
@@ -158,6 +161,10 @@ begin
   if _rec.status <> 'open' then raise exception 'This recovery is already %', _rec.status; end if;
   if _outcome = 'repaid' and (_reference is null or length(btrim(_reference)) < 3) then
     raise exception 'Enter the provider reference of the driver''s repayment';
+  end if;
+  if _outcome = 'repaid' and exists (select 1 from public.driver_recoveries
+       where status = 'repaid' and lower(outcome_reference) = lower(btrim(_reference))) then
+    raise exception 'This provider reference was already used to close another recovery';
   end if;
 
   update public.driver_recoveries
