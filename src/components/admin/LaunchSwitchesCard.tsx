@@ -14,12 +14,6 @@ const rpc = supabase.rpc as unknown as Rpc; // launch_switches / admin_set_launc
 
 const NUMBERS: { key: string; field: keyof LaunchSwitches; label: string; hint: string }[] = [
   {
-    key: "max_job_budget",
-    field: "maxJobBudget",
-    label: "Biggest job allowed (USD)",
-    hint: "Jobs above this are refused.",
-  },
-  {
     key: "max_wallet_balance",
     field: "maxWalletBalance",
     label: "Biggest driver wallet (USD)",

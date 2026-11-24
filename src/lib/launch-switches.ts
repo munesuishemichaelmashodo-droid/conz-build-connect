@@ -5,11 +5,11 @@ import { supabase } from "@/integrations/supabase/client";
  * MVP launch switches (migration 0107). The database enforces them; the app reads them only to
  * show the right screens. If the read fails (offline, or the migration is not applied yet) the
  * app falls back to the restrictive MVP defaults, which can only hide a feature, never expose one.
+ * There is no job or offer ceiling (removed by 0172); the $100,000 platform limit is enforced by the database.
  */
 export type LaunchSwitches = {
   escrowEnabled: boolean;
   withdrawalsEnabled: boolean;
-  maxJobBudget: number;
   maxWalletBalance: number;
   minTopup: number;
 };
@@ -17,7 +17,6 @@ export type LaunchSwitches = {
 export const DEFAULT_LAUNCH_SWITCHES: LaunchSwitches = {
   escrowEnabled: false,
   withdrawalsEnabled: false,
-  maxJobBudget: 500,
   maxWalletBalance: 150,
   minTopup: 1,
 };
@@ -29,7 +28,6 @@ export function parseLaunchSwitches(raw: unknown): LaunchSwitches {
   return {
     escrowEnabled: r.escrowEnabled === true,
     withdrawalsEnabled: r.withdrawalsEnabled === true,
-    maxJobBudget: num(r.maxJobBudget, DEFAULT_LAUNCH_SWITCHES.maxJobBudget),
     maxWalletBalance: num(r.maxWalletBalance, DEFAULT_LAUNCH_SWITCHES.maxWalletBalance),
     minTopup: num(r.minTopup, DEFAULT_LAUNCH_SWITCHES.minTopup),
   };

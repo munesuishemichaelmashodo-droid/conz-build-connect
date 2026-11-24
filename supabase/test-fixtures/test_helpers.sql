@@ -133,7 +133,7 @@ $$;
 create or replace function tests.enable_launch_features()
 returns void language sql as $$
   update public.system_settings set value = 'true'::jsonb where key in ('escrow_enabled', 'withdrawals_enabled');
-  update public.system_settings set value = '100000'::jsonb where key in ('max_job_budget', 'max_wallet_balance');
+  update public.system_settings set value = '100000'::jsonb where key = 'max_wallet_balance';
 $$;
 
 -- An open job. 'custom' material is not price-enforced, which is the
