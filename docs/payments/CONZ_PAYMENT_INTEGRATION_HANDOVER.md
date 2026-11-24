@@ -43,7 +43,7 @@ Server function starts a Paynow checkout, stores a `payments` row, the callback 
 | P-5 | Paynow rejection reason not stored | Open (additive, owner review) |
 | P-6 | Commission recomputed at completion | **Closed**: 0113 settles the exact reserved amount |
 | P-7 | In-progress jobs never expire | Open: needs an owner rule (reserve clocks are reserved decisions) |
-| P-8 | Commission base includes material | Built switch: transport-only base exists (0158/0159), **off** by owner decision |
+| P-8 | Commission base includes material | **Decided 24/11/2026 (owner): 7% of the total agreed deal, materials and transport together** ($300 + $100 = $400 → $28). Same basis for driver-paid and provider-paid jobs. Not a finding any more |
 | P-9 | Wallet text promising manual refund while withdrawals are off | Open (copy, Stage 7) |
 
 ## 5. What this session did and did not do

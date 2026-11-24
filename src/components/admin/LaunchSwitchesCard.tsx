@@ -15,12 +15,6 @@ const rpc: Rpc = (f, a) => (supabase as unknown as { rpc: Rpc }).rpc(f, a); // l
 
 const NUMBERS: { key: string; field: keyof LaunchSwitches; label: string; hint: string }[] = [
   {
-    key: "max_job_budget",
-    field: "maxJobBudget",
-    label: "Biggest job allowed (USD)",
-    hint: "Jobs above this are refused.",
-  },
-  {
     key: "max_wallet_balance",
     field: "maxWalletBalance",
     label: "Biggest driver wallet (USD)",
@@ -91,7 +85,7 @@ export function LaunchSwitchesCard({ isSuper }: { isSuper: boolean }) {
         <h3 className="font-display font-bold text-lg">Launch switches and limits</h3>
       </div>
       <p className="text-sm text-muted-foreground">
-        These control which payment features are open and how large a job or wallet can be. Each
+        These control which payment features are open and how much commission credit a driver can hold. Each
         change needs a reason and a recent sign-in, and is recorded in the audit log.
       </p>
       {toggles.map((t) => (

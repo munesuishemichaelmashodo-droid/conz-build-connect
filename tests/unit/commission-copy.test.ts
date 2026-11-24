@@ -10,12 +10,12 @@ describe("commissionCopy", () => {
     expect(commissionCopy(price, false)).toBe(price);
     expect(commissionCopy(value, false)).toBe(value);
   });
-  it("says the commission is on the agreed delivery fare, not the materials, when it is on", () => {
+  it("says the commission is on the total agreed price, never that materials are excluded, when it is on", () => {
     expect(commissionCopy(price, true)).toBe(
       `After that the commission is ${COMMISSION_BASE_TRANSPORT}.`,
     );
-    expect(commissionCopy(value, true)).toContain("agreed delivery fare");
-    expect(commissionCopy(value, true)).not.toMatch(/materials and transport included/);
+    expect(commissionCopy(value, true)).toContain("total agreed price");
+    expect(commissionCopy(value, true)).not.toMatch(/not part of|excluded|delivery fare/);
   });
   it("does not touch other text", () => {
     expect(commissionCopy("Your first completed job has no commission.", true)).toBe(

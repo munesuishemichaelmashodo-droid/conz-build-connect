@@ -44,7 +44,7 @@ This reuses the v1.4 transport component, so a nearby urban job prices the same 
 | Rural | Mutare to Nyanga | 107.4 | $124.23 | mountain road, time longer than distance suggests |
 | Rural | Kwekwe to Gokwe | 143.8 | $164.96 | |
 | Long haul | Harare to Bulawayo | 435.7 | $491.60 | |
-| Long haul | Bulawayo to Victoria Falls | 445.5 | $502.57 | exceeds the $500 launch cap |
+| Long haul | Bulawayo to Victoria Falls | 445.5 | $502.57 | exceeded the old $500 cap (removed by 0172) |
 
 Straight-line distance is not used: Harare to Bulawayo is 362 km in a straight line and 435.7 km by road (20% less), which is why straight-line fallback is refused.
 
@@ -58,7 +58,7 @@ Reference only (not adopted): the competitor ZimboHaul publishes $2.10/km with a
 
 ## 6. Guard rails and known limitations
 
-- **Launch cap.** `max_job_budget` = $500 per job. Long hauls and multi-trip jobs exceed it (Bulawayo to Victoria Falls $502.57; Harare to Mutare for two trips $594.46). **Owner decision needed** before the switch is turned on: raise the cap, or exempt transport-pricing jobs.
+- **Launch cap (removed 24/11/2026 by 0172; kept here as history).** `max_job_budget` was $500 per job. Long hauls and multi-trip jobs exceed it (Bulawayo to Victoria Falls $502.57; Harare to Mutare for two trips $594.46). **Owner decision needed** before the switch is turned on: raise the cap, or exempt transport-pricing jobs.
 - **Routing profile.** OSRM's public demo server is a car profile, run for non-commercial use. It does not model heavy-vehicle restrictions, steep grades or unpaved rural roads, so distance and time are estimates for a car. Drivers must confirm suitability. Moving to a licensed or self-hosted router with a truck profile is an owner decision. Nothing is shown as a guaranteed ETA.
 - **ETA.** Where a number is shown, it is road time x 1.4 (existing rule) and labelled approximate. If routing is unavailable, no ETA or price is shown.
 - **Vehicle capacity.** One reference vehicle (20 m3). Different payloads and body types are not priced differently yet.
@@ -68,4 +68,4 @@ Reference only (not adopted): the competitor ZimboHaul publishes $2.10/km with a
 
 ## 7. What changes when the switch is turned on (owner go required)
 
-New jobs priced as transport only; the commission base becomes the transport fare; the Terms, wallet and offer copy change from "7% of the full price including materials" to "7% of the agreed transport fare". Existing jobs, supplier tables and admin sourcing screens are untouched. Turning it off again returns new jobs to the legacy engine.
+New jobs priced as transport only. **Superseded 24/11/2026 (owner):** the commission is always 7% of the total agreed deal, materials and transport together; when a job holds transport only, that total is the transport fare. The copy says "7% of the total agreed price for the job" and never that materials are excluded. Existing jobs, supplier tables and admin sourcing screens are untouched. Turning it off again returns new jobs to the legacy engine.

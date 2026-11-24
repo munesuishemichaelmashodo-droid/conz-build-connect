@@ -54,7 +54,7 @@ describe("customer and driver wording stays honest", () => {
   it("states the commission base and the first-job rule to drivers", () => {
     const home = text("src/routes/index.tsx");
     expect(home).toMatch(
-      /7% commission on eligible job value, including materials and\s+transport/,
+      /7% commission on the total agreed price, including materials and\s+transport/,
     );
     expect(home).toMatch(/first\s+completed job is commission-free/);
     expect(text("src/routes/_authenticated/wallet.tsx")).toMatch(
@@ -62,9 +62,10 @@ describe("customer and driver wording stays honest", () => {
     );
   });
 
-  it("words the driver's fee for delivery-only jobs as a share of the delivery fare, in commission-credit terms", () => {
+  it("words the driver's fee for delivery-only jobs as a share of the total agreed price, in commission-credit terms", () => {
     const form = text("src/routes/_authenticated/jobs.$id.tsx");
-    expect(form).toMatch(/of your delivery fare; material is not part of it/);
+    expect(form).toMatch(/of your total agreed price for this job/);
+    expect(form).not.toMatch(/material is not part of it/);
     expect(form).toMatch(/reserved from your commission credit when the customer accepts/);
   });
 

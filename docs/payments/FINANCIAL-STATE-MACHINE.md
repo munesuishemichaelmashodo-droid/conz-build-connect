@@ -55,7 +55,7 @@ adjustments (`admin_apply_wallet_change`, super admin + step-up, second approver
 
 ## 5. Rules waiting for founder decisions
 
-1. **Commission base:** whole job price (current) vs transport only vs price minus a declared material cost.
+1. **Commission base:** DECIDED 24/11/2026 (owner): 7% of the total agreed deal charge, materials and transport together (whole job price, as today). Applies to driver-paid and provider-paid jobs alike.
 2. **Charge amount:** recompute at completion (current) vs charge exactly what was held at acceptance (proposed, P-6).
 3. **Driver cancellation after acceptance:** free (current) vs a small fee vs strikes only.
 4. **In-progress timeout:** none (current) vs admin review after N days.
