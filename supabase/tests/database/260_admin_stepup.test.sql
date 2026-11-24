@@ -109,10 +109,13 @@ select lives_ok(format($$select public.admin_mark_withdrawal_failed(%L, 'wrong n
 select tests.as_owner();
 select is(tests.balance(current_setting('t.dc')::uuid), 100.00::numeric, '26: the failed payout returned the money');
 
--- A token with aal2 but no timing information (no amr claim) behaves as before 0096.
+-- A token with aal2 but no timing information (no amr claim) is refused since 0174 (fail closed).
 select tests.login_as_mfa_no_amr(current_setting('t.admin')::uuid);
-select lives_ok(format($$select public.admin_approve_withdrawal(%L)$$, current_setting('t.wdd')),
-  '27: aal2 without an amr claim is accepted (no timing information to check)');
+select throws_like(format($$select public.admin_approve_withdrawal(%L)$$, current_setting('t.wdd')),
+  '%MFA_REQUIRED%', '27: aal2 without an amr claim is refused (no proof of a fresh code)');
+-- approve it with a fresh code so the rest of this file sees the same state as before
+select tests.login_as_mfa(current_setting('t.admin')::uuid);
+select public.admin_approve_withdrawal(current_setting('t.wdd')::uuid);
 
 -- ===========================================================================
 -- Super-admin credits: aal2 + fresh, and nobody else can do them

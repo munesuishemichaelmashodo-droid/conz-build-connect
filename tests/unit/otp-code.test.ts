@@ -91,3 +91,19 @@ describe("/mfa screen source", () => {
     expect(src.match(/\{secret\}/g)?.length ?? 0).toBe(1);
   });
 });
+
+describe("/mfa setup is explicit", () => {
+  const src = readFileSync("src/routes/_authenticated/mfa.tsx", "utf8");
+  it("creates an authenticator only from the Set up button", () => {
+    // enroll() appears once, inside startEnrollment, which only the button (and 'Get a new QR code') call
+    expect(src.match(/mfa\.enroll\(/g)?.length).toBe(1);
+    expect(src).toMatch(/onClick=\{\(\) => void startEnrollment\(\)\}/);
+    expect(src).toMatch(/setStage\("intro"\)/);
+  });
+  it("never removes a verified authenticator", () => {
+    expect(src).toMatch(/if \(stage === "enroll" && factorId\)/);
+  });
+  it("shows Try again when the authenticator list cannot be read", () => {
+    expect(src).toMatch(/setStage\("unavailable"\)/);
+  });
+});
