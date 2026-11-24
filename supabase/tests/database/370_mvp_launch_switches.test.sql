@@ -1,4 +1,5 @@
--- 0107 — MVP launch switches: escrow off, withdrawals off, job/bid cap, wallet cap, minimum top-up.
+-- 0107 — MVP launch switches: escrow off, withdrawals off, wallet cap, minimum top-up.
+-- 0172 removed the $500 job/offer ceiling (owner 24/11/2026); the $100,000 platform limit stays.
 -- All enforced by the database (triggers), with the defaults the owner approved on 2026-10-13.
 begin;
 select plan(20);
@@ -10,18 +11,18 @@ select tests.as_owner();
 -- Defaults
 select is((public.launch_switches())->>'escrowEnabled', 'false', '1: escrow is off by default');
 select is((public.launch_switches())->>'withdrawalsEnabled', 'false', '2: withdrawals are off by default');
-select is((public.launch_switches())->>'maxJobBudget', '500', '3: default job cap is 500');
+select ok(not (public.launch_switches() ? 'maxJobBudget'), '3: there is no job ceiling any more (0172)');
 select is((public.launch_switches())->>'maxWalletBalance', '150', '4: default wallet cap is 150');
 
 -- Jobs
-select lives_ok(format('select tests.create_job(%L, 400, ''direct'')', current_setting('t.cust')), '5: a direct-pay job within the cap is created');
+select lives_ok(format('select tests.create_job(%L, 400, ''direct'')', current_setting('t.cust')), '5: a direct-pay job is created');
 select throws_like(format('select tests.create_job(%L, 400, ''escrow'')', current_setting('t.cust')), '%Con Z Pay is not available yet%', '6: an escrow job is refused while escrow is off');
-select throws_like(format('select tests.create_job(%L, 501, ''direct'')', current_setting('t.cust')), '%maximum amount for a job%', '7: a job above the cap is refused');
+select lives_ok(format('select tests.create_job(%L, 2500, ''direct'')', current_setting('t.cust')), '7: a job above the old $500 ceiling is accepted');
 
 -- Bids
 select set_config('t.job', tests.create_job(current_setting('t.cust')::uuid, 400)::text, true);
-select lives_ok(format('select tests.create_bid(%L, %L, 400)', current_setting('t.job'), current_setting('t.drv')), '8: a bid within the cap is accepted');
-select throws_like(format('select tests.create_bid(%L, %L, 501)', current_setting('t.job'), current_setting('t.drv')), '%maximum amount for a job%', '9: a bid above the cap is refused');
+select lives_ok(format('select tests.create_bid(%L, %L, 400)', current_setting('t.job'), current_setting('t.drv')), '8: a bid is accepted');
+select throws_ok(format('select tests.create_bid(%L, %L, 100001)', current_setting('t.job'), current_setting('t.drv')), '23514', null, '9: a bid above the $100,000 platform limit is still refused');
 
 -- Withdrawals
 select tests.login_as(current_setting('t.drv')::uuid);

@@ -15,12 +15,6 @@ const rpc: Rpc = (f, a) => (supabase as unknown as { rpc: Rpc }).rpc(f, a); // l
 
 const NUMBERS: { key: string; field: keyof LaunchSwitches; label: string; hint: string }[] = [
   {
-    key: "max_job_budget",
-    field: "maxJobBudget",
-    label: "Biggest job allowed (USD)",
-    hint: "Jobs above this are refused.",
-  },
-  {
     key: "max_wallet_balance",
     field: "maxWalletBalance",
     label: "Biggest driver wallet (USD)",

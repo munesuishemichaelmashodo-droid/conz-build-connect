@@ -1,6 +1,6 @@
 -- 0129: launch switches are changed only by a super admin with a fresh step-up, a reason and an audit row.
 begin;
-select plan(14);
+select plan(15);
 select set_config('t.admin', tests.create_user('ls_admin', array['admin'])::text, true);
 select set_config('t.sup',   tests.create_user('ls_sup', array['super_admin'])::text, true);
 select set_config('t.cust',  tests.create_user('ls_cust')::text, true);
@@ -20,19 +20,21 @@ select throws_like($$select public.admin_set_launch_switch('escrow_enabled', 'tr
 select tests.login_as_mfa(current_setting('t.sup')::uuid);
 select throws_ok($$select public.admin_set_launch_switch('escrow_enabled', 'true'::jsonb, 'x')$$,
   '22023', null, 'a reason of at least 5 characters is required');
-select throws_ok($$select public.admin_set_launch_switch('max_job_budget', '"lots"'::jsonb, 'launch test')$$,
+select throws_ok($$select public.admin_set_launch_switch('max_wallet_balance', '"lots"'::jsonb, 'launch test')$$,
   '22023', null, 'numbers must be numbers');
 select throws_ok($$select public.admin_set_launch_switch('escrow_enabled', '1'::jsonb, 'launch test')$$,
   '22023', null, 'switches must be true or false');
-select throws_ok($$select public.admin_set_launch_switch('max_job_budget', '999999'::jsonb, 'launch test')$$,
+select throws_ok($$select public.admin_set_launch_switch('max_wallet_balance', '999999'::jsonb, 'launch test')$$,
   '22023', null, 'limits are bounded');
+select throws_like($$select public.admin_set_launch_switch('max_job_budget', '750'::jsonb, 'launch test')$$,
+  '%Unknown launch switch%', 'the job ceiling is gone: it can no longer be set (0172)');
 select throws_ok($$select public.admin_set_launch_switch('commission_rate', '0'::jsonb, 'launch test')$$,
-  '22023', null, 'only the five launch keys can be changed (not the commission)');
+  '22023', null, 'only the launch keys can be changed (not the commission)');
 
 select is((public.admin_set_launch_switch('withdrawals_enabled', 'true'::jsonb, 'launch test')) ->> 'withdrawalsEnabled', 'true',
   'a super admin with a step-up can switch withdrawals on');
-select is(((public.admin_set_launch_switch('max_job_budget', '750'::jsonb, 'launch test')) ->> 'maxJobBudget')::numeric, 750::numeric,
-  '... and raise the job limit');
+select is(((public.admin_set_launch_switch('max_wallet_balance', '120'::jsonb, 'launch test')) ->> 'maxWalletBalance')::numeric, 120::numeric,
+  '... and change the wallet cap');
 select tests.as_owner();
 select ok(exists (select 1 from public.admin_audit_log where action = 'launch_switch_changed' and reason = 'launch test'),
   'each change leaves an audit row');
