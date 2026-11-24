@@ -7,33 +7,45 @@ import { summarizePayables, type PayableRow } from "@/lib/driver-earnings";
 // collected fares, and refunds owed to customers. Separate from commission-credit revenue above.
 // Renders nothing until 0171 is live; shows zeros while no provider-paid job exists.
 type Query = PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
-type From = (name: string) => {
+export type From = (name: string) => {
   select: (
     cols: string,
   ) => Query & { eq: (c: string, v: string) => Query & { eq: (c: string, v: string) => Query } };
 };
 
+export type AdminPayablesData = {
+  summary: ReturnType<typeof summarizePayables>;
+  refundOwed: number;
+};
+
+// Exported for tests. If either table cannot be read (0171 not applied yet, RLS, network) the card
+// shows nothing rather than zeros that look like real totals.
+export async function loadAdminPayables(db: { from: From }): Promise<AdminPayablesData | null> {
+  try {
+    const [{ data: rows, error }, { data: refunds, error: refundError }] = await Promise.all([
+      db
+        .from("driver_payables")
+        .select("id,job_id,driver_id,gross_amount,commission,amount,status,created_at"),
+      db.from("payments").select("amount").eq("type", "job_payment").eq("status", "refund_due"),
+    ]);
+    if (error || refundError) return null;
+    const refundOwed = ((refunds ?? []) as { amount: number | string }[]).reduce(
+      (t, r) => t + Math.round(Number(r.amount) * 100),
+      0,
+    );
+    return {
+      summary: summarizePayables((rows ?? []) as PayableRow[]),
+      refundOwed: refundOwed / 100,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function AdminPayablesCard() {
   const { data } = useQuery({
     queryKey: ["admin-payables"],
-    queryFn: async () => {
-      const db = supabase as unknown as { from: From };
-      const [{ data: rows, error }, { data: refunds }] = await Promise.all([
-        db
-          .from("driver_payables")
-          .select("id,job_id,driver_id,gross_amount,commission,amount,status,created_at"),
-        db.from("payments").select("amount").eq("type", "job_payment").eq("status", "refund_due"),
-      ]);
-      if (error) return null;
-      const refundOwed = ((refunds ?? []) as { amount: number | string }[]).reduce(
-        (t, r) => t + Math.round(Number(r.amount) * 100),
-        0,
-      );
-      return {
-        summary: summarizePayables((rows ?? []) as PayableRow[]),
-        refundOwed: refundOwed / 100,
-      };
-    },
+    queryFn: () => loadAdminPayables(supabase as unknown as { from: From }),
     staleTime: 30_000,
   });
   if (!data) return null;

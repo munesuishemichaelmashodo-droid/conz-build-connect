@@ -6,7 +6,7 @@ import { payableStatusLabel, summarizePayables, type PayableRow } from "@/lib/dr
 // Earnings from jobs the customer paid through ConZ (0171). Separate from commission credit:
 // these are owed to the driver, and commission credit is never used for them.
 // Renders nothing until 0171 is live or while the driver has no such jobs.
-type Table = (name: string) => {
+export type Table = (name: string) => {
   select: (cols: string) => {
     eq: (
       col: string,
@@ -24,19 +24,30 @@ type Table = (name: string) => {
   };
 };
 
+// Exported for tests. Any error (table missing before 0171 is applied, RLS, network) means
+// "show nothing", never an empty or zero card.
+export async function loadDriverPayables(
+  db: { from: Table },
+  userId: string,
+): Promise<PayableRow[] | null> {
+  try {
+    const { data: rows, error } = await db
+      .from("driver_payables")
+      .select("id,job_id,gross_amount,commission,amount,status,created_at")
+      .eq("driver_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) return null;
+    return (rows ?? []) as PayableRow[];
+  } catch {
+    return null;
+  }
+}
+
 export function DriverEarningsCard({ userId }: { userId: string }) {
   const { data } = useQuery({
     queryKey: ["driver-payables", userId],
-    queryFn: async () => {
-      const { data: rows, error } = await (supabase as unknown as { from: Table })
-        .from("driver_payables")
-        .select("id,job_id,gross_amount,commission,amount,status,created_at")
-        .eq("driver_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) return null; // table not there yet: show nothing
-      return (rows ?? []) as PayableRow[];
-    },
+    queryFn: () => loadDriverPayables(supabase as unknown as { from: Table }, userId),
     staleTime: 30_000,
   });
 
