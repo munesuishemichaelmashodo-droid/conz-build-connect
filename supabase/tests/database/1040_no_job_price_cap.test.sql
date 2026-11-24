@@ -1,6 +1,6 @@
 -- 0172: no fixed job/offer ceiling; platform limits, guide ranges and checks stay; large jobs alert admins.
 begin;
-select plan(12);
+select plan(17);
 
 select tests.as_owner();
 select set_config('t.cust',  tests.create_user('cap_cust')::text, true);
@@ -41,6 +41,17 @@ select is((select count(*)::int from public.notifications n join public.jobs j o
             where n.type = 'large_job' and j.budget = 400 and j.customer_id = current_setting('t.cust')::uuid), 0,
           '11: no alert for an ordinary job');
 select is((select value #>> '{}' from public.system_settings where key = 'large_job_alert_amount'), '1000', '12: the alert level is a setting ($1,000)');
+
+-- The large job runs to the end like any other: delivered, confirmed with the code, 7% charged once.
+select tests.login_as(current_setting('t.cust')::uuid);
+select is((tests.complete(current_setting('t.job')::uuid)) ->> 'ok', 'true', '13: the customer confirms the $2,400 delivery');
+select is((tests.complete(current_setting('t.job')::uuid)) ->> 'already', 'true', '14: confirming again settles nothing');
+select tests.as_owner();
+select is((select balance from public.wallets where user_id = current_setting('t.drv')::uuid), 832.00::numeric,
+          '15: $168 commission charged once ($1,000 - $168)');
+select is((select count(*)::int from public.wallet_transactions where job_id = current_setting('t.job')::uuid and type = 'commission'), 1,
+          '16: one commission line for the large job');
+select ok(tests.ledger_matches(current_setting('t.drv')::uuid), '17: the wallet equals its transactions');
 
 select * from finish();
 rollback;
