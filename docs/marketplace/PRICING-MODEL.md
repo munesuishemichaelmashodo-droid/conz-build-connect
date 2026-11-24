@@ -20,7 +20,7 @@ prepared in 0118). No second calculator exists or was added.
 | Small loads (< 1 m³) | `small_load_settings.minimum_trip_charge` | Configurable | |
 | Large loads with history | Average accepted offer per m³ (≥ 3 similar jobs, 6 months) | Computed | **Bug, fixed in 0118:** transport was added on top of an all-in price. |
 | Range shown | bucket: min…max(+transport); other modes ±15% | Hard-coded | Becomes the customer's offer choices. |
-| Driver's price | The driver's own offer | Driver | Capped at **$500** (`max_job_budget`) at launch. |
+| Driver's price | The driver's own offer | Driver | No fixed ceiling since 0172 (24/11/2026); the $100,000 platform limit applies and admins are alerted at $1,000 or more. |
 | Commission | 7% (`commission_rate`), rounded to cents (`commission_amount`) | Configurable | First completed job free (`complete_job`, 0091). Held from the driver's wallet at acceptance. |
 | Payment fees | — | **Not modelled** | Customers pay drivers directly; Paynow fees apply only to drivers' wallet top-ups. |
 | Silent defaults | Missing distance → 15 km; missing quantity → 12.5 m³ | Assumption | Removed in 0118 (returns `missing_distance` / `missing_quantity`). |

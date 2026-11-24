@@ -8,7 +8,7 @@
 --  * admin_price_accuracy_completed: completed deliveries only.
 begin;
 select plan(47);
-select tests.enable_launch_features();  -- lifts the $500 launch cap for the 40 m³ and outlier jobs
+select tests.enable_launch_features();  -- test switches on; no job ceiling exists since 0172
 
 -- Known prices (production values of 02/11/2026 for river sand).
 delete from public.material_price_buckets where material = 'river_sand';
