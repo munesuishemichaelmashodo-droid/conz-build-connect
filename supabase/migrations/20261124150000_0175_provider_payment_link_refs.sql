@@ -33,7 +33,7 @@ create table if not exists public.provider_payment_refs (
   provider                 text not null check (provider ~ '^[a-z][a-z0-9_]{1,30}$'),
   external_payment_link_id text check (external_payment_link_id is null or length(external_payment_link_id) between 1 and 200),
   short_url                text check (short_url is null or length(short_url) between 1 and 500),
-  checkout_url             text check (checkout_url is null or checkout_url ~ '^https://[^[:space:]]{1,490}$'),
+  checkout_url             text check (checkout_url is null or (length(checkout_url) <= 500 and checkout_url ~ '^https://[^[:space:]]+$')),
   payment_reference        text check (payment_reference is null or length(payment_reference) between 1 and 200),
   receipt_id               text check (receipt_id is null or length(receipt_id) between 1 and 200),
   link_claimed_at          timestamptz,
@@ -119,7 +119,7 @@ begin
      or _short_url is null or length(btrim(_short_url)) = 0 then
     raise exception 'The payment link id, short URL and checkout URL are required';
   end if;
-  if _checkout_url is null or _checkout_url !~ '^https://[^[:space:]]{1,490}$' then
+  if _checkout_url is null or length(_checkout_url) > 500 or _checkout_url !~ '^https://[^[:space:]]+$' then
     raise exception 'The payment link id, short URL and checkout URL are required';
   end if;
   select * into _r from public.provider_payment_refs where payment_id = _payment_id for update;
