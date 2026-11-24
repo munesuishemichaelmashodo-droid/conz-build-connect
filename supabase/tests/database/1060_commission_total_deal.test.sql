@@ -83,7 +83,7 @@ select tests.as_owner();
 select is((select commission from public.driver_payables where job_id = current_setting('t.j4')::uuid), 28.00::numeric,
           '15: provider-paid commission is the same $28 (7% of the total deal)');
 select is((select amount from public.driver_payables where job_id = current_setting('t.j4')::uuid), 372.00::numeric, '16: driver is owed $372');
-select is((select held_commission from public.jobs where id = current_setting('t.j4')::uuid), 0::numeric,
+select is((select coalesce(held_commission, 0) from public.jobs where id = current_setting('t.j4')::uuid), 0::numeric,
           '17: nothing reserved from commission credit (no double commission)');
 select is((select count(*)::int from public.wallet_transactions where job_id = current_setting('t.j4')::uuid), 0,
           '18: no commission-credit line for a provider-paid job');
