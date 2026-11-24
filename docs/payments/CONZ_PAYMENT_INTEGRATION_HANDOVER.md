@@ -1,5 +1,9 @@
 # ConZ payment integration: handover (09/11/2026)
 
+> **Update 24/11/2026:** Payonify is retired (owner: coverage does not meet requirements); see `archive/README.md`.
+> The MVP direction is now customer → approved provider → ConZ records → driver payout, with 7% of the total agreed price (materials and transport together; owner rule 24/11/2026);
+> the provider-neutral accounting is migration 0171 (OFF until a provider is approved). Paynow top-ups are unchanged.
+
 Scope per the implementation spec: **Paynow commission-credit top-ups only.** ConZ does not collect, hold or guarantee the customer's fare in V1. Linkwa is treated as
 unapproved and future. Payonify (PR #38) is not merged and not live. Evidence classes: **V** verified 09/11, **C** carried from `CURRENT-STATE-AUDIT.md` (24-25/10), **U** unknown.
 
