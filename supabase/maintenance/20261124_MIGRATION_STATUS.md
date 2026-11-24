@@ -5,7 +5,10 @@ Live latest: `20261111120000` (0169). Checked read-only against production on 24
 ## Applied live but not recorded under their git version (fix: history repair)
 
 0072–0102 and 0104–0108 (36 files). All 136 functions they define exist live. Six live-only versions duplicate them
-under other numbers. Fix: `20261124_migration_history_repair.sql` (metadata only; owner runs it by hand in the SQL
+under other numbers. Grants checked 24/11: for all 91 function signatures that 0072–0108 GRANT or REVOKE, live
+EXECUTE for PUBLIC/anon/authenticated/service_role equals the last statement in git (90 match; the 91st, the 8-argument
+`create_material_sourcing_request`, is deliberately dropped by 0088). The 10 tables they create have RLS on, no anon
+access and no authenticated INSERT/UPDATE/DELETE/TRUNCATE. Fix: `20261124_migration_history_repair.sql` (metadata only; owner runs it by hand in the SQL
 editor; never an agent or CI). Undo: `20261124_migration_history_repair_undo.sql`.
 
 How to run it (both files ship in read-only `check` mode; change only the `c_mode` line):
@@ -43,10 +46,31 @@ Retired: Payonify 0167/0168 were never on `main` (see `docs/payments/archive/`).
 
 ## Production apply order (each needs the owner's go; never automatic)
 
-1. History repair script (metadata only) — separate review.
-2. 0141 (no-op on production), 0129.
-3. 0170.
-4. 0171 (SQL editor).
-5. 0172 (SQL editor).
-6. 0173 (SQL editor), after 0171.
-After each: record the version in `schema_migrations`, then re-run `select * from public.financial_reconciliation()`.
+Checked read-only on 24/11/2026 18:50 Harare: history 183 rows, latest `20261111120000`, no backup table, every
+`financial_reconciliation()` check OK, and every function below is in exactly the "before" state its undo script
+restores. One step per sitting; stop at the first mismatch.
+
+**Fingerprint query** (comments and whitespace ignored, so the result does not depend on how a file was pasted):
+
+```sql
+select p.proname, left(md5(regexp_replace(regexp_replace(p.prosrc, '--[^\n]*', '', 'g'), '\s', '', 'g')), 8) as fp
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+ where n.nspname = 'public' and p.proname = any (array['<names>']) order by 1;
+```
+
+**Record a version** after each apply: `insert into supabase_migrations.schema_migrations (version, name) values ('<version>', '<name>');`
+**After every step:** `select check_name from public.financial_reconciliation() where not ok;` returns no rows.
+
+| # | Step | Needs first | How | Before → after (fingerprint) | Extra check after | Undo |
+|---|---|---|---|---|---|---|
+| 0 | History repair | — | SQL editor: `check`, `dry_run`, then `apply` | rows 183 → 213; 36 versions added, 6 stand-ins retired | `supabase migration list` shows 0072–0108 on both sides | `20261124_migration_history_repair_undo.sql` |
+| 1 | 0174 `20261124140000` `admin_totp_only_stepup` | #144 merged | SQL editor (no DROP, no delete) | require_aal2 9c57f886 → 9d3857f1; admin_note_authenticator_check 0d781d3b → 045b1c15; admin_set_authenticator_required 0b78c12e → 99a5450b | An owner signed in with Google in the last 12 h can still approve a money action (no authenticator yet, switch off) | `rollbacks/20261124140000_0174_rollback.sql` |
+| 2 | 0141 `20261104120000` `auth_signup_trigger` | — | SQL editor | none (creates the trigger only if missing; it exists) | `select tgenabled from pg_trigger where tgname = 'on_auth_user_created'` = `O` | none needed |
+| 3 | 0129 `20261103110000` `admin_launch_switches` | — | SQL editor | admin_set_launch_switch absent → 7f2bfe3c | anon cannot execute it; Settings "Launch switches" card saves | `rollbacks/20261103110000_0129_rollback.sql` |
+| 4 | 0170 `20261124100000` `driver_public_profiles_verified_only` | — | SQL editor | view only | `pg_get_viewdef('public.driver_public_profiles')` contains `verification_status = 'verified'` | `rollbacks/20261124100000_0170_rollback.sql` |
+| 5 | 0171 `20261124110000` `provider_commission_accounting` | #133/#134 deployed (done) | **SQL editor only** (2 DROP CONSTRAINT + ADD in one ALTER each) | account_deletion_blockers 2da2f549 → 77ccc87d; complete_job 04a9f9fa → c043234c; driver_can_accept e221918f → 0828da4e; driver_can_accept_for 11d4972e → 670abb1c; driver_confirm_delivery_pin 88a16018 → e093a376; financial_reconciliation 14cef976 → 7e6eac37; hold_job_commission ec580d5f → 09c63424; payments_guard_transition 13eff04c → 815f61a9; plus 21 new functions | `payment_provider` = `"none"`, `payouts_enabled` = `false`; `driver_payables`/`driver_payouts` exist with RLS on | `rollbacks/20261124110000_0171_rollback.sql` |
+| 6 | 0172 `20261124120000` `remove_job_price_cap` | 0129 | **SQL editor only** (contains `delete from system_settings`) | admin_set_launch_switch 7f2bfe3c → 83144be6; launch_switches 04077d97 → dfc6d157; tg_enforce_launch_bid_limit 504befc0 → cb0662b3; tg_enforce_launch_job_limits 308268f1 → 8c01a654; new tg_jobs_large_job_alert c998a280 | no `max_job_budget` row; `large_job_alert_amount` = 1000; $100,000 checks unchanged | `rollbacks/20261124120000_0172_rollback.sql` (restores the $500 row) |
+| 7 | 0173 `20261124130000` `provider_post_payout_recovery` | 0171, #143 merged | **SQL editor only** (widens the ledger account CHECK) | account_deletion_blockers 77ccc87d → 475f084c; new admin_open_post_payout_refund f2c72d46, admin_close_driver_recovery c56cf456, driver_recoveries_guard 18b6b56a | `driver_recoveries` exists, RLS on, 0 rows; unique index `driver_recoveries_repaid_reference_uidx` exists | `rollbacks/20261124130000_0173_rollback.sql` (refuses once rows exist) |
+
+Not in this sequence: parked 0130–0132 and 0137 (never apply for the MVP). Switches stay as they are:
+escrow, withdrawals, provider collection (`payment_provider = "none"`) and payouts all OFF; delivery-only pricing OFF.
