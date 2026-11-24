@@ -1,7 +1,8 @@
 # Con Z Connect — project context for Claude Code
 
 > **Current state, 24/11/2026 — read this first; the dated log below is history and some early lines are stale.**
-> - MVP model: transport-only; ConZ earns 7% of the TRANSPORT fare. Live today: customer pays the driver directly and the 7%
+> - Commission (owner rule 24/11/2026): ConZ earns 7% of the TOTAL agreed deal, materials and transport together
+>   ($300 + $100 = $400 -> $28), the same basis on every payment path, charged once. Live today: customer pays the driver directly and the 7%
 >   comes from the driver's prepaid commission credit (Paynow top-ups). Built but OFF (0171, PR #133): customer pays through an
 >   approved provider, 7% taken once from the fare, driver earnings in `driver_payables`, payouts in `driver_payouts`.
 >   `payment_provider = "none"`, `payouts_enabled = false`. No provider is approved; Linkwa is a candidate only; Payonify is retired.
@@ -479,7 +480,7 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
   `CONZ-NATIONWIDE-PRICING.md` (transport-only formula, UNCALIBRATED, switch default off), `CONZ-COMPETITOR-RESEARCH.md`,
   `CONZ-COMMISSION-CREDIT-RISK-NOTE.md` (legal questions only; not legal advice).
 - Product rules (owner's brief): two participants only (clients and independent drivers); pickup places are locations, not accounts; client pays
-  the driver directly, ConZ never holds the fare; ConZ earns 7% of the agreed TRANSPORT fare from the driver's prepaid commission credit
+  the driver directly, ConZ never holds the fare; ConZ earns 7% of the agreed TRANSPORT fare (superseded 24/11/2026: 7% of the total agreed deal) from the driver's prepaid commission credit
   (reserve on accept, one release on cancel, one charge at verified completion; first job free); no cash-out of commission credit; wording: "commission
   credit", never "wallet/escrow/we hold". Today's commission base is still the whole accepted price including materials; the switch to
   transport-only is designed but NOT built or live (owner go required).
