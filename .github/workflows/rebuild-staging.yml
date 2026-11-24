@@ -1,0 +1,91 @@
+name: Rebuild ConZ staging
+
+# Runs ONLY when the branch ops/rebuild-conz-staging is pushed (never on main, never on pull requests).
+# 1. Builds CI's own local test database (scripts/db-test.mjs) and fingerprints it.
+# 2. Rehearses the staging rebuild on that local database and fingerprints the result.
+# 3. Rebuilds STAGING (fpckydgssuefzzxivvig) with the same script and fingerprints it.
+# 4. Prints the differences: staging vs rehearsal (expected: none) and staging vs CI (expected: only the parked
+#    migrations 0130-0132/0137 and the CI-only test helpers).
+# Needs the repository secret STAGING_DATABASE_URL (Supabase dashboard > conz-staging > Connect >
+# "Session pooler" string, with the database password). The script refuses production and any database without
+# the conz_env.identity staging marker.
+
+on:
+  push:
+    branches: [ops/rebuild-conz-staging]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rebuild-conz-staging
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the staging secret is present
+        env:
+          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: |
+          if [ -z "$STAGING_DATABASE_URL" ]; then echo "Set the STAGING_DATABASE_URL repository secret first."; exit 1; fi
+          case "$STAGING_DATABASE_URL" in *ovwrsocjmkpiygipmrdk*) echo "STOP: secret names production"; exit 1;; esac
+          case "$STAGING_DATABASE_URL" in *fpckydgssuefzzxivvig*) echo "Secret names the staging project.";; *) echo "STOP: secret does not name staging"; exit 1;; esac
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Build CI's local test database and fingerprint it
+        env:
+          PGPASSWORD: postgres
+        run: |
+          node scripts/db-test.mjs start
+          /usr/lib/postgresql/17/bin/psql "postgresql://postgres:postgres@127.0.0.1:55432/postgres" -X -At -q \
+            -f supabase/maintenance/staging/fingerprint.sql | LC_ALL=C sort > ci.txt
+          wc -l ci.txt
+
+      - name: Rehearse the rebuild on the local database
+        run: |
+          L="postgresql://postgres:postgres@127.0.0.1:55432/postgres"
+          /usr/lib/postgresql/17/bin/psql "$L" -X -q -v ON_ERROR_STOP=1 -c "create schema if not exists conz_env; create table if not exists conz_env.identity (env text primary key, project_ref text not null, created_at timestamptz default now()); insert into conz_env.identity values ('staging','fpckydgssuefzzxivvig') on conflict do nothing;"
+          REHEARSAL=local STAGING_DATABASE_URL="$L" PSQL=/usr/lib/postgresql/17/bin/psql scripts/staging/rebuild-staging.sh
+          /usr/lib/postgresql/17/bin/psql "$L" -X -At -q -f supabase/maintenance/staging/fingerprint.sql | LC_ALL=C sort > rehearsal.txt
+          wc -l rehearsal.txt
+
+      - name: Rebuild staging (fpckydgssuefzzxivvig)
+        env:
+          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: |
+          PSQL=/usr/lib/postgresql/17/bin/psql scripts/staging/rebuild-staging.sh
+          /usr/lib/postgresql/17/bin/psql "$STAGING_DATABASE_URL" -X -At -q -f supabase/maintenance/staging/fingerprint.sql | LC_ALL=C sort > staging.txt
+          wc -l staging.txt
+
+      - name: Compare
+        run: |
+          echo "== staging vs rehearsal (expected: no differences)"
+          diff rehearsal.txt staging.txt && echo "IDENTICAL" || true
+          echo "== CI-only lines (expected: parked 0130-0132/0137 and test-helper effects)"
+          LC_ALL=C comm -23 ci.txt staging.txt
+          echo "== staging-only lines (expected: none)"
+          LC_ALL=C comm -13 ci.txt staging.txt
+
+      - name: Stop local Supabase
+        if: always()
+        run: node scripts/db-test.mjs stop
