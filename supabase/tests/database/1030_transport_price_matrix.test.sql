@@ -17,7 +17,7 @@ insert into m values
   ( 51, 20,  61.22,  52.04,  70.40, 1),   -- continuous just past 50 km
   ( 80, 20,  96.62,  82.13, 111.12, 1),
   (200, 20, 243.11, 206.64, 279.58, 1),
-  (440, 20, 536.09, 455.67, 616.50, 1),   -- above the $500 launch cap
+  (440, 20, 536.09, 455.67, 616.50, 1),   -- above the old $500 ceiling
   ( 15, 30,  60.00,  51.00,  69.00, 2),   -- 30 m3 = 2 trips
   (200, 40, 486.22, 413.29, 559.15, 2);
 
@@ -44,7 +44,7 @@ select ok(not exists (
    where (public.compute_transport_offer(d + 1, 20) #>> '{total,recommended}')::numeric
        < (public.compute_transport_offer(d, 20) #>> '{total,recommended}')::numeric), 'fare never falls as distance grows (1-600 km)');
 
--- Where the $500 launch cap starts to bite (one 20 m3 trip).
+-- Where one 20 m3 trip passes $500 (the old launch ceiling, removed by 0172).
 select is((select min(d) from generate_series(1, 600) d
             where (public.compute_transport_offer(d, 20) #>> '{total,recommended}')::numeric > 500), 411,
           'recommended fare first exceeds $500 at 411 km');

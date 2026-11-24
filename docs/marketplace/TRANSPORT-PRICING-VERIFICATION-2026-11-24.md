@@ -22,9 +22,9 @@ distance or load is refused, never priced. Commission is 7% of the transport far
 
 ## Owner decisions before `transport_pricing_enabled = true`
 
-1. **$500 cap (`max_job_budget`).** It applies to jobs **and bids**. One 20 m³ trip's recommended fare passes $500 at
-   **411 km**, and its high guide at **358 km**, so Harare–Bulawayo (≈436 km) cannot be booked or offered. Raise the cap
-   (Settings → Launch switches, after PR #132 and 0129), or accept that limit for the pilot.
+1. **$500 cap: removed (owner decision 24/11, PR #138 / migration 0172).** Before 0172, one 20 m³ trip's recommended
+   fare passed $500 at 411 km and its high guide at 358 km, so long hauls could not be booked. After 0172 only the
+   $100,000 platform limit applies; admins are alerted on jobs of $1,000 or more.
 2. **Rate level.** Beyond 50 km the fare is $1.22/km loaded, with no separate return-empty or waiting allowance. The one
    published competitor figure found (ZimboHaul, undated) is $2.10/km with a $200 minimum. Confirm with 3–5 real driver
    quotes per band before launch; change the inputs only through the audited setter (`admin_set_fuel_assumptions`).
