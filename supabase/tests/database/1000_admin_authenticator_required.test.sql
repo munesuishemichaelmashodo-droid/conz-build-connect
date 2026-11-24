@@ -21,7 +21,7 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', _uid, 'role', 'authenticated', 'aal', 'aal1',
       'amr', json_build_array(json_build_object('method', 'oauth',
-        'timestamp', (extract(epoch from now()) - _minutes * 60)::bigint)))::text, true);
+        'timestamp', floor(extract(epoch from now()) - _minutes * 60)::bigint)))::text, true);
   perform set_config('role', 'authenticated', true);
 end $$;
 
