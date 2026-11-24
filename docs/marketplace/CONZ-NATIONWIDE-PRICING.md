@@ -68,4 +68,4 @@ Reference only (not adopted): the competitor ZimboHaul publishes $2.10/km with a
 
 ## 7. What changes when the switch is turned on (owner go required)
 
-New jobs priced as transport only; the commission base becomes the transport fare; the Terms, wallet and offer copy change from "7% of the full price including materials" to "7% of the agreed transport fare". Existing jobs, supplier tables and admin sourcing screens are untouched. Turning it off again returns new jobs to the legacy engine.
+New jobs priced as transport only. **Superseded 24/11/2026 (owner):** the commission is always 7% of the total agreed deal, materials and transport together; when a job holds transport only, that total is the transport fare. The copy says "7% of the total agreed price for the job" and never that materials are excluded. Existing jobs, supplier tables and admin sourcing screens are untouched. Turning it off again returns new jobs to the legacy engine.
