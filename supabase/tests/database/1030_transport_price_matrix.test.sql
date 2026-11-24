@@ -52,7 +52,7 @@ select is((select min(d) from generate_series(1, 600) d
             where (public.compute_transport_offer(d, 20) #>> '{total,high}')::numeric > 500), 358,
           'high guide first exceeds $500 at 358 km');
 
--- Commission on a transport-only fare: 7% of the fare, rounded to cents.
+-- Commission is 7% of the total agreed price; on a transport-only job that total is the fare. Rounded to cents.
 select is(public.commission_amount(243.11, 7), 17.02::numeric, '7% of $243.11 = $17.02');
 select is(public.commission_amount(536.09, 7), 37.53::numeric, '7% of $536.09 = $37.53');
 
