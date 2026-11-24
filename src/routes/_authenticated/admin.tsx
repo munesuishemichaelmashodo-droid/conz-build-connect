@@ -1,4 +1,11 @@
-import { createFileRoute, Outlet, Link, useRouterState, redirect } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  Link,
+  useRouterState,
+  redirect,
+  useRouter,
+} from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import {
   Search,
@@ -22,7 +29,8 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { AuthenticatorStrip } from "@/components/admin/AuthenticatorStrip";
-import { mustVerifyBeforeAdmin, parsePolicy } from "@/lib/admin-authenticator";
+import { authenticatorGate } from "@/lib/admin-authenticator";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: async ({ location }) => {
@@ -37,24 +45,26 @@ export const Route = createFileRoute("/_authenticated/admin")({
       throw redirect({ to: "/home" });
     }
     // 30-day rule (0169): an admin with an authenticator app whose last accepted code is older than
-    // 30 days is sent to the code screen first. Unreadable answer (e.g. 0169 not applied yet) = no block;
-    // the database still demands a fresh code for every crucial action.
-    let mustVerify = false;
+    // 30 days is sent to the code screen first. If the status cannot be confirmed (network, database),
+    // the admin area stays closed with a "Try again" message: never silently open, never a redirect that
+    // would start an authenticator setup. The database still demands a fresh code for every crucial action.
+    let gate: ReturnType<typeof authenticatorGate> = "unconfirmed";
     try {
       // in place, not a detached reference, so the client keeps its `this`
       const { data: raw, error } = await (
         supabase.rpc as unknown as (f: string) => PromiseLike<{ data: unknown; error: unknown }>
       )("admin_authenticator_policy");
-      mustVerify = !error && mustVerifyBeforeAdmin(parsePolicy(raw));
+      gate = authenticatorGate(error ? undefined : raw);
     } catch {
-      mustVerify = false;
+      gate = "unconfirmed";
     }
-    if (mustVerify) {
+    if (gate === "verify") {
       throw redirect({
         to: "/mfa",
         search: { next: location.pathname + (location.searchStr ?? "") },
       });
     }
+    return { authenticatorGate: gate };
     // Admin pages open with password + role. Super-admin MONEY actions
     // (credits, approvals, refunds, reversals) additionally require an MFA
     // (aal2) session, enforced in the database (0074/0076); the UI sends the
@@ -106,7 +116,36 @@ const ON =
   "bg-muted text-foreground font-semibold shadow-[inset_0_0_0_1px_var(--cz-border-strong)]";
 const OFF = "text-muted-foreground hover:bg-muted hover:text-foreground";
 
+function AuthenticatorUnconfirmed() {
+  const router = useRouter();
+  return (
+    <AppShell title="Con Z Control">
+      <section
+        role="alert"
+        className="mx-auto max-w-sm space-y-3 rounded-xl border bg-card p-5 text-center"
+      >
+        <h2 className="font-display text-lg font-bold">
+          Couldn&apos;t confirm your security check
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          The admin area stays closed until we can confirm your authenticator status. Check your
+          signal and try again.
+        </p>
+        <Button type="button" className="h-11 w-full" onClick={() => void router.invalidate()}>
+          Try again
+        </Button>
+      </section>
+    </AppShell>
+  );
+}
+
 function AdminLayout() {
+  const { authenticatorGate: gate } = Route.useRouteContext();
+  if (gate !== "open") return <AuthenticatorUnconfirmed />;
+  return <AdminLayoutOpen />;
+}
+
+function AdminLayoutOpen() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const { is } = useAuth();
   const isSuper = is("super_admin");
