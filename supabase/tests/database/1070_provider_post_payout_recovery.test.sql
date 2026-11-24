@@ -134,10 +134,10 @@ select is((public.admin_close_driver_recovery(current_setting('t.rec2')::uuid, '
 select throws_like($$select public.admin_close_driver_recovery(current_setting('t.rec3')::uuid, 'repaid', ' ec-778899 ', 'Driver repaid')$$,
                    '%already used%', '28: the same repayment reference cannot close a second recovery');
 select tests.as_owner();
-select is((select sum(amount) from public.platform_ledger l join public.driver_recoveries r on r.job_id = l.job_id
+select is((select sum(l.amount) from public.platform_ledger l join public.driver_recoveries r on r.job_id = l.job_id
             where r.id = current_setting('t.rec2')::uuid and l.account = 'driver_recoverable'), 0::numeric,
           '29: nothing left owed after repayment');
-select is((select sum(amount) from public.platform_ledger l join public.driver_recoveries r on r.job_id = l.job_id
+select is((select sum(l.amount) from public.platform_ledger l join public.driver_recoveries r on r.job_id = l.job_id
             where r.id = current_setting('t.rec2')::uuid and l.account = 'provider_clearing' and l.kind = 'driver_recovery_repaid'), 279.00::numeric,
           '30: the repayment is recorded as money received at the provider');
 
