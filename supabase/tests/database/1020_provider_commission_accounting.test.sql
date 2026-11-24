@@ -1,4 +1,4 @@
--- 0171: provider-collected jobs. 7% of the transport fare from the collected payment, exactly once;
+-- 0171: provider-collected jobs. 7% of the total agreed deal (materials + transport) from the collected payment, exactly once;
 -- never from commission credit; earnings payable kept apart from the wallet; payouts never retried blindly;
 -- duplicate / mismatched / out-of-order events; cancellation refund; reconciliation; direct jobs unchanged.
 begin;
@@ -21,13 +21,13 @@ select throws_like($$select tests.create_job(current_setting('t.cust')::uuid, 30
 select tests.as_owner();
 update public.system_settings set value = '"testpay"'::jsonb where key = 'payment_provider';
 select tests.login_as(current_setting('t.cust')::uuid);
-select throws_like($$select tests.create_job(current_setting('t.cust')::uuid, 300, 'provider')$$,
-                   '%transport-only%', '4: a provider-paid job must be transport-only');
+select lives_ok($$select tests.create_job(current_setting('t.cust')::uuid, 300, 'provider')$$,
+                '4: a provider-paid job may include materials (commission is on the total deal)');
 
--- A transport-only provider job (built as the owner: the quote path is covered by 950).
+-- A combined materials + transport provider job (the default pricing basis), built as the owner.
 select tests.as_owner();
 select set_config('t.job', tests.create_job(current_setting('t.cust')::uuid, 300, 'direct')::text, true);
-update public.jobs set payment_method = 'provider', pricing_basis = 'transport_only' where id = current_setting('t.job')::uuid;
+update public.jobs set payment_method = 'provider' where id = current_setting('t.job')::uuid;
 select set_config('t.bid', tests.create_bid(current_setting('t.job')::uuid, current_setting('t.drv')::uuid, 300)::text, true);
 
 -- ---------------------------------------------------------------- acceptance: no credit needed, none reserved
@@ -80,7 +80,7 @@ select tests.login_as(current_setting('t.cust')::uuid);
 select is((tests.complete(current_setting('t.job')::uuid)) ->> 'ok', 'true', '29: the customer confirms delivery');
 select tests.as_owner();
 select is((select status::text from public.jobs where id = current_setting('t.job')::uuid), 'completed', '30: job completed');
-select is((select commission from public.jobs where id = current_setting('t.job')::uuid), 21.00::numeric, '31: commission = 7% of the $300 transport fare');
+select is((select commission from public.jobs where id = current_setting('t.job')::uuid), 21.00::numeric, '31: commission = 7% of the $300 agreed total');
 select is((select amount from public.driver_payables where job_id = current_setting('t.job')::uuid), 279.00::numeric, '32: driver is owed $279');
 select is((select commission from public.driver_payables where job_id = current_setting('t.job')::uuid), 21.00::numeric, '33: payable records the same commission');
 select is((select balance from public.wallets where user_id = current_setting('t.drv')::uuid), 0::numeric, '34: commission-credit wallet untouched');
