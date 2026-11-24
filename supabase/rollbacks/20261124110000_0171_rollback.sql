@@ -1,7 +1,8 @@
 -- Undo 0171 (provider-collected jobs). Run in the Supabase SQL editor (it contains DROP).
 -- Restores the exact previous live definitions (hashes checked 24/11/2026):
 --   driver_can_accept e221918f, driver_can_accept_for 11d4972e, hold_job_commission b8665cdc,
---   complete_job 8c8be3e3, driver_confirm_delivery_pin 88a16018, financial_reconciliation fdc30867
+--   complete_job 8c8be3e3, driver_confirm_delivery_pin 88a16018, financial_reconciliation fdc30867,
+--   account_deletion_blockers 2da2f549
 -- REFUSES to run if any provider-paid job, job payment, payable, payout or fee exists: real money records are never dropped.
 begin;
 
@@ -350,6 +351,31 @@ AS $function$
                      and t.note like '%' || r.id::text || '%') <> 1) x
 $function$;
 
+
+-- account_deletion_blockers as live before 0171 (hash 2da2f549, = 0083)
+create or replace function public.account_deletion_blockers(_uid uuid)
+returns text[]
+language sql
+stable
+security definer
+set search_path to 'public'
+as $$
+  select case when auth.uid() is not null and auth.uid() is distinct from _uid then null else
+  array_remove(array[
+    case when exists (select 1 from public.wallets where user_id = _uid and balance > 0) then 'wallet_balance_positive' end,
+    case when exists (select 1 from public.wallets where user_id = _uid and balance < 0) then 'wallet_balance_owed' end,
+    case when exists (select 1 from public.wallets where user_id = _uid and held > 0) then 'commission_held' end,
+    case when exists (select 1 from public.wallet_withdrawal_requests where user_id = _uid and status = 'pending') then 'withdrawal_pending' end,
+    case when exists (select 1 from public.wallet_topup_requests where user_id = _uid and status = 'pending') then 'topup_pending' end,
+    case when exists (select 1 from public.jobs where (customer_id = _uid or driver_id = _uid)
+                        and status in ('open', 'accepted', 'in_progress')) then 'active_jobs' end,
+    case when exists (select 1 from public.payments where user_id = _uid
+                        and (status in ('paid', 'refund_due')
+                             or (status = 'initiated' and created_at > now() - interval '72 hours'))) then 'payment_in_progress' end,
+    case when exists (select 1 from public.disputes where (raised_by = _uid or against = _uid)
+                        and status in ('open', 'investigating')) then 'open_disputes' end
+  ], null) end
+$$;
 
 -- 2. Remove the 0171 objects
 drop trigger if exists trg_jobs_provider_rules on public.jobs;

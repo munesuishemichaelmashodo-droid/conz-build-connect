@@ -2,7 +2,7 @@
 -- never from commission credit; earnings payable kept apart from the wallet; payouts never retried blindly;
 -- duplicate / mismatched / out-of-order events; cancellation refund; reconciliation; direct jobs unchanged.
 begin;
-select plan(52);
+select plan(53);
 
 select tests.as_owner();
 select set_config('t.cust',  tests.create_user('pv_customer')::text, true);
@@ -98,6 +98,9 @@ select tests.login_as(current_setting('t.other')::uuid);
 select is((select count(*)::int from public.driver_payables), 0, '40: another driver reads nothing');
 select throws_ok($$update public.driver_payables set amount = 1$$, '42501', null, '41: clients cannot write payables');
 
+select tests.as_owner();
+select ok('earnings_owed' = any(public.account_deletion_blockers(current_setting('t.drv')::uuid)),
+          '41b: a driver still owed earnings cannot delete the account');
 -- ---------------------------------------------------------------- payouts: off, then never retried blindly
 select tests.as_owner();   -- read the payable id as the owner (RLS hid it from the other driver above)
 select set_config('t.payable', (select id::text from public.driver_payables where job_id = current_setting('t.job')::uuid), true);

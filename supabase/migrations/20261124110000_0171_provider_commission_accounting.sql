@@ -946,6 +946,36 @@ begin
 end $fn$;
 
 
+-- 12b. Account deletion also waits while a driver is still owed earnings (identical to 0083 + one case).
+create or replace function public.account_deletion_blockers(_uid uuid)
+returns text[]
+language sql
+stable
+security definer
+set search_path to 'public'
+as $$
+  select case when auth.uid() is not null and auth.uid() is distinct from _uid then null else
+  array_remove(array[
+    case when exists (select 1 from public.wallets where user_id = _uid and balance > 0) then 'wallet_balance_positive' end,
+    case when exists (select 1 from public.wallets where user_id = _uid and balance < 0) then 'wallet_balance_owed' end,
+    case when exists (select 1 from public.wallets where user_id = _uid and held > 0) then 'commission_held' end,
+    case when exists (select 1 from public.wallet_withdrawal_requests where user_id = _uid and status = 'pending') then 'withdrawal_pending' end,
+    case when exists (select 1 from public.wallet_topup_requests where user_id = _uid and status = 'pending') then 'topup_pending' end,
+    case when exists (select 1 from public.jobs where (customer_id = _uid or driver_id = _uid)
+                        and status in ('open', 'accepted', 'in_progress')) then 'active_jobs' end,
+    case when exists (select 1 from public.payments where user_id = _uid
+                        and (status in ('paid', 'refund_due')
+                             or (status = 'initiated' and created_at > now() - interval '72 hours'))) then 'payment_in_progress' end,
+    case when exists (select 1 from public.disputes where (raised_by = _uid or against = _uid)
+                        and status in ('open', 'investigating')) then 'open_disputes' end
+    ,
+    -- (0171) earnings still owed to a driver on provider-paid jobs
+    case when exists (select 1 from public.driver_payables where driver_id = _uid
+                       and status in ('payable', 'held', 'payout_pending')) then 'earnings_owed' end
+  ], null) end
+$$;
+
+
 -- 13. Reconciliation: the 11 existing checks unchanged, plus 12-17 for provider-collected jobs.
 CREATE OR REPLACE FUNCTION public.financial_reconciliation()
  RETURNS TABLE(check_name text, ok boolean, expected numeric, actual numeric, details jsonb)
