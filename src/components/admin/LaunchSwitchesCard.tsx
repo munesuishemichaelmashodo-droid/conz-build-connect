@@ -85,7 +85,7 @@ export function LaunchSwitchesCard({ isSuper }: { isSuper: boolean }) {
         <h3 className="font-display font-bold text-lg">Launch switches and limits</h3>
       </div>
       <p className="text-sm text-muted-foreground">
-        These control which payment features are open and how large a job or wallet can be. Each
+        These control which payment features are open and how much commission credit a driver can hold. Each
         change needs a reason and a recent sign-in, and is recorded in the audit log.
       </p>
       {toggles.map((t) => (
