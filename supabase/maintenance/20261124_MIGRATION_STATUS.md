@@ -5,14 +5,29 @@ Live latest: `20261111120000` (0169). Checked read-only against production on 24
 ## Applied live but not recorded under their git version (fix: history repair)
 
 0072–0102 and 0104–0108 (36 files). All 136 functions they define exist live. Six live-only versions duplicate them
-under other numbers. Fix: `20261124_migration_history_repair.sql` (metadata only, owner runs it in the SQL editor,
-undo `20261124_migration_history_repair_undo.sql`). **Until it has run, never use `supabase db push`.**
+under other numbers. Fix: `20261124_migration_history_repair.sql` (metadata only; owner runs it by hand in the SQL
+editor; never an agent or CI). Undo: `20261124_migration_history_repair_undo.sql`.
+
+How to run it (both files ship in read-only `check` mode; change only the `c_mode` line):
+1. `check` — read-only preconditions; must print `PREFLIGHT OK`. Any `STOP:` means history is not in the expected
+   state: do not continue, investigate.
+2. `dry_run` — full repair, then rolls itself back with `DRY RUN OK`; nothing kept.
+3. `apply` — commits. Prints `APPLIED: rows N -> N+30` and the backup's row count and md5.
+4. `supabase migration list` — the 36 git versions show as applied on both sides.
+Keep `supabase_migrations.schema_migrations_backup_20261124_repair` until at least one later migration has been
+applied and recorded cleanly. The script never reuses an existing backup (it stops if the name exists) and records the
+backup's count and md5 in its comment; the undo re-checks them, removes only the 36 rows the repair added, restores
+only the six it removed, and keeps any version recorded since. Local proof: `20261124_migration_history_repair.test.sh`
+(34 checks on a throwaway local Postgres, including every refusal path).
+
+**Even after the repair, do not use `supabase db push`:** the parked files below (0130–0132, 0137) are in git but not
+live, so a push would apply them. Apply migrations one at a time in the SQL editor and record each version.
 
 ## On `main` but not live: disposition
 
 | Migration | What it does | MVP? | Disposition |
 | --- | --- | --- | --- |
-| 0129 `admin_launch_switches` | Audited super-admin setter for `max_job_budget`, `max_wallet_balance`, escrow/withdrawal switches | Yes: needed to change the $500 cap without SQL; the Settings "Launch switches" card calls it | **Apply** (owner go). No DROP |
+| 0129 `admin_launch_switches` | Audited super-admin setter for launch switches (escrow/withdrawals, wallet cap) | Yes: the Settings "Launch switches" card calls it; 0172 then removes its `max_job_budget` option | **Apply** (owner go). No DROP |
 | 0130 `referral_qualification_fix` | Referral reward qualification | No | **Parked**: do not apply for the MVP |
 | 0131 `conz_points` | ConZ points programme | No | **Parked** (the profile points card hides itself when the functions are missing; the admin Points page shows an empty state) |
 | 0132 `verification_sla` | Business-hours SLA timeline for driver review | No | **Parked** (admin verifications screen shows no SLA when missing) |
