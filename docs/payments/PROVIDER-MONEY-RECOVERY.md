@@ -25,18 +25,24 @@ Never send again. Ask the provider for the status of the existing payout referen
 5 attempts; old references are kept in `previous_references`). An `unknown` payout stays parked until the
 provider confirms paid or failed.
 
-## Dispute after the driver has been paid out (payout `pending`, `sent`, `unknown` or `paid`)
+## Dispute after the driver has been paid out (migration 0173)
 
-`admin_reverse_provider_settlement` refuses ("recover it by hand"), on purpose: the money has left ConZ and
-reversing the books would hide a real loss. There is no in-app function for this case yet.
+`admin_reverse_provider_settlement` still refuses once a payout has started: the money has left ConZ.
 
-1. Hold the driver's other unpaid earnings while the case is open:
-   `admin_set_payable_hold(other_payable_id, true, reason)` for each.
-2. Agree the outcome with the owner (and the lawyer, per the driver agreement draft, section C).
-3. If ConZ refunds the customer from its own funds, or recovers money from the driver, it must be recorded
-   with balanced ledger lines by a reviewed SQL statement or migration; do not edit `payments`,
-   `driver_payables` or `driver_payouts` rows by hand.
+- Payout `pending`, `sent` or `unknown`: first get a confirmed result from the provider (section above). Nothing
+  can be reversed or refunded on an unclear payout.
+- Payout confirmed `paid`:
+  1. `admin_open_post_payout_refund(job_id, reason)`. The customer's whole payment becomes a refund owed; ConZ's
+     commission on the job is reversed; what the driver received is recorded as owed back to ConZ
+     (`driver_recoveries`, ledger account `driver_recoverable`). The driver is notified and cannot delete their
+     account while it is open. Running it twice changes nothing.
+  2. Refund the customer in the provider's dashboard, then `admin_mark_provider_refunded(payment_id, ref, reason)`.
+  3. While waiting for the driver, hold their other unpaid earnings: `admin_set_payable_hold(payable_id, true, reason)`.
+  4. Close it with `admin_close_driver_recovery(recovery_id, outcome, reference, reason)`:
+     `'repaid'` once the driver's repayment reaches ConZ's provider account (provider reference required), or
+     `'written_off'` to record it as ConZ's loss (ledger account `platform_losses`).
+  5. Check: `select * from public.financial_reconciliation();` — all rows `ok`.
 
-**Before switching provider collection on**, build and test an admin function for this case (recovery from
-a driver's future earnings plus a ConZ-funded refund, both posted to the ledger), so it is not handled by
-hand-written SQL.
+Whole amounts only. Taking the money from the driver's next earnings automatically is not built: hold those
+earnings (step 3), settle with the driver, then close the recovery as repaid. Agree the outcome with the owner
+(and the lawyer, per the driver agreement draft, section C).
