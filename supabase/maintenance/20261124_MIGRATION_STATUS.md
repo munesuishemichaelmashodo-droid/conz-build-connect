@@ -19,6 +19,17 @@ undo `20261124_migration_history_repair_undo.sql`). **Until it has run, never us
 | 0137 `public_open_job_previews` | Signed-out preview of open requests at `/open-jobs` | Optional | **Parked** unless the owner wants `/open-jobs` live (today it shows an empty list) |
 | 0141 `auth_signup_trigger` | Creates `on_auth_user_created` only if missing | Yes (test databases) | **Apply** (owner go): a no-op on production, which already has the trigger |
 | 0170 `driver_public_profiles_verified_only` | Branch `fix/mvp-security` | Yes | Apply after merge (see `docs/release/2026-11-24-SECURITY-FIXES.md`) |
+| 0171 `provider_commission_accounting` | PR #133: provider-paid jobs, payables, payouts, reversals (switches OFF) | Yes | Apply in the **SQL editor** (two allow-listed DROP CONSTRAINTs) after #133/#134 are deployed |
+| 0172 `remove_job_price_cap` | PR #138: no $500 ceiling; large-job alert | Yes | Apply **after 0129**, SQL editor |
 
 "Parked" files stay in git because the pgTAP suite builds them; they must not be applied to production while parked.
 Retired: Payonify 0167/0168 were never on `main` (see `docs/payments/archive/`).
+
+## Production apply order (each needs the owner's go; never automatic)
+
+1. History repair script (metadata only) — separate review.
+2. 0141 (no-op on production), 0129.
+3. 0170.
+4. 0171 (SQL editor).
+5. 0172 (SQL editor).
+After each: record the version in `schema_migrations`, then re-run `select * from public.financial_reconciliation()`.

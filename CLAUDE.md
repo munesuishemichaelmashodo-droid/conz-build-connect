@@ -1,5 +1,16 @@
 # Con Z Connect — project context for Claude Code
 
+> **Current state, 24/11/2026 — read this first; the dated log below is history and some early lines are stale.**
+> - MVP model: transport-only; ConZ earns 7% of the TRANSPORT fare. Live today: customer pays the driver directly and the 7%
+>   comes from the driver's prepaid commission credit (Paynow top-ups). Built but OFF (0171, PR #133): customer pays through an
+>   approved provider, 7% taken once from the fare, driver earnings in `driver_payables`, payouts in `driver_payouts`.
+>   `payment_provider = "none"`, `payouts_enabled = false`. No provider is approved; Linkwa is a candidate only; Payonify is retired.
+> - Escrow and withdrawals stay OFF. Never describe payments as escrow, protected or guaranteed.
+> - No $500 ceiling once 0172 is applied (PR #138); the $100,000 platform limit stays.
+> - Production apply order and status: `supabase/maintenance/20261124_MIGRATION_STATUS.md`. Never `supabase db push`
+>   before the history repair. Never run the repair or any migration automatically.
+> - Merging to `main` deploys to production (Vercel). Detached `supabase.rpc` references are forbidden (unit test).
+
 Construction logistics marketplace for Zimbabwe (river sand, stones, gravel,
 etc. delivered by tipper truck). Customers post jobs, drivers bid, in-app
 chat + live GPS tracking + escrow or direct pay. Owner: Ngaatendwe Tembo
