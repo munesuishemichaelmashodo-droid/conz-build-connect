@@ -132,6 +132,7 @@ create table if not exists public.driver_payouts (
   destination_masked text,
   idempotency_key    text not null unique,
   provider_reference text,
+  previous_references text[] not null default '{}',   -- references of earlier, confirmed-failed attempts
   status             text not null default 'pending' check (status in ('pending', 'sent', 'unknown', 'paid', 'failed')),
   attempts           integer not null default 1 check (attempts between 1 and 5),
   last_error         text,
@@ -201,8 +202,16 @@ begin
      or new.provider is distinct from old.provider or new.created_at is distinct from old.created_at then
     raise exception 'Payout % amount and identity are immutable', old.id using errcode = '42501';
   end if;
-  if old.provider_reference is not null and new.provider_reference is distinct from old.provider_reference then
+  -- A reference never changes, except when a confirmed-failed payout is retried: the old one is kept in previous_references.
+  if old.provider_reference is not null and new.provider_reference is distinct from old.provider_reference
+     and not (old.status = 'failed' and new.status = 'pending'
+              and new.previous_references = old.previous_references || old.provider_reference) then
     raise exception 'Payout % provider reference is already set', old.id using errcode = '42501';
+  end if;
+  if new.previous_references is distinct from old.previous_references
+     and not (old.status = 'failed' and new.status = 'pending'
+              and new.previous_references = old.previous_references || old.provider_reference) then
+    raise exception 'Payout % reference history is append-only', old.id using errcode = '42501';
   end if;
   if new.status is distinct from old.status and not (
        (old.status = 'pending' and new.status in ('sent', 'paid', 'failed', 'unknown'))
@@ -645,7 +654,10 @@ begin
   if _r.status <> 'payable' then raise exception 'This payable is % and cannot be paid out', _r.status; end if;
   update public.driver_payables set status = 'payout_pending' where id = _r.id;
   update public.driver_payouts
-     set status = 'pending', attempts = attempts + 1, last_error = null, provider_reference = null,
+     set status = 'pending', attempts = attempts + 1, last_error = null,
+         previous_references = case when provider_reference is null then previous_references
+                                    else previous_references || provider_reference end,
+         provider_reference = null,
          idempotency_key = 'conz-payout-' || _r.id::text || '-' || (attempts + 1)::text
    where id = _o.id returning * into _o;
   return _o;

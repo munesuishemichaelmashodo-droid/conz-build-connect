@@ -2,7 +2,7 @@
 -- never from commission credit; earnings payable kept apart from the wallet; payouts never retried blindly;
 -- duplicate / mismatched / out-of-order events; cancellation refund; reconciliation; direct jobs unchanged.
 begin;
-select plan(53);
+select plan(54);
 
 select tests.as_owner();
 select set_config('t.cust',  tests.create_user('pv_customer')::text, true);
@@ -117,6 +117,8 @@ select throws_like($$select public.payout_retry(current_setting('t.po')::uuid)$$
 select public.payout_record_result(current_setting('t.po')::uuid, 'failed', null, 'wallet closed');
 select is((select status from public.driver_payables where id = current_setting('t.payable')::uuid), 'payable', '45: a failed payout returns the earnings to payable');
 select is((public.payout_retry(current_setting('t.po')::uuid)).attempts, 2, '46: a confirmed failure may be retried with a new attempt number');
+select is((select previous_references from public.driver_payouts where id = current_setting('t.po')::uuid), array['po-ref-1'],
+          '46b: the failed attempt''s provider reference is kept');
 select public.payout_record_result(current_setting('t.po')::uuid, 'paid', null, null);
 select is((select status from public.driver_payables where id = current_setting('t.payable')::uuid), 'paid_out', '47: confirmed payout marks the earnings paid out');
 select is((public.payout_record_result(current_setting('t.po')::uuid, 'paid', null, null)).status, 'paid', '48: a repeated paid result changes nothing');
