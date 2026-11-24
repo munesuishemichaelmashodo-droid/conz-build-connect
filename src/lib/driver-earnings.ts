@@ -1,5 +1,5 @@
 // Driver earnings on provider-paid jobs (0171), kept apart from commission credit (wallets).
-// A payable is what ConZ owes a driver for one delivered job: fare less ConZ's 7% of the transport fare.
+// A payable is what ConZ owes a driver for one delivered job: agreed total less ConZ's 7% of that total (materials and transport together).
 
 export type PayableStatus = "payable" | "held" | "payout_pending" | "paid_out" | "reversed";
 

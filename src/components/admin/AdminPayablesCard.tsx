@@ -58,8 +58,8 @@ export function AdminPayablesCard() {
           Jobs paid through ConZ
         </h2>
         <p className="text-xs text-muted-foreground">
-          Driver earnings owed and paid out, and ConZ&apos;s 7% of the transport fare. Kept apart
-          from commission credit.
+          Driver earnings owed and paid out, and ConZ&apos;s 7% of the total agreed price. Kept
+          apart from commission credit.
         </p>
       </div>
       <dl className="grid grid-cols-2 gap-2 text-sm">
