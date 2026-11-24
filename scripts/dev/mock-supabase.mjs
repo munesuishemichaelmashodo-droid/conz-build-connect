@@ -456,7 +456,6 @@ const rpc = {
   launch_switches: () => ({
     escrowEnabled: false,
     withdrawalsEnabled: false,
-    maxJobBudget: 500,
     maxWalletBalance: 150,
     minTopup: 1,
   }),

@@ -503,7 +503,7 @@ Also applied 28/10: `0103` (recorded 20261012350000) diesel price + demand multi
   `docs/marketplace/CONZ-MARKETPLACE-UPGRADE-REPORT.md`.
 
 - **Owner decisions 09/11/2026:** delivery-only pricing stays OFF for now (the wording that follows the switch is built: `src/lib/commission-copy.ts`, `useTransportPricingEnabled()`,
-  and `0161` lets signed-out visitors read the one-boolean `transport_pricing_enabled()`; live 20261109160000); the $500 launch cap stays; diesel stays $2.04/L;
+  and `0161` lets signed-out visitors read the one-boolean `transport_pricing_enabled()`; live 20261109160000); the $500 launch cap stays (superseded 24/11/2026: removed by 0172, PR #138); diesel stays $2.04/L;
   dispute refunds on direct jobs go back to the driver (0160). To launch delivery-only pricing: set `system_settings.transport_pricing_enabled` to `true` (the wording on the terms, home, wallet, help, walkthrough, driver offer form and public price check already follows the switch; re-check the $500 cap first).
 
 ## 09/11/2026 — dependency and MCP endpoint security (PRs #100, #101, merged)
