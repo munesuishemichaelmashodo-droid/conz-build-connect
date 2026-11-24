@@ -2,7 +2,7 @@
 -- never from commission credit; earnings payable kept apart from the wallet; payouts never retried blindly;
 -- duplicate / mismatched / out-of-order events; cancellation refund; reconciliation; direct jobs unchanged.
 begin;
-select plan(54);
+select plan(60);
 
 select tests.as_owner();
 select set_config('t.cust',  tests.create_user('pv_customer')::text, true);
@@ -139,6 +139,35 @@ select is((select status from public.payments where id = current_setting('t.pay2
 select tests.login_as_mfa(current_setting('t.sa')::uuid);
 select is((public.admin_mark_provider_refunded(current_setting('t.pay2')::uuid, 'rf-123', 'Customer cancelled before loading')).status, 'refunded',
           '50: a super admin records the provider refund');
+
+-- ---------------------------------------------------------------- reversal after settlement (dispute upheld)
+select tests.as_owner();
+select set_config('t.job5', tests.create_job(current_setting('t.cust')::uuid, 150, 'direct')::text, true);
+update public.jobs set payment_method = 'provider', pricing_basis = 'transport_only' where id = current_setting('t.job5')::uuid;
+select set_config('t.bid5', tests.create_bid(current_setting('t.job5')::uuid, current_setting('t.drv')::uuid, 150)::text, true);
+select tests.login_as(current_setting('t.cust')::uuid);
+select public.accept_bid(current_setting('t.bid5')::uuid);
+select tests.as_service();
+select set_config('t.pay5', (public.create_provider_job_payment(current_setting('t.job5')::uuid, 'testpay', 'ref-5')).id::text, true);
+select public.apply_provider_payment('testpay','e50',current_setting('t.pay5')::uuid,'paid',150,'USD','ref-5');
+select tests.as_owner();
+update public.jobs set status = 'in_progress' where id = current_setting('t.job5')::uuid;
+select tests.login_as(current_setting('t.cust')::uuid);
+select tests.complete(current_setting('t.job5')::uuid);
+select throws_ok($$select public.admin_reverse_provider_settlement(current_setting('t.job5')::uuid, 'Load was never delivered')$$, '42501', null,
+                 'R1: a customer cannot reverse a settlement');
+select tests.login_as_mfa(current_setting('t.sa')::uuid);
+select is((public.admin_reverse_provider_settlement(current_setting('t.job5')::uuid, 'Load was never delivered')).status, 'reversed',
+          'R2: a super admin reverses the settlement');
+select is((public.admin_reverse_provider_settlement(current_setting('t.job5')::uuid, 'Load was never delivered')).status, 'reversed',
+          'R3: reversing again changes nothing');
+select tests.as_owner();
+select is((select status from public.payments where id = current_setting('t.pay5')::uuid), 'refund_due', 'R4: the whole fare is now a refund owed');
+select tests.login_as_mfa(current_setting('t.sa')::uuid);
+select is((public.admin_mark_provider_refunded(current_setting('t.pay5')::uuid, 'rf-555', 'Refunded after dispute')).status, 'refunded',
+          'R5: the refund is recorded');
+select throws_like($$select public.admin_reverse_provider_settlement(current_setting('t.job')::uuid, 'Trying to reverse a paid-out job')$$,
+                   '%payout has already started%', 'R6: a paid-out job cannot be reversed by this action');
 
 -- ---------------------------------------------------------------- reconciliation for the new money
 select tests.as_owner();

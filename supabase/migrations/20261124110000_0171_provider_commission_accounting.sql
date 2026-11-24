@@ -552,6 +552,51 @@ begin
   return _r;
 end $$;
 
+-- 9b. Reversal after settlement (dispute upheld before the driver was paid out) -------------------
+-- Undoes the settlement exactly: the driver's payable and ConZ's commission are reversed and the whole fare
+-- becomes a refund owed to the customer. Refused once a payout has started: recover that by hand.
+create or replace function public.admin_reverse_provider_settlement(_job_id uuid, _reason text)
+returns public.driver_payables language plpgsql security definer set search_path to 'public' as $$
+declare _job public.jobs; _r public.driver_payables; _p public.payments; _lines jsonb;
+begin
+  if not public.has_role(auth.uid(), 'super_admin'::public.app_role) then
+    raise exception 'Only a super admin can reverse a settled job' using errcode = '42501';
+  end if;
+  perform public.require_aal2();
+  if _reason is null or length(btrim(_reason)) < 10 then raise exception 'A reason of at least 10 characters is required'; end if;
+
+  select * into _job from public.jobs where id = _job_id for update;
+  if not found then raise exception 'Job not found'; end if;
+  if _job.payment_method is distinct from 'provider' or _job.status <> 'completed' then
+    raise exception 'Only a completed provider-paid job can be reversed';
+  end if;
+  if _job.customer_id = auth.uid() or _job.driver_id = auth.uid() then
+    raise exception 'You cannot reverse a job you are part of' using errcode = '42501';
+  end if;
+  select * into _r from public.driver_payables where job_id = _job_id for update;
+  if not found then raise exception 'This job has no settlement to reverse'; end if;
+  if _r.status = 'reversed' then return _r; end if;    -- idempotent
+  if _r.status not in ('payable', 'held') then
+    raise exception 'The driver payout has already started (%); recover it by hand, not here', _r.status;
+  end if;
+  select * into _p from public.payments where id = _r.payment_id for update;
+  if _p.status <> 'released' then raise exception 'Payment is % and cannot be reversed here', _p.status; end if;
+
+  update public.driver_payables set status = 'reversed', hold_reason = btrim(_reason) where id = _r.id returning * into _r;
+  update public.payments set status = 'refund_due' where id = _p.id;
+  _lines := jsonb_build_array(jsonb_build_object('account', 'provider_refunds_payable', 'amount', -_r.gross_amount));
+  if _r.amount > 0 then _lines := _lines || jsonb_build_object('account', 'driver_payable', 'amount', _r.amount); end if;
+  if _r.commission > 0 then _lines := _lines || jsonb_build_object('account', 'platform_revenue', 'amount', _r.commission); end if;
+  perform public.post_ledger('provider_settlement_reversed', _lines, _p.id, _job.id, _job.driver_id,
+    'Settlement reversed after a dispute: ' || btrim(_reason));
+  perform public.log_admin_action(_action => 'provider_settlement_reversed', _reason => _reason, _target_id => _job.id,
+    _target_user => _job.driver_id, _meta => jsonb_build_object('fare', _r.gross_amount, 'commission', _r.commission, 'payable', _r.amount));
+  insert into public.notifications (user_id, type, title, body, job_id)
+  values (_job.driver_id, 'earnings_reversed', 'Earnings reversed',
+          'After review of a problem on this delivery, the earnings for it were reversed and the customer will be refunded.', _job.id);
+  return _r;
+end $$;
+
 -- 10. Payouts (service role only: the provider adapter). OFF while payouts_enabled = false. -------
 create or replace function public.payout_prepare(_payable_id uuid, _provider text, _destination_masked text default null)
 returns public.driver_payouts language plpgsql security definer set search_path to 'public' as $$
@@ -958,6 +1003,47 @@ begin
 end $fn$;
 
 
+-- 12a. Payment state machine: identical to 0073 (live hash 13eff04c) + one transition for reversals.
+create or replace function public.payments_guard_transition()
+returns trigger
+language plpgsql
+set search_path to 'public'
+as $$
+begin
+  if new.user_id   is distinct from old.user_id
+     or new.job_id    is distinct from old.job_id
+     or new.type      is distinct from old.type
+     or new.amount    is distinct from old.amount
+     or new.currency  is distinct from old.currency
+     or new.method    is distinct from old.method
+     or new.created_at is distinct from old.created_at
+     or new.id        is distinct from old.id
+  then
+    raise exception 'Payment % identity fields are immutable', old.id using errcode = '42501';
+  end if;
+
+  if old.paynow_poll_url is not null and new.paynow_poll_url is distinct from old.paynow_poll_url then
+    raise exception 'Payment % poll URL is already set', old.id using errcode = '42501';
+  end if;
+
+  if new.status is distinct from old.status then
+    if not (
+         (old.status = 'initiated'  and new.status in ('paid','failed','cancelled'))
+      or (old.status = 'paid'       and new.status in ('released','refund_due'))
+      or (old.status = 'refund_due' and new.status = 'refunded')
+      -- (0171) a settled provider-paid job reversed after a dispute: the fare becomes a refund owed
+      or (old.status = 'released'   and new.status = 'refund_due' and new.type = 'job_payment')
+    ) then
+      raise exception 'Illegal payment status transition % -> % for payment %', old.status, new.status, old.id
+        using errcode = '42501';
+    end if;
+    if new.status = 'paid' then new.paid_at := coalesce(new.paid_at, now()); end if;
+  end if;
+
+  new.updated_at := now();
+  return new;
+end $$;
+
 -- 12b. Account deletion also waits while a driver is still owed earnings (identical to 0083 + one case).
 create or replace function public.account_deletion_blockers(_uid uuid)
 returns text[]
@@ -1150,6 +1236,8 @@ grant execute on function public.record_provider_fee(text, text, text, numeric, 
 
 revoke all on function public.admin_mark_provider_refunded(uuid, text, text) from public, anon;
 revoke all on function public.admin_set_payable_hold(uuid, boolean, text) from public, anon;
+revoke all on function public.admin_reverse_provider_settlement(uuid, text) from public, anon;
+grant execute on function public.admin_reverse_provider_settlement(uuid, text) to authenticated;
 grant execute on function public.admin_mark_provider_refunded(uuid, text, text) to authenticated;
 grant execute on function public.admin_set_payable_hold(uuid, boolean, text) to authenticated;
 

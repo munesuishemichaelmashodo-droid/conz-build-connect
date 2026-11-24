@@ -2,7 +2,7 @@
 -- Restores the exact previous live definitions (hashes checked 24/11/2026):
 --   driver_can_accept e221918f, driver_can_accept_for 11d4972e, hold_job_commission b8665cdc,
 --   complete_job 8c8be3e3, driver_confirm_delivery_pin 88a16018, financial_reconciliation fdc30867,
---   account_deletion_blockers 2da2f549
+--   account_deletion_blockers 2da2f549, payments_guard_transition 13eff04c
 -- REFUSES to run if any provider-paid job, job payment, payable, payout or fee exists: real money records are never dropped.
 begin;
 
@@ -377,6 +377,45 @@ as $$
   ], null) end
 $$;
 
+-- payments_guard_transition as live before 0171 (hash 13eff04c, = 0073)
+create or replace function public.payments_guard_transition()
+returns trigger
+language plpgsql
+set search_path to 'public'
+as $$
+begin
+  if new.user_id   is distinct from old.user_id
+     or new.job_id    is distinct from old.job_id
+     or new.type      is distinct from old.type
+     or new.amount    is distinct from old.amount
+     or new.currency  is distinct from old.currency
+     or new.method    is distinct from old.method
+     or new.created_at is distinct from old.created_at
+     or new.id        is distinct from old.id
+  then
+    raise exception 'Payment % identity fields are immutable', old.id using errcode = '42501';
+  end if;
+
+  if old.paynow_poll_url is not null and new.paynow_poll_url is distinct from old.paynow_poll_url then
+    raise exception 'Payment % poll URL is already set', old.id using errcode = '42501';
+  end if;
+
+  if new.status is distinct from old.status then
+    if not (
+         (old.status = 'initiated'  and new.status in ('paid','failed','cancelled'))
+      or (old.status = 'paid'       and new.status in ('released','refund_due'))
+      or (old.status = 'refund_due' and new.status = 'refunded')
+    ) then
+      raise exception 'Illegal payment status transition % -> % for payment %', old.status, new.status, old.id
+        using errcode = '42501';
+    end if;
+    if new.status = 'paid' then new.paid_at := coalesce(new.paid_at, now()); end if;
+  end if;
+
+  new.updated_at := now();
+  return new;
+end $$;
+
 -- 2. Remove the 0171 objects
 drop trigger if exists trg_jobs_provider_rules on public.jobs;
 drop trigger if exists trg_jobs_provider_paid_before_trip on public.jobs;
@@ -391,6 +430,7 @@ drop function if exists public.apply_provider_payment(text, text, uuid, text, nu
 drop function if exists public.settle_provider_job(uuid, uuid);
 drop function if exists public.admin_mark_provider_refunded(uuid, text, text);
 drop function if exists public.admin_set_payable_hold(uuid, boolean, text);
+drop function if exists public.admin_reverse_provider_settlement(uuid, text);
 drop function if exists public.payout_prepare(uuid, text, text);
 drop function if exists public.payout_record_sent(uuid, text);
 drop function if exists public.payout_record_result(uuid, text, text, text);
