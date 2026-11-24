@@ -22,8 +22,8 @@ update public.wallets set balance = 50 where user_id = current_setting('t.drv'):
 
 -- ---------------------------------------------------------------- admin: verification needs a step-up
 select tests.login_as(current_setting('t.cust')::uuid);
-select throws_ok($$select public.admin_set_driver_verification(current_setting('t.drv')::uuid, 'verified', 'docs ok')$$, '42501', null,
-                 'A1: a customer cannot verify a driver');
+select throws_like($$select public.admin_set_driver_verification(current_setting('t.drv')::uuid, 'verified', 'docs ok')$$, '%Forbidden%',
+                   'A1: a customer cannot verify a driver');
 
 -- ---------------------------------------------------------------- customer posts a job
 select tests.login_as(current_setting('t.cust')::uuid);
@@ -68,6 +68,10 @@ select ok('active_jobs' = any(public.account_deletion_blockers(current_setting('
 -- ---------------------------------------------------------------- pickup evidence, trip, tracking
 select tests.login_as(current_setting('t.drv')::uuid);
 select throws_like($$select public.start_trip(current_setting('t.job')::uuid)$$, '%pickup photo%', 'D5: the trip cannot start without a pickup photo');
+-- The app uploads the photo to storage first (job-proof-photos/<job>/...), then records it.
+select tests.as_owner();
+insert into storage.objects (bucket_id, name) values ('job-proof-photos', current_setting('t.job') || '/pickup.jpg');
+select tests.login_as(current_setting('t.drv')::uuid);
 select lives_ok($$select public.record_job_evidence(current_setting('t.job')::uuid, 'pickup', current_setting('t.job') || '/pickup.jpg', 1000, 'image/jpeg', -17.80, 31.04, 10, 'captured')$$,
                 'D6: the driver records the pickup photo with location');
 select is((public.start_trip(current_setting('t.job')::uuid)).status::text, 'in_progress', 'D7: the trip starts');
