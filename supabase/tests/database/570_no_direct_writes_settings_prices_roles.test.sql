@@ -7,7 +7,7 @@ select set_config('t.cust', tests.create_user('dw_cust')::text, true);
 select tests.login_as_mfa(current_setting('t.sup')::uuid);
 select throws_ok($$update public.system_settings set value = '0'::jsonb where key = 'commission_rate'$$,
   '42501', null, 'super admin cannot set the commission rate by writing the table');
-select throws_ok($$insert into public.system_settings (key, value) values ('payment_provider', '"payonify"'::jsonb)
+select throws_ok($$insert into public.system_settings (key, value) values ('payment_provider', '"some_provider"'::jsonb)
                    on conflict (key) do update set value = excluded.value$$,
   '42501', null, '... or flip a switch');
 select throws_ok($$update public.material_prices set demand_multiplier = 3 where material = 'gravel'$$,
