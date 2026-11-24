@@ -1,4 +1,5 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
+import { AdminPayablesCard } from "@/components/admin/AdminPayablesCard";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { money } from "@/lib/domain";
@@ -168,6 +169,8 @@ function RevenueDashboard() {
           {stats.jobs} commission events at {rate ?? 7}% rate
         </div>
       </div>
+
+      {isSuper && <AdminPayablesCard />}
 
       {/* Period stats */}
       <div className="grid grid-cols-3 gap-3">

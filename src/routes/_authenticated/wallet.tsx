@@ -42,6 +42,7 @@ import { useLaunchSwitches } from "@/lib/launch-switches";
 import { promoCopy, usePromoCredit } from "@/lib/promo-credit";
 import { toast } from "sonner";
 import { withdrawalStage } from "@/lib/withdrawalStatus";
+import { DriverEarningsCard } from "@/components/wallet/DriverEarningsCard";
 
 export const Route = createFileRoute("/_authenticated/wallet")({
   // ?topup=12.5 opens the top-up with that amount filled in (the shortfall shown on a job offer).
@@ -496,8 +497,9 @@ function WalletPage() {
 
       {tab === "summary" && (
         <div className="mt-4 space-y-4">
+          {userId && <DriverEarningsCard userId={userId} />}
           <dl className="rounded-2xl border bg-card p-4 text-xs space-y-1.5" aria-label="What the numbers mean">
-            <div><dt className="inline font-semibold">Total credit: </dt><dd className="inline text-muted-foreground">your top-ups and earnings in Con Z.</dd></div>
+            <div><dt className="inline font-semibold">Total credit: </dt><dd className="inline text-muted-foreground">your top-ups and promotional credit. It only pays ConZ's commission on jobs the customer pays you directly. It is not your earnings.</dd></div>
             <div><dt className="inline font-semibold">Held: </dt><dd className="inline text-muted-foreground">the commission reserved while a job is active. It is charged when the job is completed ({promoCredit.enabled ? "promotional credit is spent first" : "your first completed job has no commission"}), and released on a valid cancellation.</dd></div>
             <div><dt className="inline font-semibold">Available: </dt><dd className="inline text-muted-foreground">total minus held. This is what covers commission on new jobs.</dd></div>
             {!canWithdraw && <div><dt className="inline font-semibold">Withdrawals: </dt><dd className="inline text-muted-foreground">paused for now.</dd></div>}
@@ -507,7 +509,7 @@ function WalletPage() {
               label="Credits received"
               value={money(credits)}
               tone="text-success"
-              hint="Top-ups, earnings and refunds (last 50 entries)"
+              hint="Top-ups, promotional credit and returned commission (last 50 entries)"
             />
             <div className="h-px bg-border" />
             <SummaryRow
