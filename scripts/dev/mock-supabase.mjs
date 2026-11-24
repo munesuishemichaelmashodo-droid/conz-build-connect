@@ -392,6 +392,8 @@ const authPolicy = () => {
 const rpc = {
   admin_authenticator_policy: () => authPolicy(),
   transport_pricing_enabled: () => process.env.MOCK_TRANSPORT === "on",
+  // Same as production (on, $20). MOCK_PROMO=off for the switched-off wording.
+  promo_credit_public: () => ({ enabled: process.env.MOCK_PROMO !== "off", amount: 20 }),
   compute_transport_offer: (a) => transportGuide(Number(a._road_km), Number(a._quantity_m3)),
   create_transport_quote_for: (a) => {
     db.transport_quotes ??= [];

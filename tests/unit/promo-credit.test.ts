@@ -35,8 +35,40 @@ describe("promoCopy", () => {
     "Your first completed job has no Con Z commission. After that the commission is 7% of the full job price.",
   ];
 
-  it("leaves every sentence exactly as it is while the credit is off", () => {
-    for (const t of legacy) expect(promoCopy(t, DEFAULT_PROMO_CREDIT)).toBe(t);
+  it("never shows the retired free-first-job promise while the credit is off or not read yet", () => {
+    for (const t of legacy) {
+      const out = promoCopy(t, DEFAULT_PROMO_CREDIT);
+      expect(out).not.toMatch(/first completed job/i);
+      expect(out).not.toMatch(/commission-free/i);
+      expect(out).not.toMatch(/promotional credit/i);
+    }
+    expect(promoCopy(legacy[0], DEFAULT_PROMO_CREDIT)).toBe(
+      "Part of it is held while a job is active.",
+    );
+    expect(promoCopy(legacy[1], DEFAULT_PROMO_CREDIT)).toBe("");
+    expect(promoCopy(legacy[2], DEFAULT_PROMO_CREDIT)).toBe(
+      "It is charged when the job is completed, and released.",
+    );
+    expect(promoCopy(legacy[3], DEFAULT_PROMO_CREDIT)).toBe(
+      "The commission is 7% of the full job price.",
+    );
+  });
+
+  it("leaves text without the retired phrases unchanged", () => {
+    const plain = "7% commission on the total agreed price, including materials and transport.";
+    expect(promoCopy(plain, DEFAULT_PROMO_CREDIT)).toBe(plain);
+    expect(promoCopy(plain, on)).toBe(plain);
+  });
+
+  it("rewrites the walkthrough and Help wording in both states", () => {
+    const walk =
+      "Your first completed job has no commission. After that, Con Z commission is 7% of the full job value.";
+    expect(promoCopy(walk, DEFAULT_PROMO_CREDIT)).toBe(
+      "Con Z commission is 7% of the full job value.",
+    );
+    expect(promoCopy(walk, on)).toMatch(
+      /^When you are verified you get a one-time \$20 commission credit\..* Con Z commission is 7%/,
+    );
   });
 
   it("replaces the free-first-job promise once the credit is on", () => {
@@ -71,5 +103,14 @@ describe("promoCopy", () => {
     expect(t).toMatch(/one-time promotional commission credit of \$20/);
     expect(t).toMatch(/no cash value/);
     expect(t).toMatch(/cannot be withdrawn or transferred/);
+  });
+});
+
+describe("Terms page source", () => {
+  it("reads the promotion on the server and never states the retired free first job", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("src/routes/terms.tsx", "utf8");
+    expect(src).toMatch(/loader: async \(\) => \(\{ promo: await fetchPromoCredit\(\) \}\)/);
+    expect(src).not.toMatch(/first-job-free|first completed job/i);
   });
 });

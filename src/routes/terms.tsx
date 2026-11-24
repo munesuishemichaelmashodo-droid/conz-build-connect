@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useTransportPricingEnabled } from "@/lib/transport-pricing";
-import { promoCreditTerms, usePromoCredit } from "@/lib/promo-credit";
+import { fetchPromoCredit, promoCreditTerms, usePromoCredit } from "@/lib/promo-credit";
 import { ArrowLeft } from "lucide-react";
 
 export const Route = createFileRoute("/terms")({
@@ -12,12 +12,15 @@ export const Route = createFileRoute("/terms")({
       { property: "og:description", content: "Terms and Conditions governing use of the Con Z Build Connect construction logistics marketplace." },
     ],
   }),
+  // Read on the server too, so the first HTML states the current promotion (not a placeholder).
+  loader: async () => ({ promo: await fetchPromoCredit() }),
   component: TermsPage,
 });
 
 function TermsPage() {
   const transportOn = useTransportPricingEnabled();
-  const promo = usePromoCredit();
+  const { promo: initialPromo } = Route.useLoaderData();
+  const promo = usePromoCredit(initialPromo);
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-3xl px-5 py-8">
@@ -83,9 +86,7 @@ function TermsPage() {
               against the job, it is not a fee for browsing or offering, and it is released if the job
               is cancelled before the load is collected. The commission is earned when the delivery
               is verified (see section 8).{" "}
-              {promo.enabled
-                ? promoCreditTerms(promo.amount)
-                : "The first completed job for each newly verified Driver is exempt from commission under the first-job-free policy."}
+              {promo.enabled ? promoCreditTerms(promo.amount) : null}
             </p>
             <p>
               Wallet top-ups, balances and withdrawals are governed by the in-app Wallet and its
