@@ -21,16 +21,28 @@ export function parsePromoCredit(raw: unknown): PromoCredit {
   return { enabled: r.enabled === true, amount };
 }
 
-export function usePromoCredit(): PromoCredit {
+/** Reads the public switch. null when it cannot be read (network, database). */
+export async function fetchPromoCredit(): Promise<PromoCredit | null> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- promo_credit_public() is newer than the generated types
+    const { data, error } = await (supabase as any).rpc("promo_credit_public");
+    if (error) return null;
+    return parsePromoCredit(data);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The switch, for a screen. `initial` is what a route loader already read on the server, so the first HTML
+ * and the browser agree; without it the screen starts from "off" and updates once the read arrives.
+ */
+export function usePromoCredit(initial?: PromoCredit | null): PromoCredit {
   const { data } = useQuery({
     queryKey: ["promo-credit-public"],
     staleTime: 60_000,
-    queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- promo_credit_public() is newer than the generated types
-      const { data, error } = await (supabase as any).rpc("promo_credit_public");
-      if (error) return DEFAULT_PROMO_CREDIT;
-      return parsePromoCredit(data);
-    },
+    initialData: initial ?? undefined,
+    queryFn: async () => (await fetchPromoCredit()) ?? DEFAULT_PROMO_CREDIT,
   });
   return data ?? DEFAULT_PROMO_CREDIT;
 }
@@ -47,21 +59,46 @@ export function promoCreditTerms(amount: number): string {
   return `Each newly verified Driver receives a one-time promotional commission credit of ${money(amount)}. It can only be used to pay Con Z commission, has no cash value, and cannot be withdrawn or transferred.`;
 }
 
-const LEGACY: { re: RegExp; to: (amount: number) => string }[] = [
+// The free first job was retired on 09/11/2026 (owner decision), so these phrases are never shown as written:
+// with the credit on they become the credit sentence; while it is off, or not read yet (the first HTML), they are
+// dropped, which can only under-promise.
+const LEGACY: { re: RegExp; on: (amount: number) => string; off: string }[] = [
   {
     re: /Your first completed job has no Con Z commission\. After that the commission is/g,
-    to: (a) => `${promoCreditSentence(a)} The commission is`,
+    on: (a) => `${promoCreditSentence(a)} The commission is`,
+    off: "The commission is",
   },
-  { re: /Your first completed job has no commission\./g, to: (a) => promoCreditSentence(a) },
-  { re: /Your first completed job is commission-free\./g, to: (a) => promoCreditSentence(a) },
   {
-    re: /\(your first completed job has no commission\)/g,
-    to: () => "(promotional credit is spent first)",
+    re: /Your first completed job has no commission\. After that, Con Z commission is/g,
+    on: (a) => `${promoCreditSentence(a)} Con Z commission is`,
+    off: "Con Z commission is",
+  },
+  {
+    re: /Your first completed job has no commission\.\s*/g,
+    on: (a) => `${promoCreditSentence(a)} `,
+    off: "",
+  },
+  {
+    re: /Your first completed job is commission-free\./g,
+    on: (a) => promoCreditSentence(a),
+    off: "",
+  },
+  {
+    re: /Your first completed job has no Con Z commission\.\s*/g,
+    on: (a) => `${promoCreditSentence(a)} `,
+    off: "",
+  },
+  {
+    re: /\s*\(your first completed job has no commission\)/g,
+    on: () => " (promotional credit is spent first)",
+    off: "",
   },
 ];
 
-/** Replaces the legacy "first job free" phrases only once the credit is switched on. Other text is returned as is. */
+/** Replaces the retired "first job free" phrases: the credit sentence when it is on, nothing otherwise. */
 export function promoCopy(text: string, promo: PromoCredit): string {
-  if (!promo.enabled) return text;
-  return LEGACY.reduce((t, { re, to }) => t.replace(re, to(promo.amount)), text);
+  return LEGACY.reduce(
+    (t, { re, on, off }) => t.replace(re, promo.enabled ? on(promo.amount) : off),
+    text,
+  ).trim();
 }
