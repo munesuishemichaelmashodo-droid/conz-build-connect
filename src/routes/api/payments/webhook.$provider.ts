@@ -2,17 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 
 // Provider callback for jobs paid through ConZ (0171). Signature verified by the provider's adapter, then the
 // payment is re-checked with the provider before anything is applied (src/lib/payments/provider.server.ts).
-// No provider is approved yet: every request answers 404.
+// No provider is approved for production: every request answers 404 unless the Linkwa SANDBOX is allowed on this
+// server (src/lib/payments/registry.server.ts; never on the production database).
 async function handleWebhook(provider: string, request: Request): Promise<Response> {
   const raw = await request.text();
   if (raw.length > 64_000) return new Response("too_large", { status: 413 });
-  const { handleProviderWebhook, PROVIDER_REGISTRY } =
-    await import("@/lib/payments/provider.server");
-  if (!Object.prototype.hasOwnProperty.call(PROVIDER_REGISTRY, provider)) {
+  const { handleProviderWebhook } = await import("@/lib/payments/provider.server");
+  const { getProviderRegistry } = await import("@/lib/payments/registry.server");
+  const registry = getProviderRegistry();
+  if (!Object.prototype.hasOwnProperty.call(registry, provider)) {
     return new Response("not_found", { status: 404 });
   }
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return handleProviderWebhook(provider, raw, request.headers, supabaseAdmin as never);
+  return handleProviderWebhook(provider, raw, request.headers, supabaseAdmin as never, registry);
 }
 
 export const Route = createFileRoute("/api/payments/webhook/$provider")({

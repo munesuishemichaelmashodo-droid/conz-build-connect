@@ -8,16 +8,32 @@
 //  4. A payout whose result is unclear is resolved only by asking the provider (getPayoutStatus); it is
 //     never resent blindly. payout_retry in the database also refuses anything but a confirmed failure.
 //
-// No provider is approved yet, so the registry below is EMPTY and every webhook answers 404.
-// Linkwa (candidate) gets an adapter only once its real documentation, merchant access and sandbox exist.
+// No provider is approved yet, so PROVIDER_REGISTRY below is EMPTY. The Linkwa SANDBOX adapter is added only by
+// getProviderRegistry() (registry.server.ts) when linkwa-config.server.ts allows it: never on the production
+// database, never on a production deployment.
+//
+// Payment-link providers (Linkwa) identify a payment by its link (short URL) and the provider's payment reference,
+// not by ConZ's payment id: such events carry `link`, and are applied with apply_provider_link_payment (0175), which
+// binds the result to the link ConZ recorded for the payment and stores the identifiers separately.
 
-export type VerifiedEvent = { eventId: string; paymentId: string };
+/** Identifiers a payment-link provider reports. Stored separately in provider_payment_refs (0175). */
+export type ProviderLinkRefs = {
+  shortUrl: string;
+  externalLinkId?: string | null;
+  paymentReference?: string | null;
+  receiptId?: string | null;
+  bookingReference?: string | null;
+};
+
+export type VerifiedEvent = { eventId: string; paymentId: string | null; link?: ProviderLinkRefs };
 
 export type ProviderPaymentStatus = {
   status: string; // provider's own word, normalised by the database
   amount: number | null;
   currency: string | null;
   reference: string | null;
+  /** Payment-link providers: identifiers from the provider's own status answer. */
+  link?: Omit<Partial<ProviderLinkRefs>, "shortUrl" | "paymentReference">;
 };
 
 export type ProviderPayoutStatus = {
@@ -32,7 +48,10 @@ export interface ProviderAdapter {
   /** Verify the provider's signature over the RAW body. Return null when it does not verify. */
   verifyWebhook(rawBody: string, headers: Headers): Promise<VerifiedEvent | null>;
   /** Ask the provider, server to server, for the payment's real status. */
-  getPaymentStatus(paymentId: string): Promise<ProviderPaymentStatus>;
+  getPaymentStatus(
+    paymentId: string | null,
+    link?: ProviderLinkRefs,
+  ): Promise<ProviderPaymentStatus>;
   /** Ask the provider for a payout's real status (used for anything sent or unknown). */
   getPayoutStatus(payout: {
     id: string;
@@ -41,7 +60,7 @@ export interface ProviderAdapter {
   }): Promise<ProviderPayoutStatus>;
 }
 
-/** Approved adapters only. Empty on purpose (see header). */
+/** Approved adapters only. Empty on purpose (see header); the sandbox registry is in registry.server.ts. */
 export const PROVIDER_REGISTRY: Readonly<Record<string, ProviderAdapter>> = Object.freeze({});
 
 type RpcResult<T> = PromiseLike<{ data: T | null; error: { message: string } | null }>;
@@ -57,6 +76,23 @@ export type ProviderDb = {
       _amount: number | null;
       _currency: string | null;
       _reference: string | null;
+      _source: "webhook" | "status_check";
+    },
+  ): RpcResult<string>;
+  rpc(
+    fn: "apply_provider_link_payment",
+    args: {
+      _provider: string;
+      _event_id: string;
+      _payment_id: string | null;
+      _status: string;
+      _amount: number | null;
+      _currency: string | null;
+      _booking_reference: string | null;
+      _external_payment_link_id: string | null;
+      _short_url: string;
+      _payment_reference: string | null;
+      _receipt_id: string | null;
       _source: "webhook" | "status_check";
     },
   ): RpcResult<string>;
@@ -96,26 +132,47 @@ export async function handleProviderWebhook(
   } catch {
     event = null;
   }
-  if (!event || !event.eventId || !event.paymentId) return text("invalid_signature", 401);
+  if (!event || !event.eventId || !(event.paymentId || event.link?.shortUrl)) {
+    return text("invalid_signature", 401);
+  }
+  // A verified link event that names no payment cannot be checked or applied (nothing to do; do not retry).
+  if (event.link && !event.link.paymentReference) return text("ignored_no_payment", 200);
 
   let checked: ProviderPaymentStatus;
   try {
-    checked = await adapter.getPaymentStatus(event.paymentId);
+    checked = await adapter.getPaymentStatus(event.paymentId, event.link);
   } catch {
     // Provider unreachable: apply nothing; the provider retries the webhook (or a later status check runs).
     return text("status_check_failed", 503);
   }
 
-  const { data: outcome, error } = await db.rpc("apply_provider_payment", {
-    _provider: adapter.name,
-    _event_id: event.eventId,
-    _payment_id: event.paymentId,
-    _status: checked.status,
-    _amount: checked.amount,
-    _currency: checked.currency,
-    _reference: checked.reference,
-    _source: "webhook",
-  });
+  // The provider's server-to-server answer wins over the webhook's own claims; the signed webhook fills gaps.
+  const { data: outcome, error } = event.link
+    ? await db.rpc("apply_provider_link_payment", {
+        _provider: adapter.name,
+        _event_id: event.eventId,
+        _payment_id: event.paymentId,
+        _status: checked.status,
+        _amount: checked.amount,
+        _currency: checked.currency,
+        _booking_reference: checked.link?.bookingReference ?? event.link.bookingReference ?? null,
+        _external_payment_link_id:
+          checked.link?.externalLinkId ?? event.link.externalLinkId ?? null,
+        _short_url: event.link.shortUrl,
+        _payment_reference: event.link.paymentReference ?? null,
+        _receipt_id: checked.link?.receiptId ?? event.link.receiptId ?? null,
+        _source: "webhook",
+      })
+    : await db.rpc("apply_provider_payment", {
+        _provider: adapter.name,
+        _event_id: event.eventId,
+        _payment_id: event.paymentId as string,
+        _status: checked.status,
+        _amount: checked.amount,
+        _currency: checked.currency,
+        _reference: checked.reference,
+        _source: "webhook",
+      });
   if (error) return text("db_error", 502);
   // Duplicates and rejections are still a successful delivery: the provider must not retry them forever.
   return text(String(outcome ?? "ok"), 200);
