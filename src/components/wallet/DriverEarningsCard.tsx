@@ -61,8 +61,8 @@ export function DriverEarningsCard({ userId }: { userId: string }) {
           Earnings from ConZ-paid jobs
         </h2>
         <p className="text-xs text-muted-foreground">
-          Jobs the customer paid through ConZ. ConZ&apos;s 7% of the transport fare is already taken
-          out; your commission credit is not used for these.
+          Jobs the customer paid through ConZ. ConZ&apos;s 7% of the total agreed price is already
+          taken out; your commission credit is not used for these.
         </p>
       </div>
       <dl className="grid grid-cols-3 gap-2 text-center">
