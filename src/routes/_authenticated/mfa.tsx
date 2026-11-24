@@ -1,14 +1,20 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/AppShell";
 import { safeInternalPath } from "@/lib/safe-redirect";
-import { ShieldCheck, Loader2, Copy, KeyRound } from "lucide-react";
+import { ShieldCheck, Loader2, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { OtpCodeInput } from "@/components/OtpCodeInput";
+import {
+  codeScreenDestination,
+  describeCodeProblem,
+  isCompleteCode,
+  type CodeProblem,
+} from "@/lib/otp-code";
 
 const searchSchema = z.object({
   next: z.string().optional(),
@@ -23,8 +29,9 @@ type Stage = "loading" | "challenge" | "enroll" | "verifying";
 
 function MfaPage() {
   const { next } = Route.useSearch();
-  const nav = useNavigate();
-  const safeNext = safeInternalPath(next) ?? "/admin";
+  const router = useRouter();
+  // The page the admin came from (path and query), never this screen itself.
+  const destination = codeScreenDestination(safeInternalPath(next));
 
   const [stage, setStage] = useState<Stage>("loading");
   const [factorId, setFactorId] = useState<string | null>(null);
@@ -32,15 +39,17 @@ function MfaPage() {
   const [secret, setSecret] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<CodeProblem | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // The last code sent, so a wrong code is not re-sent on its own; typing a new one sends that.
+  const lastSent = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      if (aal?.currentLevel === "aal2") {
-        if (!cancelled) return void nav({ to: safeNext as "/admin", replace: true });
-      }
-
+      // Always ask for a code when an authenticator is set up, even on a session that already passed a
+      // check: this screen is how an admin renews the 15-minute window for money and role actions and the
+      // 30-day check (0166/0169), and the database only counts a code entered recently.
       const { data: factorsData, error } = await supabase.auth.mfa.listFactors();
       if (error) {
         toast.error(error.message);
@@ -84,7 +93,6 @@ function MfaPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const restartEnrollment = async () => {
@@ -108,42 +116,73 @@ function MfaPage() {
     }
   };
 
-  const verify = async (e: React.FormEvent) => {
+  const fail = (p: CodeProblem) => {
+    setProblem(p);
+    if (p.clear) {
+      setCode("");
+      lastSent.current = null;
+    }
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
+  const submit = useCallback(
+    async (value: string) => {
+      if (!factorId || busy || !isCompleteCode(value)) return;
+      lastSent.current = value;
+      setBusy(true);
+      setProblem(null);
+      try {
+        const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
+          factorId,
+        });
+        if (challengeError || !challenge) return fail(describeCodeProblem(challengeError));
+        const { error: verifyError } = await supabase.auth.mfa.verify({
+          factorId,
+          challengeId: challenge.id,
+          code: value,
+        });
+        if (verifyError) return fail(describeCodeProblem(verifyError));
+      } catch (err) {
+        return fail(describeCodeProblem(err as { message?: string }));
+      } finally {
+        setBusy(false);
+      }
+      // Record the check for the 30-day rule (0169). The database re-checks every crucial action with a
+      // fresh code anyway; if this fails the admin screens may ask for a code again, so say so.
+      try {
+        const { error } = await (
+          supabase.rpc as unknown as (
+            f: string,
+          ) => PromiseLike<{ error: { message?: string } | null }>
+        )("admin_note_authenticator_check");
+        if (error && !/admins only/i.test(error.message ?? "")) {
+          toast.warning("Verified, but the 30-day check was not saved. You may be asked again.");
+        }
+      } catch {
+        // offline after verifying: the code still counts for this session
+      }
+      toast.success(stage === "enroll" ? "Authenticator app linked" : "Verified");
+      void router.navigate({ href: destination, replace: true });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [factorId, busy, stage, destination],
+  );
+
+  // Send the code as soon as the sixth digit is in (typed, pasted or autofilled), once per code.
+  useEffect(() => {
+    if (isCompleteCode(code) && code !== lastSent.current && !busy) void submit(code);
+  }, [code, busy, submit]);
+
+  const verify = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!factorId || code.trim().length < 6)
-      return toast.error("Enter the 6-digit code from your authenticator app");
-    setBusy(true);
-    const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
-      factorId,
-    });
-    if (challengeError || !challenge) {
-      setBusy(false);
-      return toast.error(challengeError?.message ?? "Could not start verification");
+    if (!isCompleteCode(code)) {
+      return fail({
+        message: "Enter all 6 digits from your authenticator app.",
+        clear: false,
+        retry: false,
+      });
     }
-    const { error: verifyError } = await supabase.auth.mfa.verify({
-      factorId,
-      challengeId: challenge.id,
-      code: code.trim(),
-    });
-    setBusy(false);
-    if (verifyError) {
-      return toast.error(
-        verifyError.message.includes("Invalid")
-          ? "That code didn't match — try the current one from your app"
-          : verifyError.message,
-      );
-    }
-    // Record the check for the 30-day rule (0169). Best effort: the database re-checks every crucial
-    // action with a fresh code anyway, and this call simply does nothing before 0169 is applied.
-    try {
-      await (supabase.rpc as unknown as (f: string) => PromiseLike<unknown>)(
-        "admin_note_authenticator_check",
-      );
-    } catch {
-      // ignore
-    }
-    toast.success(stage === "enroll" ? "Authenticator app linked" : "Verified");
-    nav({ to: safeNext as "/admin", replace: true });
+    void submit(code);
   };
 
   return (
@@ -210,26 +249,45 @@ function MfaPage() {
         )}
 
         {(stage === "enroll" || stage === "challenge") && factorId && (
-          <form onSubmit={verify} className="space-y-3">
-            <div>
-              <Label htmlFor="totp">6-digit code</Label>
-              <div className="relative">
-                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="totp"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  placeholder="000000"
-                  className="pl-9 text-center tracking-[0.4em] font-mono text-lg"
-                  maxLength={6}
-                  autoFocus
-                />
-              </div>
+          <form onSubmit={verify} className="space-y-3" noValidate>
+            <div className="space-y-2">
+              <Label htmlFor="totp" className="block text-center">
+                6-digit code
+              </Label>
+              <OtpCodeInput
+                id="totp"
+                ref={inputRef}
+                value={code}
+                onChange={(v) => {
+                  setCode(v);
+                  if (problem && v.length > 0) setProblem(null);
+                }}
+                disabled={busy}
+                invalid={!!problem}
+                describedBy={problem ? "totp-problem" : "totp-hint"}
+                autoFocus
+              />
+              {problem ? (
+                <p id="totp-problem" role="alert" className="text-sm text-destructive text-center">
+                  {problem.message}
+                </p>
+              ) : (
+                <p id="totp-hint" className="text-xs text-muted-foreground text-center">
+                  You can paste the code. It is checked as soon as all 6 digits are in.
+                </p>
+              )}
             </div>
-            <Button type="submit" disabled={busy || code.length < 6} className="w-full h-11">
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify & continue"}
+            <Button type="submit" disabled={busy || !isCompleteCode(code)} className="w-full h-11">
+              {busy ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                  <span className="sr-only">Checking the code</span>
+                </>
+              ) : problem?.retry ? (
+                "Try again"
+              ) : (
+                "Verify & continue"
+              )}
             </Button>
             {stage === "challenge" && (
               <p className="text-[11px] text-muted-foreground text-center">
