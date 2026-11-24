@@ -58,6 +58,7 @@ import { Route as AuthenticatedCustomerSourcingRouteImport } from './routes/_aut
 import { Route as AuthenticatedJobsIndexRouteImport } from './routes/_authenticated/jobs.index'
 import { Route as AuthenticatedJobsIdRouteImport } from './routes/_authenticated/jobs.$id'
 import { Route as AuthenticatedJobsNewRouteImport } from './routes/_authenticated/jobs.new'
+import { Route as AuthenticatedPayLinkwaReturnRouteImport } from './routes/_authenticated/pay.linkwa-return'
 import { Route as ApiInternalPaynowReconcileRouteImport } from './routes/api/internal/paynow-reconcile'
 import { Route as ApiPublicPaynowIpnRouteImport } from './routes/api/public/paynow-ipn'
 import { Route as ApiPaymentsWebhookProviderRouteImport } from './routes/api/payments/webhook.$provider'
@@ -323,6 +324,12 @@ const AuthenticatedJobsNewRoute = AuthenticatedJobsNewRouteImport.update({
   path: '/jobs/new',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPayLinkwaReturnRoute =
+  AuthenticatedPayLinkwaReturnRouteImport.update({
+    id: '/pay/linkwa-return',
+    path: '/pay/linkwa-return',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const ApiInternalPaynowReconcileRoute =
   ApiInternalPaynowReconcileRouteImport.update({
     id: '/api/internal/paynow-reconcile',
@@ -387,6 +394,7 @@ export interface FileRoutesByFullPath {
   '/customer/sourcing': typeof AuthenticatedCustomerSourcingRoute
   '/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/jobs/new': typeof AuthenticatedJobsNewRoute
+  '/pay/linkwa-return': typeof AuthenticatedPayLinkwaReturnRoute
   '/api/internal/paynow-reconcile': typeof ApiInternalPaynowReconcileRoute
   '/api/public/paynow-ipn': typeof ApiPublicPaynowIpnRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
@@ -438,6 +446,7 @@ export interface FileRoutesByTo {
   '/customer/sourcing': typeof AuthenticatedCustomerSourcingRoute
   '/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/jobs/new': typeof AuthenticatedJobsNewRoute
+  '/pay/linkwa-return': typeof AuthenticatedPayLinkwaReturnRoute
   '/api/internal/paynow-reconcile': typeof ApiInternalPaynowReconcileRoute
   '/api/public/paynow-ipn': typeof ApiPublicPaynowIpnRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
@@ -493,6 +502,7 @@ export interface FileRoutesById {
   '/_authenticated/customer/sourcing': typeof AuthenticatedCustomerSourcingRoute
   '/_authenticated/jobs/$id': typeof AuthenticatedJobsIdRoute
   '/_authenticated/jobs/new': typeof AuthenticatedJobsNewRoute
+  '/_authenticated/pay/linkwa-return': typeof AuthenticatedPayLinkwaReturnRoute
   '/api/internal/paynow-reconcile': typeof ApiInternalPaynowReconcileRoute
   '/api/public/paynow-ipn': typeof ApiPublicPaynowIpnRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
@@ -548,6 +558,7 @@ export interface FileRouteTypes {
     | '/customer/sourcing'
     | '/jobs/$id'
     | '/jobs/new'
+    | '/pay/linkwa-return'
     | '/api/internal/paynow-reconcile'
     | '/api/public/paynow-ipn'
     | '/admin/'
@@ -599,6 +610,7 @@ export interface FileRouteTypes {
     | '/customer/sourcing'
     | '/jobs/$id'
     | '/jobs/new'
+    | '/pay/linkwa-return'
     | '/api/internal/paynow-reconcile'
     | '/api/public/paynow-ipn'
     | '/admin'
@@ -653,6 +665,7 @@ export interface FileRouteTypes {
     | '/_authenticated/customer/sourcing'
     | '/_authenticated/jobs/$id'
     | '/_authenticated/jobs/new'
+    | '/_authenticated/pay/linkwa-return'
     | '/api/internal/paynow-reconcile'
     | '/api/public/paynow-ipn'
     | '/_authenticated/admin/'
@@ -1026,6 +1039,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedJobsNewRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/pay/linkwa-return': {
+      id: '/_authenticated/pay/linkwa-return'
+      path: '/pay/linkwa-return'
+      fullPath: '/pay/linkwa-return'
+      preLoaderRoute: typeof AuthenticatedPayLinkwaReturnRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/api/internal/paynow-reconcile': {
       id: '/api/internal/paynow-reconcile'
       path: '/api/internal/paynow-reconcile'
@@ -1124,6 +1144,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedChatJobIdRoute: typeof AuthenticatedChatJobIdRoute
   AuthenticatedJobsIdRoute: typeof AuthenticatedJobsIdRoute
   AuthenticatedJobsNewRoute: typeof AuthenticatedJobsNewRoute
+  AuthenticatedPayLinkwaReturnRoute: typeof AuthenticatedPayLinkwaReturnRoute
   AuthenticatedJobsIndexRoute: typeof AuthenticatedJobsIndexRoute
 }
 
@@ -1143,6 +1164,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedChatJobIdRoute: AuthenticatedChatJobIdRoute,
   AuthenticatedJobsIdRoute: AuthenticatedJobsIdRoute,
   AuthenticatedJobsNewRoute: AuthenticatedJobsNewRoute,
+  AuthenticatedPayLinkwaReturnRoute: AuthenticatedPayLinkwaReturnRoute,
   AuthenticatedJobsIndexRoute: AuthenticatedJobsIndexRoute,
 }
 

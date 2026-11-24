@@ -6,8 +6,10 @@
 //  * the database is NOT production (ovwrsocjmkpiygipmrdk) in any Supabase setting this server sees, and IS on the
 //    allow-list: the staging project or a local database. Ordinary Vercel Preview deployments use the production
 //    database, so they are refused here even if Linkwa variables were ever added to them;
-//  * the API key, the webhook secret and the signature encoding (hex | base64, from Linkwa's documentation) are set;
-//  * the request/response mapping has been written from Linkwa's documentation (linkwa-protocol.ts).
+//  * the API key is a SANDBOX key (Linkwa: "sk_sandbox_" keys run in isolated simulation mode, "sk_live_" keys move
+//    real money) and the webhook signing secret is set. The signature is hex HMAC-SHA256 of the raw body (Linkwa's
+//    webhook documentation: PHP hash_hmac('sha256', $rawBody, $secret), whose default output is lowercase hex);
+//  * the request/response mapping (linkwa-protocol.ts) is present.
 // Variable names only; values are never logged or returned.
 
 import type { SignatureEncoding } from "@/lib/payments/hmac.server";
@@ -34,7 +36,7 @@ export type LinkwaRefusal =
   | "database_not_allowed"
   | "not_sandbox_host"
   | "missing_credentials"
-  | "signature_encoding_unset"
+  | "not_sandbox_key"
   | "protocol_not_documented";
 
 type Env = Record<string, string | undefined>;
@@ -84,11 +86,12 @@ export function linkwaSandboxConfig(
   const apiKey = env.LINKWA_API_KEY ?? "";
   const webhookSecret = env.LINKWA_WEBHOOK_SECRET ?? "";
   if (!apiKey.trim() || !webhookSecret.trim()) return { ok: false, reason: "missing_credentials" };
-
-  const enc = env.LINKWA_SIGNATURE_ENCODING;
-  if (enc !== "hex" && enc !== "base64") return { ok: false, reason: "signature_encoding_unset" };
+  if (!apiKey.startsWith("sk_sandbox_")) return { ok: false, reason: "not_sandbox_key" };
 
   if (!protocol) return { ok: false, reason: "protocol_not_documented" };
 
-  return { ok: true, config: { baseUrl, apiKey, webhookSecret, signatureEncoding: enc, protocol } };
+  return {
+    ok: true,
+    config: { baseUrl, apiKey, webhookSecret, signatureEncoding: "hex", protocol },
+  };
 }

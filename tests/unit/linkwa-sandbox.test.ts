@@ -7,50 +7,43 @@ import {
   linkwaSandboxConfig,
   supabaseTarget,
 } from "@/lib/payments/linkwa-config.server";
-import { getLinkwaProtocol, type LinkwaProtocol } from "@/lib/payments/linkwa-protocol";
+import { linkwaProtocol, shortUrlFromCheckoutUrl } from "@/lib/payments/linkwa-protocol";
 import { createLinkwaAdapter } from "@/lib/payments/linkwa.server";
 import { getProviderRegistry, linkwaSandboxAdapter } from "@/lib/payments/registry.server";
 import { handleProviderWebhook, type ProviderDb } from "@/lib/payments/provider.server";
 
-// TEST FIXTURE ONLY. These field names are invented for the tests and are NOT Linkwa's format; the real mapping
-// is written from Linkwa's documentation in src/lib/payments/linkwa-protocol.ts.
-const fixtureProtocol: LinkwaProtocol = {
-  readEvent: (p) => {
-    const o = p as Record<string, string>;
-    return o?.t_event
-      ? {
-          eventId: o.t_event,
-          eventType: o.t_type,
-          shortUrl: o.t_link,
-          paymentReference: o.t_pref ?? null,
-          externalLinkId: o.t_linkid ?? null,
-          receiptId: o.t_rcpt ?? null,
-          bookingReference: o.t_booking ?? null,
-        }
-      : null;
+// Payload shapes below are Linkwa's own documented examples (developer-apps/docs.md, webhooks/docs.md and the
+// Postman collection, received 24/11/2026). No request is sent to Linkwa from these tests.
+const DOC_CREATED = {
+  message: "Payment link created successfully.",
+  product: {
+    checkout_url: "https://linkwa.com/pay/b01jxYz",
+    amount: 15.5,
+    currency_code: "USD",
+    qr_code: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0...",
+    external_payment_link_id: "01ktpcws7840j4k4swyg3zbxgn",
   },
-  readStatus: (b) => {
-    const o = b as Record<string, unknown>;
-    const word = String(o?.t_status ?? "");
-    return {
-      status: word === "fixture-paid" ? "paid" : word === "fixture-failed" ? "failed" : null,
-      rawStatus: word,
-      amount: typeof o.t_amount === "number" ? o.t_amount : null,
-      currency: (o.t_currency as string) ?? null,
-      receiptId: (o.t_rcpt as string) ?? null,
-      bookingReference: (o.t_booking as string) ?? null,
-      externalLinkId: (o.t_linkid as string) ?? null,
-    };
-  },
-  linkRequest: (i) => ({
-    t_amount: i.amount,
-    t_currency: i.currency,
-    t_booking: i.bookingReference,
-  }),
-  readCreatedLink: (b) => {
-    const o = b as Record<string, string>;
-    return o?.t_linkid && o?.t_link ? { externalLinkId: o.t_linkid, shortUrl: o.t_link } : null;
-  },
+};
+const DOC_STATUS = {
+  payment_reference: "e14394bd-26c2-41ec-87ad-6fed0aa362ee",
+  currency_code: "USD",
+  status: "PAID",
+  short_url: "b01jxYz",
+  amount: 15.5,
+  payment_date_time: "2026-01-01T21:08:56.548172Z",
+};
+const DOC_WEBHOOK = {
+  event: "payment.completed",
+  payment_link_name: "Premium Subscription",
+  status: "PAID",
+  reference: "e14394bd-26c2-41ec-87ad-6fed0aa362ee",
+  receipt_id: "REC-987654321",
+  amount: 15.5,
+  currency: "USD",
+  external_payment_link_id: "01ktpcws7840j4k4swyg3zbxgn",
+  checkout_url: "https://linkwa.com/pay/b01jxYz",
+  payment_date_time: "2026-01-01T21:08:56.548172Z",
+  customer: { name: "John Doe", email: "john@example.com", phone: "263771234567" },
 };
 
 const STAGING_URL = `https://${STAGING_SUPABASE_REF}.supabase.co`;
@@ -59,29 +52,36 @@ const goodEnv = {
   LINKWA_MODE: "sandbox",
   SUPABASE_URL: STAGING_URL,
   VITE_SUPABASE_URL: STAGING_URL,
-  LINKWA_API_KEY: "test-key",
+  LINKWA_API_KEY: "sk_sandbox_test_only",
   LINKWA_WEBHOOK_SECRET: "test-secret",
-  LINKWA_SIGNATURE_ENCODING: "hex",
 };
 
 const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 const b64 = (b: Uint8Array) => btoa(String.fromCharCode(...b));
+const json = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+
+function cfg() {
+  const c = linkwaSandboxConfig(goodEnv);
+  if (!c.ok) throw new Error(c.reason);
+  return c.config;
+}
 
 describe("Linkwa sandbox guard (fails closed)", () => {
-  it("the real mapping is not written yet, so the sandbox cannot start", () => {
-    expect(getLinkwaProtocol()).toBeNull();
-    expect(linkwaSandboxConfig(goodEnv)).toEqual({ ok: false, reason: "protocol_not_documented" });
-    expect(Object.keys(getProviderRegistry(goodEnv))).toEqual([]);
-  });
-
-  it("allows staging or a local database with every setting present", () => {
-    expect(linkwaSandboxConfig(goodEnv, fixtureProtocol).ok).toBe(true);
+  it("allows only staging or a local database with a sandbox key", () => {
+    expect(linkwaSandboxConfig(goodEnv).ok).toBe(true);
+    expect(Object.keys(getProviderRegistry(goodEnv))).toEqual(["linkwa"]);
     const local = {
       ...goodEnv,
       SUPABASE_URL: "http://localhost:54399",
       VITE_SUPABASE_URL: "http://127.0.0.1:54399",
     };
-    expect(linkwaSandboxConfig(local, fixtureProtocol).ok).toBe(true);
+    expect(linkwaSandboxConfig(local).ok).toBe(true);
+  });
+
+  it("is off with no Linkwa settings at all (every ordinary deployment)", () => {
+    expect(Object.keys(getProviderRegistry({ SUPABASE_URL: PROD_URL }))).toEqual([]);
+    expect(Object.keys(getProviderRegistry({}))).toEqual([]);
   });
 
   it.each([
@@ -93,14 +93,14 @@ describe("Linkwa sandbox guard (fails closed)", () => {
       { SUPABASE_URL: `https://proxy.example/${PRODUCTION_SUPABASE_REF}` },
     ],
   ])("production project ovwrsocjmkpiygipmrdk in the %s is refused", (_n, over) => {
-    const r = linkwaSandboxConfig({ ...goodEnv, ...over }, fixtureProtocol);
-    expect(r).toEqual({ ok: false, reason: "production_database" });
-    expect(linkwaSandboxAdapter({ ...goodEnv, ...over }, fixtureProtocol)).toBeNull();
-    expect(Object.keys(getProviderRegistry({ ...goodEnv, ...over }, fixtureProtocol))).toEqual([]);
+    const env = { ...goodEnv, ...over };
+    expect(linkwaSandboxConfig(env)).toEqual({ ok: false, reason: "production_database" });
+    expect(linkwaSandboxAdapter(env)).toBeNull();
+    expect(Object.keys(getProviderRegistry(env))).toEqual([]);
   });
 
-  it("production is refused even when everything else is set, including a production deployment", () => {
-    expect(linkwaSandboxConfig({ ...goodEnv, VERCEL_ENV: "production" }, fixtureProtocol)).toEqual({
+  it("a production deployment is refused", () => {
+    expect(linkwaSandboxConfig({ ...goodEnv, VERCEL_ENV: "production" })).toEqual({
       ok: false,
       reason: "production_deployment",
     });
@@ -113,14 +113,20 @@ describe("Linkwa sandbox guard (fails closed)", () => {
     [{ SUPABASE_URL: "https://abcdefghijabcdefghij.supabase.co" }, "database_not_allowed"],
     [{ VITE_SUPABASE_URL: "https://abcdefghijabcdefghij.supabase.co" }, "database_not_allowed"],
     [{ LINKWA_BASE_URL: "https://linkwa.co.zw/api/v1/third-party" }, "not_sandbox_host"],
+    [{ LINKWA_BASE_URL: "https://sandbox.linkwa.co.zw/api/v1/integrations" }, "not_sandbox_host"],
     [{ LINKWA_BASE_URL: `${LINKWA_SANDBOX_BASE_URL}/` }, "not_sandbox_host"],
     [{ LINKWA_API_KEY: " " }, "missing_credentials"],
     [{ LINKWA_WEBHOOK_SECRET: undefined }, "missing_credentials"],
-    [{ LINKWA_SIGNATURE_ENCODING: undefined }, "signature_encoding_unset"],
+    [{ LINKWA_API_KEY: "sk_live_abc" }, "not_sandbox_key"],
+    [{ LINKWA_API_KEY: "anything" }, "not_sandbox_key"],
   ])("refuses %o -> %s", (over, reason) => {
-    expect(linkwaSandboxConfig({ ...goodEnv, ...over }, fixtureProtocol)).toEqual({
+    expect(linkwaSandboxConfig({ ...goodEnv, ...over })).toEqual({ ok: false, reason });
+  });
+
+  it("a missing mapping keeps it off", () => {
+    expect(linkwaSandboxConfig(goodEnv, null)).toEqual({
       ok: false,
-      reason,
+      reason: "protocol_not_documented",
     });
   });
 
@@ -131,17 +137,92 @@ describe("Linkwa sandbox guard (fails closed)", () => {
   });
 });
 
-describe("raw-body HMAC-SHA256", () => {
-  const body = '{"a":1,"b":"x"}';
-  it("accepts the right signature in hex (any case) and base64", async () => {
+describe("Linkwa documented formats", () => {
+  it("statuses: only PAID is paid; COMPLETED is not assumed to mean paid", () => {
+    const word = (status: string) => linkwaProtocol.readStatus({ ...DOC_STATUS, status })?.status;
+    expect(word("PAID")).toBe("paid");
+    expect(word("PENDING")).toBe("pending");
+    expect(word("FAILED")).toBe("failed");
+    expect(word("CANCELLED")).toBe("cancelled");
+    expect(word("EXPIRED")).toBe("expired");
+    expect(word("COMPLETED")).toBeNull();
+    expect(word("paid")).toBeNull();
+    expect(linkwaProtocol.readStatus({ amount: 1 })).toBeNull();
+  });
+
+  it("reads the documented status answer", () => {
+    expect(linkwaProtocol.readStatus(DOC_STATUS)).toMatchObject({
+      status: "paid",
+      amount: 15.5,
+      currency: "USD",
+      shortUrl: "b01jxYz",
+      paymentReference: "e14394bd-26c2-41ec-87ad-6fed0aa362ee",
+    });
+  });
+
+  it("reads the documented created link; the short URL is the checkout URL's last segment", () => {
+    expect(linkwaProtocol.readCreatedLink(DOC_CREATED)).toEqual({
+      externalLinkId: "01ktpcws7840j4k4swyg3zbxgn",
+      shortUrl: "b01jxYz",
+      checkoutUrl: "https://linkwa.com/pay/b01jxYz",
+      amount: 15.5,
+      currency: "USD",
+    });
+    expect(shortUrlFromCheckoutUrl("https://linkwa.co.zw/pay/abc123xyz")).toBe("abc123xyz");
+    expect(shortUrlFromCheckoutUrl("http://linkwa.com/pay/abc")).toBeNull();
+    expect(shortUrlFromCheckoutUrl("https://linkwa.com/other/abc")).toBeNull();
+    expect(
+      linkwaProtocol.readCreatedLink({ product: { checkout_url: "https://x/pay/abc" } }),
+    ).toBeNull();
+  });
+
+  it("asks for a single-use USD link with ConZ's return address", () => {
+    expect(
+      linkwaProtocol.linkRequest({
+        amount: 400,
+        currency: "USD",
+        bookingReference: "pay-1",
+        name: "ConZ delivery",
+        description: "ConZ delivery abc",
+        returnUrl: "https://example.test/pay/linkwa-return",
+      }),
+    ).toEqual({
+      amount: 400,
+      currency_code: "USD",
+      payment_link_name: "ConZ delivery",
+      description: "ConZ delivery abc (ConZ ref pay-1)",
+      return_url: "https://example.test/pay/linkwa-return",
+      stock: 1,
+    });
+  });
+
+  it("reads the documented webhook; other events are ignored", () => {
+    expect(linkwaProtocol.readEvent(DOC_WEBHOOK)).toEqual({
+      eventId: "payment.completed:e14394bd-26c2-41ec-87ad-6fed0aa362ee",
+      eventType: "payment.completed",
+      shortUrl: "b01jxYz",
+      paymentReference: "e14394bd-26c2-41ec-87ad-6fed0aa362ee",
+      externalLinkId: "01ktpcws7840j4k4swyg3zbxgn",
+      receiptId: "REC-987654321",
+      bookingReference: null,
+    });
+    expect(linkwaProtocol.readEvent({ ...DOC_WEBHOOK, event: "payment.failed" })).toBeNull();
+    expect(linkwaProtocol.readEvent({ ...DOC_WEBHOOK, checkout_url: undefined })).toBeNull();
+  });
+});
+
+describe("raw-body HMAC-SHA256 (Linkwa: hash_hmac('sha256', $rawBody, $secret), hex)", () => {
+  const body = JSON.stringify(DOC_WEBHOOK);
+  it("accepts the right hex signature", async () => {
     const mac = await hmacSha256("s3cret", body);
     expect(await verifyHmacSha256(body, hex(mac), "s3cret", "hex")).toBe(true);
     expect(await verifyHmacSha256(body, hex(mac).toUpperCase(), "s3cret", "hex")).toBe(true);
     expect(await verifyHmacSha256(body, b64(mac), "s3cret", "base64")).toBe(true);
   });
-  it("refuses a changed body, a wrong secret, a missing or malformed header, or the other encoding", async () => {
+  it("refuses a changed body, a wrong secret, or a missing or malformed header", async () => {
     const mac = await hmacSha256("s3cret", body);
-    expect(await verifyHmacSha256('{"a":1, "b":"x"}', hex(mac), "s3cret", "hex")).toBe(false); // re-serialised
+    const reserialised = JSON.stringify(JSON.parse(body), null, 1);
+    expect(await verifyHmacSha256(reserialised, hex(mac), "s3cret", "hex")).toBe(false);
     expect(await verifyHmacSha256(body, hex(mac), "other", "hex")).toBe(false);
     expect(await verifyHmacSha256(body, null, "s3cret", "hex")).toBe(false);
     expect(await verifyHmacSha256(body, hex(mac).slice(2), "s3cret", "hex")).toBe(false);
@@ -156,91 +237,116 @@ describe("raw-body HMAC-SHA256", () => {
   });
 });
 
-function cfg() {
-  const c = linkwaSandboxConfig(goodEnv, fixtureProtocol);
-  if (!c.ok) throw new Error(c.reason);
-  return c.config;
-}
-const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-
-describe("Linkwa adapter (sandbox, fixture mapping)", () => {
-  it("verifies the signature over the raw body before reading anything", async () => {
-    const a = createLinkwaAdapter(cfg(), vi.fn());
-    const raw = JSON.stringify({
-      t_event: "ev1",
-      t_type: "payment.completed",
-      t_link: "sh1",
-      t_pref: "pr1",
-    });
-    const sig = hex(await hmacSha256("test-secret", raw));
-    const ok = await a.verifyWebhook(raw, new Headers({ "X-Linkwa-Signature": sig }));
-    expect(ok).toMatchObject({
-      eventId: "ev1",
-      paymentId: null,
-      link: { shortUrl: "sh1", paymentReference: "pr1" },
-    });
-    expect(
-      await a.verifyWebhook(raw, new Headers({ "X-Linkwa-Signature": sig.replace(/.$/, "0") })),
-    ).toBeNull();
-    expect(await a.verifyWebhook(raw, new Headers())).toBeNull();
-  });
-
-  it("checks status at the documented path with the API key, and never trusts an unmapped word", async () => {
-    const f = vi.fn(async () =>
-      json(200, { t_status: "COMPLETED", t_amount: 400, t_currency: "USD" }),
-    );
+describe("Linkwa adapter", () => {
+  it("checks status at the documented path with the sandbox key", async () => {
+    const f = vi.fn(async () => json(200, DOC_STATUS));
     const a = createLinkwaAdapter(cfg(), f);
-    const s = await a.getPaymentStatus(null, { shortUrl: "a/b", paymentReference: "p 1" });
-    expect(f).toHaveBeenCalledTimes(1);
+    const s = await a.getPaymentStatus(null, {
+      shortUrl: "b01jxYz",
+      paymentReference: "e14394bd-26c2-41ec-87ad-6fed0aa362ee",
+    });
     const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe(`${LINKWA_SANDBOX_BASE_URL}/payment-links/a%2Fb/payments/p%201/status`);
-    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer test-key");
-    expect(init.method).toBe("GET");
-    expect(s.status).toBe("unrecognised:COMPLETED");
-    expect(s.reference).toBeNull();
+    expect(url).toBe(
+      `${LINKWA_SANDBOX_BASE_URL}/payment-links/b01jxYz/payments/e14394bd-26c2-41ec-87ad-6fed0aa362ee/status`,
+    );
+    const h = init.headers as Record<string, string>;
+    expect(h.Authorization).toBe("Bearer sk_sandbox_test_only");
+    expect(h.Accept).toBe("application/json");
+    expect(s).toMatchObject({ status: "paid", amount: 15.5, currency: "USD", reference: null });
   });
 
-  it("a failed status call throws (the webhook answers 503 and nothing is applied)", async () => {
+  it("an answer about a different payment is refused", async () => {
     const a = createLinkwaAdapter(
       cfg(),
-      vi.fn(async () => json(500, {})),
+      vi.fn(async () => json(200, { ...DOC_STATUS, short_url: "zzz999" })),
     );
     await expect(
-      a.getPaymentStatus(null, { shortUrl: "s", paymentReference: "p" }),
-    ).rejects.toThrow(/HTTP 500/);
-    await expect(a.getPaymentStatus(null, { shortUrl: "s" })).rejects.toThrow();
+      a.getPaymentStatus(null, {
+        shortUrl: "b01jxYz",
+        paymentReference: DOC_STATUS.payment_reference,
+      }),
+    ).rejects.toThrow(/different payment/);
   });
 
-  it("creates a payment link for the exact amount and never calls payouts", async () => {
-    const f = vi.fn(async () => json(201, { t_linkid: "L1", t_link: "sh1" }));
+  it("an unmapped word (COMPLETED) is passed on as unrecognised, never paid", async () => {
+    const a = createLinkwaAdapter(
+      cfg(),
+      vi.fn(async () => json(200, { ...DOC_STATUS, status: "COMPLETED" })),
+    );
+    const s = await a.getPaymentStatus(null, {
+      shortUrl: "b01jxYz",
+      paymentReference: DOC_STATUS.payment_reference,
+    });
+    expect(s.status).toBe("unrecognised:COMPLETED");
+  });
+
+  it("a failed or unreadable status call throws (nothing is applied)", async () => {
+    const link = { shortUrl: "s1x", paymentReference: "p-123456" };
+    await expect(
+      createLinkwaAdapter(
+        cfg(),
+        vi.fn(async () => json(401, {})),
+      ).getPaymentStatus(null, link),
+    ).rejects.toThrow(/HTTP 401/);
+    await expect(
+      createLinkwaAdapter(
+        cfg(),
+        vi.fn(async () => json(200, {})),
+      ).getPaymentStatus(null, link),
+    ).rejects.toThrow();
+    await expect(
+      createLinkwaAdapter(cfg(), vi.fn()).getPaymentStatus(null, { shortUrl: "s1x" }),
+    ).rejects.toThrow();
+  });
+
+  it("creates a single-use link for the exact amount and checks Linkwa's echo", async () => {
+    const f = vi.fn(async () => json(200, DOC_CREATED));
     const a = createLinkwaAdapter(cfg(), f);
-    expect(
-      await a.createPaymentLink({ amount: 400, bookingReference: "pay-1", description: "d" }),
-    ).toEqual({
-      externalLinkId: "L1",
-      shortUrl: "sh1",
+    const input = {
+      amount: 15.5,
+      bookingReference: "pay-1",
+      name: "ConZ delivery",
+      description: "d",
+      returnUrl: "https://e.test/r",
+    };
+    expect(await a.createPaymentLink(input)).toMatchObject({
+      shortUrl: "b01jxYz",
+      externalLinkId: "01ktpcws7840j4k4swyg3zbxgn",
     });
     const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe(`${LINKWA_SANDBOX_BASE_URL}/payment-links`);
-    expect(JSON.parse(String(init.body))).toEqual({
-      t_amount: 400,
-      t_currency: "USD",
-      t_booking: "pay-1",
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      amount: 15.5,
+      currency_code: "USD",
+      stock: 1,
     });
+    await expect(a.createPaymentLink({ ...input, amount: 16 })).rejects.toThrow(/different amount/);
+    const zwg = createLinkwaAdapter(
+      cfg(),
+      vi.fn(async () => json(200, { product: { ...DOC_CREATED.product, currency_code: "ZWG" } })),
+    );
+    await expect(zwg.createPaymentLink(input)).rejects.toThrow(/different amount or currency/);
+    await expect(a.createPaymentLink({ ...input, amount: 0 })).rejects.toThrow();
+  });
+
+  it("never calls payouts, wallets, users, balance or statement", async () => {
+    const f = vi.fn(async () => json(200, DOC_STATUS));
+    const a = createLinkwaAdapter(cfg(), f);
     expect(
       await a.getPayoutStatus({ id: "x", idempotencyKey: "k", providerReference: null }),
-    ).toMatchObject({
-      status: "unknown",
+    ).toMatchObject({ status: "unknown" });
+    await a.getPaymentStatus(null, {
+      shortUrl: "b01jxYz",
+      paymentReference: DOC_STATUS.payment_reference,
     });
-    expect(f.mock.calls.some(([u]) => String(u).includes("/payouts"))).toBe(false);
-    await expect(
-      a.createPaymentLink({ amount: 0, bookingReference: "x", description: "d" }),
-    ).rejects.toThrow();
+    expect(
+      f.mock.calls.some(([u]) => /\/(payouts|wallets|users|balance|statement)/.test(String(u))),
+    ).toBe(false);
   });
 });
 
-describe("webhook flow for payment-link events", () => {
+describe("webhook flow (documented payment.completed)", () => {
   function fakeDb() {
     const calls: { fn: string; args: unknown }[] = [];
     const db = {
@@ -254,75 +360,69 @@ describe("webhook flow for payment-link events", () => {
     } as unknown as ProviderDb;
     return { db, calls };
   }
-
-  async function signed(body: Record<string, string>) {
+  async function signed(body: unknown) {
     const raw = JSON.stringify(body);
-    return {
-      raw,
-      headers: new Headers({ "x-linkwa-signature": hex(await hmacSha256("test-secret", raw)) }),
-    };
+    const sig = hex(await hmacSha256("test-secret", raw));
+    return { raw, headers: new Headers({ "X-Linkwa-Signature": sig }) };
   }
 
-  it("applies the re-checked result with all identifiers kept separate", async () => {
-    const f = vi.fn(async () =>
-      json(200, {
-        t_status: "fixture-paid",
-        t_amount: 400,
-        t_currency: "USD",
-        t_rcpt: "R1",
-        t_booking: "pay-1",
-        t_linkid: "L1",
-      }),
-    );
-    const a = createLinkwaAdapter(cfg(), f);
+  it("verifies, re-checks with Linkwa and applies with every identifier kept separate", async () => {
+    const f = vi.fn(async () => json(200, DOC_STATUS));
     const { db, calls } = fakeDb();
-    const { raw, headers } = await signed({
-      t_event: "ev1",
-      t_type: "payment.completed",
-      t_link: "sh1",
-      t_pref: "pr1",
+    const { raw, headers } = await signed(DOC_WEBHOOK);
+    const res = await handleProviderWebhook("linkwa", raw, headers, db, {
+      linkwa: createLinkwaAdapter(cfg(), f),
     });
-    const res = await handleProviderWebhook("linkwa", raw, headers, db, { linkwa: a });
     expect(res.status).toBe(200);
-    const apply = calls.find((c) => c.fn === "apply_provider_link_payment");
-    expect(apply?.args).toEqual({
+    expect(f).toHaveBeenCalledTimes(1);
+    expect(calls.find((c) => c.fn === "apply_provider_link_payment")?.args).toEqual({
       _provider: "linkwa",
-      _event_id: "ev1",
+      _event_id: "payment.completed:e14394bd-26c2-41ec-87ad-6fed0aa362ee",
       _payment_id: null,
       _status: "paid",
-      _amount: 400,
+      _amount: 15.5,
       _currency: "USD",
-      _booking_reference: "pay-1",
-      _external_payment_link_id: "L1",
-      _short_url: "sh1",
-      _payment_reference: "pr1",
-      _receipt_id: "R1",
+      _booking_reference: null,
+      _external_payment_link_id: "01ktpcws7840j4k4swyg3zbxgn",
+      _short_url: "b01jxYz",
+      _payment_reference: "e14394bd-26c2-41ec-87ad-6fed0aa362ee",
+      _receipt_id: "REC-987654321",
       _source: "webhook",
     });
-    expect(calls.some((c) => c.fn === "apply_provider_payment")).toBe(false);
   });
 
-  it("an invalid signature is 401 and nothing is checked or applied", async () => {
+  it("uses the re-checked status, not the webhook's own claim", async () => {
+    const f = vi.fn(async () => json(200, { ...DOC_STATUS, status: "PENDING" }));
+    const { db, calls } = fakeDb();
+    const { raw, headers } = await signed(DOC_WEBHOOK); // webhook says PAID
+    await handleProviderWebhook("linkwa", raw, headers, db, {
+      linkwa: createLinkwaAdapter(cfg(), f),
+    });
+    expect(
+      (calls.find((c) => c.fn === "apply_provider_link_payment")?.args as { _status: string })
+        ._status,
+    ).toBe("pending");
+  });
+
+  it("an invalid signature is 401 (Linkwa retries) and nothing is checked or applied", async () => {
     const f = vi.fn();
     const { db, calls } = fakeDb();
-    const { raw } = await signed({ t_event: "ev1", t_link: "sh1", t_pref: "pr1" });
+    const { raw } = await signed(DOC_WEBHOOK);
     const res = await handleProviderWebhook(
       "linkwa",
       raw,
-      new Headers({ "x-linkwa-signature": "00".repeat(32) }),
+      new Headers({ "X-Linkwa-Signature": "00".repeat(32) }),
       db,
-      {
-        linkwa: createLinkwaAdapter(cfg(), f),
-      },
+      { linkwa: createLinkwaAdapter(cfg(), f) },
     );
     expect(res.status).toBe(401);
     expect(f).not.toHaveBeenCalled();
     expect(calls.map((c) => c.fn)).toEqual(["provider_collection_enabled"]);
   });
 
-  it("the provider being unreachable is 503 and nothing is applied", async () => {
+  it("Linkwa unreachable on re-check is 503 and nothing is applied", async () => {
     const { db, calls } = fakeDb();
-    const { raw, headers } = await signed({ t_event: "ev1", t_link: "sh1", t_pref: "pr1" });
+    const { raw, headers } = await signed(DOC_WEBHOOK);
     const res = await handleProviderWebhook("linkwa", raw, headers, db, {
       linkwa: createLinkwaAdapter(
         cfg(),
@@ -330,18 +430,6 @@ describe("webhook flow for payment-link events", () => {
       ),
     });
     expect(res.status).toBe(503);
-    expect(calls.some((c) => c.fn.startsWith("apply_"))).toBe(false);
-  });
-
-  it("a signed event naming no payment is acknowledged and ignored", async () => {
-    const f = vi.fn();
-    const { db, calls } = fakeDb();
-    const { raw, headers } = await signed({ t_event: "ev2", t_link: "sh1" });
-    const res = await handleProviderWebhook("linkwa", raw, headers, db, {
-      linkwa: createLinkwaAdapter(cfg(), f),
-    });
-    expect(res.status).toBe(200);
-    expect(f).not.toHaveBeenCalled();
     expect(calls.some((c) => c.fn.startsWith("apply_"))).toBe(false);
   });
 });

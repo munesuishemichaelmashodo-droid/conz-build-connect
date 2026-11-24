@@ -8,7 +8,7 @@ do $$ begin
   end if;
 end $$;
 drop function if exists public.apply_provider_link_payment(text, text, uuid, text, numeric, text, text, text, text, text, text, text);
-drop function if exists public.provider_record_payment_link(uuid, text, text, text);
+drop function if exists public.provider_record_payment_link(uuid, text, text, text, text);
 drop function if exists public.provider_claim_payment_link(uuid, text);
 drop table if exists public.provider_payment_refs;
 drop function if exists public.provider_payment_refs_guard();

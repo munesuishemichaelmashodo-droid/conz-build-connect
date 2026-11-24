@@ -41,13 +41,13 @@ select is(public.provider_claim_payment_link(current_setting('t.pay')::uuid, 'li
 select is(public.provider_claim_payment_link(current_setting('t.pay')::uuid, 'linkwa'), 'in_progress', '2: a second request waits (no second link)');
 select throws_like($$select public.provider_claim_payment_link(current_setting('t.pay')::uuid, 'otherpay')$$,
                    '%not found for this provider%', '3: another provider cannot claim it');
-select throws_like($$select public.provider_record_payment_link(current_setting('t.pay')::uuid, 'linkwa', 'lnk-1', null)$$,
-                   '%are required%', '4: link id and short URL are both required');
-select lives_ok($$select public.provider_record_payment_link(current_setting('t.pay')::uuid, 'linkwa', 'lnk-1', 'sh-abc')$$,
+select throws_like($$select public.provider_record_payment_link(current_setting('t.pay')::uuid, 'linkwa', 'lnk-1', 'sh-abc', 'http://insecure/pay/sh-abc')$$,
+                   '%are required%', '4: link id, short URL and an https checkout URL are all required');
+select lives_ok($$select public.provider_record_payment_link(current_setting('t.pay')::uuid, 'linkwa', 'lnk-1', 'sh-abc', 'https://sandbox.example/pay/sh-abc')$$,
                 '5: link recorded');
-select lives_ok($$select public.provider_record_payment_link(current_setting('t.pay')::uuid, 'linkwa', 'lnk-1', 'sh-abc')$$,
+select lives_ok($$select public.provider_record_payment_link(current_setting('t.pay')::uuid, 'linkwa', 'lnk-1', 'sh-abc', 'https://sandbox.example/pay/sh-abc')$$,
                 '6: recording the same link again changes nothing');
-select throws_like($$select public.provider_record_payment_link(current_setting('t.pay')::uuid, 'linkwa', 'lnk-2', 'sh-xyz')$$,
+select throws_like($$select public.provider_record_payment_link(current_setting('t.pay')::uuid, 'linkwa', 'lnk-2', 'sh-xyz', 'https://sandbox.example/pay/sh-xyz')$$,
                    '%different payment link%', '7: a payment has exactly one link');
 select is(public.provider_claim_payment_link(current_setting('t.pay')::uuid, 'linkwa'), 'exists', '8: once recorded, the link is reused');
 select is((select provider_reference from public.payments where id = current_setting('t.pay')::uuid), null,
@@ -60,7 +60,7 @@ select throws_ok($$select public.apply_provider_link_payment('linkwa', 'x', null
                  '42501', null, '11: a signed-in user cannot apply a payment');
 select throws_ok($$select public.provider_claim_payment_link(current_setting('t.pay')::uuid, 'linkwa')$$, '42501', null,
                  '12: a signed-in user cannot claim a link');
-select throws_ok($$select public.provider_record_payment_link(current_setting('t.pay')::uuid, 'linkwa', 'a', 'b')$$, '42501', null,
+select throws_ok($$select public.provider_record_payment_link(current_setting('t.pay')::uuid, 'linkwa', 'a', 'b', 'https://x.example/pay/b')$$, '42501', null,
                  '13: a signed-in user cannot record a link');
 select throws_ok($$update public.provider_payment_refs set short_url = 'evil'$$, '42501', null, '14: a signed-in user cannot write link records');
 select tests.login_as(current_setting('t.adm')::uuid);
@@ -110,8 +110,9 @@ select is(pg_temp.apply('e11', current_setting('t.pay')::uuid, 'paid', 400, 'USD
           'already_paid', '34: the same payment reported again changes nothing');
 select is(pg_temp.apply('e12', current_setting('t.pay')::uuid, 'paid', 400, 'USD', null, 'lnk-1', 'sh-abc', 'pr-2', 'rc-2'),
           'second_payment_flagged', '35: a second payment on the same link is not applied and is flagged');
-select is(pg_temp.apply('e13', current_setting('t.pay')::uuid, 'failed', null, null, null, 'lnk-1', 'sh-abc', null, null),
-          'regression_flagged', '36: a late "failed" never undoes a confirmed payment');
+select is(pg_temp.apply('e13', current_setting('t.pay')::uuid, 'failed', null, null, null, 'lnk-1', 'sh-abc', 'pr-3', null) || '/' ||
+          (select status from public.payments where id = current_setting('t.pay')::uuid),
+          'attempt_failed/paid', '36: a late failed attempt is recorded and never undoes a confirmed payment');
 select tests.as_owner();
 select is((select sum(amount) from public.platform_ledger where payment_id = current_setting('t.pay')::uuid and account = 'provider_clearing'),
           400.00::numeric, '37: still exactly one $400 receipt in the ledger');
@@ -122,35 +123,28 @@ select throws_ok($$update public.provider_payment_refs set receipt_id = 'other' 
 select throws_ok($$delete from public.provider_payment_refs where payment_id = current_setting('t.pay')::uuid$$,
                  '42501', null, '40: link records are never deleted');
 
--- ---------------------------------------------------------------- failed, cancelled, expired; reuse across payments
+-- ---------------------------------------------------------------- failed, cancelled, expired attempts; retry on the same link; reuse
 select set_config('t.job2', pg_temp.provider_job(current_setting('t.drv2')::uuid, 250)::text, true);
-create function pg_temp.new_link(_n text) returns uuid language plpgsql as $f$
-declare _p uuid;
-begin
-  perform tests.as_service();
-  _p := (public.create_provider_job_payment(current_setting('t.job2')::uuid, 'linkwa', null)).id;
-  perform public.provider_claim_payment_link(_p, 'linkwa');
-  perform public.provider_record_payment_link(_p, 'linkwa', 'lnk-' || _n, 'sh-' || _n);
-  return _p;
-end $f$;
-select set_config('t.f', pg_temp.new_link('f')::text, true);
-select is(pg_temp.apply('e20', current_setting('t.f')::uuid, 'failed', null, null, null, 'lnk-f', 'sh-f', null, null), 'applied_failed', '41: failed');
-select set_config('t.c', pg_temp.new_link('c')::text, true);
-select is(pg_temp.apply('e21', current_setting('t.c')::uuid, 'cancelled', null, null, null, 'lnk-c', 'sh-c', null, null), 'applied_cancelled', '42: cancelled');
-select set_config('t.x', pg_temp.new_link('x')::text, true);
-select is(pg_temp.apply('e22', current_setting('t.x')::uuid, 'expired', null, null, null, 'lnk-x', 'sh-x', null, null), 'applied_cancelled', '43: expired closes the payment');
+select tests.as_service();
+select set_config('t.ok', (public.create_provider_job_payment(current_setting('t.job2')::uuid, 'linkwa', null)).id::text, true);
+select public.provider_claim_payment_link(current_setting('t.ok')::uuid, 'linkwa');
+select public.provider_record_payment_link(current_setting('t.ok')::uuid, 'linkwa', 'lnk-ok', 'sh-ok', 'https://sandbox.example/pay/sh-ok');
+select is(pg_temp.apply('e20', current_setting('t.ok')::uuid, 'failed', null, null, null, 'lnk-ok', 'sh-ok', 'pa-1', null), 'attempt_failed',
+          '41: a failed attempt (e.g. insufficient funds) is recorded');
+select is(pg_temp.apply('e21', current_setting('t.ok')::uuid, 'cancelled', null, null, null, 'lnk-ok', 'sh-ok', 'pa-2', null), 'attempt_cancelled',
+          '42: a cancelled attempt is recorded');
+select is(pg_temp.apply('e22', current_setting('t.ok')::uuid, 'expired', null, null, null, 'lnk-ok', 'sh-ok', 'pa-3', null), 'attempt_expired',
+          '43: an expired attempt is recorded');
 select tests.as_owner();
-select is(pg_temp.pstatus(current_setting('t.f')::uuid) || '/' || pg_temp.pstatus(current_setting('t.c')::uuid) || '/' || pg_temp.pstatus(current_setting('t.x')::uuid),
-          'failed/cancelled/cancelled', '44: each attempt closed without money');
-select set_config('t.ok', pg_temp.new_link('ok')::text, true);
+select is(pg_temp.pstatus(current_setting('t.ok')::uuid), 'initiated', '44: the payment stays open so the customer can try again on the same link');
 select is(pg_temp.apply('e23', current_setting('t.ok')::uuid, 'paid', 250, 'USD', null, 'lnk-ok', 'sh-ok', 'pr-1', 'rc-9'),
           'rejected_payment_reference', '45: a payment reference already used by another payment is refused');
 select is(pg_temp.apply('e24', current_setting('t.ok')::uuid, 'paid', 250, 'USD', null, 'lnk-ok', 'sh-ok', 'pr-9', 'rc-1'),
           'rejected_receipt_reuse', '46: a receipt already used by another payment is refused');
-select is(pg_temp.apply('e25', current_setting('t.ok')::uuid, 'paid', 250, 'USD', null, 'lnk-ok', 'sh-f', 'pr-9', 'rc-9'),
+select is(pg_temp.apply('e25', current_setting('t.ok')::uuid, 'paid', 250, 'USD', null, 'lnk-ok', 'sh-abc', 'pr-9', 'rc-9'),
           'rejected_link', '47: another payment''s link is refused');
 select is(pg_temp.apply('e26', current_setting('t.ok')::uuid, 'paid', 250, 'USD', null, 'lnk-ok', 'sh-ok', 'pr-9', 'rc-9'),
-          'applied_paid', '48: the fourth attempt is paid');
+          'applied_paid', '48: a later successful attempt on the same link is applied');
 
 -- ---------------------------------------------------------------- commission unchanged: 7% of the total agreed deal
 select tests.as_owner();

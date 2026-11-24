@@ -2,21 +2,25 @@
 -- 0175: payment-link identifiers for provider-collected jobs, stored separately (sandbox work for Linkwa; needs 0171).
 --
 -- A payment-link provider (Linkwa) identifies one payment with up to four values that arrive at different times:
---   external_payment_link_id, short_url    -> when ConZ creates the link
---   payment_reference, receipt_id          -> when the customer pays
+--   external_payment_link_id, short_url    -> when ConZ creates the link (plus the checkout_url shown to the customer)
+--   payment_reference, receipt_id          -> when the customer pays (a payment_reference identifies one ATTEMPT)
 -- They are kept in their own columns in provider_payment_refs (one row per ConZ payment). payments.provider_reference
 -- is NOT used for them (it stays null for link payments), so 0171's own reference check is unaffected.
 --
 -- apply_provider_link_payment() wraps 0171's apply_provider_payment():
 --   * the reported link (short_url, and the link id when given) must be the link ConZ recorded for that payment;
 --     a payment can be found from its short_url when the provider does not echo ConZ's own reference;
---   * the booking reference, when the provider returns one, must be the ConZ payment id;
+--   * the booking reference, when the provider returns one, must be the ConZ payment id (Linkwa returns none: its
+--     link id, created by ConZ for exactly one payment and stored once, is the binding);
 --   * a paid result must name its payment_reference; a second, different payment_reference on the same link is
 --     NOT applied and is flagged for a refund (links are not assumed to be single-use);
 --   * a payment_reference or receipt_id already bound to another ConZ payment is refused;
---   * only the words paid / failed / cancelled / expired / pending are accepted as statuses: the adapter must map the
+--   * only the words paid / pending / failed / cancelled / expired are accepted as statuses: the adapter maps the
 --     provider's own words to these from its documentation. Anything else (e.g. a raw "COMPLETED") is recorded as
 --     unrecognised and flagged, never treated as paid;
+--   * failed / cancelled / expired describe one checkout ATTEMPT: they are recorded but do NOT close the ConZ payment,
+--     because the customer may try again on the same link (a failed attempt does not use it up). The payment closes
+--     when it is paid or when the job is cancelled (0171);
 --   * amount, currency, duplicate-event and state checks are 0171's, unchanged.
 -- Commission is unchanged: 7% of the total agreed deal (jobs.final_price), taken once at settlement (0171).
 -- No switch changes: collection stays OFF while system_settings.payment_provider = "none" (0171). No payouts.
@@ -29,6 +33,7 @@ create table if not exists public.provider_payment_refs (
   provider                 text not null check (provider ~ '^[a-z][a-z0-9_]{1,30}$'),
   external_payment_link_id text check (external_payment_link_id is null or length(external_payment_link_id) between 1 and 200),
   short_url                text check (short_url is null or length(short_url) between 1 and 500),
+  checkout_url             text check (checkout_url is null or checkout_url ~ '^https://[^[:space:]]{1,490}$'),
   payment_reference        text check (payment_reference is null or length(payment_reference) between 1 and 200),
   receipt_id               text check (receipt_id is null or length(receipt_id) between 1 and 200),
   link_claimed_at          timestamptz,
@@ -57,6 +62,7 @@ begin
   end if;
   if (old.external_payment_link_id is not null and new.external_payment_link_id is distinct from old.external_payment_link_id)
      or (old.short_url is not null and new.short_url is distinct from old.short_url)
+     or (old.checkout_url is not null and new.checkout_url is distinct from old.checkout_url)
      or (old.payment_reference is not null and new.payment_reference is distinct from old.payment_reference)
      or (old.receipt_id is not null and new.receipt_id is distinct from old.receipt_id) then
     raise exception 'Payment link record % identifiers are already set', old.payment_id using errcode = '42501';
@@ -101,29 +107,35 @@ begin
   return 'claimed';
 end $$;
 
--- After the provider created the link: record its id and short URL once. Recording the same values again is a no-op;
--- different values are refused (a payment has exactly one link). Service role only.
+-- After the provider created the link: record its id, short URL and checkout URL once. Recording the same values again
+-- is a no-op; different values are refused (a payment has exactly one link). Service role only.
 create or replace function public.provider_record_payment_link(_payment_id uuid, _provider text,
-                                                               _external_payment_link_id text, _short_url text)
+                                                               _external_payment_link_id text, _short_url text,
+                                                               _checkout_url text)
 returns public.provider_payment_refs language plpgsql security definer set search_path to 'public' as $$
 declare _r public.provider_payment_refs;
 begin
   if _external_payment_link_id is null or length(btrim(_external_payment_link_id)) = 0
      or _short_url is null or length(btrim(_short_url)) = 0 then
-    raise exception 'Both the payment link id and its short URL are required';
+    raise exception 'The payment link id, short URL and checkout URL are required';
+  end if;
+  if _checkout_url is null or _checkout_url !~ '^https://[^[:space:]]{1,490}$' then
+    raise exception 'The payment link id, short URL and checkout URL are required';
   end if;
   select * into _r from public.provider_payment_refs where payment_id = _payment_id for update;
   if not found or _r.provider is distinct from _provider then
     raise exception 'Claim the payment link first';
   end if;
   if _r.short_url is not null then
-    if _r.short_url = btrim(_short_url) and _r.external_payment_link_id = btrim(_external_payment_link_id) then
+    if _r.short_url = btrim(_short_url) and _r.external_payment_link_id = btrim(_external_payment_link_id)
+       and _r.checkout_url = _checkout_url then
       return _r;                                        -- idempotent
     end if;
     raise exception 'This payment already has a different payment link';
   end if;
   update public.provider_payment_refs
-     set external_payment_link_id = btrim(_external_payment_link_id), short_url = btrim(_short_url)
+     set external_payment_link_id = btrim(_external_payment_link_id), short_url = btrim(_short_url),
+         checkout_url = _checkout_url
    where payment_id = _payment_id
   returning * into _r;
   return _r;
@@ -167,7 +179,7 @@ begin
   end if;
 
   select * into _r from public.provider_payment_refs where payment_id = _p.id for update;
-  _st := case when lower(btrim(coalesce(_status, ''))) in ('paid', 'failed', 'cancelled', 'expired', 'pending')
+  _st := case when lower(btrim(coalesce(_status, ''))) in ('paid', 'pending', 'failed', 'cancelled', 'expired')
               then lower(btrim(_status)) else 'unrecognised:' || coalesce(_status, '') end;
 
   _outcome := case
@@ -198,6 +210,15 @@ begin
     return _outcome;
   end if;
 
+  -- One checkout attempt ended without money: record it; the payment stays open for another attempt on the same link.
+  if _st in ('failed', 'cancelled', 'expired') then
+    _outcome := 'attempt_' || _st;
+    insert into public.provider_payment_events (provider, event_id, payment_id, source, reported_status, reported_amount,
+                                                reported_currency, reported_reference, outcome, detail)
+    values (_provider, _event_id, _p.id, _source, _status, _amount, _currency, _pref, _outcome, 'link ' || btrim(_short_url));
+    return _outcome;
+  end if;
+
   -- 0171 checks amount, currency, state and duplicates and posts the ledger. The link identifiers are passed as
   -- null reference on purpose: they live in provider_payment_refs, never in payments.provider_reference.
   _outcome := public.apply_provider_payment(_provider, _event_id, _p.id, _st, _amount, _currency, null, _source);
@@ -213,10 +234,10 @@ begin
 end $$;
 
 revoke all on function public.provider_claim_payment_link(uuid, text) from public, anon, authenticated;
-revoke all on function public.provider_record_payment_link(uuid, text, text, text) from public, anon, authenticated;
+revoke all on function public.provider_record_payment_link(uuid, text, text, text, text) from public, anon, authenticated;
 revoke all on function public.apply_provider_link_payment(text, text, uuid, text, numeric, text, text, text, text, text, text, text)
   from public, anon, authenticated;
 grant execute on function public.provider_claim_payment_link(uuid, text) to service_role;
-grant execute on function public.provider_record_payment_link(uuid, text, text, text) to service_role;
+grant execute on function public.provider_record_payment_link(uuid, text, text, text, text) to service_role;
 grant execute on function public.apply_provider_link_payment(text, text, uuid, text, numeric, text, text, text, text, text, text, text)
   to service_role;
