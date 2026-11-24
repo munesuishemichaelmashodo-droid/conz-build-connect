@@ -68,6 +68,7 @@ select is(public.apply_provider_payment('testpay','e6',current_setting('t.pay'):
 select is(public.apply_provider_payment('testpay','e7',current_setting('t.pay')::uuid,'paid',300,'USD','ref-1'), 'already_paid', '23: a second success does nothing');
 select is(public.apply_provider_payment('testpay','e8',current_setting('t.pay')::uuid,'failed',300,'USD','ref-1'), 'regression_flagged', '24: a late failure never downgrades a confirmed payment');
 select is((select status from public.payments where id = current_setting('t.pay')::uuid), 'paid', '25: payment stays paid');
+select tests.as_owner();   -- the ledger and event tables are read as the owner (service_role has no SELECT there)
 select is((select count(*)::int from public.platform_ledger where payment_id = current_setting('t.pay')::uuid and kind = 'provider_payment_received'), 2,
           '26: the receipt is posted to the ledger once (one balanced pair)');
 select is((select count(*)::int from public.provider_payment_events where payment_id = current_setting('t.pay')::uuid), 7, '27: every distinct event recorded once');
