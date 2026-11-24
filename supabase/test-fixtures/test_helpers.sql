@@ -34,7 +34,7 @@ returns void language plpgsql as $$
 begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', _uid, 'role', 'authenticated', 'aal', 'aal2',
-      'amr', json_build_array(json_build_object('method', 'totp', 'timestamp', extract(epoch from now())::bigint)))::text, true);
+      'amr', json_build_array(json_build_object('method', 'totp', 'timestamp', floor(extract(epoch from now()))::bigint)))::text, true);
   perform set_config('role', 'authenticated', true);
 end $$;
 
@@ -45,7 +45,7 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', _uid, 'role', 'authenticated', 'aal', 'aal2',
       'amr', json_build_array(json_build_object('method', 'totp',
-        'timestamp', (extract(epoch from now()) - _minutes * 60)::bigint)))::text, true);
+        'timestamp', floor(extract(epoch from now()) - _minutes * 60)::bigint)))::text, true);
   perform set_config('role', 'authenticated', true);
 end $$;
 
