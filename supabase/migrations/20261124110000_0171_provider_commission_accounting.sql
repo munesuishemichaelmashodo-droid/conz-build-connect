@@ -3,8 +3,9 @@
 --       driver earnings payable, payouts, provider fees, refunds, reconciliation.
 --
 -- MVP rule (owner directive 24/11/2026): Customer -> approved payment provider -> ConZ records -> driver payout.
--- ConZ earns 7% of the TRANSPORT fare only. A provider-collected job must never also reserve or charge
--- commission from the driver's prepaid commission credit (no double commission).
+-- ConZ earns 7% of the total agreed deal charge (jobs.final_price: materials and transport together, whatever the
+-- job includes; owner rule 24/11/2026; same basis as driver-paid jobs). A provider-collected job must never also
+-- reserve or charge commission from the driver's prepaid commission credit (no double commission).
 --
 -- Everything here is OFF until two settings change (both written as OFF below):
 --   system_settings.payment_provider = "none"   -> no job can be created with payment_method 'provider'
@@ -259,17 +260,14 @@ do $$ begin
 end $$;
 
 -- 5. Job rules for provider-paid jobs -----------------------------------------
--- Created only while a provider is switched on, and only as a transport-only job, so the agreed fare
--- (final_price) is the transport fare and 7% of it is the commission.
+-- Created only while a provider is switched on. Any pricing basis is allowed: the commission is 7% of the agreed
+-- total (final_price), the same basis as a driver-paid job.
 create or replace function public.tg_jobs_provider_rules()
 returns trigger language plpgsql security definer set search_path to 'public' as $$
 begin
   if new.payment_method is distinct from 'provider' then return new; end if;
   if not public.provider_collection_enabled() then
     raise exception 'Paying through ConZ is not available yet. Please pay the driver directly.' using errcode = 'P0001';
-  end if;
-  if new.pricing_basis is distinct from 'transport_only' then
-    raise exception 'Paying through ConZ is only for transport-only bookings.' using errcode = 'P0001';
   end if;
   return new;
 end $$;
@@ -430,7 +428,7 @@ begin
 end $$;
 
 -- 7. Settlement at verified delivery (called from complete_job / driver_confirm_delivery_pin) --------
--- Commission = 7% of the agreed transport fare, taken from the collected payment exactly once.
+-- Commission = 7% of the total agreed deal charge (final_price), taken from the collected payment exactly once.
 -- The driver's commission credit is not touched.
 create or replace function public.settle_provider_job(_job_id uuid, _actor uuid)
 returns public.jobs language plpgsql security definer set search_path to 'public', 'extensions' as $$
@@ -440,9 +438,6 @@ begin
   if not found then raise exception 'Job not found'; end if;
   if _job.payment_method is distinct from 'provider' then raise exception 'Job % is not a provider-paid job', _job_id; end if;
   if _job.status not in ('accepted', 'in_progress') then raise exception 'Job not in progress'; end if;
-  if _job.pricing_basis is distinct from 'transport_only' then
-    raise exception 'A provider-paid job must be priced as transport only';
-  end if;
   if not public.is_valid_money(_job.final_price) then raise exception 'Job % has an invalid fare', _job_id; end if;
 
   select * into _p from public.payments
