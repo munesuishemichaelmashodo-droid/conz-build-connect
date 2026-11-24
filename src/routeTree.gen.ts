@@ -60,6 +60,7 @@ import { Route as AuthenticatedJobsIdRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedJobsNewRouteImport } from './routes/_authenticated/jobs.new'
 import { Route as ApiInternalPaynowReconcileRouteImport } from './routes/api/internal/paynow-reconcile'
 import { Route as ApiPublicPaynowIpnRouteImport } from './routes/api/public/paynow-ipn'
+import { Route as ApiPaymentsWebhookProviderRouteImport } from './routes/api/payments/webhook.$provider'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -333,6 +334,12 @@ const ApiPublicPaynowIpnRoute = ApiPublicPaynowIpnRouteImport.update({
   path: '/api/public/paynow-ipn',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPaymentsWebhookProviderRoute =
+  ApiPaymentsWebhookProviderRouteImport.update({
+    id: '/api/payments/webhook/$provider',
+    path: '/api/payments/webhook/$provider',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -385,6 +392,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/customer/': typeof AuthenticatedCustomerIndexRoute
   '/jobs/': typeof AuthenticatedJobsIndexRoute
+  '/api/payments/webhook/$provider': typeof ApiPaymentsWebhookProviderRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -435,6 +443,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/customer': typeof AuthenticatedCustomerIndexRoute
   '/jobs': typeof AuthenticatedJobsIndexRoute
+  '/api/payments/webhook/$provider': typeof ApiPaymentsWebhookProviderRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -489,6 +498,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/customer/': typeof AuthenticatedCustomerIndexRoute
   '/_authenticated/jobs/': typeof AuthenticatedJobsIndexRoute
+  '/api/payments/webhook/$provider': typeof ApiPaymentsWebhookProviderRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -543,6 +553,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/customer/'
     | '/jobs/'
+    | '/api/payments/webhook/$provider'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -593,6 +604,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/customer'
     | '/jobs'
+    | '/api/payments/webhook/$provider'
   id:
     | '__root__'
     | '/'
@@ -646,6 +658,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/'
     | '/_authenticated/customer/'
     | '/_authenticated/jobs/'
+    | '/api/payments/webhook/$provider'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -665,6 +678,7 @@ export interface RootRouteChildren {
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   ApiInternalPaynowReconcileRoute: typeof ApiInternalPaynowReconcileRoute
   ApiPublicPaynowIpnRoute: typeof ApiPublicPaynowIpnRoute
+  ApiPaymentsWebhookProviderRoute: typeof ApiPaymentsWebhookProviderRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1026,6 +1040,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPaynowIpnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/payments/webhook/$provider': {
+      id: '/api/payments/webhook/$provider'
+      path: '/api/payments/webhook/$provider'
+      fullPath: '/api/payments/webhook/$provider'
+      preLoaderRoute: typeof ApiPaymentsWebhookProviderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1146,6 +1167,7 @@ const rootRouteChildren: RootRouteChildren = {
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   ApiInternalPaynowReconcileRoute: ApiInternalPaynowReconcileRoute,
   ApiPublicPaynowIpnRoute: ApiPublicPaynowIpnRoute,
+  ApiPaymentsWebhookProviderRoute: ApiPaymentsWebhookProviderRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
