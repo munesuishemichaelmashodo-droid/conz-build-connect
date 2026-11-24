@@ -18,11 +18,13 @@ describe the current direct-pay model correctly and must change **only** when pr
 2. **Before you can take jobs.** ConZ checks your identity, licence and vehicle documents (`admin_set_driver_verification`)
    and re-checks every 90 days. Only a verified driver can make offers or be given a job (`is_verified_driver`).
    Changing your truck sends you back to review (0114).
-3. **Commission.** ConZ earns 7% of the agreed **transport** fare.
+3. **Commission.** ConZ earns 7% of the **total agreed price** for the job, materials and transport together (for
+   example, materials $300 + transport $100 = $400, commission $28). If the price changes before the customer accepts,
+   the 7% is on the price accepted. It is charged once per job, whichever way the customer pays.
    - *Customer pays you directly (today):* the 7% is reserved from your prepaid commission credit when the customer
      accepts you, charged once when delivery is confirmed with the customer's code and photo, and released in full if
      the job is validly cancelled (`hold_job_commission`, `settle_direct_pay_job`, `release_job_commission`).
-   - *Customer pays through ConZ (only when switched on):* the 7% is taken once from the collected fare; your commission
+   - *Customer pays through ConZ (only when switched on):* the 7% is taken once from the collected payment; your commission
      credit is not used; the rest is recorded as owed to you and paid out by the approved provider (`settle_provider_job`).
 4. **Commission credit** is not money held for you: it can only pay ConZ's commission, cannot be withdrawn while
    withdrawals are off, and is capped at $150. Promotional credit is not cash. **[LEGAL]** whether prepaid commission
@@ -79,8 +81,8 @@ eu-central-2; Vercel) needs adequate-protection grounds; whether the 90-day rout
 
 ## E. Terms §6–7 replacement (publish ONLY when provider-collected payment is switched on)
 
-> **6. Commission.** Con Z earns 7% of the agreed transport fare for each completed delivery. Materials and other
-> charges are not included. On jobs you pay through Con Z, the 7% is taken from the fare once, at confirmed delivery;
+> **6. Commission.** Con Z earns 7% of the total agreed price for each completed job, including materials and
+> transport where the job includes them. On jobs you pay through Con Z, the 7% is taken from your payment once, at confirmed delivery;
 > the driver's commission credit is not used. On jobs paid to the driver directly, it is taken once from the driver's
 > prepaid commission credit.
 >
