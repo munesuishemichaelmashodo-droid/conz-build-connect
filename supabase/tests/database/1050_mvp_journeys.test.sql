@@ -76,8 +76,10 @@ select lives_ok($$select public.record_job_evidence(current_setting('t.job')::uu
                 'D6: the driver records the pickup photo with location');
 select is((public.start_trip(current_setting('t.job')::uuid)).status::text, 'in_progress', 'D7: the trip starts');
 select is((public.start_trip(current_setting('t.job')::uuid)).status::text, 'in_progress', 'D8: starting again is harmless');
+select tests.as_owner();   -- the customer shares this token; visitors cannot read jobs themselves (RLS)
+select set_config('t.token', (select tracking_token::text from public.jobs where id = current_setting('t.job')::uuid), true);
 select tests.as_anon();
-select ok(public.get_public_tracking((select tracking_token from public.jobs where id = current_setting('t.job')::uuid)) is not null,
+select ok(public.get_public_tracking(current_setting('t.token')::uuid) is not null,
           'C5: the shared tracking link works while the job is live');
 
 -- ---------------------------------------------------------------- delivery and confirmation
