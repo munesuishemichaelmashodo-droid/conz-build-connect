@@ -3,8 +3,13 @@
 -- must be kept and handled by hand. Restores account_deletion_blockers() to the 0171 body and the 0171 account list.
 begin;
 
+-- Lock first, so no recovery or ledger line can be written between the checks below and the DROP.
+lock table public.platform_ledger in share mode;
 do $$
 begin
+  if to_regclass('public.driver_recoveries') is not null then
+    execute 'lock table public.driver_recoveries in access exclusive mode';
+  end if;
   if to_regclass('public.driver_recoveries') is not null and exists (select 1 from public.driver_recoveries) then
     raise exception 'driver_recoveries has rows: keep 0173, do not roll back';
   end if;
