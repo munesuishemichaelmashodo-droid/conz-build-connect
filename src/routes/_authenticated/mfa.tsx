@@ -25,7 +25,9 @@ export const Route = createFileRoute("/_authenticated/mfa")({
   component: MfaPage,
 });
 
-type Stage = "loading" | "challenge" | "enroll" | "verifying";
+// intro: no authenticator yet; nothing is created until the admin taps "Set up".
+// unavailable: the factor list could not be read; nothing is assumed.
+type Stage = "loading" | "unavailable" | "intro" | "challenge" | "enroll";
 
 function MfaPage() {
   const { next } = Route.useSearch();
@@ -43,6 +45,7 @@ function MfaPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   // The last code sent, so a wrong code is not re-sent on its own; typing a new one sends that.
   const lastSent = useRef<string | null>(null);
+  const [loadKey, setLoadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,9 +53,14 @@ function MfaPage() {
       // Always ask for a code when an authenticator is set up, even on a session that already passed a
       // check: this screen is how an admin renews the 15-minute window for money and role actions and the
       // 30-day check (0166/0169), and the database only counts a code entered recently.
-      const { data: factorsData, error } = await supabase.auth.mfa.listFactors();
-      if (error) {
-        toast.error(error.message);
+      setStage("loading");
+      let factorsData: Awaited<ReturnType<typeof supabase.auth.mfa.listFactors>>["data"] = null;
+      try {
+        const res = await supabase.auth.mfa.listFactors();
+        if (res.error) throw res.error;
+        factorsData = res.data;
+      } catch {
+        if (!cancelled) setStage("unavailable");
         return;
       }
       const totpFactors = factorsData?.totp ?? [];
@@ -75,30 +83,15 @@ function MfaPage() {
         return;
       }
 
-      const { data: enrolled, error: enrollError } = await supabase.auth.mfa.enroll({
-        factorType: "totp",
-        friendlyName: "Con Z Admin",
-      });
-      if (enrollError) {
-        toast.error(enrollError.message);
-        return;
-      }
-      if (!cancelled && enrolled) {
-        setFactorId(enrolled.id);
-        setQrCode(enrolled.totp.qr_code);
-        setSecret(enrolled.totp.secret);
-        setStage("enroll");
-      }
+      // No authenticator yet: wait for the admin to choose "Set up" (nothing is created on a visit).
+      setStage("intro");
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadKey]);
 
-  const restartEnrollment = async () => {
-    if (factorId) {
-      await supabase.auth.mfa.unenroll({ factorId });
-    }
+  const startEnrollment = async () => {
     setStage("loading");
     setQrCode(null);
     setSecret(null);
@@ -107,13 +100,22 @@ function MfaPage() {
       factorType: "totp",
       friendlyName: "Con Z Admin",
     });
-    if (error) return toast.error(error.message);
-    if (enrolled) {
-      setFactorId(enrolled.id);
-      setQrCode(enrolled.totp.qr_code);
-      setSecret(enrolled.totp.secret);
-      setStage("enroll");
+    if (error || !enrolled) {
+      toast.error(error?.message ?? "Could not start the setup. Try again.");
+      return setStage("intro");
     }
+    setFactorId(enrolled.id);
+    setQrCode(enrolled.totp.qr_code);
+    setSecret(enrolled.totp.secret);
+    setStage("enroll");
+  };
+
+  // Only ever removes the UNFINISHED setup being shown (stage "enroll"); a verified authenticator is never touched here.
+  const restartEnrollment = async () => {
+    if (stage === "enroll" && factorId) {
+      await supabase.auth.mfa.unenroll({ factorId });
+    }
+    await startEnrollment();
   };
 
   const fail = (p: CodeProblem) => {
@@ -193,12 +195,20 @@ function MfaPage() {
             <ShieldCheck className="w-6 h-6 text-cz-amber-text" />
           </div>
           <h2 className="font-display font-bold text-lg">
-            {stage === "enroll" ? "Set up your authenticator app" : "Enter your authenticator code"}
+            {stage === "enroll" || stage === "intro"
+              ? "Set up your authenticator app"
+              : stage === "unavailable"
+                ? "Couldn't check your authenticator"
+                : "Enter your authenticator code"}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {stage === "enroll"
-              ? "Money and role changes on this account will need a fresh code from the app, and the app is checked at least every 30 days. Scan the code below with Google Authenticator, Authy or 1Password, then enter the 6-digit code."
-              : "Enter the current code from your authenticator app to continue. Crucial changes ask for a fresh code each time; the app is checked at least every 30 days."}
+            {stage === "unavailable"
+              ? "We could not reach the sign-in service, so nothing was changed. Check your signal and try again."
+              : stage === "intro"
+                ? "Money and role changes on this account will need a fresh code from an authenticator app on your phone. Setting it up takes about a minute."
+                : stage === "enroll"
+                  ? "Money and role changes on this account will need a fresh code from the app, and the app is checked at least every 30 days. Scan the code below with Google Authenticator, Authy or 1Password, then enter the 6-digit code."
+                  : "Enter the current code from your authenticator app to continue. Crucial changes ask for a fresh code each time; the app is checked at least every 30 days."}
           </p>
         </div>
 
@@ -206,6 +216,18 @@ function MfaPage() {
           <div className="flex justify-center py-10">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
+        )}
+
+        {stage === "unavailable" && (
+          <Button type="button" className="w-full h-11" onClick={() => setLoadKey((k) => k + 1)}>
+            Try again
+          </Button>
+        )}
+
+        {stage === "intro" && (
+          <Button type="button" className="w-full h-11" onClick={() => void startEnrollment()}>
+            Set up authenticator app
+          </Button>
         )}
 
         {stage === "enroll" && (
