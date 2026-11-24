@@ -99,6 +99,7 @@ select is((select count(*)::int from public.driver_payables), 0, '40: another dr
 select throws_ok($$update public.driver_payables set amount = 1$$, '42501', null, '41: clients cannot write payables');
 
 -- ---------------------------------------------------------------- payouts: off, then never retried blindly
+select tests.as_owner();   -- read the payable id as the owner (RLS hid it from the other driver above)
 select set_config('t.payable', (select id::text from public.driver_payables where job_id = current_setting('t.job')::uuid), true);
 select tests.as_service();
 select throws_like($$select public.payout_prepare(current_setting('t.payable')::uuid, 'testpay', '+263***123')$$, '%switched off%', '42: payouts refused while off');
