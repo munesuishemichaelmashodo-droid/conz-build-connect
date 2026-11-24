@@ -6,6 +6,9 @@ select tests.as_owner();
 select set_config('t.cust',  tests.create_user('cap_cust')::text, true);
 select set_config('t.drv',   tests.create_driver('cap_drv', 1000)::text, true);
 select set_config('t.admin', tests.create_user('cap_admin', array['admin'])::text, true);
+-- tests.create_driver sets the balance directly; record it as a top-up so the wallet can be reconciled (test 17).
+insert into public.wallet_transactions (user_id, type, amount, balance_after, note)
+  values (current_setting('t.drv')::uuid, 'topup', 1000, 1000, 'large-job test opening credit');
 
 select ok(not exists (select 1 from public.system_settings where key = 'max_job_budget'), '1: the max_job_budget setting is gone');
 select ok(not (public.launch_switches() ? 'maxJobBudget'), '2: launch_switches() no longer reports a ceiling');
