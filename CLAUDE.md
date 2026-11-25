@@ -11,6 +11,9 @@
 > - Production apply order and status: `supabase/maintenance/20261124_MIGRATION_STATUS.md`. Never `supabase db push`
 >   before the history repair. Never run the repair or any migration automatically.
 > - Merging to `main` deploys to production (Vercel). Detached `supabase.rpc` references are forbidden (unit test).
+> - Staging `fpckydgssuefzzxivvig` rebuilt 25/11 from git (baseline + later files, parked 0130–0132/0137 and test helpers excluded),
+>   history recorded, push trigger disabled, `payment_provider="linkwa"`. Branch `feat/linkwa-sandbox-collection` Preview points at staging
+>   (Paynow blanked there); it still needs `SUPABASE_SERVICE_ROLE_KEY`. Evidence: `docs/payments/LINKWA-SANDBOX-VALIDATION-2026-11-25.md`.
 
 Construction logistics marketplace for Zimbabwe (river sand, stones, gravel,
 etc. delivered by tipper truck). Customers post jobs, drivers bid, in-app

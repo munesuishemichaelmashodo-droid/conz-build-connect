@@ -41,7 +41,7 @@ live, so a push would apply them. Apply migrations one at a time in the SQL edit
 | 0172 `remove_job_price_cap` | PR #138: no $500 ceiling; large-job alert | Yes | Apply **after 0129**, SQL editor |
 | 0173 `provider_post_payout_recovery` | Refund after a confirmed driver payout: recovery record, repaid / written off | Yes (needs 0171) | Apply **after 0171**, SQL editor (widens the ledger account CHECK) |
 | 0174 `admin_totp_only_stepup` | Step-up accepts only an authenticator-app (TOTP) code; no-amr tokens refused; owner-only requirement switch | No app dependency (the app already uses TOTP) | Apply any time after review; no DROP |
-| 0175 `provider_payment_link_refs` | Linkwa sandbox: payment-link identifiers (link id, short URL, payment reference, receipt id) stored separately; results bound to the recorded link | No (sandbox work) | **Parked for production.** Sandbox/local databases only, after 0171. Never apply to production without a separate owner decision |
+| 0175 `provider_payment_link_refs` | Linkwa sandbox: payment-link identifiers (link id, short URL, payment reference, receipt id) stored separately; results bound to the recorded link | No (sandbox work) | **Parked for production.** Sandbox/local databases only, after 0171. Never apply to production without a separate owner decision. 25/11: pending answers no longer use up the webhook's event id (pgTAP 1095). Staging `fpckydgssuefzzxivvig` was rebuilt 25/11 from commit `9ceaac8` (148 files, parked 0130–0132/0137 excluded; see `docs/payments/LINKWA-SANDBOX-VALIDATION-2026-11-25.md`) |
 
 "Parked" files stay in git because the pgTAP suite builds them; they must not be applied to production while parked.
 Retired: Payonify 0167/0168 were never on `main` (see `docs/payments/archive/`).
