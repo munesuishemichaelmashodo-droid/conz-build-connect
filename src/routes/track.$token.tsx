@@ -103,10 +103,7 @@ async function downloadReceiptPdf(pod: NonNullable<PodResult>) {
   row("Material", `${materialLabelText} — ${pod.quantityM3} m³`);
   if (pod.deliveryAddress) row("Delivered to", pod.deliveryAddress);
   if (pod.driverName) row("Driver", pod.driverName);
-  row(
-    "Payment method",
-    receiptPaymentMethod(pod.paymentMethod),
-  );
+  row("Payment method", receiptPaymentMethod(pod.paymentMethod));
   if (pod.completedAt) row("Completed", new Date(pod.completedAt).toLocaleString());
   y += 8;
   doc.line(marginX, y, rightX, y);
@@ -358,7 +355,11 @@ function PublicTrackPage() {
                 </DocketRow>
               )}
               <DocketRow label="Payment method">
-                {pod.paymentMethod === "provider" ? paymentMethodLabel("provider") : pod.paymentMethod === "escrow" ? "Con Z Pay" : "Direct to driver"}
+                {pod.paymentMethod === "provider"
+                  ? paymentMethodLabel("provider")
+                  : pod.paymentMethod === "escrow"
+                    ? "Con Z Pay"
+                    : "Direct to driver"}
               </DocketRow>
               {pod.completedAt && (
                 <DocketRow label="Completed">

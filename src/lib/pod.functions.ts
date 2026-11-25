@@ -35,7 +35,9 @@ export const getPublicPod = createServerFn({ method: "GET" })
 
     const { data: job } = await db
       .from("jobs")
-      .select("id,material,custom_material,quantity_m3,final_price,delivery_address,completed_at,driver_id,status,payment_method")
+      .select(
+        "id,material,custom_material,quantity_m3,final_price,delivery_address,completed_at,driver_id,status,payment_method",
+      )
       .eq("tracking_token", data.token)
       .maybeSingle();
 
@@ -55,7 +57,9 @@ export const getPublicPod = createServerFn({ method: "GET" })
     const withSignedUrl = async (rows: any[]) => {
       const out: PodEvidencePhoto[] = [];
       for (const row of rows) {
-        const { data: signed } = await db.storage.from("job-proof-photos").createSignedUrl(row.storage_path, 3600);
+        const { data: signed } = await db.storage
+          .from("job-proof-photos")
+          .createSignedUrl(row.storage_path, 3600);
         if (signed?.signedUrl) out.push({ url: signed.signedUrl, uploadedAt: row.uploaded_at });
       }
       return out;

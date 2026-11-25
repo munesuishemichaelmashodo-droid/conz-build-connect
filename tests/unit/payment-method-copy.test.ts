@@ -16,7 +16,11 @@ describe("payment method wording", () => {
   });
 
   it("never promises protection, escrow or a payout date for provider-paid jobs", () => {
-    for (const t of [paymentMethodLabel("provider"), receiptPaymentMethod("provider"), driverEarningsNote("provider", true)]) {
+    for (const t of [
+      paymentMethodLabel("provider"),
+      receiptPaymentMethod("provider"),
+      driverEarningsNote("provider", true),
+    ]) {
       expect(t).not.toMatch(/escrow|guarantee|protected|within \d|paid out (today|tomorrow)/i);
     }
   });
@@ -29,7 +33,9 @@ describe("payment method wording", () => {
     );
     expect(paymentMethodLabel("escrow")).toBe("Con Z Pay");
     expect(receiptPaymentMethod("escrow")).toBe("Con Z Pay (held & released on confirmation)");
-    expect(driverEarningsNote("escrow", true)).toMatch(/^Released from Con Z Pay into your wallet\. Withdraw/);
+    expect(driverEarningsNote("escrow", true)).toMatch(
+      /^Released from Con Z Pay into your wallet\. Withdraw/,
+    );
     expect(driverEarningsNote("escrow", false)).toMatch(/Withdrawals are paused/);
   });
 
