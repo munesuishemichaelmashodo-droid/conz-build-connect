@@ -1,5 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { normalisePaymentMethod, type PaymentMethod } from "@/lib/payment-method-copy";
+import {
+  disputeState,
+  parseConfirmation,
+  type DirectPaymentConfirmation,
+  type DisputeState,
+} from "@/lib/direct-payment";
 import { z } from "zod";
 
 export type PodEvidencePhoto = { url: string; uploadedAt: string };
@@ -13,6 +19,9 @@ export type PodResult = {
   completedAt: string | null;
   driverName: string | null;
   paymentMethod: PaymentMethod;
+  /** Direct-pay jobs: the driver's own confirmation (0176); null when none or not available. Never "verified". */
+  directPayment: Pick<DirectPaymentConfirmation, "method" | "confirmedAt"> | null;
+  disputes: DisputeState;
   receiptNo: string;
   pickupPhotos: PodEvidencePhoto[];
   deliveryPhotos: PodEvidencePhoto[];
@@ -65,6 +74,20 @@ export const getPublicPod = createServerFn({ method: "GET" })
       return out;
     };
 
+    // 0176: missing table (not applied yet) or no row both read as "not confirmed". Only method and time are
+    // shared on this public, link-only receipt (no amount, no payment reference).
+    let directPayment: Pick<DirectPaymentConfirmation, "method" | "confirmedAt"> | null = null;
+    if (normalisePaymentMethod(job.payment_method) === "direct") {
+      const { data: conf, error: confError } = await db
+        .from("direct_payment_confirmations")
+        .select("method, amount, agreed_amount, reference, confirmed_at")
+        .eq("job_id", job.id)
+        .maybeSingle();
+      const parsed = confError ? null : parseConfirmation(conf);
+      directPayment = parsed ? { method: parsed.method, confirmedAt: parsed.confirmedAt } : null;
+    }
+    const { data: disputeRows } = await db.from("disputes").select("status").eq("job_id", job.id);
+
     const pickupRows = (evidence ?? []).filter((e: any) => e.kind === "pickup");
     const deliveryRows = (evidence ?? []).filter((e: any) => e.kind === "delivery");
 
@@ -77,6 +100,8 @@ export const getPublicPod = createServerFn({ method: "GET" })
       completedAt: job.completed_at,
       driverName: driver?.full_name ?? null,
       paymentMethod: normalisePaymentMethod(job.payment_method),
+      directPayment,
+      disputes: disputeState(disputeRows),
       receiptNo: `CONZ-${job.id.slice(0, 8).toUpperCase()}`,
       pickupPhotos: await withSignedUrl(pickupRows),
       deliveryPhotos: await withSignedUrl(deliveryRows),

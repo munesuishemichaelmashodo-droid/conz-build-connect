@@ -23,6 +23,7 @@ import { useState } from "react";
 import { locationDisplay, locationState, publicTrackSignal } from "@/lib/delivery-docket";
 import { useNow } from "@/hooks/use-now";
 import { paymentMethodLabel, receiptPaymentMethod } from "@/lib/payment-method-copy";
+import { directPaymentStatusLine, disputeLabel } from "@/lib/direct-payment";
 
 async function toDataUrl(url: string): Promise<string | null> {
   try {
@@ -104,6 +105,18 @@ async function downloadReceiptPdf(pod: NonNullable<PodResult>) {
   if (pod.deliveryAddress) row("Delivered to", pod.deliveryAddress);
   if (pod.driverName) row("Driver", pod.driverName);
   row("Payment method", receiptPaymentMethod(pod.paymentMethod));
+  if (pod.paymentMethod === "direct") {
+    row(
+      "Payment status",
+      directPaymentStatusLine(
+        pod.directPayment
+          ? { ...pod.directPayment, amount: 0, agreedAmount: 0, reference: null }
+          : null,
+        false,
+      ),
+    );
+  }
+  row("Disputes", disputeLabel(pod.disputes));
   if (pod.completedAt) row("Completed", new Date(pod.completedAt).toLocaleString());
   y += 8;
   doc.line(marginX, y, rightX, y);
@@ -115,7 +128,7 @@ async function downloadReceiptPdf(pod: NonNullable<PodResult>) {
     doc.roundedRect(marginX, y - 20, rightX - marginX, 32, 4, 4, "F");
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text("Total paid", marginX + 12, y);
+    doc.text(pod.paymentMethod === "direct" ? "Agreed price" : "Total paid", marginX + 12, y);
     doc.text(money(pod.finalPrice), rightX - 12, y, { align: "right" });
     doc.setFont("helvetica", "normal");
     y += 32;
@@ -350,7 +363,10 @@ function PublicTrackPage() {
               }
             >
               {pod.finalPrice != null && (
-                <DocketRow label="Total paid (USD)" strong>
+                <DocketRow
+                  label={pod.paymentMethod === "direct" ? "Agreed price (USD)" : "Total paid (USD)"}
+                  strong
+                >
                   {money(pod.finalPrice)}
                 </DocketRow>
               )}
@@ -361,6 +377,17 @@ function PublicTrackPage() {
                     ? "Con Z Pay"
                     : "Direct to driver"}
               </DocketRow>
+              {pod.paymentMethod === "direct" && (
+                <DocketRow label="Payment status">
+                  {directPaymentStatusLine(
+                    pod.directPayment
+                      ? { ...pod.directPayment, amount: 0, agreedAmount: 0, reference: null }
+                      : null,
+                    false,
+                  )}
+                </DocketRow>
+              )}
+              <DocketRow label="Disputes">{disputeLabel(pod.disputes)}</DocketRow>
               {pod.completedAt && (
                 <DocketRow label="Completed">
                   {new Date(pod.completedAt).toLocaleString()}

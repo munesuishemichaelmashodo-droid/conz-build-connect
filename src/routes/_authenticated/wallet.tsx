@@ -500,7 +500,7 @@ function WalletPage() {
           {userId && <DriverEarningsCard userId={userId} />}
           <dl className="rounded-2xl border bg-card p-4 text-xs space-y-1.5" aria-label="What the numbers mean">
             <div><dt className="inline font-semibold">Total credit: </dt><dd className="inline text-muted-foreground">your top-ups and promotional credit. It only pays ConZ's commission on jobs the customer pays you directly. It is not your earnings.</dd></div>
-            <div><dt className="inline font-semibold">Held: </dt><dd className="inline text-muted-foreground">the commission reserved while a job is active. It is charged when the job is completed ({promoCredit.enabled ? "promotional credit is spent first" : "your first completed job has no commission"}), and released on a valid cancellation.</dd></div>
+            <div><dt className="inline font-semibold">Held: </dt><dd className="inline text-muted-foreground">the commission reserved while a job is active. It is charged when the job is completed{promoCredit.enabled ? " (promotional credit is spent first)" : ""}, and released on a valid cancellation.</dd></div>
             <div><dt className="inline font-semibold">Available: </dt><dd className="inline text-muted-foreground">total minus held. This is what covers commission on new jobs.</dd></div>
             {!canWithdraw && <div><dt className="inline font-semibold">Withdrawals: </dt><dd className="inline text-muted-foreground">paused for now.</dd></div>}
           </dl>
