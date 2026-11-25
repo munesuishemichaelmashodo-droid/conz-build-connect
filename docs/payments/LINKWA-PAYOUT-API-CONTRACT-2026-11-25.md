@@ -239,3 +239,14 @@ The Preview of `feat/linkwa-sandbox-collection` holds `LINKWA_MODE`, `LINKWA_API
 Without it, collection keeps working exactly as before (unit test `linkwa-developer-config`).
 
 Note: the Growth key worked against the `/third-party` sandbox base on 25/11, although the docs give integration keys the `/api/v1/integrations` base. It is left as it is because it works. If Linkwa later enforces the split, set `LINKWA_BASE_URL` (the guard will need the integrations sandbox URL added).
+
+## Dashboard facts (owner's screenshots, linkwa.co.zw "Payments & Payouts" / Wallets, 25/11 18:41–18:53)
+
+- **"Developer Apps (App Ledger): Money collected by developer apps is held in each app's App Ledger balance and is not stored in the fallback wallet. These funds will not be automatically transferred; you can trigger manual payouts via API or enable auto-payout for the app."** This confirms the custody finding: collected money sits in ConZ's app ledger until ConZ pays it out (or turns on auto-payout, which would send everything to ConZ's own wallet). Auto-payout must stay **off** for the marketplace model.
+- Storefront, payment-link and integration money is "parked in the system Fallback Wallet" until a primary wallet is verified, then "automatically disburse[d]".
+- Payout destinations in the dashboard:
+  - **SmileCash:** "Instant", "0% total fees".
+  - **ZIPIT (banks & mobile money):** "Instant", "4.5% total fee (0% for payouts ≤ $5.00): ZIPIT rail fee + Linkwa CSE settlement".
+
+  The API's `/wallets` says "We currently only support SmileCash wallets", so API payouts to drivers are SmileCash only (0% payout fee) until Linkwa adds ZIPIT to the API.
+- The screenshots are of the live site (`linkwa.co.zw`), not the sandbox. Balances shown: US$0.00.
