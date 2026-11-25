@@ -50,6 +50,11 @@ export function LinkwaSandboxPay({ jobId }: { jobId: string }) {
       <p className="mt-1">
         Test mode: no real money moves. Use Linkwa's sandbox test numbers at checkout.
       </p>
+      <p className="mt-1" data-testid="linkwa-fee-note">
+        You pay the agreed price, which already includes Con Z's 7%. Linkwa adds its own payment
+        fees on its page, and shows the full amount before you confirm. Con Z does not set or keep
+        those fees.
+      </p>
       <button
         type="button"
         onClick={pay}
