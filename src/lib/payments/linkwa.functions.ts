@@ -186,3 +186,105 @@ export const verifyLinkwaReturn = createServerFn({ method: "POST" })
             : "needs_review";
     return { ok: true, state, jobId: payment.job_id ?? null };
   });
+
+export type AdminOpenLinkwaPayment = {
+  paymentId: string;
+  jobId: string | null;
+  amount: number;
+  currency: string;
+  createdAt: string;
+  shortUrl: string;
+};
+
+/** Super admin: Linkwa payments with a link that are still waiting for money (recovery list). Sandbox only. */
+export const adminListOpenLinkwaPayments = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(
+    async ({
+      context,
+    }): Promise<{ ok: true; rows: AdminOpenLinkwaPayment[] } | { ok: false; error: string }> => {
+      const { linkwaSandboxAdapter } = await import("@/lib/payments/registry.server");
+      const adapter = linkwaSandboxAdapter();
+      if (!adapter) return { ok: false, error: "linkwa_sandbox_unavailable" };
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 0171/0175 tables are not in the generated types yet
+      const db = supabaseAdmin as any;
+      const { data: isSuper } = await db.rpc("has_role", {
+        _user_id: context.userId,
+        _role: "super_admin",
+      });
+      if (isSuper !== true) return { ok: false, error: "forbidden" };
+      const { data: pays } = await db
+        .from("payments")
+        .select("id, job_id, amount, currency, created_at")
+        .eq("provider", adapter.name)
+        .eq("type", "job_payment")
+        .eq("status", "initiated")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      const ids = ((pays ?? []) as { id: string }[]).map((p) => p.id);
+      if (ids.length === 0) return { ok: true, rows: [] };
+      const { data: refs } = await db
+        .from("provider_payment_refs")
+        .select("payment_id, short_url")
+        .in("payment_id", ids);
+      const shortBy = new Map<string, string>(
+        ((refs ?? []) as { payment_id: string; short_url: string | null }[])
+          .filter((r) => r.short_url)
+          .map((r) => [r.payment_id, r.short_url as string]),
+      );
+      const rows = (
+        (pays ?? []) as {
+          id: string;
+          job_id: string | null;
+          amount: number | string;
+          currency: string;
+          created_at: string;
+        }[]
+      )
+        .filter((p) => shortBy.has(p.id))
+        .map((p) => ({
+          paymentId: p.id,
+          jobId: p.job_id,
+          amount: Number(p.amount),
+          currency: p.currency,
+          createdAt: p.created_at,
+          shortUrl: shortBy.get(p.id) as string,
+        }));
+      return { ok: true, rows };
+    },
+  );
+
+/** Super admin: re-check one Linkwa payment by the reference shown in Linkwa's dashboard (see linkwa-recheck.server.ts). */
+export const adminRecheckLinkwaPayment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { paymentId: string; paymentReference: string; reason: string }) => {
+    if (
+      !data ||
+      typeof data.paymentId !== "string" ||
+      !UUID.test(data.paymentId) ||
+      typeof data.paymentReference !== "string" ||
+      !PAYMENT_REFERENCE.test(data.paymentReference.trim()) ||
+      typeof data.reason !== "string" ||
+      data.reason.trim().length < 5 ||
+      data.reason.length > 500
+    ) {
+      throw new Error("Invalid re-check request");
+    }
+    return {
+      paymentId: data.paymentId,
+      paymentReference: data.paymentReference.trim(),
+      reason: data.reason.trim(),
+    };
+  })
+  .handler(async ({ data, context }) => {
+    const { linkwaSandboxAdapter } = await import("@/lib/payments/registry.server");
+    const adapter = linkwaSandboxAdapter();
+    if (!adapter) return { ok: false as const, error: "linkwa_sandbox_unavailable" };
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { recheckLinkwaPayment } = await import("@/lib/payments/linkwa-recheck.server");
+    return recheckLinkwaPayment(supabaseAdmin as never, adapter, {
+      ...data,
+      actorId: context.userId,
+    });
+  });

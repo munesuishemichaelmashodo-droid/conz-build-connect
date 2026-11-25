@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { AdminPayablesCard } from "@/components/admin/AdminPayablesCard";
+import { LinkwaRecheckCard } from "@/components/admin/LinkwaRecheckCard";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { money } from "@/lib/domain";
@@ -171,6 +172,8 @@ function RevenueDashboard() {
       </div>
 
       {isSuper && <AdminPayablesCard />}
+
+      {isSuper && <LinkwaRecheckCard />}
 
       {/* Period stats */}
       <div className="grid grid-cols-3 gap-3">
