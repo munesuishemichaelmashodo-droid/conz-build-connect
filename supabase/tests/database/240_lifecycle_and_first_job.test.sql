@@ -1,12 +1,12 @@
--- Order lifecycle guards + the documented first-job-free rule (Terms s.6): the FIRST completed job of a
--- newly verified driver carries no commission, exactly once; every later job pays the flat rate.
+-- Order lifecycle guards + commission on the FIRST job. The free first job is retired (owner decision 09/11/2026,
+-- enforced in the database by 0176): a new driver pays the flat 7% from the first job, exactly once per job.
 
 begin;
 select plan(15);
 
 select set_config('t.cust',  tests.create_user('lf_cust')::text, true);
 select set_config('t.cust2', tests.create_user('lf_cust2')::text, true);
-select set_config('t.drv',   tests.create_driver('lf_drv', 0, false)::text, true);   -- first_job_free_used = false
+select set_config('t.drv',   tests.create_driver('lf_drv', 100, false)::text, true);  -- asks for an unused free job: 0176 refuses it
 select set_config('t.drv2',  tests.create_driver('lf_drv2', 100)::text, true);
 
 -- Job 1: accept -> complete
@@ -17,7 +17,8 @@ select set_config('t.b1', tests.create_bid(current_setting('t.j1')::uuid, curren
 select tests.login_as(current_setting('t.cust')::uuid);
 select throws_like(format($$select tests.complete(%L)$$, current_setting('t.j1')), '%not in progress%', 'An open (unaccepted) job cannot be completed');
 select public.accept_bid(current_setting('t.b1')::uuid);
-select is(coalesce((select held from public.wallets where user_id = current_setting('t.drv')::uuid), 0), 0::numeric, 'First job: nothing is held at acceptance');
+select tests.as_owner();
+select is(coalesce((select held from public.wallets where user_id = current_setting('t.drv')::uuid), 0), 28::numeric, 'First job: $28 (7% of $400) is held at acceptance, no free first job');
 
 -- Status jumps and wrong actors
 select tests.login_as(current_setting('t.drv')::uuid);
@@ -30,9 +31,9 @@ select throws_ok(format($$update public.jobs set status = 'completed', commissio
 
 select tests.complete(current_setting('t.j1')::uuid);
 select tests.as_owner();
-select is((select commission from public.jobs where id = current_setting('t.j1')::uuid), 0::numeric, 'First job: no commission (documented first-job-free policy)');
-select ok((select first_job_free_used from public.driver_profiles where user_id = current_setting('t.drv')::uuid), 'The first-job-free allowance is now used');
-select is(tests.balance(current_setting('t.drv')::uuid), 0::numeric, 'Wallet unchanged by the free first job');
+select is((select commission from public.jobs where id = current_setting('t.j1')::uuid), 28::numeric, 'First job: $28 commission (the free first job is retired)');
+select ok((select first_job_free_used from public.driver_profiles where user_id = current_setting('t.drv')::uuid), 'No driver profile has an unused free job');
+select is(tests.balance(current_setting('t.drv')::uuid), 72::numeric, 'First job: commission charged once (100 - 28)');
 
 -- Second job: normal flat 7%
 update public.wallets set balance = 100 where user_id = current_setting('t.drv')::uuid;
