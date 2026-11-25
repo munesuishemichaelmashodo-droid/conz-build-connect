@@ -168,7 +168,7 @@ The table's "COMPLETED" is the checkout outcome. The status endpoint returned `P
 "How to test" step 4: "Poll the payment status endpoint". Polling payment status is therefore allowed on the sandbox. `/balance` and `/statement` still have no stated polling allowance.
 
 **Correction:**
-- The 25/11 EcoCash attempt used 263711111111, which is not in this table. That is why it stayed on "Authorize payment".
+- The 25/11 EcoCash attempt used 263711111111. The sandbox dashboard lists this as the integration's "Testing Phone Number (SmileCash Sandbox)", so it is a **SmileCash** test number, not an EcoCash one. That explains why SmileCash worked and EcoCash stayed on "Authorize payment".
 - The support message S1 in the sandbox test plan is withdrawn. Re-test EcoCash with **0788687707** before reporting anything.
 
 ### Revised capability classification
