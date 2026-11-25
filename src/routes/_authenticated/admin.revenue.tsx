@@ -1,11 +1,25 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { AdminPayablesCard } from "@/components/admin/AdminPayablesCard";
 import { LinkwaRecheckCard } from "@/components/admin/LinkwaRecheckCard";
+import { LinkwaSandboxConsole } from "@/components/admin/LinkwaSandboxConsole";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { money } from "@/lib/domain";
 import { useAuth } from "@/lib/auth";
-import { DollarSign, Download, Percent, Save, TrendingUp, Calendar, Users as UsersIcon, Check, X, Clock, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import {
+  DollarSign,
+  Download,
+  Percent,
+  Save,
+  TrendingUp,
+  Calendar,
+  Users as UsersIcon,
+  Check,
+  X,
+  Clock,
+  ArrowDownLeft,
+  ArrowUpRight,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -15,7 +29,10 @@ export const Route = createFileRoute("/_authenticated/admin/revenue")({
   beforeLoad: async () => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) throw redirect({ to: "/auth" });
-    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", u.user.id);
     const list = (roles ?? []).map((r: { role: string }) => r.role);
     if (!list.includes("super_admin")) throw redirect({ to: "/admin" });
   },
@@ -42,7 +59,11 @@ function RevenueDashboard() {
   const { data: rate } = useQuery({
     queryKey: ["commission-rate"],
     queryFn: async () => {
-      const { data } = await supabase.from("system_settings").select("value").eq("key", "commission_rate").maybeSingle();
+      const { data } = await supabase
+        .from("system_settings")
+        .select("value")
+        .eq("key", "commission_rate")
+        .maybeSingle();
       return Number(data?.value ?? 7);
     },
   });
@@ -114,9 +135,15 @@ function RevenueDashboard() {
   const saveRate = async () => {
     const v = Number(value);
     if (isNaN(v) || v < 0 || v > 100) return toast.error("Rate must be 0-100");
-    const reason = window.prompt("Why is the commission rate changing? (recorded in the audit log)") ?? undefined;
-    if (!reason?.trim() || reason.trim().length < 5) return toast.error("Give a reason (at least 5 characters)");
-    const { error } = await supabase.rpc("admin_set_commission", { _rate: v, _reason: reason.trim() });
+    const reason =
+      window.prompt("Why is the commission rate changing? (recorded in the audit log)") ??
+      undefined;
+    if (!reason?.trim() || reason.trim().length < 5)
+      return toast.error("Give a reason (at least 5 characters)");
+    const { error } = await supabase.rpc("admin_set_commission", {
+      _rate: v,
+      _reason: reason.trim(),
+    });
     if (error) {
       if (isMfaRequiredError(error)) {
         return toast.error(readableRpcError(error), {
@@ -165,7 +192,9 @@ function RevenueDashboard() {
         <div className="flex items-center gap-2 text-white/70 text-xs">
           <DollarSign className="w-3.5 h-3.5" /> All-time platform revenue
         </div>
-        <div className="font-display font-bold text-4xl text-cz-amber-text mt-1">{money(stats.total)}</div>
+        <div className="font-display font-bold text-4xl text-cz-amber-text mt-1">
+          {money(stats.total)}
+        </div>
         <div className="text-xs text-white/60 mt-1">
           {stats.jobs} commission events at {rate ?? 7}% rate
         </div>
@@ -174,6 +203,7 @@ function RevenueDashboard() {
       {isSuper && <AdminPayablesCard />}
 
       {isSuper && <LinkwaRecheckCard />}
+      {isSuper && <LinkwaSandboxConsole />}
 
       {/* Period stats */}
       <div className="grid grid-cols-3 gap-3">
@@ -208,7 +238,8 @@ function RevenueDashboard() {
           <h3 className="font-display font-bold">Global commission rate</h3>
         </div>
         <p className="text-xs text-muted-foreground">
-          Deducted from a driver's wallet on every completed job. Changes apply immediately to future completions.
+          Deducted from a driver's wallet on every completed job. Changes apply immediately to
+          future completions.
         </p>
         <div className="flex items-center gap-2">
           <input
@@ -250,15 +281,18 @@ function RevenueDashboard() {
               key={r}
               onClick={() => setRange(r)}
               className={`min-h-11 flex-1 rounded-lg border px-2 py-1.5 text-xs font-semibold ${
- range === r ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "bg-background"
- }`}
+                range === r
+                  ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]"
+                  : "bg-background"
+              }`}
             >
               {r === "all" ? "All time" : `${r}d`}
             </button>
           ))}
         </div>
         <div className="text-xs text-muted-foreground">
-          {filtered.length} events • {money(filtered.reduce((a, t) => a + Math.abs(Number(t.amount)), 0))} collected
+          {filtered.length} events •{" "}
+          {money(filtered.reduce((a, t) => a + Math.abs(Number(t.amount)), 0))} collected
         </div>
       </div>
 
@@ -269,7 +303,9 @@ function RevenueDashboard() {
           <h3 className="font-semibold text-sm">Top drivers by commission</h3>
         </div>
         {!byDriver.length ? (
-          <div className="text-xs text-muted-foreground py-4 text-center">No commission events in this period.</div>
+          <div className="text-xs text-muted-foreground py-4 text-center">
+            No commission events in this period.
+          </div>
         ) : (
           <div className="divide-y">
             {byDriver.slice(0, 20).map((d) => {
@@ -277,7 +313,9 @@ function RevenueDashboard() {
               return (
                 <div key={d.uid} className="flex items-center justify-between py-2">
                   <div className="min-w-0">
-                    <div className="font-semibold text-sm truncate">{p?.name ?? d.uid.slice(0, 8)}</div>
+                    <div className="font-semibold text-sm truncate">
+                      {p?.name ?? d.uid.slice(0, 8)}
+                    </div>
                     <div className="text-[11px] text-muted-foreground truncate">
                       {p?.email ?? ""} • {d.count} jobs
                     </div>
@@ -322,7 +360,11 @@ type WdReq = {
   payout_reference?: string | null;
 };
 
-function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; email: string | null }> | undefined }) {
+function ApprovalsSection({
+  profiles,
+}: {
+  profiles: Map<string, { name: string; email: string | null }> | undefined;
+}) {
   const qc = useQueryClient();
   const [tab, setTab] = useState<"topups" | "withdrawals">("topups");
 
@@ -351,14 +393,22 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
   });
 
   // Wallet context for reviewers: what the driver actually has available.
-  const wdUserIds = Array.from(new Set((wds ?? []).filter((r) => r.status === "pending").map((r) => r.user_id)));
+  const wdUserIds = Array.from(
+    new Set((wds ?? []).filter((r) => r.status === "pending").map((r) => r.user_id)),
+  );
   const { data: walletsByUser } = useQuery({
     queryKey: ["admin-wd-wallets", wdUserIds.join(",")],
     enabled: wdUserIds.length > 0,
     queryFn: async () => {
-      const { data } = await (supabase as any).from("wallets").select("user_id,balance,held").in("user_id", wdUserIds);
+      const { data } = await (supabase as any)
+        .from("wallets")
+        .select("user_id,balance,held")
+        .in("user_id", wdUserIds);
       return new Map<string, { balance: number; held: number }>(
-        ((data ?? []) as any[]).map((w) => [w.user_id, { balance: Number(w.balance), held: Number(w.held ?? 0) }]),
+        ((data ?? []) as any[]).map((w) => [
+          w.user_id,
+          { balance: Number(w.balance), held: Number(w.held ?? 0) },
+        ]),
       );
     },
   });
@@ -383,11 +433,15 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
   useEffect(() => {
     const ch = supabase
       .channel("admin-wallet-reqs")
-      .on("postgres_changes", { event: "*", schema: "public", table: "wallet_topup_requests" }, () =>
-        qc.invalidateQueries({ queryKey: ["admin-topups"] }),
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "wallet_topup_requests" },
+        () => qc.invalidateQueries({ queryKey: ["admin-topups"] }),
       )
-      .on("postgres_changes", { event: "*", schema: "public", table: "wallet_withdrawal_requests" }, () =>
-        qc.invalidateQueries({ queryKey: ["admin-withdrawals"] }),
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "wallet_withdrawal_requests" },
+        () => qc.invalidateQueries({ queryKey: ["admin-withdrawals"] }),
       )
       .subscribe();
     return () => {
@@ -428,9 +482,12 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
 
   const reject = (kind: "topup" | "withdrawal", id: string) =>
     withBusy(id, async () => {
-      const reason = (window.prompt("Reason for rejection (shown to the driver, min 5 characters)?") ?? "").trim();
+      const reason = (
+        window.prompt("Reason for rejection (shown to the driver, min 5 characters)?") ?? ""
+      ).trim();
       if (!reason) return;
-      if (reason.length < 5) return void toast.error("Please give a reason of at least 5 characters.");
+      if (reason.length < 5)
+        return void toast.error("Please give a reason of at least 5 characters.");
       const rpc = kind === "topup" ? "admin_reject_topup" : "admin_reject_withdrawal";
       const { error } = await (supabase as any).rpc(rpc, { _id: id, _reason: reason });
       if (error) return void toast.error(readableRpcError(error));
@@ -461,8 +518,13 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
         ) ?? ""
       ).trim();
       if (!reference) return;
-      if (reference.length < 3) return void toast.error("Enter the transfer reference (at least 3 characters).");
-      const { error } = await (supabase as any).rpc("admin_mark_withdrawal_paid", { _id: id, _reference: reference, _note: null });
+      if (reference.length < 3)
+        return void toast.error("Enter the transfer reference (at least 3 characters).");
+      const { error } = await (supabase as any).rpc("admin_mark_withdrawal_paid", {
+        _id: id,
+        _reference: reference,
+        _note: null,
+      });
       if (error) return void toastRpcError(error);
       toast.success("Payout recorded. The driver has been notified.");
       qc.invalidateQueries({ queryKey: ["admin-withdrawals"] });
@@ -478,8 +540,12 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
         ) ?? ""
       ).trim();
       if (!reason) return;
-      if (reason.length < 5) return void toast.error("Please give a reason of at least 5 characters.");
-      const { error } = await (supabase as any).rpc("admin_mark_withdrawal_failed", { _id: id, _reason: reason });
+      if (reason.length < 5)
+        return void toast.error("Please give a reason of at least 5 characters.");
+      const { error } = await (supabase as any).rpc("admin_mark_withdrawal_failed", {
+        _id: id,
+        _reason: reason,
+      });
       if (error) return void toastRpcError(error);
       toast.success("Payout marked failed. The money is back in the driver's wallet.");
       qc.invalidateQueries({ queryKey: ["admin-withdrawals"] });
@@ -489,7 +555,7 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
   const pendingWds = (wds ?? []).filter((r) => r.status === "pending");
   const awaitingPayout = (wds ?? []).filter((r) => r.status === "approved" && !r.paid_at);
 
-  const list = tab === "topups" ? topups ?? [] : wds ?? [];
+  const list = tab === "topups" ? (topups ?? []) : (wds ?? []);
 
   // Exports the currently visible tab (top-ups or withdrawals) as a CSV ledger —
   // the withdrawal export doubles as the payout-reconciliation sheet for accounting.
@@ -497,7 +563,17 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
     const isTopup = tab === "topups";
     const header = isTopup
       ? ["Date", "User", "Email", "Method", "Reference", "Amount (USD)", "Status"]
-      : ["Date", "User", "Email", "Method", "Destination", "Amount (USD)", "Status", "Payout recorded at", "Payout reference"];
+      : [
+          "Date",
+          "User",
+          "Email",
+          "Method",
+          "Destination",
+          "Amount (USD)",
+          "Status",
+          "Payout recorded at",
+          "Payout reference",
+        ];
     const rows = [
       header,
       ...list.map((r) => {
@@ -507,14 +583,20 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
           p?.name ?? r.user_id,
           p?.email ?? "",
           r.method,
-          isTopup ? (r as TopupReq).reference ?? "" : (r as WdReq).destination ?? "",
+          isTopup ? ((r as TopupReq).reference ?? "") : ((r as WdReq).destination ?? ""),
           Number(r.amount).toFixed(2),
-          isTopup ? r.status : (r as WdReq).status === "approved" && !(r as WdReq).paid_at ? "approved_payout_pending" : r.status,
+          isTopup
+            ? r.status
+            : (r as WdReq).status === "approved" && !(r as WdReq).paid_at
+              ? "approved_payout_pending"
+              : r.status,
           ...(isTopup ? [] : [(r as WdReq).paid_at ?? "", (r as WdReq).payout_reference ?? ""]),
         ];
       }),
     ];
-    const csv = rows.map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = rows
+      .map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -565,7 +647,10 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
         >
           Withdrawals
           {awaitingPayout.length > 0 && (
-            <span title="Approved, payout not yet recorded" className="ml-1.5 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-warning text-warning-foreground text-[10px] font-bold">
+            <span
+              title="Approved, payout not yet recorded"
+              className="ml-1.5 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-warning text-warning-foreground text-[10px] font-bold"
+            >
               {awaitingPayout.length}
             </span>
           )}
@@ -596,46 +681,74 @@ function ApprovalsSection({ profiles }: { profiles: Map<string, { name: string; 
             return (
               <div key={r.id} className="rounded-xl border p-3">
                 <div className="flex items-start gap-3">
-                  <div className={cn("w-9 h-9 rounded-full flex items-center justify-center shrink-0",
-                    positive ? "bg-success/15 text-success" : "bg-primary/15 text-cz-amber-text")}>
-                    {positive ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+                  <div
+                    className={cn(
+                      "w-9 h-9 rounded-full flex items-center justify-center shrink-0",
+                      positive ? "bg-success/15 text-success" : "bg-primary/15 text-cz-amber-text",
+                    )}
+                  >
+                    {positive ? (
+                      <ArrowDownLeft className="w-4 h-4" />
+                    ) : (
+                      <ArrowUpRight className="w-4 h-4" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="text-sm font-semibold truncate">{p?.name ?? r.user_id.slice(0, 8)}</div>
-                      <div className={cn("font-display font-bold text-sm", positive ? "text-success" : "text-cz-amber-text")}>
-                        {positive ? "+" : "-"}{money(Number(r.amount))}
+                      <div className="text-sm font-semibold truncate">
+                        {p?.name ?? r.user_id.slice(0, 8)}
+                      </div>
+                      <div
+                        className={cn(
+                          "font-display font-bold text-sm",
+                          positive ? "text-success" : "text-cz-amber-text",
+                        )}
+                      >
+                        {positive ? "+" : "-"}
+                        {money(Number(r.amount))}
                       </div>
                     </div>
                     <div className="text-[11px] text-muted-foreground truncate">
-                      {r.method.toUpperCase()} • {dest || "—"} • {new Date(r.created_at).toLocaleString()}
+                      {r.method.toUpperCase()} • {dest || "—"} •{" "}
+                      {new Date(r.created_at).toLocaleString()}
                     </div>
                     {!isTopup && r.status === "pending" && walletsByUser?.get(r.user_id) && (
                       <div className="text-[11px] text-muted-foreground mt-0.5">
-                        Wallet: balance {money(walletsByUser.get(r.user_id)!.balance)} · held {money(walletsByUser.get(r.user_id)!.held)} · available{" "}
-                        {money(walletsByUser.get(r.user_id)!.balance - walletsByUser.get(r.user_id)!.held)}
+                        Wallet: balance {money(walletsByUser.get(r.user_id)!.balance)} · held{" "}
+                        {money(walletsByUser.get(r.user_id)!.held)} · available{" "}
+                        {money(
+                          walletsByUser.get(r.user_id)!.balance -
+                            walletsByUser.get(r.user_id)!.held,
+                        )}
                       </div>
                     )}
                     {!isTopup && r.status === "approved" && !(r as WdReq).paid_at && (
                       <div className="text-[11px] text-muted-foreground mt-0.5">
-                        Wallet already debited. Send the payout yourself, then record the transfer reference below. Until then the driver sees "payout pending".
+                        Wallet already debited. Send the payout yourself, then record the transfer
+                        reference below. Until then the driver sees "payout pending".
                       </div>
                     )}
                     {!isTopup && r.status === "approved" && (r as WdReq).paid_at && (
                       <div className="text-[11px] text-muted-foreground mt-0.5">
-                        Recorded {new Date((r as WdReq).paid_at!).toLocaleString()} · ref {(r as WdReq).payout_reference}
+                        Recorded {new Date((r as WdReq).paid_at!).toLocaleString()} · ref{" "}
+                        {(r as WdReq).payout_reference}
                       </div>
                     )}
                     <div className="mt-2 flex items-center justify-between gap-2">
-                      <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold", statusTone[r.status])}>
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold",
+                          statusTone[r.status],
+                        )}
+                      >
                         <Clock className="w-3 h-3" />{" "}
                         {!isTopup && r.status === "pending"
                           ? "Awaiting review"
                           : !isTopup && r.status === "approved"
-                          ? (r as WdReq).paid_at
-                            ? "Payout recorded"
-                            : "Approved · payout owed"
-                          : r.status}
+                            ? (r as WdReq).paid_at
+                              ? "Payout recorded"
+                              : "Approved · payout owed"
+                            : r.status}
                       </span>
                       {!isTopup && r.status === "approved" && !(r as WdReq).paid_at && (
                         <button
