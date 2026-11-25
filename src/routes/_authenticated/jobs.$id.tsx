@@ -2,6 +2,7 @@ import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
 import { DISPUTE_OPTIONS, disputeOption, disputeReason, MIN_DISPUTE_EXPLANATION, type DisputeSide } from "@/lib/dispute-options";
 import { useLaunchSwitches } from "@/lib/launch-switches";
 import { driverEarningsNote, paymentMethodLabel } from "@/lib/payment-method-copy";
+import { DirectPaymentPanel } from "@/components/payments/DirectPaymentPanel";
 import { serverNow, syncServerClock } from "@/lib/server-clock";
 import { useInvitedJobIds, RETURNING_CUSTOMER_TEXT } from "@/components/redesign/useInvitedJobs";
 import { commissionFee, earnings, fuelEstimate } from "@/lib/driver-economics";
@@ -3329,6 +3330,10 @@ function DriverPaid({ ctx }: { ctx: JobScreenCtx }) {
           <p className="text-[11px] text-cz-faint">All amounts in USD</p>
         </CzCard>
 
+        {job.payment_method === "direct" && (
+          <DirectPaymentPanel jobId={id} role="driver" agreedPrice={price} jobStatus={String(job.status)} />
+        )}
+
         {driver && lvl && (
           <CzCard className="space-y-2.5">
             <div className="flex justify-between text-sm">
@@ -4089,6 +4094,10 @@ function CustomerDelivered({ ctx }: { ctx: JobScreenCtx }) {
           </div>
           <p className="text-[11px] text-cz-faint">All amounts in USD</p>
         </CzCard>
+
+        {ctx.job.payment_method === "direct" && (
+          <DirectPaymentPanel jobId={id} role="customer" agreedPrice={total} jobStatus={String(job.status)} />
+        )}
 
         <div id="tour-wrap-up">
           {ctx.myRating ? (
