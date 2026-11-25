@@ -1,0 +1,420 @@
+{
+  "info": {
+    "name": "Linkwa Third-Party API",
+    "description": "API collection for Third-Party Apps to integrate with Linkwa.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Third-Party Endpoints",
+      "item": [
+        {
+          "name": "1. Link User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"phone_number\": \"263777123456\",\n  \"email\": \"john.doe@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/third-party/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "third-party",
+                "users"
+              ]
+            },
+            "description": "Link an external user to the app and obtain an `external_user_id`."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Link Wallet",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone_number\": \"263711111111\",\n  \"external_user_id\": \"{{external_user_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/third-party/wallets",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "third-party",
+                "wallets"
+              ]
+            },
+            "description": "Link a wallet for a user. If the user is not registered on SmileCash, this will return 422 with a `requires_registration` flag."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Link Wallet (with Registration)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "phone_number",
+                  "value": "263777123456",
+                  "type": "text"
+                },
+                {
+                  "key": "external_user_id",
+                  "value": "{{external_user_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "first_name",
+                  "value": "John",
+                  "type": "text"
+                },
+                {
+                  "key": "last_name",
+                  "value": "Doe",
+                  "type": "text"
+                },
+                {
+                  "key": "date_of_birth",
+                  "value": "1990-01-01",
+                  "type": "text"
+                },
+                {
+                  "key": "id_number",
+                  "value": "12-3456789A12",
+                  "type": "text"
+                },
+                {
+                  "key": "gender",
+                  "value": "MALE",
+                  "type": "text"
+                },
+                {
+                  "key": "id_picture",
+                  "type": "file",
+                  "value": null
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/third-party/wallets",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "third-party",
+                "wallets"
+              ]
+            },
+            "description": "Register a user on SmileCash and link their wallet. Use this form-data endpoint if the basic JSON request fails because the number is not registered."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Create Payment Link",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 10.00, // Decimal\n  \"currency_code\": \"USD\",\n  \"payment_link_name\": \"Premium Subscription\",\n  \"description\": \"Monthly premium access for services ...\",\n  \"return_url\": \"https://linkwa.co.zw/return\", // Optional\n  \"image_url\": \"https://linkwa.co.zw/images/linkwa-logo-one.png\", // Optional, linkwa logo will be used if non provided\n  \"disallowed_payment_gateways\": [\"ecocash\"], // Optional. any one of \"ecocash\", \"innbucks\", \"omari\", \"onemoney\", \"ecocash\", \"visa_mastercard\", \"smile_cash\"\n  \"stock\": 1, // Optional. Defaults to 1 (single-use). Number of times the link can be paid before it is consumed. Must be >= 1.\n  \"autofill_contact_details\": { // Optional\n    \"full_name\": \"John Doe\", // Optional\n    \"email\": \"abc@example.com\", // Optional\n    \"phone_number\": \"263711111111\" // Optional. international phone number format\n  },\n  \"required_contact_fields\": [\"phone_number\"], // Optional. Options include: email, full_name\n  \"skip_contact_step\": true // Optional. If true and autofill_contact_details contains phone_number and full_name, the contact step is skipped.\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/third-party/payment-links",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "third-party",
+                "payment-links"
+              ]
+            },
+            "description": "Generate a payment link/invoice for a user to pay.\n\n### Single-use by default\n\nPayment links can only be paid once. After a successful checkout, the link is consumed and subsequent attempts will see an out-of-stock page. Pass `stock` in the request body to allow a link to be paid multiple times. Must be an integer >= 1.\n\n### Response\n\nReturns a `product` object containing:\n\n| Field | Type | Description |\n|---|---|---|\n| `amount` | number | The amount for the payment link |\n| `currency_code` | string | ISO 4217 currency code (e.g. `USD`) |\n| `checkout_url` | string | The URL to redirect the customer to for payment |\n| `qr_code` | string | A base64-encoded SVG QR code (`data:image/svg+xml;base64,...`) that resolves to the `checkout_url`. Embed directly in an `<img>` tag. |\n| `external_payment_link_id` | string | Your stable reference ID for this payment link |\n\n### Embedding the QR Code\n\n```html\n<img src=\"{{ product.qr_code }}\" alt=\"Scan to pay\" />\n```"
+          },
+          "response": [
+            {
+              "name": "201 Created — Payment Link Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"amount\": 10.00,\n  \"currency_code\": \"USD\",\n  \"payment_link_name\": \"Premium Subscription\",\n  \"description\": \"Monthly premium access for services\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/third-party/payment-links",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "third-party", "payment-links"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"Payment link created successfully.\",\n  \"product\": {\n    \"amount\": 10,\n    \"currency_code\": \"USD\",\n    \"checkout_url\": \"https://linkwa.co.zw/pay/abc123xyz\",\n    \"qr_code\": \"data:image/svg+xml;base64,PHN2ZyB4bWxucz0...\",\n    \"external_payment_link_id\": \"01j3example000000000000000\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "4b. Check Payment Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/third-party/payment-links/{{short_url}}/payments/{{payment_reference}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "third-party",
+                "payment-links",
+                "{{short_url}}",
+                "payments",
+                "{{payment_reference}}",
+                "status"
+              ]
+            },
+            "description": "Check the status of a specific payment attempt.\n\nAfter a user completes (or attempts) a payment, they are redirected to your `return_url` with two query parameters appended:\n- `short_url` — your stable reference for the payment link\n- `payment_reference` — a unique UUID identifying this specific payment attempt\n\nPass both as path parameters to this endpoint to securely verify the outcome before granting access.\n\n### Response\n\n| Field | Type | Description |\n|---|---|---|\n| `payment_reference` | string | UUID of this specific payment attempt |\n| `currency_code` | string | ISO 4217 currency code (e.g. `USD`) |\n| `status` | string | Payment status: `PAID`, `PENDING`, `FAILED` |\n| `short_url` | string | Your stable reference for the payment link |\n| `amount` | number | Net amount paid |\n| `payment_date_time` | string | ISO 8601 timestamp of when payment was completed |"
+          },
+          "response": [
+            {
+              "name": "200 OK — Payment Status",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/third-party/payment-links/{{short_url}}/payments/{{payment_reference}}/status",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "third-party", "payment-links", "{{short_url}}", "payments", "{{payment_reference}}", "status"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"payment_reference\": \"9c1b3e2a-1234-5678-abcd-ef0123456789\",\n  \"currency_code\": \"USD\",\n  \"status\": \"PAID\",\n  \"short_url\": \"7pRGnPe\",\n  \"amount\": 15.50,\n  \"payment_date_time\": \"2026-01-01T21:08:56.548172Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "5. Get Balance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/third-party/balance",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "third-party",
+                "balance"
+              ]
+            },
+            "description": "Returns the available and pending balance for the app, across all currencies."
+          },
+          "response": []
+        },
+        {
+          "name": "6. Get Statement",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/third-party/statement?currency_code=USD&per_page=25",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "third-party",
+                "statement"
+              ],
+              "query": [
+                {
+                  "key": "currency_code",
+                  "value": "USD",
+                  "description": "Filter by currency (optional)"
+                },
+                {
+                  "key": "per_page",
+                  "value": "25",
+                  "description": "Items per page (optional, max 100)"
+                }
+              ]
+            },
+            "description": "Returns a paginated ledger statement for the app. Each row includes: type, amount, balance_after, recipient details, timestamp."
+          },
+          "response": []
+        },
+        {
+          "name": "7. Instruct Payout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"external_user_id\": \"{{external_user_id}}\",\n  \"external_wallet_id\": \"{{external_wallet_id}}\",\n  \"amount\": 2.0,\n  \"currency_code\": \"USD\",\n  \"include_balance_after\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/third-party/payouts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "third-party",
+                "payouts"
+              ]
+            },
+            "description": "Instruct a payout from the app's available balance to a linked external wallet. The include_balance_after flag is optional."
+          },
+          "response": []
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{api_key}}",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "api_key",
+      "value": "your_third_party_app_api_key_here"
+    },
+    {
+      "key": "external_user_id",
+      "value": "user_id_returned_from_link_user_endpoint"
+    },
+    {
+      "key": "external_wallet_id",
+      "value": "wallet_id_returned_from_link_wallet_endpoint"
+    },
+    {
+      "key": "external_payment_link_id",
+      "value": "external_payment_link_id_returned_from_create_payment_link"
+    },
+    {
+      "key": "payment_reference",
+      "value": "payment_reference_appended_to_return_url"
+    }
+  ]
+}
