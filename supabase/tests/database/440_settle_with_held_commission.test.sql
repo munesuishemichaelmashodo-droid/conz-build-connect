@@ -108,8 +108,8 @@ select tests.as_owner();
 select is((select commission from public.jobs where id = current_setting('t.j5')::uuid), 28::numeric,
   'No recorded reserve: falls back to 7% of the accepted price');
 
--- 7. Two jobs reserved as free; the second pays 7% once the free job is used --------------------
-select set_config('t.new', tests.create_driver('sh_new', 100, false)::text, true);    -- free job unused
+-- 7. A driver who asks for a free first job (retired, 0176) gets both jobs reserved and charged at 7% ----------
+select set_config('t.new', tests.create_driver('sh_new', 100, false)::text, true);    -- asks for an unused free job
 select set_config('t.j6', tests.create_job(current_setting('t.cust')::uuid, 400)::text, true);
 select set_config('t.j7', tests.create_job(current_setting('t.cust')::uuid, 500)::text, true);
 select set_config('t.b6', tests.create_bid(current_setting('t.j6')::uuid, current_setting('t.new')::uuid, 400)::text, true);
@@ -123,17 +123,17 @@ select public.accept_bid(current_setting('t.b7')::uuid);
 select tests.as_owner();
 alter table public.jobs enable trigger trg_jobs_one_active_per_driver;
 select is((select array_agg(held_commission order by budget) from public.jobs
-            where id in (current_setting('t.j6')::uuid, current_setting('t.j7')::uuid)), array[0,0]::numeric[],
-  'Both jobs were reserved as free while the free job was unused');
+            where id in (current_setting('t.j6')::uuid, current_setting('t.j7')::uuid)), array[28,35]::numeric[],
+  'Both jobs reserve 7% (no free first job): $28 and $35');
 select tests.login_as(current_setting('t.cust')::uuid);
 select tests.complete(current_setting('t.j6')::uuid);
 select tests.complete(current_setting('t.j7')::uuid);
 select tests.as_owner();
-select is((select commission from public.jobs where id = current_setting('t.j6')::uuid), 0::numeric,
-  'First completion uses the free job');
+select is((select commission from public.jobs where id = current_setting('t.j6')::uuid), 28::numeric,
+  'First completion pays 7% of its $400 price: no free first job');
 select is((select commission from public.jobs where id = current_setting('t.j7')::uuid), 35::numeric,
-  'Second completion pays 7% of its accepted $500 price because the free job is used');
-select is(tests.balance(current_setting('t.new')::uuid), 65::numeric, 'Wallet 100 - 35 = 65');
+  'Second completion pays 7% of its accepted $500 price');
+select is(tests.balance(current_setting('t.new')::uuid), 37::numeric, 'Wallet 100 - 28 - 35 = 37: each job charged once');
 
 select * from finish();
 rollback;
