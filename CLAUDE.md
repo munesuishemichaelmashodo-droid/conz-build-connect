@@ -11,6 +11,8 @@
 > - Production apply order and status: `supabase/maintenance/20261124_MIGRATION_STATUS.md`. Never `supabase db push`
 >   before the history repair. Never run the repair or any migration automatically.
 > - Merging to `main` deploys to production (Vercel). Detached `supabase.rpc` references are forbidden (unit test).
+> - **0176 direct_pay_launch is LIVE** (25/11, recorded `20261125100000`): free first job retired regardless of promo; drivers confirm a
+>   direct payment once (`direct_payment_confirmations`). App side is PR #147. Evidence: `docs/payments/DIRECT-PAY-LAUNCH-2026-11-25.md`.
 
 Construction logistics marketplace for Zimbabwe (river sand, stones, gravel,
 etc. delivered by tipper truck). Customers post jobs, drivers bid, in-app

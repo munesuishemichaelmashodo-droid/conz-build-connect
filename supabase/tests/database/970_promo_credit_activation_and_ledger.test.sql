@@ -11,6 +11,8 @@ select tests.enable_launch_features();
 select set_config('t.cust', tests.create_user('pa_cust')::text, true);
 select set_config('t.admin', tests.create_user('pa_admin', array['admin'])::text, true);
 select set_config('t.dfree', tests.create_driver('pa_dfree', 0, false)::text, true);  -- free first job still unused
+-- 0176 marks every new profile "free job used"; this driver stands for a LEGACY profile from before activation.
+update public.driver_profiles set first_job_free_used = false where user_id = current_setting('t.dfree')::uuid;
 select set_config('t.dused', tests.create_driver('pa_dused', 0, true)::text, true);   -- already used it
 
 -- 1. Before activation
