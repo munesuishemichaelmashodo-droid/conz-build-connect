@@ -58,6 +58,10 @@ Legend: ✅ done and tested · 🟡 partly done · ⛔ blocked (see section B) �
 
 ## B. Consolidated questions for Linkwa (technical; capability is already confirmed)
 
+> **Superseded 25/11:** Linkwa asked for sandbox testing and specific failure reports instead of general questions. The
+> test plan, evidence record and support messages are in `LINKWA-MARKETPLACE-SANDBOX-TEST-PLAN-2026-11-25.md`. The list
+> below is kept only as a reminder of what each test must establish.
+
 **B1. Sub-merchant registration**
 - Endpoint(s), required fields and their formats.
 - KYC documents: does Linkwa collect them directly from the driver (preferred, so ConZ stores none) or through ConZ?
