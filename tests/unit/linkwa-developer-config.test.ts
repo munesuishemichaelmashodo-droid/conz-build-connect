@@ -16,6 +16,11 @@ const goodEnv = {
 };
 
 describe("Linkwa developer key (users, wallets, payouts): separate credential, same sandbox guard", () => {
+  it("may hold the same Developer app key as collection (Linkwa itself refuses a non-developer key)", () => {
+    const env = { ...goodEnv, LINKWA_DEVELOPER_API_KEY: goodEnv.LINKWA_API_KEY };
+    expect(linkwaDeveloperConfig(env).ok).toBe(true);
+  });
+
   it("is allowed on staging with its own sandbox key", () => {
     expect(linkwaDeveloperConfig(goodEnv)).toEqual({
       ok: true,
@@ -53,10 +58,6 @@ describe("Linkwa developer key (users, wallets, payouts): separate credential, s
     [{ SUPABASE_URL: "https://abcdefghijklmnopqrst.supabase.co" }, "database_not_allowed"],
     [{ LINKWA_BASE_URL: "https://linkwa.co.zw/api/v1/third-party" }, "not_sandbox_host"],
     [{ LINKWA_DEVELOPER_API_KEY: "sk_live_x" }, "developer_key_not_sandbox"],
-    [
-      { LINKWA_DEVELOPER_API_KEY: "sk_sandbox_integration_test" },
-      "developer_key_same_as_integration_key",
-    ],
   ] as const)("refuses %j -> %s", (over, reason) => {
     expect(linkwaDeveloperConfig({ ...goodEnv, ...over })).toEqual({ ok: false, reason });
   });

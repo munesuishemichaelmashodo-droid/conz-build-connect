@@ -106,7 +106,9 @@ export function linkwaSandboxConfig(
 //     payouts, query balances and statements" -> LINKWA_DEVELOPER_API_KEY (this config).
 // The two are never interchanged: collection never uses the developer key, and user/wallet/payout calls never use
 // the integration key. The developer key gets EVERY sandbox guard above (staging/local database only, no production
-// deployment, sandbox host only, LINKWA_MODE=sandbox, "sk_sandbox_" key) and must differ from the integration key.
+// deployment, sandbox host only, LINKWA_MODE=sandbox, "sk_sandbox_" key). It MAY equal LINKWA_API_KEY: one Developer
+// app key can do both collection and payouts (Linkwa: "Full programmatic access"), and Linkwa itself refuses a
+// non-developer key on these endpoints (sandbox evidence T0, 25/11: HTTP 403 "This endpoint requires a Developer API Key.").
 // Nothing here enables payouts in the product: provider_marketplace_settlement and payouts_enabled stay off.
 // -----------------------------------------------------------------------------------------------------------------
 
@@ -115,8 +117,7 @@ export type LinkwaDeveloperConfig = { baseUrl: string; apiKey: string };
 export type LinkwaDeveloperRefusal =
   | Exclude<LinkwaRefusal, "missing_credentials" | "not_sandbox_key" | "protocol_not_documented">
   | "missing_developer_key"
-  | "developer_key_not_sandbox"
-  | "developer_key_same_as_integration_key";
+  | "developer_key_not_sandbox";
 
 export function linkwaDeveloperConfig(
   env: Env = process.env,
@@ -146,8 +147,5 @@ export function linkwaDeveloperConfig(
   const apiKey = (env.LINKWA_DEVELOPER_API_KEY ?? "").trim();
   if (!apiKey) return { ok: false, reason: "missing_developer_key" };
   if (!apiKey.startsWith("sk_sandbox_")) return { ok: false, reason: "developer_key_not_sandbox" };
-  if (apiKey === (env.LINKWA_API_KEY ?? "").trim()) {
-    return { ok: false, reason: "developer_key_same_as_integration_key" };
-  }
   return { ok: true, config: { baseUrl, apiKey } };
 }
