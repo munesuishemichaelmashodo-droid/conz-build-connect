@@ -404,6 +404,24 @@ describe("webhook flow (documented payment.completed)", () => {
     ).toBe("pending");
   });
 
+  it("still pending at Linkwa: answers 503 so Linkwa retries the same event later", async () => {
+    const f = vi.fn(async () => json(200, { ...DOC_STATUS, status: "PENDING" }));
+    const db = {
+      rpc: vi.fn((fn: string) =>
+        Promise.resolve({
+          data: fn === "provider_collection_enabled" ? true : "pending_no_change",
+          error: null,
+        }),
+      ),
+    } as unknown as ProviderDb;
+    const { raw, headers } = await signed(DOC_WEBHOOK);
+    const res = await handleProviderWebhook("linkwa", raw, headers, db, {
+      linkwa: createLinkwaAdapter(cfg(), f),
+    });
+    expect(res.status).toBe(503);
+    expect(await res.text()).toBe("status_pending");
+  });
+
   it("an invalid signature is 401 (Linkwa retries) and nothing is checked or applied", async () => {
     const f = vi.fn();
     const { db, calls } = fakeDb();

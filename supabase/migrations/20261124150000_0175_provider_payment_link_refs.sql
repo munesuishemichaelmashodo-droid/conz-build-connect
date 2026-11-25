@@ -21,6 +21,7 @@
 --   * failed / cancelled / expired describe one checkout ATTEMPT: they are recorded but do NOT close the ConZ payment,
 --     because the customer may try again on the same link (a failed attempt does not use it up). The payment closes
 --     when it is paid or when the job is cancelled (0171);
+--   * a pending answer changes nothing and records no event, so a retried webhook can still apply the payment later;
 --   * amount, currency, duplicate-event and state checks are 0171's, unchanged.
 -- Commission is unchanged: 7% of the total agreed deal (jobs.final_price), taken once at settlement (0171).
 -- No switch changes: collection stays OFF while system_settings.payment_provider = "none" (0171). No payouts.
@@ -217,6 +218,13 @@ begin
                                                 reported_currency, reported_reference, outcome, detail)
     values (_provider, _event_id, _p.id, _source, _status, _amount, _currency, _pref, _outcome, 'link ' || btrim(_short_url));
     return _outcome;
+  end if;
+
+  -- Still pending at the provider (e.g. a webhook that arrived before the status endpoint caught up): change nothing
+  -- and record NO event, so the provider's retry of the same event id can apply the payment once it reads paid.
+  -- (Recording it would turn every retry into 'duplicate' and leave a paid customer's payment open.)
+  if _st = 'pending' then
+    return 'pending_no_change';
   end if;
 
   -- 0171 checks amount, currency, state and duplicates and posts the ledger. The link identifiers are passed as

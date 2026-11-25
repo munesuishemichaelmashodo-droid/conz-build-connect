@@ -174,6 +174,9 @@ export async function handleProviderWebhook(
         _source: "webhook",
       });
   if (error) return text("db_error", 502);
+  // Signed webhook, but the provider's status still says pending: nothing was recorded (0175), so answer with a
+  // retryable status. Linkwa retries 5xx; a 200 here would end its retries and leave a paid customer unconfirmed.
+  if (event.link && outcome === "pending_no_change") return text("status_pending", 503);
   // Duplicates and rejections are still a successful delivery: the provider must not retry them forever.
   return text(String(outcome ?? "ok"), 200);
 }
