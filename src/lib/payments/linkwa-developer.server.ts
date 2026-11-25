@@ -32,6 +32,8 @@ export type LinkwaCallResult = {
 };
 
 const DROP_KEYS = new Set([
+  "account_holder_name",
+  "address",
   "first_name",
   "last_name",
   "email",
@@ -41,7 +43,7 @@ const DROP_KEYS = new Set([
   "id_number",
   "date_of_birth",
 ]);
-const PHONE_KEYS = new Set(["phone_number", "phone", "msisdn"]);
+const PHONE_KEYS = new Set(["phone_number", "phone", "msisdn", "account_number"]);
 
 export function maskPhone(v: unknown): unknown {
   if (typeof v !== "string") return v;

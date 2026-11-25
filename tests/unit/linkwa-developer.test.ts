@@ -191,3 +191,33 @@ describe("sandbox console input", () => {
     ).toBe(true);
   });
 });
+
+describe("redaction of the real 25/11 wallet answer", () => {
+  it("masks account_number and drops holder name and address (Linkwa returned these beyond the docs)", () => {
+    expect(
+      redactLinkwa({
+        message: "Wallet already linked.",
+        wallet: {
+          external_wallet_id: "w_f28",
+          provider: "smile_cash",
+          phone_number: "263711111111",
+          bank_name: "",
+          account_number: "263711111111",
+          account_holder_name: null,
+          address: null,
+        },
+      }),
+    ).toEqual({
+      message: "Wallet already linked.",
+      wallet: {
+        external_wallet_id: "w_f28",
+        provider: "smile_cash",
+        phone_number: "***111",
+        bank_name: "",
+        account_number: "***111",
+        account_holder_name: "[redacted]",
+        address: "[redacted]",
+      },
+    });
+  });
+});

@@ -79,6 +79,24 @@ export function LinkwaSandboxConsole() {
         },
       });
       setLog((l) => [r, ...l]);
+      if (r.ok) {
+        try {
+          const b = JSON.parse(r.bodyJson) as {
+            user?: { external_user_id?: string };
+            wallet?: { external_wallet_id?: string };
+          } | null;
+          const uid = b?.user?.external_user_id;
+          const wid = b?.wallet?.external_wallet_id;
+          if (uid || wid)
+            setF((p) => ({
+              ...p,
+              externalUserId: uid ?? p.externalUserId,
+              externalWalletId: wid ?? p.externalWalletId,
+            }));
+        } catch {
+          /* body not JSON: nothing to fill */
+        }
+      }
     } catch {
       setLog((l) => [{ ok: false, error: "request_failed" }, ...l]);
     } finally {
@@ -121,64 +139,88 @@ export function LinkwaSandboxConsole() {
       </select>
       <div className="grid gap-2 sm:grid-cols-2">
         {show("firstName") && (
-          <input
-            className={input}
-            placeholder="First name"
-            value={f.firstName}
-            onChange={set("firstName")}
-          />
+          <label className="space-y-1 text-xs font-medium">
+            <span>First name</span>
+            <input
+              className={input}
+              placeholder="First name"
+              value={f.firstName}
+              onChange={set("firstName")}
+            />
+          </label>
         )}
         {show("lastName") && (
-          <input
-            className={input}
-            placeholder="Last name"
-            value={f.lastName}
-            onChange={set("lastName")}
-          />
+          <label className="space-y-1 text-xs font-medium">
+            <span>Last name</span>
+            <input
+              className={input}
+              placeholder="Last name"
+              value={f.lastName}
+              onChange={set("lastName")}
+            />
+          </label>
         )}
         {show("email") && (
-          <input className={input} placeholder="Email" value={f.email} onChange={set("email")} />
+          <label className="space-y-1 text-xs font-medium">
+            <span>Email</span>
+            <input className={input} placeholder="Email" value={f.email} onChange={set("email")} />
+          </label>
         )}
         {show("phoneNumber") && (
-          <input
-            className={input}
-            placeholder="Phone, e.g. 2637XXXXXXXX"
-            value={f.phoneNumber}
-            onChange={set("phoneNumber")}
-          />
+          <label className="space-y-1 text-xs font-medium">
+            <span>Phone (international, e.g. 263711111111)</span>
+            <input
+              className={input}
+              placeholder="2637XXXXXXXX"
+              value={f.phoneNumber}
+              onChange={set("phoneNumber")}
+            />
+          </label>
         )}
         {show("externalUserId") && (
-          <input
-            className={input}
-            placeholder="external_user_id"
-            value={f.externalUserId}
-            onChange={set("externalUserId")}
-          />
+          <label className="space-y-1 text-xs font-medium">
+            <span>external_user_id (filled from step 1)</span>
+            <input
+              className={input}
+              placeholder="01…"
+              value={f.externalUserId}
+              onChange={set("externalUserId")}
+            />
+          </label>
         )}
         {show("externalWalletId") && (
-          <input
-            className={input}
-            placeholder="external_wallet_id (w_…)"
-            value={f.externalWalletId}
-            onChange={set("externalWalletId")}
-          />
+          <label className="space-y-1 text-xs font-medium">
+            <span>external_wallet_id (filled from step 2)</span>
+            <input
+              className={input}
+              placeholder="w_…"
+              value={f.externalWalletId}
+              onChange={set("externalWalletId")}
+            />
+          </label>
         )}
         {show("amount") && (
-          <input
-            className={input}
-            placeholder="Amount USD"
-            inputMode="decimal"
-            value={f.amount}
-            onChange={set("amount")}
-          />
+          <label className="space-y-1 text-xs font-medium">
+            <span>Amount (USD)</span>
+            <input
+              className={input}
+              placeholder="1.00"
+              inputMode="decimal"
+              value={f.amount}
+              onChange={set("amount")}
+            />
+          </label>
         )}
       </div>
-      <input
-        className={input}
-        placeholder="Reason (test id, e.g. T4 payout 316.20)"
-        value={f.reason}
-        onChange={set("reason")}
-      />
+      <label className="block space-y-1 text-xs font-medium">
+        <span>Reason (test id)</span>
+        <input
+          className={input}
+          placeholder="Reason (test id, e.g. T4 payout 316.20)"
+          value={f.reason}
+          onChange={set("reason")}
+        />
+      </label>
       <button
         type="button"
         className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
