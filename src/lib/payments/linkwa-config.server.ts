@@ -95,3 +95,59 @@ export function linkwaSandboxConfig(
     config: { baseUrl, apiKey, webhookSecret, signatureEncoding: "hex", protocol },
   };
 }
+
+// -----------------------------------------------------------------------------------------------------------------
+// Second credential: Linkwa DEVELOPER API key (Developer plan), for user registration, wallet linking and payouts.
+//
+// Linkwa has two key types (Developer API page, "Authentication"):
+//   * Integration Key (Growth plan): "Can only create payment links and check payment status" -> LINKWA_API_KEY
+//     (unchanged; used by collection, status checks and the admin re-check).
+//   * Developer API Key (Developer plan): "Full programmatic access: create payment links, manage wallets, instruct
+//     payouts, query balances and statements" -> LINKWA_DEVELOPER_API_KEY (this config).
+// The two are never interchanged: collection never uses the developer key, and user/wallet/payout calls never use
+// the integration key. The developer key gets EVERY sandbox guard above (staging/local database only, no production
+// deployment, sandbox host only, LINKWA_MODE=sandbox, "sk_sandbox_" key) and must differ from the integration key.
+// Nothing here enables payouts in the product: provider_marketplace_settlement and payouts_enabled stay off.
+// -----------------------------------------------------------------------------------------------------------------
+
+export type LinkwaDeveloperConfig = { baseUrl: string; apiKey: string };
+
+export type LinkwaDeveloperRefusal =
+  | Exclude<LinkwaRefusal, "missing_credentials" | "not_sandbox_key" | "protocol_not_documented">
+  | "missing_developer_key"
+  | "developer_key_not_sandbox"
+  | "developer_key_same_as_integration_key";
+
+export function linkwaDeveloperConfig(
+  env: Env = process.env,
+): { ok: true; config: LinkwaDeveloperConfig } | { ok: false; reason: LinkwaDeveloperRefusal } {
+  const urls = [env.SUPABASE_URL, env.VITE_SUPABASE_URL];
+  const refs = urls.map(supabaseTarget);
+  if (
+    refs.includes(PRODUCTION_SUPABASE_REF) ||
+    env.VITE_SUPABASE_PROJECT_ID === PRODUCTION_SUPABASE_REF ||
+    urls.some((u) => (u ?? "").includes(PRODUCTION_SUPABASE_REF))
+  ) {
+    return { ok: false, reason: "production_database" };
+  }
+  if (env.VERCEL_ENV === "production") return { ok: false, reason: "production_deployment" };
+  if (env.LINKWA_MODE !== "sandbox") return { ok: false, reason: "not_sandbox" };
+
+  const server = refs[0];
+  if (!server || !ALLOWED_DATABASES.has(server))
+    return { ok: false, reason: "database_not_allowed" };
+  if (env.VITE_SUPABASE_URL && (!refs[1] || !ALLOWED_DATABASES.has(refs[1]))) {
+    return { ok: false, reason: "database_not_allowed" };
+  }
+
+  const baseUrl = env.LINKWA_BASE_URL ?? LINKWA_SANDBOX_BASE_URL;
+  if (baseUrl !== LINKWA_SANDBOX_BASE_URL) return { ok: false, reason: "not_sandbox_host" };
+
+  const apiKey = (env.LINKWA_DEVELOPER_API_KEY ?? "").trim();
+  if (!apiKey) return { ok: false, reason: "missing_developer_key" };
+  if (!apiKey.startsWith("sk_sandbox_")) return { ok: false, reason: "developer_key_not_sandbox" };
+  if (apiKey === (env.LINKWA_API_KEY ?? "").trim()) {
+    return { ok: false, reason: "developer_key_same_as_integration_key" };
+  }
+  return { ok: true, config: { baseUrl, apiKey } };
+}

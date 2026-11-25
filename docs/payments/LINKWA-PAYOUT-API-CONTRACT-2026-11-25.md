@@ -219,3 +219,23 @@ So the customer's money sits in **ConZ's app balance at Linkwa** until ConZ call
 | T6 | Same payout body twice | Record whether Linkwa makes two payouts. ConZ's own unique key must block the second call before it is sent |
 | T7 | One `/statement` read after T4 | Shape of a payout row, if any |
 | T8 | EcoCash re-test with 0788687707 | |
+
+## Credentials: two keys, staging only (25/11)
+
+The Preview of `feat/linkwa-sandbox-collection` holds `LINKWA_MODE`, `LINKWA_API_KEY` and `LINKWA_WEBHOOK_SECRET`. `LINKWA_BASE_URL` is not set, so the default `https://sandbox.linkwa.co.zw/api/v1/third-party` is used.
+
+| Variable (Preview, branch `feat/linkwa-sandbox-collection` only) | Holds | Used for | Status |
+| --- | --- | --- | --- |
+| `LINKWA_API_KEY` | Growth **Integration key** (`sk_sandbox_…`) | Payment links, status checks, admin re-check | Exists; **unchanged** |
+| `LINKWA_WEBHOOK_SECRET` | Webhook signing secret | `X-Linkwa-Signature` check | Exists; unchanged |
+| `LINKWA_MODE` | `sandbox` | Sandbox guard | Exists; unchanged |
+| **`LINKWA_DEVELOPER_API_KEY`** | Developer plan **Developer API key** (`sk_sandbox_…`) | Users, wallets, payouts (and a one-off statement read) | **New; owner adds it** |
+
+`linkwaDeveloperConfig()` in `src/lib/payments/linkwa-config.server.ts` enforces:
+- the same guard as collection: staging/local database only, no production deployment, sandbox host only, `LINKWA_MODE=sandbox`;
+- the key must start with `sk_sandbox_`;
+- the key must differ from `LINKWA_API_KEY`.
+
+Without it, collection keeps working exactly as before (unit test `linkwa-developer-config`).
+
+Note: the Growth key worked against the `/third-party` sandbox base on 25/11, although the docs give integration keys the `/api/v1/integrations` base. It is left as it is because it works. If Linkwa later enforces the split, set `LINKWA_BASE_URL` (the guard will need the integrations sandbox URL added).
