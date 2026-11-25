@@ -109,3 +109,113 @@ Each test records the request and the **real** response, redacted.
 5. Payouts to EcoCash/bank, or SmileCash only? Payout fee and who bears it? (fees)
 6. Refund or reversal of a paid link, before and after a payout. (T8)
 7. Response bodies and error codes for #1, #2 and #3; how KYC approval is reported after #3. (T1–T2)
+
+
+## Update 25/11 18:30: Developer API page (owner's screenshots of `linkwa.co.zw/developer-apps/docs`)
+
+The owner sent screenshots of the Developer API page. Linkwa's own words are quoted. **This section supersedes the classifications in sections 1–2.**
+
+### Authentication and keys
+- Every request needs `Authorization: Bearer <key>`, `Content-Type: application/json` and `Accept: application/json`.
+- There are two key types:
+
+  | Key | Plan | Base | Can do |
+  | --- | --- | --- | --- |
+  | Developer API Key | Developer | `https://linkwa.co.zw/api/v1/third-party` | "Full programmatic access: create payment links, manage wallets, instruct payouts, query balances and statements" |
+  | Integration Key | Growth | `https://linkwa.co.zw/api/v1/integrations` | "Can only create payment links and check payment status". `return_url` must match the registered store domain |
+
+- Errors:
+  - 401 `{"message":"Invalid API Key."}`
+  - 403 "Wrong key type for this endpoint"
+- **Webhooks are a Growth-plan feature** (webhooks doc), while payouts need the Developer key. Which plan(s) ConZ needs for both is question Q8.
+
+### Operations, now with documented responses
+
+| # | Operation | Documented response |
+| --- | --- | --- |
+| 1 | `POST /users` {first_name, last_name, phone_number, email}. "If the user doesn't exist on Linkwa, an account will be created automatically … save [external_user_id] and use [it] for all future requests" | 200 `{message:"User linked successfully", user:{first_name, last_name, phone_number, external_user_id}}`; 422 `{message:"User validation failed", errors:{phone_number:[…]}}` |
+| 2 | `POST /wallets` {external_user_id, phone_number}; optional first_name, last_name, date_of_birth, id_number, gender (MALE/…), id_picture (multipart). "We currently only support SmileCash wallets." "Linkwa will first check if the phone number is already registered on SmileCash. If it is, the wallet is linked automatically. If it is not registered, you must provide the optional registration details" | 200 `{message:"Wallet registered…", wallet:{external_wallet_id:"w_…", provider:"smilecash", phone_number}}`; 422 `{message:"Phone number is not…", requires_registration:true, required_fields:[first_name,last_name,date_of_birth,id_number,gender,id_picture]}`; 404 `{message:"User not found."}` |
+| 2s | **Payouts to self (app owner wallet):** "pass your Owner External User ID (… starting with `oeuid_`) as the external_user_id. This links a wallet to yourself as the app owner to facilitate self-payouts" | (same as 2) |
+| 3 | `POST /payment-links` (unchanged). "**Linkwa does not hold funds — they are settled directly to the merchant account or held temporarily for payouts.**" | 200 `{message, product:{checkout_url, amount, currency_code, qr_code, external_payment_link_id}}`; 422 `{message:"Validation failed", errors:{amount:[…]}}` |
+| 4 | `GET /payment-links/{short_url}/payments/{payment_reference}/status`. "You MUST use both parameters to securely verify the payment status" | 200 `{payment_reference, currency_code, status:"PAID", short_url, amount, payment_date_time}` |
+| 5 | `GET /balance`. "Card payments (Visa/Mastercard) settle within 3 to 4 working days … The amount will initially land in the pending balances until the bank settles" | 200 `{balances:[{currency, available_balance, pending_balance}]}` |
+| 6 | `GET /statement?currency_code=USD&per_page=25` | 200 `{data:[{id, type:"credit", currency, description, amount, created_date, balance_after, recipient:{type:"payment_received", external_payment_link_id, payment_link_name}, payment_method, completed_date}], meta:{current_page,…}}`. Only a credit row is shown; a payout row's shape is not shown |
+| 7 | `POST /payouts` {external_user_id, external_wallet_id, amount, currency_code, include_balance_after}. "Instruct Linkwa to pay out funds to a user's verified wallet. This requires the external_wallet_id obtained from the /wallets endpoint" | 200 `{message:"Payout instructed…", payout:{payout_id, amount, currency}, balance_after:{available_balance, pending_balance, currency}}`; 404 `{message:"User not found."}`; 422 `{message:"Insufficient funds…"}` |
+
+### Sandbox test values (section 8, checkout only)
+Use these as the buyer's number at checkout (EcoCash, OneMoney, InnBucks, Omari, SmileCash):
+
+| Number | Outcome | Payment status |
+| --- | --- | --- |
+| **0788687707** | Success | COMPLETED |
+| 0711000001 | Insufficient funds | FAILED |
+| 0711000000 | Buyer cancelled | CANCELLED |
+| 0712000000 | Timed out | EXPIRED |
+| 0713000000 | Wallet not found | FAILED |
+| 0714000000 | Limit exceeded | FAILED |
+| 0715000000 | Gateway error | FAILED |
+
+OTPs (Omari, SmileCash): 000000 = success, 111111 = incorrect (FAILED).
+
+Cards:
+- Success: 5123450000000008, 4242424242424242.
+- Declined: 5123450000000010, 4000000000000002.
+- System error: 5123450000000002.
+- Expired: 4000000000000069.
+
+The table's "COMPLETED" is the checkout outcome. The status endpoint returned `PAID` on 25/11 (ConZ maps only PAID as paid; unchanged).
+
+"How to test" step 4: "Poll the payment status endpoint". Polling payment status is therefore allowed on the sandbox. `/balance` and `/statement` still have no stated polling allowance.
+
+**Correction:**
+- The 25/11 EcoCash attempt used 263711111111, which is not in this table. That is why it stayed on "Authorize payment".
+- The support message S1 in the sandbox test plan is withdrawn. Re-test EcoCash with **0788687707** before reporting anything.
+
+### Revised capability classification
+
+| | Capability | Class |
+| --- | --- | --- |
+| A | Recipient registration | **Documented** (request + response + errors) |
+| B | Wallet registration | **Documented**; SmileCash only |
+| C | KYC | **Documented as SmileCash registration data** passed by ConZ (incl. ID number and ID picture). No approval/KYC status read is documented; the wallet response has no status field. Requires Linkwa confirmation |
+| D | Payout initiation | **Documented** (request + response + 404/422) |
+| E | Payout status / reconciliation | **Not documented** beyond "Payout instructed" + `payout_id`. A statement row for a payout is not shown. Requires Linkwa confirmation |
+| F | Several payouts from one collection | Possible by composition: payouts draw on the app's available balance |
+| G | Idempotency, retry, failure after "instructed" | **Not documented**: no idempotency key; failures only 404/422 at instruction time |
+| H | Refunds / reversals | **Not documented** |
+| I | Payout webhooks | **Not documented** |
+| J | Automatic 93/7 | **Not available** as an endpoint. ConZ composes it: one payout of 93% to the driver's wallet; the 7% stays in the app balance or is paid to ConZ's own wallet via the `oeuid_` self-payout |
+
+### Custody, in Linkwa's own words
+"Linkwa does not hold funds — they are settled directly to the merchant account or **held temporarily for payouts**". Payouts are made "from the app's available balance" when ConZ instructs them.
+
+So the customer's money sits in **ConZ's app balance at Linkwa** until ConZ calls `/payouts`. Linkwa is the holder; **ConZ alone controls release**. This is still ConZ controlling the driver's 93%, which needs the owner's and the lawyer's decision. Card payments also stay in **pending** for 3–4 working days, so a driver paid by card cannot be paid out until they settle. Mobile money has no such delay stated.
+
+### Updated questions for Linkwa (replaces section 7)
+1. After `Payout instructed`, how do we learn the final outcome (sent / failed / reversed): a payout status endpoint, a webhook, or the statement? What does a payout row in `/statement` look like, and how often may we read it?
+2. Is there an idempotency key for `/payouts`? If a request times out, how do we find out whether `payout_id` was created?
+3. After `/wallets` registration with KYC data, is the wallet usable at once, or is there an approval step? How is a rejection reported?
+4. Refunds/reversals of a paid link, before and after a payout?
+5. Payout fees, and which balance they come from.
+6. Is an app holding funds for third-party recipients (drivers) in its available balance acceptable under Linkwa's terms? Is there a limit on how long funds may stay there?
+7. Card-paid collections: is the whole amount pending for 3–4 working days, and is a payout refused (422) until then?
+8. Plans: payouts need the Developer key, webhooks need Growth. Can one app have both, and does the sandbox app support webhooks?
+
+### Sandbox tests now runnable (Developer key on the guarded Preview; staging only)
+
+| Test | Steps | Expected |
+| --- | --- | --- |
+| T1 | `POST /users` for the test driver | 200 + `external_user_id` |
+| T1e | `POST /users` with an invalid phone | 422 |
+| T2 | `POST /wallets` with a SmileCash sandbox number | 200 + `external_wallet_id` (`w_…`) |
+| T2e | `POST /wallets` with an unregistered number | 422 `requires_registration` (record `required_fields`; **do not send ID data**) |
+| T2u | `POST /wallets` with an unknown `external_user_id` | 404 |
+| T3 | New $340 collection paid with 0788687707 (and SmileCash OTP 000000) | Status PAID |
+| T3c | Same with card 4242… | Then read `/balance` once to see whether it lands in pending |
+| T4 | `POST /payouts` $316.20 to the T2 wallet | 200 `payout_id` |
+| T4e | `POST /payouts` more than the available balance | 422 Insufficient funds |
+| T4u | `POST /payouts` to an unknown user | 404 |
+| T5 | ConZ owner wallet via `oeuid_` | Link only; no self-payout until the owner decides |
+| T6 | Same payout body twice | Record whether Linkwa makes two payouts. ConZ's own unique key must block the second call before it is sent |
+| T7 | One `/statement` read after T4 | Shape of a payout row, if any |
+| T8 | EcoCash re-test with 0788687707 | |

@@ -93,7 +93,9 @@ T4/T5 answer this from evidence.
 
 ## 5. Reproducible failures to send to Linkwa support
 
-**S1 — EcoCash checkout never completes in the sandbox.**
+**S1 — WITHDRAWN 25/11 18:30:** the attempt used 263711111111, which is not a sandbox test number. The documented success number is 0788687707 (see `LINKWA-PAYOUT-API-CONTRACT-2026-11-25.md`, update section). Re-test before reporting.
+
+~~**S1 — EcoCash checkout never completes in the sandbox.**~~
 > Sandbox app [ConZ sandbox app name]. Payment link created with `POST /payment-links` (amount 340.00 USD, stock 1).
 > On the hosted checkout we chose EcoCash, entered the test number from your sandbox table, and confirmed. The page stayed
 > on "Authorize payment" and never completed or failed. With SmileCash the same link completed and the status endpoint
@@ -104,7 +106,9 @@ T4/T5 answer this from evidence.
 > (status PAID). No `payment.completed` request reached our endpoint. How do we enable webhooks for a sandbox app, and is
 > the webhook `reference` the same value as `payment_reference` in the status response?
 
-**S3 — Marketplace operations not in the documentation we received.**
+**S3 — WITHDRAWN:** the Developer API page documents users, wallets and payouts. The remaining questions are in the contract doc's update section.
+
+~~**S3 — Marketplace operations not in the documentation we received.**~~
 > To test our use case (customer pays once; 93% settles to the driver's own receiving account and 7% to ours, without us
 > holding the driver's share), we need the sandbox documentation or Postman requests for:
 > - sub-merchant registration and its KYC/receiving-account status;
