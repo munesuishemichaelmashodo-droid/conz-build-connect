@@ -14,6 +14,7 @@ case "$tool" in
     grep -qE 'git[[:space:]]+push.*([[:space:]]|:)(main|master)([[:space:]]|$)' <<<"$cmd" && decide deny "Pushing to main deploys production. Open a PR for the owner instead."
     grep -qiE '(^|[;&|[:space:]])(npx[[:space:]]+)?vercel([[:space:]].*)?[[:space:]](--prod|deploy|promote|rollback|alias)' <<<"$cmd" && decide ask "Vercel deploy/promote/alias changes production. Owner approval required."
     grep -qE '(^|[;&|[:space:]])npm[[:space:]]+publish' <<<"$cmd" && decide deny "Publishing packages is not allowed from an agent."
+    grep -qiE '(^|[;&|[:space:]])(npx[[:space:]]+)?wrangler[[:space:]]+(deploy|publish|versions[[:space:]]+deploy|secret|d1[[:space:]]+execute.*--remote)' <<<"$cmd" && decide ask "Cloudflare deploy / secret / remote database change. Owner approval required."
     grep -qE '(cat|less|head|tail|cp|curl[^|]*-d[[:space:]]*@)[^|;&]*\.env(\.[a-z]+)?([[:space:]]|$)' <<<"$cmd" && decide ask "This reads or sends a .env file that may hold secrets."
     ;;
   Edit|Write|MultiEdit)

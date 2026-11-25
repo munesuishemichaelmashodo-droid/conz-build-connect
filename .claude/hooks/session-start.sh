@@ -8,6 +8,11 @@ cd "${CLAUDE_PROJECT_DIR:-.}"
 # Global tools: each step installs only what is missing and never fails the session.
 bash scripts/dev/install-toolkit.sh >/dev/null 2>&1 || true
 
+# Docker daemon for `npm run test:db` (local Supabase). Started only if installed and not running.
+if command -v dockerd >/dev/null && ! docker info >/dev/null 2>&1; then
+  (nohup dockerd >/tmp/dockerd.log 2>&1 &) ; for _ in $(seq 1 20); do docker info >/dev/null 2>&1 && break; sleep 1; done
+fi
+
 # npm packages: only when package.json / package-lock.json changed since the last good install.
 hashes=node_modules/.session-start.sha256
 if ! sha256sum --check --status "$hashes" 2>/dev/null; then
