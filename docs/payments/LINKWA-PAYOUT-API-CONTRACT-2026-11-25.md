@@ -250,3 +250,9 @@ Note: the Growth key worked against the `/third-party` sandbox base on 25/11, al
 
   The API's `/wallets` says "We currently only support SmileCash wallets", so API payouts to drivers are SmileCash only (0% payout fee) until Linkwa adds ZIPIT to the API.
 - The screenshots are of the live site (`linkwa.co.zw`), not the sandbox. Balances shown: US$0.00.
+
+## Sandbox evidence log (real Linkwa answers via the staging console; redacted)
+
+| Test | Time (UTC) | Call | Linkwa answer | What it proves |
+| --- | --- | --- | --- | --- |
+| T0 | 2026-11-25 17:40:18 | `GET /balance` with `LINKWA_DEVELOPER_API_KEY` | **HTTP 403** `{"message":"This endpoint requires a Developer API Key."}` | Linkwa enforces the key types in the sandbox exactly as documented. The key now in `LINKWA_DEVELOPER_API_KEY` is a sandbox key different from `LINKWA_API_KEY` (our guard checks both), but it is **not** a Developer API key: it is an Integration (e-commerce) key. Users, wallets and payouts cannot be tested until a Developer app's key is used. Audit-logged on staging (`linkwa_sandbox_call`) |
