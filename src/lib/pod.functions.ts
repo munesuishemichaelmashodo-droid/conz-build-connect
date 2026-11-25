@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { normalisePaymentMethod, type PaymentMethod } from "@/lib/payment-method-copy";
 import { z } from "zod";
 
 export type PodEvidencePhoto = { url: string; uploadedAt: string };
@@ -11,7 +12,7 @@ export type PodResult = {
   deliveryAddress: string | null;
   completedAt: string | null;
   driverName: string | null;
-  paymentMethod: "direct" | "escrow";
+  paymentMethod: PaymentMethod;
   receiptNo: string;
   pickupPhotos: PodEvidencePhoto[];
   deliveryPhotos: PodEvidencePhoto[];
@@ -71,7 +72,7 @@ export const getPublicPod = createServerFn({ method: "GET" })
       deliveryAddress: job.delivery_address,
       completedAt: job.completed_at,
       driverName: driver?.full_name ?? null,
-      paymentMethod: job.payment_method === "escrow" ? "escrow" : "direct",
+      paymentMethod: normalisePaymentMethod(job.payment_method),
       receiptNo: `CONZ-${job.id.slice(0, 8).toUpperCase()}`,
       pickupPhotos: await withSignedUrl(pickupRows),
       deliveryPhotos: await withSignedUrl(deliveryRows),

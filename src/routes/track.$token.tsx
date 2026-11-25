@@ -22,6 +22,7 @@ import { money } from "@/lib/domain";
 import { useState } from "react";
 import { locationDisplay, locationState, publicTrackSignal } from "@/lib/delivery-docket";
 import { useNow } from "@/hooks/use-now";
+import { paymentMethodLabel, receiptPaymentMethod } from "@/lib/payment-method-copy";
 
 async function toDataUrl(url: string): Promise<string | null> {
   try {
@@ -104,9 +105,7 @@ async function downloadReceiptPdf(pod: NonNullable<PodResult>) {
   if (pod.driverName) row("Driver", pod.driverName);
   row(
     "Payment method",
-    pod.paymentMethod === "escrow"
-      ? "Con Z Pay (held & released on confirmation)"
-      : "Paid directly to driver",
+    receiptPaymentMethod(pod.paymentMethod),
   );
   if (pod.completedAt) row("Completed", new Date(pod.completedAt).toLocaleString());
   y += 8;
@@ -359,7 +358,7 @@ function PublicTrackPage() {
                 </DocketRow>
               )}
               <DocketRow label="Payment method">
-                {pod.paymentMethod === "escrow" ? "Con Z Pay" : "Direct to driver"}
+                {pod.paymentMethod === "provider" ? paymentMethodLabel("provider") : pod.paymentMethod === "escrow" ? "Con Z Pay" : "Direct to driver"}
               </DocketRow>
               {pod.completedAt && (
                 <DocketRow label="Completed">
