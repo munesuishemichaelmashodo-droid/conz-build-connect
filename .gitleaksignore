@@ -1,0 +1,8 @@
+# Reviewed false positives (25/11/2026): sample key for the local mock server; fake idempotency key in a unit test.
+# The Firebase key in android/app/google-services.json is deliberately NOT ignored: restrict it in Google Cloud (Android app + SHA-1, needed APIs only).
+03b68a4eea313d0ec16515ef6b118dc66e4f8c71:scripts/dev/README.md:curl-auth-header:85
+03b68a4eea313d0ec16515ef6b118dc66e4f8c71:tests/unit/sourcing-request.test.ts:generic-api-key:18
+1819babf2e235141336d31e53a05b209b0037663:scripts/dev/README.md:curl-auth-header:85
+1819babf2e235141336d31e53a05b209b0037663:tests/unit/sourcing-request.test.ts:generic-api-key:18
+3225a4c8f6d9fe4c47a12e02d1267578a5e097ca:scripts/dev/README.md:curl-auth-header:85
+3225a4c8f6d9fe4c47a12e02d1267578a5e097ca:tests/unit/sourcing-request.test.ts:generic-api-key:18

@@ -12,6 +12,23 @@
 >   before the history repair. Never run the repair or any migration automatically.
 > - Merging to `main` deploys to production (Vercel). Detached `supabase.rpc` references are forbidden (unit test).
 
+## Engineering standards (every session, every agent)
+
+1. **Inspect before modifying.** Read the code, schema, tests and docs involved; never guess existing architecture. Check live state read-only before DB work.
+2. **Research before choosing technology.** Official docs first; record maintenance, licence and cost. Pin versions; no `@latest` in committed config.
+3. **Don't break what works.** Smallest change that solves the problem; keep behaviour identical unless the change is the point.
+4. **Test.** Important behaviour gets a test (Vitest, pgTAP, Playwright). Run `npm run typecheck`, `npm test`, `npm run lint:security`, `npm run build` (and `npm run test:db` when SQL changed) after changes. Never skip or loosen a test to get green.
+5. **Security and authorization.** Review security impact of every change; every table has RLS and per-role pgTAP tests; SECURITY DEFINER functions check the caller and pin `search_path`. Scanners: `semgrep`, `gitleaks`, `trivy fs`, `npm audit --omit=dev`.
+6. **Responsive and accessible.** Check 360 and 390 px, light and dark; axe-core 0 WCAG 2.2 AA violations.
+7. **Secrets.** Never in code, commits, logs or chat. A PostToolUse hook runs gitleaks on every written file.
+8. **Document significant decisions** in `docs/` (dated) and the log below.
+9. **No production change without the owner's explicit go in the conversation**: no merge to `main`, deploy, migration, Supabase/Vercel setting, or real money. `.claude/hooks/guard.sh` denies `supabase db push`, push to `main`, force-push and `npm publish`, and asks before Supabase writes, merges and Vercel changes.
+
+Toolkit: agents in `.claude/agents/` (architect, frontend, backend, UI/UX, database, security, QA, performance, product research, independent reviewer, plus the payment agents); see `.claude/agents/README.md` for how they collaborate. Third-party skills and their pinned sources: `.claude/skills/THIRD_PARTY_SOURCES.md`. Local MCP servers (Playwright, Chrome DevTools) in `.mcp.json`.
+Cloud sessions run `.claude/hooks/session-start.sh` at start: it installs fd, Semgrep (+ open rules in `/opt/semgrep-rules`;
+semgrep.dev is blocked), pip-audit, Lighthouse CI, gitleaks (`scripts/dev/install-toolkit.sh`, add `--with-trivy` for Trivy) and npm
+packages when the lockfile changed. Production installs from `package-lock.json`; `bun.lock` is stale (Trivy flags old versions in it).
+
 Construction logistics marketplace for Zimbabwe (river sand, stones, gravel,
 etc. delivered by tipper truck). Customers post jobs, drivers bid, in-app
 chat + live GPS tracking + escrow or direct pay. Owner: Ngaatendwe Tembo
