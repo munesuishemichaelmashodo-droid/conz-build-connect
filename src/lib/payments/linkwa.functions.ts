@@ -23,6 +23,14 @@ const SHORT_URL = /^[A-Za-z0-9_-]{3,64}$/;
 const PAYMENT_REFERENCE = /^[A-Za-z0-9-]{6,100}$/;
 export const LINKWA_RETURN_PATH = "/pay/linkwa-return";
 
+/** Whether this server may run the Linkwa SANDBOX (never on the production database). Exposes a boolean only. */
+export const linkwaSandboxStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async (): Promise<{ available: boolean }> => {
+    const { linkwaSandboxAdapter } = await import("@/lib/payments/registry.server");
+    return { available: linkwaSandboxAdapter() !== null };
+  });
+
 export const startLinkwaSandboxPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { jobId: string }) => {
