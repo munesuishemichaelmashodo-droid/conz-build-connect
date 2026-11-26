@@ -1,7 +1,7 @@
 -- 0183: two booking journeys on the transport-only pricing path. Server-side validation, no hidden data left
 -- by switching journeys, privacy for drivers who were not selected, who may change what, commission unchanged.
 begin;
-select plan(24);
+select plan(28);
 select tests.enable_launch_features();
 alter table public.jobs disable trigger trg_jobs_one_active_per_driver;
 update public.system_settings set value = '1.87'::jsonb where key = 'diesel_price_per_liter';
@@ -71,6 +71,26 @@ select ok((select load_details not like '%0771234567%' from public.driver_open_j
 select is((select row(job_kind, truck_requirement, collection_name)::text from public.driver_open_job(current_setting('t.jb')::uuid)),
           '(collect_and_deliver,tipper,"Halsted Builders Express")', '17: the driver can see the booking type, truck needed and supplier name to decide');
 
+-- free text typed by the customer is contact-redacted too
+select lives_ok($$select pg_temp.mkjob('collect_and_deliver', 'Joe Hardware 0779998888')$$, '17a: a supplier name with a phone number books');
+select tests.login_as(current_setting('t.other')::uuid);
+select ok((select bool_and(collection_name not like '%0779998888%' and custom_material is not null)
+             from public.driver_open_jobs(50, 0) where job_kind = 'collect_and_deliver'),
+          '17b: unselected drivers never see a phone number in the supplier name');
+
+-- next-loads suggestions (find_next_loads_for_driver) show a customer's collection point as an area only
+select tests.as_owner();
+select set_config('t.cur', tests.create_job(current_setting('t.cust')::uuid, 200, 'direct')::text, true);
+update public.jobs set status = 'completed', driver_id = current_setting('t.other')::uuid, completed_at = now(),
+       delivery_lat = -17.8050, delivery_lng = 31.0500, pickup_lat = -17.95, pickup_lng = 31.20
+ where id = current_setting('t.cur')::uuid;
+select tests.login_as(current_setting('t.other')::uuid);
+select is((select pickup_lat from public.find_next_loads_for_driver(current_setting('t.other')::uuid, current_setting('t.cur')::uuid)
+            where job_id = current_setting('t.jb')::uuid), -17.80::double precision,
+          '17c: a next-load suggestion shows the collection point to about 1 km');
+select ok((select pickup_address not like '%45 Kenmure%' from public.find_next_loads_for_driver(current_setting('t.other')::uuid, current_setting('t.cur')::uuid)
+            where job_id = current_setting('t.jb')::uuid), '17d: and as an area, not the street address');
+
 -- ================================================================ E. who may change what
 select tests.login_as(current_setting('t.cust')::uuid);
 select lives_ok(format($$update public.jobs set collection_contact = 'Yard foreman, 0773000222' where id = %L$$, current_setting('t.jb')),
@@ -101,8 +121,9 @@ select throws_ok(format($$update public.jobs set collection_contact = 'someone e
 
 -- ================================================================ F. legacy jobs untouched
 select tests.as_owner();
-select is((select count(*)::int from public.jobs where job_kind is null and customer_id = current_setting('t.cust')::uuid), 0,
-          '24: (sanity) every job in this test has a booking type; legacy jobs keep NULL and are covered by 950');
+select is((select count(*)::int from public.jobs where job_kind is null and customer_id = current_setting('t.cust')::uuid
+              and pricing_basis is distinct from 'transport_only' and status = 'completed'), 1,
+          '24: a legacy job (no booking type) is created and completed as before');
 
 select * from finish();
 rollback;

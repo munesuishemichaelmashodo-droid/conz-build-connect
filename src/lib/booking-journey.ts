@@ -121,3 +121,16 @@ export function truckLabel(t: unknown): string | null {
 export function timeLabel(t: unknown): string | null {
   return TIMES.find((x) => x.value === t && x.value !== "any")?.label ?? null;
 }
+
+/** Short tag for a driver's job-list card: booking type and truck needed only (never contact or address). */
+export function feedJourneyTag(kind: unknown, truck: unknown): string | null {
+  const type =
+    kind === "transport_only"
+      ? "Transport only"
+      : kind === "collect_and_deliver"
+        ? "Supplier collection"
+        : null;
+  if (!type) return null;
+  const t = truckLabel(truck);
+  return t ? `${type} · ${t}` : type;
+}

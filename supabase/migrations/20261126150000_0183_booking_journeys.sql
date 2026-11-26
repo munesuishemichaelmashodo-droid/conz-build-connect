@@ -21,7 +21,8 @@
 --     details while the job is open or accepted; drivers can change none of these fields.
 -- Privacy for drivers who have not been selected (mask_job_for_driver, find_next_loads_for_driver):
 --   * a customer-chosen collection point (transport_only pricing) is shown as an area with ~1 km coordinates,
---     like the delivery point; collection contact and reference are removed; load details are contact-redacted.
+--     like the delivery point; collection contact and reference are removed; load details, the load description
+--     (custom_material) and the supplier name are contact-redacted (phone numbers and e-mails removed).
 --   * Before 0183 the collection point of a transport-priced job was returned exactly; no such job exists live
 --     (the transport switch has always been off).
 -- No DROP, no DELETE. Undo: supabase/rollbacks/20261126150000_0183_rollback.sql.
@@ -130,7 +131,10 @@ begin
   end if;
   j.collection_contact := null;
   j.collection_reference := null;
+  -- Free text the customer typed: phone numbers and e-mail addresses removed, like the notes.
   j.load_details := public.redact_contacts(j.load_details);
+  j.custom_material := public.redact_contacts(j.custom_material);
+  j.collection_name := public.redact_contacts(j.collection_name);
   return j;
 end $$;
 revoke all on function public.mask_job_for_driver(public.jobs) from public, anon, authenticated;

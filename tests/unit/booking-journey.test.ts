@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EMPTY_JOURNEY,
+  feedJourneyTag,
   jobKindLabel,
   journeyJobFields,
   journeyProblem,
@@ -94,5 +95,13 @@ describe("labels", () => {
     expect(truckLabel("tipper")).toBe("Tipper");
     expect(timeLabel("afternoon")).toBe("Afternoon");
     expect(timeLabel("any")).toBeNull();
+  });
+});
+
+describe("feedJourneyTag", () => {
+  it("shows type and truck only", () => {
+    expect(feedJourneyTag("transport_only", "flatbed")).toBe("Transport only · Flatbed");
+    expect(feedJourneyTag("collect_and_deliver", "any")).toBe("Supplier collection");
+    expect(feedJourneyTag(null, "tipper")).toBeNull();
   });
 });
