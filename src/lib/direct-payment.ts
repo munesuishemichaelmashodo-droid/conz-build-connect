@@ -7,6 +7,7 @@ export const DIRECT_PAYMENT_METHODS = [
   "ecocash",
   "onemoney",
   "innbucks",
+  "zipit",
   "bank_transfer",
   "other",
 ] as const;
@@ -27,6 +28,7 @@ const METHOD_LABEL: Record<DirectPaymentMethod, string> = {
   ecocash: "EcoCash",
   onemoney: "OneMoney",
   innbucks: "InnBucks",
+  zipit: "ZIPIT",
   bank_transfer: "Bank transfer",
   other: "Other",
 };
@@ -88,76 +90,126 @@ export function directPaymentStatusLine(
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// 0178: the customer's side. Both parties' statements are recorded separately; neither is proof of settlement.
+// 0179: payments recorded per stage (deposit, balance, or one full payment). Each stage holds the customer's claim,
+// the driver's confirmation and the customer's agreement, all write-once. None of them is proof of settlement.
 
-export type DirectPaymentCustomerRecord = {
-  method: DirectPaymentMethod | null;
-  amount: number | null;
-  reference: string | null;
-  reportedAt: string | null;
-  acknowledgedAt: string | null;
+export type PaymentStageName = "deposit" | "balance" | "full";
+
+export type PlannedStage = {
+  stage: PaymentStageName;
+  expectedAmount: number;
+  due: string | null;
+  methodAgreed: string | null;
+  recipientName: string | null;
+  recipientAccount: string | null;
+  instructions: string | null;
 };
 
-export function parseCustomerRecord(row: unknown): DirectPaymentCustomerRecord | null {
-  const r = row && typeof row === "object" ? (row as Record<string, unknown>) : null;
-  if (!r) return null;
-  const amount = r.amount == null ? null : Number(r.amount);
-  return {
-    method:
-      typeof r.method === "string" &&
-      (DIRECT_PAYMENT_METHODS as readonly string[]).includes(r.method)
-        ? (r.method as DirectPaymentMethod)
-        : null,
-    amount: amount != null && Number.isFinite(amount) ? amount : null,
-    reference: typeof r.reference === "string" && r.reference ? r.reference : null,
-    reportedAt: typeof r.reported_at === "string" ? r.reported_at : null,
-    acknowledgedAt: typeof r.acknowledged_at === "string" ? r.acknowledged_at : null,
-  };
+export type PaymentStageRecord = {
+  stage: PaymentStageName;
+  expectedAmount: number;
+  customerClaimedAt: string | null;
+  customerMethod: string | null;
+  customerAmount: number | null;
+  customerReference: string | null;
+  driverConfirmedAt: string | null;
+  driverMethod: string | null;
+  driverAmount: number | null;
+  driverReference: string | null;
+  customerAcknowledgedAt: string | null;
+};
+
+const STAGES: readonly PaymentStageName[] = ["deposit", "balance", "full"];
+const num = (v: unknown) => (v == null || !Number.isFinite(Number(v)) ? null : Number(v));
+const str = (v: unknown) => (typeof v === "string" && v ? v : null);
+
+export function parsePlan(rows: unknown): PlannedStage[] {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .filter((r) => r && STAGES.includes((r as { stage: PaymentStageName }).stage))
+    .map((r: Record<string, unknown>) => ({
+      stage: r.stage as PaymentStageName,
+      expectedAmount: num(r.expected_amount) ?? 0,
+      due: str(r.due),
+      methodAgreed: str(r.method_agreed),
+      recipientName: str(r.recipient_name),
+      recipientAccount: str(r.recipient_account),
+      instructions: str(r.payment_instructions),
+    }));
 }
 
-/** Where a direct payment stands, from the parties' own statements. "disputed" wins over everything. */
-export type DirectPaymentStage =
+export function parseStageRecords(rows: unknown): PaymentStageRecord[] {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .filter((r) => r && STAGES.includes((r as { stage: PaymentStageName }).stage))
+    .map((r: Record<string, unknown>) => ({
+      stage: r.stage as PaymentStageName,
+      expectedAmount: num(r.expected_amount) ?? 0,
+      customerClaimedAt: str(r.customer_claimed_at),
+      customerMethod: str(r.customer_method),
+      customerAmount: num(r.customer_amount),
+      customerReference: str(r.customer_reference),
+      driverConfirmedAt: str(r.driver_confirmed_at),
+      driverMethod: str(r.driver_method),
+      driverAmount: num(r.driver_amount),
+      driverReference: str(r.driver_reference),
+      customerAcknowledgedAt: str(r.customer_acknowledged_at),
+    }));
+}
+
+export function stageName(s: PaymentStageName): string {
+  return s === "deposit" ? "Deposit" : s === "balance" ? "Balance" : "Payment";
+}
+
+export type StageStatus =
   "not_recorded" | "customer_says_paid" | "driver_confirmed" | "customer_acknowledged" | "disputed";
 
-export function directPaymentStage(
-  driver: DirectPaymentConfirmation | null,
-  customer: DirectPaymentCustomerRecord | null,
+/** Where one stage stands, from the two parties' statements. An open dispute on the job wins. */
+export function stageStatus(
+  rec: PaymentStageRecord | null | undefined,
   dispute: DisputeState,
-): DirectPaymentStage {
+): StageStatus {
   if (dispute === "open") return "disputed";
-  if (driver && customer?.acknowledgedAt) return "customer_acknowledged";
-  if (driver) return "driver_confirmed";
-  if (customer?.reportedAt) return "customer_says_paid";
+  if (rec?.driverConfirmedAt && rec.customerAcknowledgedAt) return "customer_acknowledged";
+  if (rec?.driverConfirmedAt) return "driver_confirmed";
+  if (rec?.customerClaimedAt) return "customer_says_paid";
   return "not_recorded";
 }
 
-export function directPaymentStageLabel(s: DirectPaymentStage): string {
+export function stageStatusLabel(s: StageStatus): string {
   switch (s) {
     case "not_recorded":
-      return "No payment recorded yet";
+      return "Not recorded yet";
     case "customer_says_paid":
-      return "Customer says they paid; waiting for the driver to confirm";
+      return "Customer says paid; waiting for the driver to confirm";
     case "driver_confirmed":
-      return "Driver confirmed receiving payment";
+      return "Driver confirmed receiving it";
     case "customer_acknowledged":
       return "Driver confirmed and customer agreed";
     case "disputed":
-      return "Payment disputed";
+      return "Disputed";
   }
 }
 
-/** True when the two statements (or a statement and the agreed price) do not agree on the amount. */
-export function amountsDisagree(
-  agreed: number,
-  driver: DirectPaymentConfirmation | null,
-  customer: DirectPaymentCustomerRecord | null,
-): boolean {
+/** True when a statement differs from the agreed amount, or the two statements differ. */
+export function stageAmountsDisagree(rec: PaymentStageRecord | null | undefined): boolean {
+  if (!rec) return false;
   const c = (n: number) => Math.round(n * 100);
-  const amounts = [driver?.amount, customer?.amount].filter(
-    (n): n is number => typeof n === "number",
-  );
+  const vals = [rec.customerAmount, rec.driverAmount].filter((n): n is number => n != null);
   return (
-    amounts.some((a) => c(a) !== c(agreed)) ||
-    (amounts.length === 2 && c(amounts[0]) !== c(amounts[1]))
+    vals.some((v) => c(v) !== c(rec.expectedAmount)) ||
+    (vals.length === 2 && c(vals[0]) !== c(vals[1]))
   );
+}
+
+const DUE_LABEL: Record<string, string> = {
+  on_agreement: "when the agreement is confirmed",
+  before_pickup: "before pickup",
+  on_pickup: "when the load is picked up",
+  on_delivery: "when the load is delivered",
+  other: "at the time agreed",
+  as_agreed: "as agreed with the driver",
+};
+export function dueLabel(due: string | null | undefined): string {
+  return (due && DUE_LABEL[due]) || "as agreed with the driver";
 }

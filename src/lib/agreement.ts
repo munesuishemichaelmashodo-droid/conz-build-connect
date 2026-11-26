@@ -5,7 +5,8 @@ export type JobAgreement = {
   version: number;
   proposed_by: string;
   fare: number;
-  payment_method: "cash" | "ecocash" | "bank_transfer" | "other";
+  payment_method:
+    "cash" | "ecocash" | "onemoney" | "innbucks" | "zipit" | "bank_transfer" | "other";
   payment_timing: "on_delivery" | "on_pickup" | "before_pickup" | "other";
   deposit_amount: number;
   pickup_window: string | null;
@@ -16,11 +17,27 @@ export type JobAgreement = {
   customer_accepted_at: string | null;
   driver_accepted_at: string | null;
   created_at: string;
+  // 0179: payment terms. Missing (undefined) before 0179 is applied.
+  recipient_name?: string | null;
+  recipient_account?: string | null;
+  payment_instructions?: string | null;
+  deposit_due?: "on_agreement" | "before_pickup" | "on_pickup" | null;
+  deposit_reason?: string | null;
+  cancellation_terms?: string | null;
+  /** The exact method (0179); payment_method keeps only cash/ecocash/bank_transfer/other. */
+  payment_channel?: JobAgreement["payment_method"] | null;
 };
+
+/** The method to show and edit: the exact channel when present (0179), else the older column. */
+export const agreedMethod = (row: Pick<JobAgreement, "payment_method" | "payment_channel">) =>
+  row.payment_channel ?? row.payment_method;
 
 export const PAYMENT_METHODS = [
   { value: "cash", label: "Cash" },
   { value: "ecocash", label: "EcoCash" },
+  { value: "onemoney", label: "OneMoney" },
+  { value: "innbucks", label: "InnBucks" },
+  { value: "zipit", label: "ZIPIT" },
   { value: "bank_transfer", label: "Bank transfer" },
   { value: "other", label: "Other" },
 ] as const;
@@ -31,6 +48,15 @@ export const PAYMENT_TIMINGS = [
   { value: "before_pickup", label: "Before pickup" },
   { value: "other", label: "Another time (say which in the notes)" },
 ] as const;
+
+/** When a deposit (or a full advance payment) is due (0179). */
+export const DEPOSIT_DUES = [
+  { value: "on_agreement", label: "As soon as the agreement is confirmed" },
+  { value: "before_pickup", label: "Before pickup" },
+  { value: "on_pickup", label: "When the load is picked up" },
+] as const;
+export const depositDueLabel = (v: string | null | undefined) =>
+  DEPOSIT_DUES.find((m) => m.value === v)?.label ?? "At the agreed time";
 
 export const methodLabel = (v: string) => PAYMENT_METHODS.find((m) => m.value === v)?.label ?? v;
 export const timingLabel = (v: string) => PAYMENT_TIMINGS.find((m) => m.value === v)?.label ?? v;
@@ -56,14 +82,33 @@ export function agreementView(row: JobAgreement | null, userId: string | null): 
 
 /** Plain-language statement of who pays whom: the fare always goes straight to the driver. */
 export function payLine(
-  row: Pick<JobAgreement, "fare" | "payment_method" | "payment_timing" | "deposit_amount">,
+  row: Pick<JobAgreement, "fare" | "payment_method" | "payment_timing" | "deposit_amount"> &
+    Partial<Pick<JobAgreement, "deposit_due" | "payment_channel">>,
 ): string {
-  const fare = `$${Number(row.fare).toFixed(2)}`;
+  const fareN = Number(row.fare);
+  const depN = Number(row.deposit_amount);
+  const fare = `$${fareN.toFixed(2)}`;
+  const method = methodLabel(agreedMethod(row)).toLowerCase();
+  if (depN > 0 && Math.round(depN * 100) >= Math.round(fareN * 100)) {
+    return `${fare} paid in full in advance, directly to the driver by ${method}, ${depositDueLabel(row.deposit_due).toLowerCase()}.`;
+  }
+  const due = row.deposit_due ? ` ${depositDueLabel(row.deposit_due).toLowerCase()}` : "";
   const deposit =
-    Number(row.deposit_amount) > 0
-      ? `, with a $${Number(row.deposit_amount).toFixed(2)} deposit paid to the driver`
+    depN > 0
+      ? `, with a $${depN.toFixed(2)} deposit paid to the driver${due} (balance $${(fareN - depN).toFixed(2)})`
       : "";
-  return `${fare} paid directly to the driver by ${methodLabel(row.payment_method).toLowerCase()}, ${timingLabel(row.payment_timing).toLowerCase()}${deposit}.`;
+  return `${fare} paid directly to the driver by ${method}, ${timingLabel(row.payment_timing).toLowerCase()}${deposit}.`;
+}
+
+/** The kind of payment plan, in words (0179). */
+export function paymentPlanLabel(
+  row: Pick<JobAgreement, "fare" | "deposit_amount" | "payment_timing">,
+): string {
+  const depN = Number(row.deposit_amount);
+  if (depN <= 0)
+    return row.payment_timing === "on_delivery" ? "Payment after delivery" : "No deposit";
+  if (Math.round(depN * 100) >= Math.round(Number(row.fare) * 100)) return "Full advance payment";
+  return "Deposit, then the balance";
 }
 
 /**
