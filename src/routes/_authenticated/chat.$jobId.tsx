@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { compressImage } from "@/lib/compress-image";
 import { ChatImage, ChatAudio } from "@/components/ChatMedia";
 import { cn } from "@/lib/utils";
+import { chatSafetyFlag, chatSafetyMessage, chatSafetyReportCategory } from "@/lib/chat-safety";
 
 export const Route = createFileRoute("/_authenticated/chat/$jobId")({
   component: ChatPage,
@@ -477,6 +478,12 @@ function ChatPage() {
 
       <div className="flex flex-col h-[calc(100vh-300px)] min-h-[320px] rounded-2xl bg-card border overflow-hidden">
         <div ref={scrollerRef} className="flex-1 overflow-y-auto p-4 space-y-2">
+          <p className="text-center text-[11px] text-muted-foreground" data-testid="chat-safety-note">
+            Keep changes to the deal in Con Z. Pay only this job's driver, as agreed.{" "}
+            <Link to="/report" search={{ jobId, category: "fraud_scam" }} className="underline font-semibold">
+              Report a problem
+            </Link>
+          </p>
           {messages.length === 0 && <p className="text-center text-xs text-muted-foreground py-8">No messages yet. Say hi 👋</p>}
           {grouped.map((item, i) =>
             item.kind === "day" ? (
@@ -522,6 +529,21 @@ function ChatPage() {
                           )}
                         </div>
                       </div>
+                      {!mine && (() => {
+                        const flag = chatSafetyFlag(m.body);
+                        if (!flag) return null;
+                        return (
+                          <p
+                            className="mt-1 rounded-lg border border-destructive/40 bg-destructive/5 px-2 py-1 text-[11px]"
+                            data-testid="chat-safety-warning"
+                          >
+                            {chatSafetyMessage(flag)}{" "}
+                            <Link to="/report" search={{ jobId, category: chatSafetyReportCategory(flag) }} className="underline font-semibold">
+                              Report
+                            </Link>
+                          </p>
+                        );
+                      })()}
                       {m.failed && (
                         <button
                           onClick={() => retry(m)}

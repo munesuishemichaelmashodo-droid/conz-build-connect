@@ -7,6 +7,7 @@ export const DIRECT_PAYMENT_METHODS = [
   "ecocash",
   "onemoney",
   "innbucks",
+  "zipit",
   "bank_transfer",
   "other",
 ] as const;
@@ -27,6 +28,7 @@ const METHOD_LABEL: Record<DirectPaymentMethod, string> = {
   ecocash: "EcoCash",
   onemoney: "OneMoney",
   innbucks: "InnBucks",
+  zipit: "ZIPIT",
   bank_transfer: "Bank transfer",
   other: "Other",
 };
@@ -85,4 +87,129 @@ export function directPaymentStatusLine(
       ? ` (agreed price ${money(c.agreedAmount)})`
       : "";
   return `${base}: ${money(c.amount)} by ${directMethodLabel(c.method)}${ref}${differs}. Con Z did not handle this payment.`;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// 0179: payments recorded per stage (deposit, balance, or one full payment). Each stage holds the customer's claim,
+// the driver's confirmation and the customer's agreement, all write-once. None of them is proof of settlement.
+
+export type PaymentStageName = "deposit" | "balance" | "full";
+
+export type PlannedStage = {
+  stage: PaymentStageName;
+  expectedAmount: number;
+  due: string | null;
+  methodAgreed: string | null;
+  recipientName: string | null;
+  recipientAccount: string | null;
+  instructions: string | null;
+};
+
+export type PaymentStageRecord = {
+  stage: PaymentStageName;
+  expectedAmount: number;
+  customerClaimedAt: string | null;
+  customerMethod: string | null;
+  customerAmount: number | null;
+  customerReference: string | null;
+  driverConfirmedAt: string | null;
+  driverMethod: string | null;
+  driverAmount: number | null;
+  driverReference: string | null;
+  customerAcknowledgedAt: string | null;
+};
+
+const STAGES: readonly PaymentStageName[] = ["deposit", "balance", "full"];
+const num = (v: unknown) => (v == null || !Number.isFinite(Number(v)) ? null : Number(v));
+const str = (v: unknown) => (typeof v === "string" && v ? v : null);
+
+export function parsePlan(rows: unknown): PlannedStage[] {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .filter((r) => r && STAGES.includes((r as { stage: PaymentStageName }).stage))
+    .map((r: Record<string, unknown>) => ({
+      stage: r.stage as PaymentStageName,
+      expectedAmount: num(r.expected_amount) ?? 0,
+      due: str(r.due),
+      methodAgreed: str(r.method_agreed),
+      recipientName: str(r.recipient_name),
+      recipientAccount: str(r.recipient_account),
+      instructions: str(r.payment_instructions),
+    }));
+}
+
+export function parseStageRecords(rows: unknown): PaymentStageRecord[] {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .filter((r) => r && STAGES.includes((r as { stage: PaymentStageName }).stage))
+    .map((r: Record<string, unknown>) => ({
+      stage: r.stage as PaymentStageName,
+      expectedAmount: num(r.expected_amount) ?? 0,
+      customerClaimedAt: str(r.customer_claimed_at),
+      customerMethod: str(r.customer_method),
+      customerAmount: num(r.customer_amount),
+      customerReference: str(r.customer_reference),
+      driverConfirmedAt: str(r.driver_confirmed_at),
+      driverMethod: str(r.driver_method),
+      driverAmount: num(r.driver_amount),
+      driverReference: str(r.driver_reference),
+      customerAcknowledgedAt: str(r.customer_acknowledged_at),
+    }));
+}
+
+export function stageName(s: PaymentStageName): string {
+  return s === "deposit" ? "Deposit" : s === "balance" ? "Balance" : "Payment";
+}
+
+export type StageStatus =
+  "not_recorded" | "customer_says_paid" | "driver_confirmed" | "customer_acknowledged" | "disputed";
+
+/** Where one stage stands, from the two parties' statements. An open dispute on the job wins. */
+export function stageStatus(
+  rec: PaymentStageRecord | null | undefined,
+  dispute: DisputeState,
+): StageStatus {
+  if (dispute === "open") return "disputed";
+  if (rec?.driverConfirmedAt && rec.customerAcknowledgedAt) return "customer_acknowledged";
+  if (rec?.driverConfirmedAt) return "driver_confirmed";
+  if (rec?.customerClaimedAt) return "customer_says_paid";
+  return "not_recorded";
+}
+
+export function stageStatusLabel(s: StageStatus): string {
+  switch (s) {
+    case "not_recorded":
+      return "Not recorded yet";
+    case "customer_says_paid":
+      return "Customer says paid; waiting for the driver to confirm";
+    case "driver_confirmed":
+      return "Driver confirmed receiving it";
+    case "customer_acknowledged":
+      return "Driver confirmed and customer agreed";
+    case "disputed":
+      return "Disputed";
+  }
+}
+
+/** True when a statement differs from the agreed amount, or the two statements differ. */
+export function stageAmountsDisagree(rec: PaymentStageRecord | null | undefined): boolean {
+  if (!rec) return false;
+  const c = (n: number) => Math.round(n * 100);
+  const vals = [rec.customerAmount, rec.driverAmount].filter((n): n is number => n != null);
+  return (
+    vals.some((v) => c(v) !== c(rec.expectedAmount)) ||
+    (vals.length === 2 && c(vals[0]) !== c(vals[1]))
+  );
+}
+
+const DUE_LABEL: Record<string, string> = {
+  on_agreement: "when the agreement is confirmed",
+  before_pickup: "before pickup",
+  on_pickup: "when the load is picked up",
+  on_delivery: "when the load is delivered",
+  other: "at the time agreed",
+  as_agreed: "as agreed with the driver",
+};
+export function dueLabel(due: string | null | undefined): string {
+  return (due && DUE_LABEL[due]) || "as agreed with the driver";
 }

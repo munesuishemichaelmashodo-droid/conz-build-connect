@@ -20,7 +20,6 @@ import {
   CreditCard,
   Clock,
   X,
-  Banknote,
   Loader2,
 } from "lucide-react";
 import { money } from "@/lib/domain";
@@ -42,7 +41,14 @@ import { useLaunchSwitches } from "@/lib/launch-switches";
 import { promoCopy, usePromoCredit } from "@/lib/promo-credit";
 import { toast } from "sonner";
 import { withdrawalStage } from "@/lib/withdrawalStatus";
-import { DriverEarningsCard } from "@/components/wallet/DriverEarningsCard";
+import {
+  COMMISSION_WALLET_RULES,
+  COMMISSION_WALLET_TITLE,
+  TOPUP_AVAILABILITY,
+  topupReceiptLines,
+  walletTxLabel,
+  type TopupReceipt,
+} from "@/lib/commission-wallet";
 
 export const Route = createFileRoute("/_authenticated/wallet")({
   // ?topup=12.5 opens the top-up with that amount filled in (the shortfall shown on a job offer).
@@ -76,6 +82,8 @@ type PaynowTopup = {
   status: string;
   paid_at: string | null;
   created_at: string;
+  currency?: string | null;
+  paynow_reference?: string | null;
 };
 
 // Withdrawal payouts are manual: "approved" means the request was accepted and
@@ -132,10 +140,9 @@ function WalletPage() {
   const [tab, setTab] = useState<"summary" | "history" | "requests">("summary");
   const { topup: topupFromLink } = Route.useSearch();
   const [topUpOpen, setTopUpOpen] = useState(topupFromLink != null);
-  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [receipt, setReceipt] = useState<TopupReceipt | null>(null);
   const launch = useLaunchSwitches();
   const promoCredit = usePromoCredit();
-  const canWithdraw = launch.withdrawalsEnabled;
 
   const { data: wallet } = useQuery({
     queryKey: ["wallet", userId],
@@ -188,27 +195,12 @@ function WalletPage() {
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("payments")
-        .select("id,amount,status,paid_at,created_at")
+        .select("id,amount,status,paid_at,created_at,currency,paynow_reference")
         .eq("user_id", userId!)
         .eq("type", "topup")
         .order("created_at", { ascending: false })
         .limit(20);
       return (data ?? []) as PaynowTopup[];
-    },
-  });
-  // Only whether a PIN exists is needed — filter server-side so the bcrypt
-  // hash itself is never sent to the browser.
-  const { data: hasPin, isLoading: pinLoading } = useQuery({
-    queryKey: ["driver-pin", userId],
-    enabled: !!userId,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("driver_profiles")
-        .select("user_id")
-        .eq("user_id", userId!)
-        .not("withdrawal_pin_hash", "is", null)
-        .maybeSingle();
-      return !!data;
     },
   });
 
@@ -373,7 +365,7 @@ function WalletPage() {
     (withdrawals ?? []).filter((t) => t.status === "pending").length;
 
   return (
-    <AppShell title="Driver Wallet">
+    <AppShell title={COMMISSION_WALLET_TITLE}>
       <motion.div
         id="tour-wallet-balance"
         initial={{ opacity: 0, y: 12 }}
@@ -384,7 +376,7 @@ function WalletPage() {
         <div className="flex items-start justify-between relative">
           <div>
             <div className="text-xs text-white/75">
-              {canWithdraw ? "Available to withdraw" : "ConZ credit available"}
+              Commission credit available
             </div>
             <div
               className="font-display font-bold text-cz-amber-text text-5xl mt-1 tracking-tight"
@@ -409,20 +401,20 @@ function WalletPage() {
         <dl
           className={cn(
             "mt-4 grid gap-2 relative text-center",
-            canWithdraw || pendingWithdrawal > 0 ? "grid-cols-3" : "grid-cols-2",
+            pendingWithdrawal > 0 ? "grid-cols-3" : "grid-cols-2",
           )}
         >
           <div className="rounded-xl bg-white/5 py-2">
-            <dt className="text-xs text-white/75">Total</dt>
+            <dt className="text-xs text-white/75">Total credit</dt>
             <dd className="font-display font-bold text-sm">{money(balance)}</dd>
           </div>
           <div className="rounded-xl bg-white/5 py-2">
-            <dt className="text-xs text-white/75">Held</dt>
+            <dt className="text-xs text-white/75">Reserved for active jobs</dt>
             <dd className="font-display font-bold text-sm">{money(held)}</dd>
           </div>
-          {(canWithdraw || pendingWithdrawal > 0) && (
+          {pendingWithdrawal > 0 && (
             <div className="rounded-xl bg-white/5 py-2">
-              <dt className="text-xs text-white/75">Pending withdrawal</dt>
+              <dt className="text-xs text-white/75">Old withdrawal request</dt>
               <dd className="font-display font-bold text-sm">{money(pendingWithdrawal)}</dd>
             </div>
           )}
@@ -434,38 +426,17 @@ function WalletPage() {
           </p>
         )}
 
-        <div className="mt-5 grid grid-cols-2 gap-2 relative">
-          <Button
-            onClick={() => setTopUpOpen(true)}
-            className={cn("h-11 rounded-xl", !canWithdraw && "col-span-2")}
-          >
-            <Plus className="w-4 h-4 mr-1" /> Top up
+        <div className="mt-5 relative">
+          <Button onClick={() => setTopUpOpen(true)} className="h-11 w-full rounded-xl">
+            <Plus className="w-4 h-4 mr-1" /> Top up commission credit
           </Button>
-          {canWithdraw && (
-            <Button
-              onClick={() => setWithdrawOpen(true)}
-              variant="secondary"
-              className="h-11 rounded-xl bg-white/10 text-white hover:bg-white/20 border-white/10"
-            >
-              <Banknote className="w-4 h-4 mr-1" /> Withdraw
-            </Button>
-          )}
         </div>
 
-        {!canWithdraw && (
-          <p className="text-xs text-white/75 mt-4 relative">
-            {commissionCopy("Your ConZ credit pays ConZ commission: 7% of the full job price, materials and transport included.", transportOn)} {promoCopy("Your first completed job has no commission.", promoCredit)} Part of it is held while a job is
-            active. Withdrawals are paused for now; questions
-            about your credit? Contact support. You can hold up to {money(launch.maxWalletBalance)} in credit.
-          </p>
-        )}
-        {canWithdraw && (
-          <p className="text-xs text-white/75 mt-4 relative">
-            Held funds are the 7% commission reserved for your active jobs; they can't be withdrawn.
-            A pending withdrawal is reserved straight away, so it is not counted as available; it is
-            debited when an admin approves it, and released if it is rejected or cancelled.
-          </p>
-        )}
+        <p className="text-xs text-white/75 mt-4 relative">
+          {commissionCopy("Prepaid credit used only to pay Con Z's commission: 7% of the full job price, materials and transport included.", transportOn)}{" "}
+          It is not your earnings: customers pay you directly. It cannot be withdrawn or transferred. You can hold up to{" "}
+          {money(launch.maxWalletBalance)} in credit.
+        </p>
       </motion.div>
 
       <div
@@ -497,12 +468,16 @@ function WalletPage() {
 
       {tab === "summary" && (
         <div className="mt-4 space-y-4">
-          {userId && <DriverEarningsCard userId={userId} />}
+          <ul className="rounded-2xl border bg-card p-4 text-xs space-y-1.5 list-disc pl-8" aria-label="How commission credit works" data-testid="commission-rules">
+            {COMMISSION_WALLET_RULES.map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+            <li>{TOPUP_AVAILABILITY}</li>
+          </ul>
           <dl className="rounded-2xl border bg-card p-4 text-xs space-y-1.5" aria-label="What the numbers mean">
             <div><dt className="inline font-semibold">Total credit: </dt><dd className="inline text-muted-foreground">your top-ups and promotional credit. It only pays ConZ's commission on jobs the customer pays you directly. It is not your earnings.</dd></div>
-            <div><dt className="inline font-semibold">Held: </dt><dd className="inline text-muted-foreground">the commission reserved while a job is active. It is charged when the job is completed{promoCredit.enabled ? " (promotional credit is spent first)" : ""}, and released on a valid cancellation.</dd></div>
+            <div><dt className="inline font-semibold">Reserved for active jobs: </dt><dd className="inline text-muted-foreground">the commission reserved while a job is active. It is charged when the job is completed{promoCredit.enabled ? " (promotional credit is spent first)" : ""}, and released on a valid cancellation.</dd></div>
             <div><dt className="inline font-semibold">Available: </dt><dd className="inline text-muted-foreground">total minus held. This is what covers commission on new jobs.</dd></div>
-            {!canWithdraw && <div><dt className="inline font-semibold">Withdrawals: </dt><dd className="inline text-muted-foreground">paused for now.</dd></div>}
           </dl>
           <div className="rounded-2xl bg-card border p-4 space-y-3">
             <SummaryRow
@@ -517,12 +492,16 @@ function WalletPage() {
               value={money(commissions)}
               tone="text-destructive"
             />
-            <div className="h-px bg-border" />
-            <SummaryRow
-              label="Approved withdrawals"
-              value={money(withdrawn)}
-              hint="Debited from your wallet; payout is sent manually"
-            />
+            {withdrawn > 0 && (
+              <>
+                <div className="h-px bg-border" />
+                <SummaryRow
+                  label="Withdrawals (old system)"
+                  value={money(withdrawn)}
+                  hint="From before commission credit became non-withdrawable; kept for your records"
+                />
+              </>
+            )}
             <div className="h-px bg-border" />
             <SummaryRow label="Jobs with commission charged" value={String(jobsCompleted)} />
           </div>
@@ -534,12 +513,6 @@ function WalletPage() {
             </Notice>
           )}
 
-          {/* Only relevant while withdrawals are switched on (launch switch). */}
-          {canWithdraw && !pinLoading && !hasPin && (
-            <Notice tone="warning" title="Set a withdrawal PIN">
-              A 4–8 digit PIN protects your withdrawals. Set it from your Profile.
-            </Notice>
-          )}
         </div>
       )}
 
@@ -551,7 +524,7 @@ function WalletPage() {
             <EmptyState
               icon={Clock}
               title="No requests yet"
-              hint="Your top-ups and withdrawals will appear here."
+              hint="Your top-ups will appear here."
             />
           ) : (
             <>
@@ -566,10 +539,29 @@ function WalletPage() {
                       {new Date(p.paid_at ?? p.created_at).toLocaleString()} ·{" "}
                       {PAYNOW_STATUS[p.status] ?? p.status}
                     </div>
+                    {p.paynow_reference && (
+                      <div className="text-xs text-muted-foreground">Paynow reference {p.paynow_reference}</div>
+                    )}
                     {p.status === "initiated" && (
-                      <div className="text-xs text-muted-foreground">
-                        Your wallet is credited only once Paynow confirms payment.
-                      </div>
+                      <div className="text-xs text-muted-foreground">{TOPUP_AVAILABILITY}</div>
+                    )}
+                    {(p.status === "paid" || p.status === "released") && (
+                      <button
+                        type="button"
+                        className="mt-1 text-xs font-semibold underline"
+                        onClick={() =>
+                          setReceipt({
+                            paymentId: p.id,
+                            amount: Number(p.amount),
+                            currency: p.currency ?? "USD",
+                            paidAt: p.paid_at ?? p.created_at,
+                            provider: "Paynow",
+                            providerReference: p.paynow_reference ?? null,
+                          })
+                        }
+                      >
+                        Receipt
+                      </button>
                     )}
                   </div>
                   <div
@@ -670,9 +662,7 @@ function WalletPage() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold capitalize truncate">
-                        {String(t.type).replace(/_/g, " ")}
-                      </div>
+                      <div className="text-sm font-semibold truncate">{walletTxLabel(t.type)}</div>
                       <div className="text-xs text-muted-foreground truncate">
                         {t.note ?? new Date(t.created_at).toLocaleString()}
                       </div>
@@ -695,12 +685,27 @@ function WalletPage() {
       )}
 
       <TopUpDialog open={topUpOpen} onOpenChange={setTopUpOpen} initialAmount={topupFromLink} />
-      <WithdrawDialog
-        open={withdrawOpen}
-        onOpenChange={setWithdrawOpen}
-        available={available}
-        hasPin={!!hasPin}
-      />
+      <Dialog open={!!receipt} onOpenChange={(o) => !o && setReceipt(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Top-up receipt</DialogTitle>
+            <DialogDescription>Prepaid commission credit. Keep this for your records.</DialogDescription>
+          </DialogHeader>
+          {receipt && (
+            <dl className="space-y-1.5 text-sm" data-testid="topup-receipt">
+              {topupReceiptLines(receipt).map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">{k}</dt>
+                  <dd className="text-right font-medium">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          <Button variant="secondary" onClick={() => window.print()}>
+            Print or save
+          </Button>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
@@ -969,293 +974,6 @@ function TopUpDialog({
             Your wallet is credited automatically once payment is confirmed.
           </p>
         </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function WithdrawDialog({
-  open,
-  onOpenChange,
-  available,
-  hasPin,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  available: number;
-  hasPin: boolean;
-}) {
-  const qc = useQueryClient();
-  const { userId } = useAuth();
-  const [amountText, setAmountText] = useState("20");
-  const [method, setMethod] = useState<string>("ecocash");
-  const [destination, setDestination] = useState("");
-  const [pin, setPin] = useState("");
-  const [step, setStep] = useState<"form" | "confirm">("form");
-  const [submitting, setSubmitting] = useState(false);
-  const [touched, setTouched] = useState(false);
-
-  const amount = Number(amountText);
-  const errors: { amount?: string; destination?: string; pin?: string } = {};
-  if (!amountText || !Number.isFinite(amount) || amount <= 0)
-    errors.amount = "Enter an amount greater than $0.";
-  else if (
-    Math.round(amount * 100) !== amount * 100 &&
-    Math.abs(Math.round(amount * 100) - amount * 100) > 1e-6
-  )
-    errors.amount = "Use at most 2 decimal places.";
-  else if (amount > available)
-    errors.amount = `You can withdraw at most ${money(available)} (held funds can't be withdrawn).`;
-  if (destination.trim().length < 5)
-    errors.destination = "Enter the full phone number or account number.";
-  if (pin.length < 4) errors.pin = "Enter your 4–8 digit PIN.";
-  const valid = Object.keys(errors).length === 0;
-
-  const reset = () => {
-    setStep("form");
-    setPin("");
-    setTouched(false);
-  };
-
-  const submit = async () => {
-    if (submitting) return; // guard against double taps
-    if (!hasPin) return toast.error("Set a withdrawal PIN in Profile first");
-    if (!valid) return;
-    setSubmitting(true);
-    try {
-      const { data, error } = await (supabase as any).rpc("request_withdrawal", {
-        _amount: amount,
-        _method: method,
-        _destination: destination.trim(),
-        _pin: pin,
-      });
-      setPin("");
-      if (error) {
-        setStep("form");
-        return toast.error(friendlyPaymentError(error));
-      }
-      const failed = rpcFailure(data);
-      if (failed) {
-        setStep("form");
-        return toast.error(failed.message);
-      }
-      toast.success("Request submitted — awaiting admin review. No money has been sent yet.");
-      qc.invalidateQueries({ queryKey: ["withdrawals", userId] });
-      qc.invalidateQueries({ queryKey: ["wallet", userId] });
-      setDestination("");
-      reset();
-      onOpenChange(false);
-    } catch (err) {
-      setStep("form");
-      toast.error(friendlyPaymentError(err));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const methodLabel = METHODS.find((m) => m.id === method)?.label ?? method;
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        if (submitting) return;
-        if (!v) reset();
-        onOpenChange(v);
-      }}
-    >
-      <DialogContent className="max-w-sm rounded-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="font-display">
-            {step === "form" ? "Withdraw" : "Confirm withdrawal"}
-          </DialogTitle>
-          <DialogDescription>
-            {step === "form"
-              ? "An admin reviews each request, then ConZ sends the payout manually. Submitting does not send money."
-              : "Check the details. Once submitted you can't edit the request — only cancel it while it is awaiting review."}
-          </DialogDescription>
-        </DialogHeader>
-
-        {step === "confirm" ? (
-          <div className="space-y-4">
-            <dl className="rounded-2xl bg-muted p-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Amount</dt>
-                <dd className="font-display font-bold">{money(amount)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Method</dt>
-                <dd className="font-semibold">{methodLabel}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">Send to</dt>
-                <dd className="font-semibold break-all text-right">{destination.trim()}</dd>
-              </div>
-            </dl>
-            <p className="text-[12px] text-muted-foreground">
-              The amount is debited from your wallet when an admin approves it, and paid out by ConZ
-              afterwards. Payout timing is not guaranteed by this app.
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={submitting}
-                onClick={() => setStep("form")}
-                className="h-12 rounded-xl"
-              >
-                Back
-              </Button>
-              <Button
-                type="button"
-                disabled={submitting}
-                onClick={submit}
-                className="h-12 rounded-xl"
-              >
-                {submitting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" aria-label="Submitting" />
-                ) : (
-                  "Submit request"
-                )}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <form
-            className="space-y-4"
-            noValidate
-            onSubmit={(e) => {
-              e.preventDefault();
-              setTouched(true);
-              if (valid && hasPin) setStep("confirm");
-            }}
-          >
-            <div className="rounded-2xl bg-muted p-4">
-              <div className="flex items-center justify-between">
-                <label htmlFor="wd-amount" className="text-xs text-muted-foreground">
-                  Amount
-                </label>
-                <div className="text-xs text-muted-foreground">Available {money(available)}</div>
-              </div>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="font-display font-bold text-3xl">$</span>
-                <input
-                  id="wd-amount"
-                  type="number"
-                  inputMode="decimal"
-                  min={0.01}
-                  step="0.01"
-                  value={amountText}
-                  onChange={(e) => setAmountText(e.target.value)}
-                  aria-invalid={touched && !!errors.amount}
-                  aria-describedby={touched && errors.amount ? "wd-amount-err" : undefined}
-                  className="bg-transparent font-display font-bold text-3xl w-full outline-none"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => setAmountText(String(available))}
-                className="mt-2 text-xs underline text-muted-foreground min-h-8"
-              >
-                Use full available amount
-              </button>
-              {touched && errors.amount && (
-                <p id="wd-amount-err" role="alert" className="text-xs text-destructive mt-1">
-                  {errors.amount}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <div className="text-xs text-muted-foreground mb-2">Payout Method</div>
-              <div
-                className="grid grid-cols-2 gap-1.5"
-                role="radiogroup"
-                aria-label="Payout method"
-              >
-                {METHODS.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={method === m.id}
-                    onClick={() => setMethod(m.id)}
-                    className={cn(
-                      "flex items-center gap-2 rounded-xl border p-2.5 text-left transition text-xs font-semibold min-h-11",
-                      method === m.id
-                        ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]"
-                        : "border-input hover:bg-muted",
-                    )}
-                  >
-                    <m.icon aria-hidden className="w-4 h-4 text-muted-foreground" />
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="wd-dest" className="text-xs text-muted-foreground">
-                Destination (phone / account)
-              </label>
-              <input
-                id="wd-dest"
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                maxLength={60}
-                autoComplete="off"
-                aria-invalid={touched && !!errors.destination}
-                className="w-full mt-1 px-3 py-2.5 rounded-xl border bg-background text-sm"
-              />
-              {touched && errors.destination && (
-                <p role="alert" className="text-xs text-destructive mt-1">
-                  {errors.destination}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="wd-pin" className="text-xs text-muted-foreground">
-                Withdrawal PIN
-              </label>
-              <input
-                id="wd-pin"
-                type="password"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                autoComplete="off"
-                value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
-                maxLength={8}
-                placeholder="••••"
-                aria-invalid={touched && !!errors.pin}
-                className="w-full mt-1 px-3 py-2.5 rounded-xl border bg-background text-sm tracking-widest"
-              />
-              {touched && errors.pin && (
-                <p role="alert" className="text-xs text-destructive mt-1">
-                  {errors.pin}
-                </p>
-              )}
-              {!hasPin && (
-                <p className="text-xs text-warning mt-1">
-                  You haven't set a PIN. Set one from Profile before withdrawing.
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground mt-1">
-                Repeated wrong PINs lock withdrawals temporarily. There is no self-service PIN reset
-                yet — contact support if you forget it.
-              </p>
-            </div>
-
-            <Button
-              type="submit"
-              disabled={!hasPin || available <= 0}
-              className="w-full h-12 rounded-xl"
-            >
-              Review withdrawal
-            </Button>
-          </form>
-        )}
       </DialogContent>
     </Dialog>
   );

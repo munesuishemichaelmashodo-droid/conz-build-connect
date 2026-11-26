@@ -194,7 +194,7 @@ function HelpPage() {
           </a>
           <Link
             to="/report"
-            search={{ jobId: undefined }}
+            search={{ jobId: undefined, category: undefined }}
             className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-muted transition"
           >
             <MessageSquareWarning className="w-5 h-5 text-cz-amber-text" />

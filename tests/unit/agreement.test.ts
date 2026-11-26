@@ -4,8 +4,44 @@ import {
   carriedDeposit,
   currentAgreement,
   payLine,
+  paymentPlanLabel,
   type JobAgreement,
 } from "@/lib/agreement";
+
+describe("payment terms (0179)", () => {
+  const row: JobAgreement = {
+    id: "a",
+    job_id: "j",
+    version: 1,
+    proposed_by: "driver",
+    fare: 100,
+    payment_method: "ecocash",
+    payment_timing: "on_delivery",
+    deposit_amount: 0,
+    pickup_window: null,
+    delivery_window: null,
+    inclusions: null,
+    exclusions: null,
+    status: "proposed",
+    customer_accepted_at: null,
+    driver_accepted_at: "t",
+    created_at: "t",
+  };
+  it("names the four plans", () => {
+    expect(paymentPlanLabel(row)).toBe("Payment after delivery");
+    expect(paymentPlanLabel({ ...row, payment_timing: "on_pickup" })).toBe("No deposit");
+    expect(paymentPlanLabel({ ...row, deposit_amount: 20 })).toBe("Deposit, then the balance");
+    expect(paymentPlanLabel({ ...row, deposit_amount: 100 })).toBe("Full advance payment");
+  });
+  it("states the deposit timing and the balance; a full advance says so", () => {
+    expect(payLine({ ...row, deposit_amount: 20, deposit_due: "before_pickup" })).toContain(
+      "$20.00 deposit paid to the driver before pickup (balance $80.00)",
+    );
+    expect(payLine({ ...row, deposit_amount: 100, deposit_due: "on_agreement" })).toMatch(
+      /in full in advance, directly to the driver/,
+    );
+  });
+});
 
 const base: JobAgreement = {
   id: "a",
