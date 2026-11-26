@@ -109,8 +109,13 @@ function AdminReferrals() {
   const act = async (row: ReferralAdminRow, action: "approve" | "reject" | "freeze" | "unfreeze" | "release") => {
     if (action === "release" && !isSuper) return toast.error("Only super admins can force-release a reward");
     let notes: string | null = null;
-    if (["reject", "freeze"].includes(action)) {
-      notes = window.prompt(`Reason for ${action === "reject" ? "rejecting" : "freezing"} this referral reward:`);
+    // Clearing a fraud flag (approve) needs a reason too (0181).
+    if (["reject", "freeze"].includes(action) || (action === "approve" && row.fraud_flag)) {
+      notes = window.prompt(
+        action === "approve"
+          ? "Why is it safe to clear the fraud flag on this referral?"
+          : `Reason for ${action === "reject" ? "rejecting" : "freezing"} this referral reward:`,
+      );
       if (!notes?.trim()) return;
     }
     setBusyId(row.id);
