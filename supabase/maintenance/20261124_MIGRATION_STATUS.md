@@ -36,7 +36,7 @@ live, so a push would apply them. Apply migrations one at a time in the SQL edit
 | 0132 `verification_sla` | Business-hours SLA timeline for driver review | No | **Parked** (admin verifications screen shows no SLA when missing) |
 | 0137 `public_open_job_previews` | Signed-out preview of open requests at `/open-jobs` | Optional | **Parked** unless the owner wants `/open-jobs` live (today it shows an empty list) |
 | 0141 `auth_signup_trigger` | Creates `on_auth_user_created` only if missing | Yes (test databases) | **Apply** (owner go): a no-op on production, which already has the trigger |
-| 0170 `driver_public_profiles_verified_only` | Branch `fix/mvp-security` | Yes | Apply after merge (see `docs/release/2026-11-24-SECURITY-FIXES.md`) |
+| 0170 `driver_public_profiles_verified_only` | `driver_public_profiles` lists verified drivers only (plus own row, admins) | Yes | **LIVE**, applied 26/11 (owner: "apply 0170") via `execute_sql`, recorded `20261124100000`. Before: viewdef md5 `9367c72c…` (= undo script). After: filter present, anon no SELECT, authenticated SELECT; a signed-in user reads 3 rows, all verified (rolled-back probe). Undo: `supabase/rollbacks/20261124100000_0170_rollback.sql`. Tested: pgTAP 1010 |
 | 0171 `provider_commission_accounting` | PR #133: provider-paid jobs, payables, payouts, reversals (switches OFF) | Yes | Apply in the **SQL editor** (two allow-listed DROP CONSTRAINTs) after #133/#134 are deployed |
 | 0172 `remove_job_price_cap` | PR #138: no $500 ceiling; large-job alert | Yes | Apply **after 0129**, SQL editor |
 | 0173 `provider_post_payout_recovery` | Refund after a confirmed driver payout: recovery record, repaid / written off | Yes (needs 0171) | Apply **after 0171**, SQL editor (widens the ledger account CHECK) |
