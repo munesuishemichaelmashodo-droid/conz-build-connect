@@ -4,11 +4,30 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
 import { StatusBadge, EmptyState } from "@/components/ui-bits";
-import { money } from "@/lib/domain";
-import { Gift, Copy, Share2, Users, Clock, CheckCircle2, Trophy, MessageCircle } from "lucide-react";
+import {
+  Gift,
+  Copy,
+  Share2,
+  Users,
+  Clock,
+  CheckCircle2,
+  Trophy,
+  MessageCircle,
+  Info,
+  ShieldAlert,
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { isNativePlatform } from "@/lib/native-push";
+import {
+  REFERRAL_INTRO,
+  REFERRAL_PAGE_TITLE,
+  REFERRAL_RULES,
+  milestoneLine,
+  referralRequirement,
+  referralShareText,
+  referralStatus,
+} from "@/lib/referral-copy";
 
 export const Route = createFileRoute("/_authenticated/refer")({
   component: ReferPage,
@@ -22,7 +41,6 @@ type ReferralRow = {
   referred_role: string;
   verification_status: string;
   reward_status: string;
-  reward_amount: number | null;
   created_at: string;
 };
 
@@ -44,7 +62,7 @@ function ReferPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("referrals")
-        .select("id,referred_id,referred_role,verification_status,reward_status,reward_amount,created_at")
+        .select("id,referred_id,referred_role,verification_status,reward_status,created_at")
         .eq("referrer_id", userId as string)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -69,13 +87,12 @@ function ReferPage() {
   const achieved = milestonesQuery.data ?? new Set<number>();
 
   const releasedCount = referrals.filter((r) => r.reward_status === "released").length;
-  const pendingCount = referrals.filter((r) => ["pending", "hold", "approved"].includes(r.reward_status)).length;
-  const earnedTotal = referrals
-    .filter((r) => r.reward_status === "released")
-    .reduce((sum, r) => sum + (r.reward_amount ?? 0), 0);
-  const pendingTotal = referrals
-    .filter((r) => ["hold", "approved"].includes(r.reward_status))
-    .reduce((sum, r) => sum + (r.reward_amount ?? 0), 0);
+  const pendingCount = referrals.filter((r) =>
+    ["pending", "hold", "approved"].includes(r.reward_status),
+  ).length;
+  const reviewCount = referrals.filter((r) =>
+    ["frozen", "rejected"].includes(r.reward_status),
+  ).length;
 
   const code = profile?.referral_code;
   const link = code ? `${window.location.origin}/auth?mode=register&ref=${code}` : "";
@@ -90,7 +107,8 @@ function ReferPage() {
   };
 
   const shareWhatsapp = async () => {
-    const msg = `Join Con Z Connect and get materials delivered fast! Use my referral code ${code} when you sign up: ${link}`;
+    if (!code) return;
+    const msg = referralShareText(code, link);
     const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
     // window.open(url, "_blank") doesn't reliably work inside the native
     // Capacitor WebView (no multi-window support enabled by default, so it
@@ -106,14 +124,23 @@ function ReferPage() {
     if (isNativePlatform()) {
       try {
         const { Share } = await import("@capacitor/share");
-        await Share.share({ title: "Join Con Z Connect", text: `Use my referral code ${code}`, url: link, dialogTitle: "Share referral link" });
+        await Share.share({
+          title: "Join Con Z Connect",
+          text: referralShareText(code, link),
+          url: link,
+          dialogTitle: "Share referral link",
+        });
         return;
       } catch {
         // fall through to copy
       }
     } else if (navigator.share) {
       try {
-        await navigator.share({ title: "Join Con Z Connect", text: `Use my referral code ${code}`, url: link });
+        await navigator.share({
+          title: "Join Con Z Connect",
+          text: referralShareText(code, link),
+          url: link,
+        });
         return;
       } catch {
         /* user cancelled */
@@ -129,15 +156,15 @@ function ReferPage() {
     : 100;
 
   return (
-    <AppShell title="Refer & Earn">
+    <AppShell title={REFERRAL_PAGE_TITLE}>
       <div className="space-y-5">
         {/* Referral code card */}
         <div className="rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground p-5 shadow-lift relative overflow-hidden">
           <Gift className="absolute -right-3 -bottom-3 w-24 h-24 opacity-15" />
           <p className="text-xs opacity-80 font-semibold">Your referral code</p>
           <p className="font-display font-black text-3xl tracking-wide mt-1">{code ?? "…"}</p>
-          <p className="text-sm opacity-90 mt-2">
-            Share it with friends. You earn when they complete their first job — they get a bonus too.
+          <p className="text-sm opacity-90 mt-2" data-testid="referral-intro">
+            {REFERRAL_INTRO}
           </p>
           <div className="grid grid-cols-2 gap-2 mt-4">
             <button
@@ -165,8 +192,30 @@ function ReferPage() {
         <div className="grid grid-cols-2 gap-3">
           <StatCard icon={Users} label="Total referrals" value={String(referrals.length)} />
           <StatCard icon={Clock} label="Pending" value={String(pendingCount)} />
-          <StatCard icon={CheckCircle2} label="Earned" value={money(earnedTotal)} tone="text-success" />
-          <StatCard icon={Gift} label="Pending value" value={money(pendingTotal)} tone="text-warning" />
+          <StatCard
+            icon={CheckCircle2}
+            label="Recognised"
+            value={String(releasedCount)}
+            tone="text-success"
+          />
+          <StatCard
+            icon={ShieldAlert}
+            label="Under review or not counted"
+            value={String(reviewCount)}
+          />
+        </div>
+
+        {/* How it works */}
+        <div className="rounded-xl border bg-card p-4 space-y-2" data-testid="referral-rules">
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 text-muted-foreground" />
+            <h3 className="font-semibold text-sm">How referrals count</h3>
+          </div>
+          <ul className="list-disc space-y-1 pl-5 text-[13px] text-muted-foreground">
+            {REFERRAL_RULES.map((rule) => (
+              <li key={rule}>{rule}</li>
+            ))}
+          </ul>
         </div>
 
         {/* Milestones */}
@@ -181,21 +230,29 @@ function ReferPage() {
                 key={m}
                 className={cn(
                   "flex-1 flex flex-col items-center gap-1 rounded-lg border py-2 text-[11px] font-semibold",
-                  achieved.has(m) ? "border-primary bg-primary/10 text-cz-amber-text" : "text-muted-foreground"
+                  achieved.has(m)
+                    ? "border-primary bg-primary/10 text-cz-amber-text"
+                    : "text-muted-foreground",
                 )}
               >
-                <Trophy className={cn("w-4 h-4", achieved.has(m) ? "text-cz-amber-text" : "text-muted-foreground/40")} />
+                <Trophy
+                  className={cn(
+                    "w-4 h-4",
+                    achieved.has(m) ? "text-cz-amber-text" : "text-muted-foreground/40",
+                  )}
+                />
                 {m}
               </div>
             ))}
           </div>
           <div className="h-2 rounded-full bg-muted overflow-hidden">
-            <div className="h-full bg-primary transition-all" style={{ width: `${progressPct}%` }} />
+            <div
+              className="h-full bg-primary transition-all"
+              style={{ width: `${progressPct}%` }}
+            />
           </div>
           <p className="text-[11px] text-muted-foreground mt-1.5">
-            {nextMilestone
-              ? `${releasedCount}/${nextMilestone} released referrals to your next badge`
-              : "You've hit every milestone — ambassador status unlocked!"}
+            {milestoneLine(releasedCount, nextMilestone)}
           </p>
         </div>
 
@@ -205,22 +262,33 @@ function ReferPage() {
           {referralsQuery.isLoading ? (
             <p className="text-xs text-muted-foreground">Loading…</p>
           ) : !referrals.length ? (
-            <EmptyState icon={Gift} title="No referrals yet" hint="Share your code above to start earning." />
+            <EmptyState
+              icon={Gift}
+              title="No referrals yet"
+              hint="Share your code above with people you trust."
+            />
           ) : (
             <div className="space-y-2">
               {referrals.map((r) => (
-                <div key={r.id} className="rounded-xl border bg-card p-3 flex items-center justify-between gap-2">
+                <div
+                  key={r.id}
+                  className="rounded-xl border bg-card p-3 flex items-center justify-between gap-2"
+                >
                   <div className="min-w-0">
                     <p className="text-sm font-semibold capitalize">{r.referred_role} referral</p>
                     <p className="text-[11px] text-muted-foreground">
-                      Joined {new Date(r.created_at).toLocaleDateString()} · {r.verification_status}
+                      Joined {new Date(r.created_at).toLocaleDateString()} ·{" "}
+                      {referralRequirement(r.referred_role)}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {referralStatus(r.reward_status).hint}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    {r.reward_amount != null && (
-                      <p className="text-sm font-semibold">{money(r.reward_amount)}</p>
-                    )}
-                    <StatusBadge label={r.reward_status} className={REWARD_STATUS_TONE[r.reward_status]} />
+                    <StatusBadge
+                      label={referralStatus(r.reward_status).label}
+                      className={REWARD_STATUS_TONE[r.reward_status]}
+                    />
                   </div>
                 </div>
               ))}

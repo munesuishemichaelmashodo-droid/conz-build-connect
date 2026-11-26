@@ -127,7 +127,7 @@ export function SidePanel() {
           {/* Settings shortcuts */}
           <Section label="Settings">
             <NavItem to="/profile" icon={User} label="Profile" onClick={close} />
-            <NavItem to="/refer" icon={Gift} label="Refer & Earn" onClick={close} />
+            <NavItem to="/refer" icon={Gift} label="Refer a friend" onClick={close} />
             <NavItem to="/jobs" icon={Bell} label="Notifications & jobs" onClick={close} />
             {isAdmin && (
               <NavItem to="/admin" icon={Shield} label="Admin dashboard" onClick={close} />

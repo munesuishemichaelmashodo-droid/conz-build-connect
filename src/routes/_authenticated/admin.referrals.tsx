@@ -5,7 +5,6 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { StatusBadge, EmptyState } from "@/components/ui-bits";
-import { money } from "@/lib/domain";
 import { Gift, Search as SearchIcon, AlertTriangle, Check, X, Snowflake, Unlock, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { isMfaRequiredError, readableRpcError, STEP_UP_ACTION_LABEL, startStepUp } from "@/lib/mfa";
@@ -107,10 +106,10 @@ function AdminReferrals() {
   });
 
   const act = async (row: ReferralAdminRow, action: "approve" | "reject" | "freeze" | "unfreeze" | "release") => {
-    if (action === "release" && !isSuper) return toast.error("Only super admins can force-release a reward");
+    if (action === "release" && !isSuper) return toast.error("Only super admins can recognise a referral early");
     let notes: string | null = null;
     if (["reject", "freeze"].includes(action)) {
-      notes = window.prompt(`Reason for ${action === "reject" ? "rejecting" : "freezing"} this referral reward:`);
+      notes = window.prompt(`Reason for ${action === "reject" ? "not recognising" : "freezing"} this referral:`);
       if (!notes?.trim()) return;
     }
     setBusyId(row.id);
@@ -121,7 +120,7 @@ function AdminReferrals() {
     });
     setBusyId(null);
     if (error) {
-      // Releasing a reward credits a wallet: super admin + MFA (0085).
+      // Recognising early needs a super admin with a fresh step-up (0181). Referrals never move money.
       if (isMfaRequiredError(error)) {
         return toast.error(readableRpcError(error), {
           action: { label: STEP_UP_ACTION_LABEL, onClick: () => void startStepUp() },
@@ -141,8 +140,8 @@ function AdminReferrals() {
       <div className="grid grid-cols-2 gap-3">
         <StatCard label="Total referrals" value={String(stats?.total_referrals ?? "…")} />
         <StatCard label="Pending / hold" value={String(stats?.pending_rewards ?? "…")} tone="text-warning" />
-        <StatCard label="Released" value={String(stats?.released_rewards ?? "…")} tone="text-success" />
-        <StatCard label="Paid out" value={money(stats?.total_released_amount ?? 0)} tone="text-success" />
+        <StatCard label="Recognised" value={String(stats?.released_rewards ?? "…")} tone="text-success" />
+        <StatCard label="Money paid" value="None (non-cash since 26/11)" />
         <StatCard label="Rejected" value={String(stats?.rejected_rewards ?? "…")} />
         <StatCard label="Fraud alerts" value={String(stats?.fraud_alerts ?? "…")} tone="text-destructive" />
       </div>
@@ -193,7 +192,6 @@ function AdminReferrals() {
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  {r.reward_amount != null && <p className="text-sm font-semibold">{money(r.reward_amount)}</p>}
                   <StatusBadge label={r.reward_status} className={STATUS_TONE[r.reward_status]} />
                 </div>
               </div>
@@ -220,8 +218,8 @@ function AdminReferrals() {
                     ) : (
                       <ActionBtn icon={Snowflake} label="Freeze" onClick={() => act(r, "freeze")} busy={busyId === r.id} />
                     )}
-                    {isSuper && r.reward_amount != null && (
-                      <ActionBtn icon={ArrowUpRight} label="Force release" onClick={() => act(r, "release")} busy={busyId === r.id} tone="success" />
+                    {isSuper && r.verification_status === "verified" && ["hold", "approved"].includes(r.reward_status) && !r.fraud_flag && (
+                      <ActionBtn icon={ArrowUpRight} label="Recognise now" onClick={() => act(r, "release")} busy={busyId === r.id} tone="success" />
                     )}
                   </>
                 )}
