@@ -48,6 +48,6 @@ export function driverEarningsNote(raw: unknown, withdrawalsEnabled: boolean): s
     case "provider":
       return "The customer paid online through Con Z. Con Z's fee is already taken out and the rest is recorded as owed to you: see Wallet, Earnings from Con Z-paid jobs. Your commission credit was not used.";
     default:
-      return "Paid to you directly by the customer. The Con Z fee comes off your wallet balance.";
+      return "Paid to you directly by the customer. Con Z's 7% commission was charged once from your commission credit.";
   }
 }

@@ -125,10 +125,30 @@ export function DirectPaymentPanel({
         <span className="text-cz-muted">Agreed price</span>
         <span className="font-semibold tabular-nums">${agreedPrice.toFixed(2)}</span>
       </div>
-      <p className="text-cz-muted">
-        Paid directly to the driver. Con Z does not receive, hold or guarantee this money. Pay only
-        this job's driver, using the details in the agreement.
-      </p>
+      {role === "customer" ? (
+        <div className="space-y-1 text-cz-muted" data-testid="direct-payment-guidance">
+          <p>
+            Payment is made directly to your assigned driver using the agreed payment method. Con Z
+            does not receive, hold or guarantee this money.
+          </p>
+          <p className="font-semibold text-cz-text">
+            Check the recipient and payment details before sending money.
+          </p>
+          <p>
+            After paying, record the payment here. Your driver will be asked to confirm receipt, and
+            you can acknowledge that confirmation.
+          </p>
+          <p>
+            Con Z records the statements made by both of you. A payment record is not independent
+            proof that a bank or mobile-money transfer settled.
+          </p>
+        </div>
+      ) : (
+        <p className="text-cz-muted" data-testid="direct-payment-guidance">
+          The customer pays you directly using the agreed payment method. Con Z does not receive,
+          hold or guarantee this money. Confirm only money you have actually received.
+        </p>
+      )}
       <div className="flex justify-between">
         <span className="text-cz-muted">Disputes</span>
         <span>{disputeLabel(data.dispute)}</span>
@@ -156,6 +176,7 @@ export function DirectPaymentPanel({
           {data.plan.map((p) => (
             <StageCard
               key={p.stage}
+              jobId={jobId}
               plan={p}
               rec={data.records.find((r) => r.stage === p.stage) ?? null}
               dispute={data.dispute}
@@ -206,6 +227,7 @@ export function DirectPaymentPanel({
 }
 
 function StageCard({
+  jobId,
   plan,
   rec,
   dispute,
@@ -216,6 +238,7 @@ function StageCard({
   onConfirm,
   onAcknowledge,
 }: {
+  jobId: string;
   plan: PlannedStage;
   rec: PaymentStageRecord | null;
   dispute: DisputeState;
@@ -269,6 +292,19 @@ function StageCard({
           {directMethodLabel(rec.driverMethod)}
           {rec.driverReference ? `, reference ${rec.driverReference}` : ""} on{" "}
           {new Date(rec.driverConfirmedAt).toLocaleString()}.
+        </p>
+      )}
+      {role === "customer" && rec?.customerClaimedAt && !rec.driverConfirmedAt && (
+        <p className="text-cz-muted" data-testid="awaiting-driver-confirmation">
+          Waiting for the driver to confirm they received it. If they do not, message them in the
+          job chat. If the payment went to the wrong person or something is not right,{" "}
+          <a
+            className="font-semibold underline"
+            href={`/report?jobId=${encodeURIComponent(jobId)}&category=payment`}
+          >
+            report it
+          </a>
+          .
         </p>
       )}
       {stageAmountsDisagree(rec) && (

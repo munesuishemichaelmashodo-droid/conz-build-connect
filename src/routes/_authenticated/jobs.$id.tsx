@@ -626,7 +626,7 @@ function JobDetail() {
         return toast.error("You are already on another job. Finish it before taking a new one.");
       }
       if (/insufficient wallet balance/i.test(error.message)) {
-        return toast.error("You can no longer accept — top up your wallet first.");
+        return toast.error("You can no longer accept — top up your commission credit first.");
       }
       return toast.error(error.message);
     }
@@ -1524,11 +1524,10 @@ function BidForm({
   const budget = Number(job?.budget ?? 0);
   const priceNum = Math.max(0, Number(price) || 0);
   const setPriceNum = (n: number) => setPrice(String(Math.max(5, Math.round(n * 100) / 100)));
-  const firstJobFree = driverProfile ? driverProfile.first_job_free_used === false : false;
   // Flat commission for every driver level (owner decision 11/10/2026).
   const effectivePct = commissionRate != null ? commissionRate : null;
   // Same rounding as the database's commission_amount (driver-economics.ts).
-  const fee = effectivePct != null ? commissionFee(priceNum, effectivePct, firstJobFree) : null;
+  const fee = effectivePct != null ? commissionFee(priceNum, effectivePct, false /* first job free retired (0176) */) : null;
   const pctLabel = effectivePct != null ? `${Number(effectivePct.toFixed(2))}%` : "";
   const chips = budget > 0 ? [budget, budget + 10, budget + 20, budget + 30] : [];
   // Server-computed at posting time by tg_validate_job_budget (same
@@ -1643,11 +1642,9 @@ function BidForm({
         {fee != null && (
           <div className="space-y-1 text-[13px] leading-relaxed text-cz-muted" data-testid="fee-explainer">
             <p>
-              {firstJobFree
-                ? `Your first completed job on Con Z has no Con Z fee. After that, the fee is ${pctLabel} of your full offer price.`
-                : job?.pricing_basis === "transport_only"
+              {job?.pricing_basis === "transport_only"
                   ? `Con Z keeps ${pctLabel} of your total agreed price for this job. It is reserved from your commission credit when the customer accepts and charged when the job is completed.`
-                  : `Con Z keeps ${pctLabel} of your full offer price, material and transport included. It is reserved from your wallet when the customer accepts and charged when the job is completed.`}
+                  : `Con Z keeps ${pctLabel} of your full offer price, material and transport included. It is reserved from your commission credit when the customer accepts, charged once when the delivery is verified, and returned if the job is cancelled.`}
             </p>
             {take && (
               <p data-testid="fee-example">
@@ -1856,7 +1853,7 @@ function BidForm({
         {fee != null && priceNum > 0 && (
           <div className="flex items-end justify-between gap-3">
             <div className="text-[13px] text-cz-muted">
-              {firstJobFree ? "Con Z fee (first job free)" : `Con Z fee (${pctLabel})`}
+              {`Con Z fee (${pctLabel})`}
               <div className="tabular-nums">−{usd2(fee)}</div>
             </div>
             <div className="text-right">

@@ -21,7 +21,7 @@ const DRIVER_ITEMS: NavItem[] = [
     icon: Truck,
     match: (p) => p === "/jobs" || p.startsWith("/jobs/") || p.startsWith("/chat/"),
   },
-  { to: "/wallet", label: "Wallet", icon: Wallet, match: (p) => p.startsWith("/wallet") },
+  { to: "/wallet", label: "Credit", icon: Wallet, match: (p) => p.startsWith("/wallet") },
   { to: "/profile", label: "Profile", icon: User, match: (p) => p.startsWith("/profile") },
 ];
 

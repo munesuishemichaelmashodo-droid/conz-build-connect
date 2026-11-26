@@ -29,7 +29,7 @@ describe("payment method wording", () => {
     expect(paymentMethodLabel("direct")).toBe("Directly to driver");
     expect(receiptPaymentMethod("direct")).toBe("Paid directly to driver");
     expect(driverEarningsNote("direct", false)).toBe(
-      "Paid to you directly by the customer. The Con Z fee comes off your wallet balance.",
+      "Paid to you directly by the customer. Con Z's 7% commission was charged once from your commission credit.",
     );
     expect(paymentMethodLabel("escrow")).toBe("Con Z Pay");
     expect(receiptPaymentMethod("escrow")).toBe("Con Z Pay (held & released on confirmation)");
