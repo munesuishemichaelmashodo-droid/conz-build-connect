@@ -25,7 +25,7 @@ No real phone, Android app, Paynow payment or bank statement was used.
 | Switches | `commission_rate` 7, `escrow_enabled` false, `withdrawals_enabled` false, `transport_pricing_enabled` false, promo credit on ($20), `maxJobBudget` **500**, `maxWalletBalance` **150** | Prod-read |
 | Commission base | `hold_job_commission`, `settle_direct_pay_job` and `driver_can_accept_for` use `coalesce(final_price, budget)`: the total accepted price. Matches the owner's rule (7% of the total deal) | Prod-read |
 | **$500 job ceiling still live** | 0129 and 0172 are not applied, so jobs over $500 cannot be posted. CLAUDE.md's "no $500 ceiling" applies only once 0172 is applied | Prod-read |
-| Not live (in git) | 0129, 0130–0132, 0137 (parked), 0141, 0171/0173 (provider path, OFF by design), 0172, 0174 | Prod-read + status doc |
+| Not live (in git) | 0130–0132, 0137 (parked), 0141, 0171/0173 (provider path, OFF by design), 0172, 0174 | Prod-read + status doc |
 | Escrow UI | Still in code (`Con Z Pay`), reachable only when `escrow_enabled` is true. Booking forces `direct` when off | Code |
 
 ## 1. Defect and wording register (prioritised)
@@ -49,7 +49,7 @@ No real phone, Android app, Paynow payment or bank statement was used.
 | --- | --- | --- | --- | --- |
 | O1 | **High** | Terms/Privacy | Terms §5–6 and Privacy mention the withdrawal PIN and "Wallet … withdrawals". The product no longer offers withdrawals | Lawyer review of the proposed wording in section 7. Not changed here (legal text) |
 | O2 | **High** | Paynow | Automatic re-check of pending top-ups is not configured (`PAYNOW_RECONCILE_SECRET` + `app_secrets` missing). A pending top-up is re-checked only when the driver opens the page | Owner sets the Vercel secret; I add the matching rows on approval |
-| O3 | High | Limits | $500 job ceiling live (0172 not applied); wallet cap $150 | Owner: apply 0129 then 0172, or keep the cap knowingly |
+| O3 | Done | Limits | $500 job ceiling | **Removed 26/11**: 0129 and 0172 applied and recorded (owner go). Admins are alerted on jobs ≥ $1,000; the $100,000 platform limit stays. Commission-credit cap stays $150 (now changeable in Settings by a super admin) |
 | O4 | Done | Privacy | 0170 (driver public profiles verified-only) | **Applied 26/11** (owner go) and recorded `20261124100000` |
 | O5 | Med | Referrals | "Refer & Earn" promises "You earn" and a bonus. Referral rewards are live in the database (M5 still open in the audit) | Owner decides: keep (and say what is earned, in commission credit) or hide |
 | O6 | Med | Admin | Payment statements are visible to admins only inside a dispute; `payment_anomaly` and `urgent_report` arrive as notifications with no queue | Later PR: an admin list of jobs with mismatched or unconfirmed payments |
@@ -75,7 +75,7 @@ No real phone, Android app, Paynow payment or bank statement was used.
 
 | Step | Behaviour | Evidence | Gap |
 | --- | --- | --- | --- |
-| Post job | Quote from `compute_material_offer`; ≤ $500 | Prod-read; pgTAP | O3 |
+| Post job | Quote from `compute_material_offer`; no $500 ceiling since 26/11 ($100,000 platform limit) | Prod-read; pgTAP | — |
 | Compare offers | Bidder cards (no contacts) | 0152/0153 | — |
 | Select driver | `accept_bid` reserves commission | pgTAP | — |
 | Agreement | Confirm or suggest a change; deposit and recipient are the driver's | pgTAP 1130 | Warning D2 |
@@ -141,7 +141,7 @@ Scenario coverage beyond these suites (from earlier releases' pgTAP): new, unver
    - BuySafe off for top-ups;
    - set `PAYNOW_RECONCILE_SECRET` (Production), then approve me adding the `app_secrets` rows;
    - one authorised $1 top-up matched on the Navysky bank statement.
-3. **Limits**: decide on the $500 ceiling (apply 0129 → 0172) and the $150 credit cap.
+3. **Limits**: $500 ceiling removed 26/11. The $150 commission-credit cap stays; change it in Settings if drivers need more.
 4. **0170**: applied 26/11 (done).
 5. **Referrals**: keep (with honest wording) or hide.
 6. **Admin authenticators**: both owners set them up, then switch on the requirement.
