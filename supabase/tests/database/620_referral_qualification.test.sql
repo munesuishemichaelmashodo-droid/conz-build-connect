@@ -1,7 +1,7 @@
--- 0130: referral rewards qualify on a verified completed delivery whatever the payment method,
--- admin-approved referrals are processed, and nothing is paid twice.
+-- 0181 (replaces the unapplied 0130): referrals qualify on a genuine completed delivery whatever the payment
+-- method, admin-approved referrals are processed, everything happens once, and no referral ever moves money.
 begin;
-select plan(20);
+select plan(22);
 select tests.enable_launch_features();
 
 select set_config('t.ref',  tests.create_user('rf_ref')::text, true);          -- referrer (customer)
@@ -64,39 +64,47 @@ update public.referrals set reward_status = 'approved', reward_amount = 10, veri
 -- driver referrals
 select set_config('t.rd1', pg_temp.ref(current_setting('t.rdrv')::uuid, current_setting('t.d1')::uuid, 'driver')::text, true);
 select set_config('t.rd2', pg_temp.ref(current_setting('t.rdrv')::uuid, current_setting('t.d2')::uuid, 'driver')::text, true);
-update public.driver_profiles set jobs_completed = 5 where user_id = current_setting('t.d1')::uuid;
-update public.driver_profiles set jobs_completed = 4 where user_id = current_setting('t.d2')::uuid;
+-- genuine completed jobs (the jobs_completed counter alone no longer counts)
+select pg_temp.done_job(current_setting('t.c1')::uuid, current_setting('t.d1')::uuid, 'direct') from generate_series(1, 5);
+select pg_temp.done_job(current_setting('t.c1')::uuid, current_setting('t.d2')::uuid, 'direct') from generate_series(1, 4);
+-- d2 also has a job for the referrer, which must not count
+select pg_temp.done_job(current_setting('t.rdrv')::uuid, current_setting('t.d2')::uuid, 'direct');
+update public.driver_profiles set jobs_completed = 50 where user_id = current_setting('t.d2')::uuid;  -- an inflated counter is ignored
 
 select public.process_referral_lifecycle();
 
 create function pg_temp.st(_id text) returns text language sql as
   $$ select verification_status || '/' || reward_status || '/' || coalesce(reward_amount::text, '-') from public.referrals where id = _id::uuid $$;
 
-select is(pg_temp.st(current_setting('t.r1')), 'verified/hold/10', 'customer who paid the driver directly qualifies (no ConZ payment row needed)');
-select is(pg_temp.st(current_setting('t.r2')), 'verified/hold/10', 'customer who paid through Con Z qualifies (payment is released, not paid)');
+select is(pg_temp.st(current_setting('t.r1')), 'verified/hold/-', 'customer who paid the driver directly qualifies (no ConZ payment row needed), with no amount');
+select is(pg_temp.st(current_setting('t.r2')), 'verified/hold/-', 'customer who paid through Con Z qualifies too');
 select is(pg_temp.st(current_setting('t.r3')), 'pending/pending/-', 'a cancelled job does not qualify');
 select is(pg_temp.st(current_setting('t.r4')), 'pending/rejected/-', 'a rejected referral is not processed');
-select is(pg_temp.st(current_setting('t.r5')), 'verified/hold/10', 'an admin-approved referral that qualifies moves on to the hold period');
+select is(pg_temp.st(current_setting('t.r5')), 'verified/hold/-', 'an admin-approved referral that qualifies moves on to the hold period');
 select is(pg_temp.st(current_setting('t.r6')), 'pending/pending/-', 'a delivery made by the referrer does not qualify');
 select is(pg_temp.st(current_setting('t.r7')), 'pending/pending/-', 'a job with an open dispute does not qualify');
-select is(pg_temp.st(current_setting('t.r8')), 'verified/released/10', 'an approved reward whose hold has passed is released');
-select is(pg_temp.st(current_setting('t.rd1')), 'verified/hold/15', 'a verified driver with 5 deliveries qualifies the driver referral');
-select is(pg_temp.st(current_setting('t.rd2')), 'pending/pending/-', 'a driver with 4 deliveries does not yet');
-select is((select balance from public.wallets where user_id = current_setting('t.c1')::uuid), 5.00::numeric,
-  'the referred customer gets the existing first-order credit once');
+select is(pg_temp.st(current_setting('t.r8')), 'verified/released/10', 'a legacy approved row whose hold passed is recognised; its old amount is history only');
+select is(pg_temp.st(current_setting('t.rd1')), 'verified/hold/-', 'a verified driver with 5 genuine completed jobs qualifies the driver referral');
+select is(pg_temp.st(current_setting('t.rd2')), 'pending/pending/-', '4 genuine jobs (plus one for the referrer, and an inflated counter) do not');
+select is((select count(*)::int from public.wallets where user_id = current_setting('t.c1')::uuid and balance <> 0), 0,
+  'the referred customer gets no credit');
 
--- Pay the held rewards, then run again: nothing is paid twice.
+-- Recognise the held referrals, then run again: everything once, no money anywhere.
 update public.referrals set reward_release_at = now() - interval '1 minute' where reward_status = 'hold';
 select public.process_referral_lifecycle();
 select public.process_referral_lifecycle();
-select is((select count(*)::int from public.wallet_transactions where user_id = current_setting('t.ref')::uuid and type = 'referral_bonus'),
-  4, 'four rewards released to the referrer (c1, c2, c5, c8), each exactly once after repeated runs');
-select is((select count(*)::int from public.wallet_transactions where user_id = current_setting('t.c1')::uuid and note = 'First-order referral credit'),
-  1, 'the first-order credit was not repeated');
-select is((select count(*)::int from public.referrals where reward_status = 'released' and reward_transaction_id is null), 0,
-  'every released reward points at its ledger row');
-select is((select count(*)::int from (select reward_transaction_id from public.referrals where reward_transaction_id is not null
-           group by 1 having count(*) > 1) d), 0, 'no ledger row is shared by two referrals');
+select is((select count(*)::int from public.referrals where referrer_id = current_setting('t.ref')::uuid and reward_status = 'released'),
+  4, 'four referrals recognised for the referrer (c1, c2, c5, c8), after repeated runs');
+select is((select count(*)::int from public.wallet_transactions where type = 'referral_bonus'), 0,
+  'no referral wallet transaction exists after processing');
+select is((select count(*)::int from public.referrals where reward_transaction_id is not null or referred_credit_transaction_id is not null), 0,
+  'no referral points at a wallet transaction');
+select is((select count(*)::int from public.referral_milestones_achieved where user_id = current_setting('t.ref')::uuid), 1,
+  'the 1-referral milestone is recorded once (5 is not reached)');
+select is((select count(*)::int from public.notifications where user_id = current_setting('t.ref')::uuid and type = 'referral_recognised'), 4,
+  'one recognition notice per referral');
+select ok(not exists(select 1 from public.notifications where type like 'referral%' and body ~ '\$'),
+  'no referral notification mentions money');
 
 -- Claims: self-referral and a second claim are refused.
 select tests.login_as(current_setting('t.ref')::uuid);
@@ -107,8 +115,8 @@ select throws_ok(format($$select public.record_referral((select referral_code fr
   'P0001', 'This account has already redeemed a referral code', 'a second claim is refused');
 select tests.as_owner();
 select is((select value #>> '{}' from public.system_settings where key = 'commission_rate'), '7', 'the 7% commission is untouched');
-select is((select count(*)::int from public.wallet_transactions where user_id = current_setting('t.drv')::uuid and type = 'referral_bonus'), 0,
-  'the delivering driver gets no referral money');
+select is(tests.balance(current_setting('t.rdrv')::uuid), 100.00::numeric,
+  'the referring driver still has only the $100 the test gave them');
 select is((select count(*)::int from public.wallet_transactions where type = 'commission' and user_id = current_setting('t.rdrv')::uuid), 0,
   'referral processing writes no commission entries');
 
