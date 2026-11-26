@@ -1,7 +1,18 @@
 # ConZ MVP finalisation: release report (26/11/2026)
 
-**Status: READY FOR PRODUCTION APPROVAL.** The code and tests are complete. Nothing has been merged or deployed, and
-migrations 0178/0179 are not applied. Paynow bank settlement is **unverified**.
+**Status: DEPLOYED — BANK SETTLEMENT UNVERIFIED.** Owner approved ("Go ahead", 26/11). PR #148 merged as `7077770`
+(Vercel production READY on that commit); 0178, 0179 and the fix 0180 applied and recorded. Paynow bank settlement is
+**unverified**.
+
+**Release log (26/11):**
+- 0178 applied, recorded `20261126100000`. A rolled-back safety report was marked urgent and notified both admins.
+- 0179 applied, recorded `20261126110000` (recorded text = git file without comments).
+- The production probe then found that a signed-in stranger could read the payment plan of a job with **no driver yet**
+  (`uid in (customer, NULL)` is NULL, not false, so the refusal never fired; only the price was exposed, since such a job has
+  no agreement). The pgTAP tests had only used jobs with a driver. Fixed by 0180 (null-safe check), with regression tests
+  9a/9b in 1130 that failed before the fix and pass after; full suite 106 files / 2,191 / 0 failures; applied and recorded
+  `20261126120000`. Probe after: stranger refused (42501) on both production jobs; customer still reads.
+- Not yet done on production: a real job walkthrough (agreement with deposit → claim → confirm → agree).
 
 - Branch: `ccr-0fcdaf2a-t5bmjg` = production `main` (`471d9a7`) + 5 commits:
   - `1d85532`, `b547bd2`: trust and safety;
