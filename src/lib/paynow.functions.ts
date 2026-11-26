@@ -66,7 +66,7 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
       authEmail: email,
       returnUrl: `${origin}/wallet`,
       resultUrl: `${CANONICAL_ORIGIN}/api/public/paynow-ipn`,
-      additionalInfo: `Con Z wallet top-up ${payment.id}`,
+      additionalInfo: `Con Z commission credit top-up ${payment.id}`,
     });
 
     if (!result.ok) {

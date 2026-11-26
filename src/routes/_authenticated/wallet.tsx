@@ -95,13 +95,13 @@ const WITHDRAWAL_STATUS: Record<string, { label: string; note?: string }> = {
   },
   approved: {
     label: "Approved · payout pending",
-    note: "Debited from your wallet. ConZ sends the payout manually — this is not confirmation that money has arrived.",
+    note: "Approved and taken from your balance. Con Z sends this payout manually; this does not confirm that the money has arrived.",
   },
   rejected: { label: "Rejected" },
   cancelled: { label: "Cancelled" },
   failed: {
     label: "Payout failed · money returned",
-    note: "The payout could not be sent. The amount is back in your wallet.",
+    note: "This old withdrawal could not be sent. The amount was returned to your balance.",
   },
 };
 const TOPUP_STATUS: Record<string, string> = {
@@ -221,8 +221,8 @@ function WalletPage() {
           qc.invalidateQueries({ queryKey: ["paynow-topups", userId] });
           toast.success(
             res.credited === 1
-              ? "Payment confirmed — wallet credited!"
-              : `${res.credited} payments confirmed — wallet credited!`,
+              ? "Payment confirmed: commission credit added."
+              : `${res.credited} payments confirmed: commission credit added.`,
           );
         }
       } catch {
@@ -305,10 +305,10 @@ function WalletPage() {
 
   if (!is("driver"))
     return (
-      <AppShell title="Wallet">
+      <AppShell title="Commission credit">
         <EmptyState
           icon={WalletIcon}
-          title="Wallet is for drivers"
+          title="Commission credit is for drivers"
           hint="Switch to a driver account from your profile."
         />
       </AppShell>
@@ -442,7 +442,7 @@ function WalletPage() {
       <div
         className="mt-5 flex gap-1 rounded-xl bg-muted p-1"
         role="tablist"
-        aria-label="Wallet sections"
+        aria-label="Commission credit sections"
       >
         {(["summary", "requests", "history"] as const).map((t) => (
           <button
@@ -908,7 +908,7 @@ function TopUpDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm rounded-3xl">
         <DialogHeader>
-          <DialogTitle className="font-display">Top up wallet</DialogTitle>
+          <DialogTitle className="font-display">Add commission credit</DialogTitle>
           <DialogDescription>
             Enter an amount — you'll be securely redirected to Paynow to complete payment.
           </DialogDescription>

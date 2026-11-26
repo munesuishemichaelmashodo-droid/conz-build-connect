@@ -51,24 +51,32 @@ const SECTIONS: FaqSection[] = [
     title: "Payments",
     items: [
       {
-        q: "How does paying the driver directly work?",
-        a: "This is the default option. You pay the driver yourself — cash or EcoCash — once delivery is complete, arranged directly between you. Con Z is not part of that payment.",
+        q: "How do I pay for a delivery?",
+        a: "You pay your assigned driver directly, using the method you both agree in the job's agreement (for example cash, EcoCash, OneMoney, InnBucks, ZIPIT or bank transfer). The driver sets out who to pay, the number or account, and whether a deposit is needed and when. Check those details before sending money. Con Z does not receive or hold this money and cannot get it back for you.",
       },
       {
-        q: "What is Con Z Pay?",
-        a: "An optional way to pay through Con Z instead of the driver directly. You pay upfront through Paynow, Con Z holds the money, and it's released to the driver (minus commission) only once you confirm delivery. Good for paying on someone else's behalf — for example, sending money to a family member's delivery from abroad.",
+        q: "Does the driver need a deposit?",
+        a: "Only if the agreement says so. Some drivers ask for a deposit, for example to buy the material at the quarry. The agreement shows the deposit, when it is due, why, and what happens if the job is cancelled. You pay the deposit and the balance directly to the driver; Con Z cannot refund either.",
       },
       {
-        q: "With Con Z Pay, what happens if I never confirm delivery?",
-        a: "If you don't confirm and no dispute is raised, the held payment automatically releases to the driver 72 hours after they mark the delivery complete — so a driver who genuinely delivered isn't left waiting indefinitely.",
+        q: "How do I record that I paid?",
+        a: "Open the job and record each payment (deposit, balance or full payment) with the amount, method and any reference. The driver is asked to confirm receipt, and you can then agree with their confirmation. These are your own and the driver's statements: Con Z keeps them as a record, but they are not independent proof that a transfer settled.",
       },
       {
-        q: "How do I get paid as a driver?",
-        a: "Depends on how the customer paid: for direct-pay jobs, they pay you directly and Con Z's commission is deducted from your wallet on completion. For Con Z Pay jobs, the payout (minus commission) lands directly in your wallet once delivery is confirmed. Your first completed job has no Con Z commission. After that the commission is 7% of the full job price, materials and transport included.",
+        q: "What if the driver does not confirm my payment, or asks me to pay someone else?",
+        a: "Message the driver in the job chat first. If the payment details change unexpectedly, someone asks you to pay a different person or outside the agreement, or the driver will not confirm money you sent, report it from the job page. Admins can see the agreement, both payment statements, the chat and the delivery evidence.",
       },
       {
-        q: "How do I top up my wallet?",
-        a: "Open Wallet → Add funds → choose EcoCash / OneMoney / ZIPIT / bank and follow the prompts. Top-ups are instant once confirmed.",
+        q: "How does Con Z earn money?",
+        a: "Con Z charges the driver a 7% commission on the agreed job value (materials and transport together). For a $400 job that is $28. Customers pay nothing extra to Con Z.",
+      },
+      {
+        q: "Drivers: what is ConZ Commission Credit?",
+        a: "Prepaid credit that drivers top up to pay Con Z's commission. When a customer accepts your offer, the 7% commission is reserved from your available commission credit; it is charged once when the delivery is verified as complete, and returned once if the job is cancelled. If your available credit is too low you cannot accept the job. Commission credit is not your earnings and cannot be withdrawn.",
+      },
+      {
+        q: "Drivers: how do I top up my commission credit?",
+        a: "Open Commission Credit, tap Add funds and pay through Paynow. The credit becomes available once Paynow confirms the payment, which is usually quick but can take longer. If it still shows as pending, open Commission Credit again to re-check it. Each top-up has a Paynow reference and a receipt.",
       },
       {
         q: "Where's my receipt?",
@@ -106,7 +114,7 @@ const SECTIONS: FaqSection[] = [
       },
       {
         q: "What happens if something goes wrong with a delivery?",
-        a: "Raise a dispute from the job page. Admins review the evidence — pickup/delivery photos, GPS, and the chat history — and decide an outcome, which can include a refund, a strike, or another resolution.",
+        a: "Raise a dispute from the job page. Admins review the evidence — pickup/delivery photos, GPS, and the chat history — and decide an outcome, such as a warning, a strike or another resolution. Con Z cannot refund money you paid directly to a driver.",
       },
       {
         q: "Is my chat with the other party private?",

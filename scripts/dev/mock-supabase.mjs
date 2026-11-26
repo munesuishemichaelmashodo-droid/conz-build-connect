@@ -476,6 +476,32 @@ const rpc = {
     db.job_agreements.push(row);
     return row;
   },
+  // 0179 stand-in: the same as propose_job_agreement plus the payment terms; a customer's version keeps the driver's
+  // deposit and payment details (who to pay, the account, the instructions), as the real function does.
+  propose_job_agreement_terms: (a, me) => {
+    const job = db.jobs.find((j) => j.id === a._job);
+    const inForce = [...(db.job_agreements ?? [])]
+      .filter((r) => r.job_id === a._job && ["proposed", "accepted"].includes(r.status))
+      .sort((x, y) => y.version - x.version)[0];
+    const isCustomer = !!me && !!job && me.id === job.customer_id;
+    const method = a._payment_method;
+    const row = rpc.propose_job_agreement(
+      { ...a, _payment_method: ["cash", "ecocash", "bank_transfer"].includes(method) ? method : "other" },
+      me,
+    );
+    if (!row) return null;
+    const keep = (k, v) => (isCustomer ? (inForce?.[k] ?? null) : v || null);
+    Object.assign(row, {
+      payment_channel: method,
+      deposit_due: Number(row.deposit_amount) > 0 ? keep("deposit_due", a._deposit_due) : null,
+      deposit_reason: Number(row.deposit_amount) > 0 ? keep("deposit_reason", a._deposit_reason) : null,
+      recipient_name: keep("recipient_name", a._recipient_name),
+      recipient_account: keep("recipient_account", a._recipient_account),
+      payment_instructions: keep("payment_instructions", a._payment_instructions),
+      cancellation_terms: a._cancellation_terms || null,
+    });
+    return row;
+  },
   accept_job_agreement: (a, me) => {
     const row = (db.job_agreements ?? []).find((r) => r.id === a._agreement);
     const job = row && db.jobs.find((j) => j.id === row.job_id);

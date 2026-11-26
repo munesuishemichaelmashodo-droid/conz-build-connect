@@ -123,3 +123,28 @@ export function carriedDeposit(
   const n = Number(latest?.deposit_amount ?? 0);
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
+
+/** The payment details a customer relies on to send money. A change in these is how money gets redirected. */
+const PAYMENT_DETAIL_FIELDS = [
+  ["recipient_name", "who to pay"],
+  ["recipient_account", "the number or account to pay"],
+  ["payment_instructions", "the payment instructions"],
+] as const;
+
+/**
+ * When a proposal is waiting for an answer and an earlier version was accepted, which payment details it changes
+ * (recipient, account, instructions, method). Empty when nothing was accepted before or nothing payment-related changed.
+ */
+export function paymentDetailChanges(rows: JobAgreement[] | null | undefined): string[] {
+  const list = [...(rows ?? [])].sort((a, b) => b.version - a.version);
+  const proposed = list.find((r) => r.status === "proposed");
+  if (!proposed) return [];
+  const accepted = list.find((r) => r.status === "accepted" && r.version < proposed.version);
+  if (!accepted) return [];
+  const norm = (v: unknown) => (typeof v === "string" ? v.trim() : (v ?? null)) || null;
+  const changes: string[] = PAYMENT_DETAIL_FIELDS.filter(
+    ([k]) => norm(proposed[k]) !== norm(accepted[k]),
+  ).map(([, label]) => label);
+  if (agreedMethod(proposed) !== agreedMethod(accepted)) changes.push("the payment method");
+  return changes;
+}

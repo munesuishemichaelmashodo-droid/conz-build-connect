@@ -14,6 +14,7 @@ import {
   currentAgreement,
   methodLabel,
   payLine,
+  paymentDetailChanges,
   paymentPlanLabel,
   timingLabel,
   type JobAgreement,
@@ -98,8 +99,29 @@ export function AgreementCard({
   const isCustomer = !!userId && userId === customerId;
   const carried = carriedDeposit(rows);
   const view = agreementView(current, userId);
+  const detailChanges = view === "needs_my_answer" ? paymentDetailChanges(rows) : [];
   const open = ["accepted", "in_progress"].includes(jobStatus);
   const refresh = () => qc.invalidateQueries({ queryKey: ["job-agreements", jobId] });
+
+  // A change starts from the version in force, so one edit never silently clears the deposit or who to pay.
+  const startEditing = (from: JobAgreement | null) => {
+    if (from) {
+      setMethod(agreedMethod(from));
+      setTiming(from.payment_timing);
+      setDeposit(from.deposit_amount ? String(from.deposit_amount) : "");
+      setPickup(from.pickup_window ?? "");
+      setDelivery(from.delivery_window ?? "");
+      setInc(from.inclusions ?? "");
+      setExc(from.exclusions ?? "");
+      setDepositDue(from.deposit_due ?? "before_pickup");
+      setDepositReason(from.deposit_reason ?? "");
+      setRecipientName(from.recipient_name ?? "");
+      setRecipientAccount(from.recipient_account ?? "");
+      setInstructions(from.payment_instructions ?? "");
+      setCancelTerms(from.cancellation_terms ?? "");
+    }
+    setEditing(true);
+  };
 
   const run = async (fn: string, args: Record<string, unknown>, ok: string) => {
     setBusy(true);
@@ -182,6 +204,21 @@ export function AgreementCard({
         {current && <span className="text-xs text-cz-muted">Version {current.version}</span>}
       </div>
 
+      {detailChanges.length > 0 && !editing && (
+        <div
+          role="alert"
+          className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-[13px]"
+          data-testid="agreement-payment-change-warning"
+        >
+          <p className="font-semibold text-destructive">Payment details changed</p>
+          <p>
+            This new version changes {detailChanges.join(", ")} from what you agreed before. Check
+            with the other person in the job chat before you confirm. Never send money to new
+            details because of a message alone, and report it if you were not expecting this.
+          </p>
+        </div>
+      )}
+
       {current && !editing && (
         <div className="space-y-1.5 text-sm">
           <p className="text-xs font-semibold text-cz-muted">{paymentPlanLabel(current)}</p>
@@ -251,27 +288,7 @@ export function AgreementCard({
           >
             Confirm
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={busy}
-            onClick={() => {
-              setMethod(agreedMethod(current));
-              setTiming(current.payment_timing);
-              setDeposit(current.deposit_amount ? String(current.deposit_amount) : "");
-              setPickup(current.pickup_window ?? "");
-              setDelivery(current.delivery_window ?? "");
-              setInc(current.inclusions ?? "");
-              setExc(current.exclusions ?? "");
-              setDepositDue(current.deposit_due ?? "before_pickup");
-              setDepositReason(current.deposit_reason ?? "");
-              setRecipientName(current.recipient_name ?? "");
-              setRecipientAccount(current.recipient_account ?? "");
-              setInstructions(current.payment_instructions ?? "");
-              setCancelTerms(current.cancellation_terms ?? "");
-              setEditing(true);
-            }}
-          >
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => startEditing(current)}>
             Suggest a change
           </Button>
         </div>
@@ -280,7 +297,7 @@ export function AgreementCard({
       {open &&
         !editing &&
         (view === "none" || view === "agreed" || view === "waiting_for_other") && (
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+          <Button size="sm" variant="outline" onClick={() => startEditing(current)}>
             {current ? "Change the agreement" : "Set out the agreement"}
           </Button>
         )}

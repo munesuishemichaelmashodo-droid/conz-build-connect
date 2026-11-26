@@ -49,7 +49,7 @@ const steps: TourStep[] = [
   {
     id: "customer-dashboard",
     title: "Your dashboard",
-    description: "Everything starts here — recent jobs, your wallet status, and quick actions.",
+    description: "Everything starts here — recent jobs and quick actions.",
     route: DASHBOARD,
     target: '[data-tour="dashboard-hero"]',
   },
