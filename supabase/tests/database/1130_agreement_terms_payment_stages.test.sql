@@ -2,7 +2,7 @@
 -- direct payments recorded per stage: no deposit, deposit + balance, full advance, payment after delivery; each
 -- statement write-once, private to the two parties and admins, mismatches flagged, commission untouched.
 begin;
-select plan(34);
+select plan(36);
 
 select tests.as_owner();
 select set_config('t.cust',  tests.create_user('ps_customer')::text, true);
@@ -70,6 +70,15 @@ select throws_ok(format($$select * from public.job_payment_plan(%L)$$, current_s
 select tests.login_as(current_setting('t.cust2')::uuid);
 select throws_ok(format($$select * from public.job_payment_plan(%L)$$, current_setting('t.jobA')), '42501', null,
                  '9: nor can another customer');
+-- regression (0180): a job with no driver yet. `uid in (customer, NULL)` is NULL, which once let anyone through.
+select tests.as_owner();
+select set_config('t.jobOpen', tests.create_job(current_setting('t.cust')::uuid, 250, 'direct')::text, true);
+select tests.login_as(current_setting('t.drv2')::uuid);
+select throws_ok(format($$select * from public.job_payment_plan(%L)$$, current_setting('t.jobOpen')), '42501', null,
+                 '9a: a stranger cannot read the plan of a job with no driver yet');
+select tests.login_as(current_setting('t.cust')::uuid);
+select is((select expected_amount from public.job_payment_plan(current_setting('t.jobOpen')::uuid)), 250.00::numeric,
+          '9b: its customer still can');
 
 -- the plan
 select tests.login_as(current_setting('t.cust')::uuid);
