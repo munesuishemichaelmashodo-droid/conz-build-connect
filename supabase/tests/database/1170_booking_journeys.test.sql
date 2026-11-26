@@ -38,12 +38,12 @@ select tests.as_owner();
 select is((select row(job_kind, truck_requirement, preferred_time, custom_material)::text from public.jobs where id = current_setting('t.ja')::uuid),
           '(transport_only,flatbed,morning,"2,000 bricks")', '2: what the customer entered is saved');
 select throws_ok($$select pg_temp.mkjob('transport_only', 'Halsted Builders')$$, '22023', null,
-                 '3: a transport-only booking cannot carry supplier collection details');
+                 '3: a transport-only booking cannot carry shop collection details');
 
 -- ================================================================ B. collect and deliver
-select throws_ok($$select pg_temp.mkjob('collect_and_deliver')$$, '22023', null, '4: collect-and-deliver needs the supplier or shop name');
+select throws_ok($$select pg_temp.mkjob('collect_and_deliver')$$, '22023', null, '4: a customer-arranged collection needs the shop or place name');
 select lives_ok($$select pg_temp.mkjob('collect_and_deliver', '  Halsted Builders Express  ', 'Store manager, 0772000111', 'INV-4471', 'tipper')$$,
-                '5: collect-and-deliver books with supplier, contact and order reference');
+                '5: a customer-arranged collection books with shop name, contact and order reference');
 select set_config('t.jb', (select id::text from public.jobs where job_kind = 'collect_and_deliver' limit 1), true);
 select tests.as_owner();
 select is((select collection_name from public.jobs where id = current_setting('t.jb')::uuid), 'Halsted Builders Express',
@@ -69,14 +69,14 @@ select ok((select pickup_address not like '%45 Kenmure%' from public.driver_open
 select ok((select load_details not like '%0771234567%' from public.driver_open_job(current_setting('t.jb')::uuid)),
           '16: phone numbers are removed from load details');
 select is((select row(job_kind, truck_requirement, collection_name)::text from public.driver_open_job(current_setting('t.jb')::uuid)),
-          '(collect_and_deliver,tipper,"Halsted Builders Express")', '17: the driver can see the booking type, truck needed and supplier name to decide');
+          '(collect_and_deliver,tipper,"Halsted Builders Express")', '17: the driver can see the booking type, truck needed and collection place name to decide');
 
 -- free text typed by the customer is contact-redacted too
-select lives_ok($$select pg_temp.mkjob('collect_and_deliver', 'Joe Hardware 0779998888')$$, '17a: a supplier name with a phone number books');
+select lives_ok($$select pg_temp.mkjob('collect_and_deliver', 'Joe Hardware 0779998888')$$, '17a: a shop name with a phone number books');
 select tests.login_as(current_setting('t.other')::uuid);
 select ok((select bool_and(collection_name not like '%0779998888%' and custom_material is not null)
              from public.driver_open_jobs(50, 0) where job_kind = 'collect_and_deliver'),
-          '17b: unselected drivers never see a phone number in the supplier name');
+          '17b: unselected drivers never see a phone number in the shop name');
 
 -- next-loads suggestions (find_next_loads_for_driver) show a customer's collection point as an area only
 select tests.as_owner();

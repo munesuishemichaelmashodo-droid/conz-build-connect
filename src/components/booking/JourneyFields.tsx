@@ -101,7 +101,7 @@ export function LoadFields({
   );
 }
 
-/** Supplier / shop details (collect-and-deliver only). Shown to the selected driver only. */
+/** Collection details the customer gives (collect journey only). Shown to the selected driver only. */
 export function CollectionFields({
   value,
   onChange,
@@ -112,7 +112,7 @@ export function CollectionFields({
   return (
     <div className="space-y-3" data-testid="collection-fields">
       <div>
-        <Label htmlFor="collection-name">Supplier, shop or place name</Label>
+        <Label htmlFor="collection-name">Shop or collection place name</Label>
         <Input
           id="collection-name"
           value={value.collectionName}
@@ -147,7 +147,7 @@ export function CollectionFields({
       </div>
       <p className="text-[13px] text-cz-muted">
         Only the driver you choose sees the contact and reference. You arrange and pay for the
-        materials with the supplier; Con Z arranges the transport.
+        materials with the shop; Con Z arranges the transport.
       </p>
     </div>
   );

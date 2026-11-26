@@ -2,7 +2,8 @@
 -- 0183: two customer booking journeys (Stage 2, 26/11/2026).
 --
 --   transport_only       the customer already has the load and needs a truck (from their yard, site, etc.)
---   collect_and_deliver  the driver collects a load the customer arranged at a supplier / shop / location
+--   collect_and_deliver  the driver collects materials the customer arranged at a shop, yard or other location
+--                        (the shop name is only a collection detail the customer types; Con Z has no supplier accounts)
 --
 -- Both use the existing transport-only pricing path (0158/0159): the customer gives the collection point and the
 -- delivery point, the SERVER measures the road distance into a single-use transport quote, and the budget must sit
@@ -22,7 +23,7 @@
 -- Privacy for drivers who have not been selected (mask_job_for_driver, find_next_loads_for_driver):
 --   * a customer-chosen collection point (transport_only pricing) is shown as an area with ~1 km coordinates,
 --     like the delivery point; collection contact and reference are removed; load details, the load description
---     (custom_material) and the supplier name are contact-redacted (phone numbers and e-mails removed).
+--     (custom_material) and the shop / collection place name are contact-redacted (phone numbers and e-mails removed).
 --   * Before 0183 the collection point of a transport-priced job was returned exactly; no such job exists live
 --     (the transport switch has always been off).
 -- No DROP, no DELETE. Undo: supabase/rollbacks/20261126150000_0183_rollback.sql.
@@ -95,11 +96,11 @@ begin
   end if;
   if new.job_kind = 'collect_and_deliver' then
     if new.collection_name is null then
-      raise exception 'Give the supplier, shop or place name for the collection.' using errcode = '22023';
+      raise exception 'Give the name of the shop or place where the materials are collected.' using errcode = '22023';
     end if;
   else
     if new.collection_name is not null or new.collection_contact is not null or new.collection_reference is not null then
-      raise exception 'Supplier collection details only apply to a collect-and-deliver booking.' using errcode = '22023';
+      raise exception 'Shop collection details only apply to a customer-arranged collection booking.' using errcode = '22023';
     end if;
   end if;
   return new;
@@ -122,8 +123,8 @@ begin
   j.tracking_token := null;
   j.delivery_pin := null;
   j.delivery_photo_url := null; j.pickup_photo_url := null;
-  -- (0183) A collection point the customer chose is private like the delivery point; listed supplier
-  -- locations (legacy pricing) stay as they were.
+  -- (0183) A collection point the customer chose is private like the delivery point; the listed pickup
+  -- locations of legacy material pricing stay as they were.
   if j.pricing_basis = 'transport_only' then
     j.pickup_address := public.coarse_place(j.pickup_address);
     j.pickup_lat := public.coarse_coord(j.pickup_lat);

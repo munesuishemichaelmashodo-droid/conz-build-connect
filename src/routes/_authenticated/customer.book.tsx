@@ -113,7 +113,7 @@ function BookDelivery() {
   const transportOn = useTransportPricingEnabled();
   const [pickupAddress, setPickupAddress] = useState("");
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
-  // 0183: which journey (transport only / collect from a supplier) and its details. Used only with transport pricing.
+  // 0183: which journey (transport only / collect materials from a shop) and its details. Used only with transport pricing.
   const [journey, setJourney] = useState<JourneyInput>(EMPTY_JOURNEY);
 
   const [step, setStep] = useState<number>(0);
@@ -530,7 +530,7 @@ function BookDelivery() {
                   )}
                   <AddressPicker
                     label={
-                      journey.kind === "collect_and_deliver" ? "Supplier or shop address" : "Collection point"
+                      journey.kind === "collect_and_deliver" ? "Shop or collection address" : "Collection point"
                     }
                     value={pickupAddress}
                     initialCoords={pickupCoords}
@@ -795,7 +795,7 @@ function BookDelivery() {
             <>
               <DocketRow label="Collected from">
                 {journey.kind === "collect_and_deliver" && journey.collectionName.trim()
-                  ? `${journey.collectionName.trim()}, ${pickupAddress || "supplier address"}`
+                  ? `${journey.collectionName.trim()}, ${pickupAddress || "collection address"}`
                   : pickupAddress || "Your loading point"}
               </DocketRow>
               <p className="px-4 pb-3 text-[13px] text-cz-muted">

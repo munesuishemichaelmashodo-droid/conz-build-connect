@@ -19,12 +19,10 @@ describe("journeyProblem", () => {
   it("transport only needs nothing else", () => {
     expect(journeyProblem(j({ kind: "transport_only" }))).toBeNull();
   });
-  it("collect needs the supplier name", () => {
-    expect(journeyProblem(j({ kind: "collect_and_deliver" }))).toMatch(
-      /supplier, shop or place name/,
-    );
+  it("collect needs the shop or place name", () => {
+    expect(journeyProblem(j({ kind: "collect_and_deliver" }))).toMatch(/name of the shop or place/);
     expect(journeyProblem(j({ kind: "collect_and_deliver", collectionName: " A " }))).toMatch(
-      /supplier/,
+      /shop or place/,
     );
     expect(
       journeyProblem(j({ kind: "collect_and_deliver", collectionName: "Halsted" })),
@@ -72,7 +70,7 @@ describe("journeyJobFields", () => {
       collection_reference: "INV-1",
     });
   });
-  it("switching to transport only leaves no supplier details behind", () => {
+  it("switching to transport only leaves no shop details behind", () => {
     const f = journeyJobFields({ ...collect, kind: "transport_only" }, "River sand");
     expect(f.collection_name).toBeNull();
     expect(f.collection_contact).toBeNull();
@@ -89,7 +87,7 @@ describe("journeyJobFields", () => {
 describe("labels", () => {
   it("names the journeys and hides 'any'", () => {
     expect(jobKindLabel("transport_only")).toMatch(/Transport only/);
-    expect(jobKindLabel("collect_and_deliver")).toMatch(/supplier/);
+    expect(jobKindLabel("collect_and_deliver")).toBe("Customer-arranged collection");
     expect(jobKindLabel(null)).toBeNull();
     expect(truckLabel("any")).toBeNull();
     expect(truckLabel("tipper")).toBe("Tipper");
@@ -101,7 +99,10 @@ describe("labels", () => {
 describe("feedJourneyTag", () => {
   it("shows type and truck only", () => {
     expect(feedJourneyTag("transport_only", "flatbed")).toBe("Transport only · Flatbed");
-    expect(feedJourneyTag("collect_and_deliver", "any")).toBe("Supplier collection");
+    expect(feedJourneyTag("collect_and_deliver", "any")).toBe("Customer-arranged collection");
+    expect(feedJourneyTag("collect_and_deliver", "tipper")).toBe(
+      "Customer-arranged collection · Tipper",
+    );
     expect(feedJourneyTag(null, "tipper")).toBeNull();
   });
 });

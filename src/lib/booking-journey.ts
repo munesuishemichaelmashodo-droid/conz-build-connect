@@ -1,6 +1,7 @@
 // Two customer booking journeys (0183). Con Z arranges transport only; the customer arranges the materials.
 //   transport_only       the customer already has the load and needs a truck
-//   collect_and_deliver  the driver collects a load the customer arranged at a supplier, shop or other place
+//   collect_and_deliver  the driver collects materials the customer arranged at a shop, yard or other place
+// The shop or place name is only a collection detail the customer types; Con Z has no supplier accounts.
 // Both are priced by the existing transport-only path (customer's collection point -> delivery point).
 // The database enforces the same rules (tg_validate_job_kind); this file keeps the screen honest and testable.
 
@@ -38,8 +39,8 @@ export const JOURNEYS: { value: JobKind; title: string; body: string }[] = [
   },
   {
     value: "collect_and_deliver",
-    title: "Collect from a supplier or shop",
-    body: "You bought or ordered the materials. A driver collects them from the supplier and delivers to you.",
+    title: "Collect materials from a shop",
+    body: "You bought or ordered materials from a hardware shop, building-material yard or another place. A driver collects them and delivers to you.",
   },
 ];
 
@@ -69,11 +70,11 @@ const CONTROL = /[\u0000-\u001f\u007f]/;
 
 /** The first problem with the input, or null when it can be priced and posted. */
 export function journeyProblem(j: JourneyInput): string | null {
-  if (!j.kind) return "Choose what you need: transport only, or collect from a supplier.";
+  if (!j.kind) return "Choose what you need: transport only, or collect materials from a shop.";
   const fields: [string, number, string][] = [
     [j.loadDescription, LIMITS.description, "What you are moving"],
     [j.loadDetails, LIMITS.details, "Load details"],
-    [j.collectionName, LIMITS.name, "Supplier or shop name"],
+    [j.collectionName, LIMITS.name, "Shop or collection place name"],
     [j.collectionContact, LIMITS.contact, "Contact at collection"],
     [j.collectionReference, LIMITS.reference, "Order or collection reference"],
   ];
@@ -82,7 +83,7 @@ export function journeyProblem(j: JourneyInput): string | null {
     if (CONTROL.test(v)) return `${label} has characters that are not allowed.`;
   }
   if (j.kind === "collect_and_deliver" && j.collectionName.trim().length < 2) {
-    return "Give the supplier, shop or place name for the collection.";
+    return "Give the name of the shop or place where the materials are collected.";
   }
   return null;
 }
@@ -91,7 +92,7 @@ const orNull = (s: string) => (s.trim() ? s.trim() : null);
 
 /**
  * The job columns for this journey. Fields that do not belong to the chosen journey are always sent as null, so
- * switching from "collect" to "transport only" never leaves a hidden supplier name, contact or reference behind.
+ * switching from "collect" to "transport only" never leaves a hidden shop name, contact or reference behind.
  */
 export function journeyJobFields(j: JourneyInput, materialLabel: string) {
   const collect = j.kind === "collect_and_deliver";
@@ -110,7 +111,7 @@ export function journeyJobFields(j: JourneyInput, materialLabel: string) {
 /** Labels for the job page (customer and selected driver). */
 export function jobKindLabel(kind: unknown): string | null {
   if (kind === "transport_only") return "Transport only (customer's own load)";
-  if (kind === "collect_and_deliver") return "Collect from a supplier and deliver";
+  if (kind === "collect_and_deliver") return "Customer-arranged collection";
   return null;
 }
 
@@ -128,7 +129,7 @@ export function feedJourneyTag(kind: unknown, truck: unknown): string | null {
     kind === "transport_only"
       ? "Transport only"
       : kind === "collect_and_deliver"
-        ? "Supplier collection"
+        ? "Customer-arranged collection"
         : null;
   if (!type) return null;
   const t = truckLabel(truck);
