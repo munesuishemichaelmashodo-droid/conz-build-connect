@@ -786,7 +786,7 @@ function BookDelivery() {
               <span className="min-w-0 flex-1">
                 <span className="block font-semibold">Pay the driver directly</span>
                 <span className="block text-[13px] text-cz-muted">
-                  Cash or EcoCash to the driver when your load arrives. You will confirm delivery with your PIN.
+                  You pay the driver you choose, the way you both agree: cash, EcoCash, bank transfer or another method, and a deposit only if the driver asks for one. Con Z does not hold this money. You confirm delivery with your PIN.
                 </span>
               </span>
             </div>
