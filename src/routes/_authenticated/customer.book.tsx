@@ -30,6 +30,14 @@ import { useLaunchSwitches } from "@/lib/launch-switches";
 import { computeTransportOffer } from "@/lib/transport-quote.functions";
 import { useTransportPricingEnabled } from "@/lib/transport-pricing";
 import { transportJobFields, transportToOfferResult } from "@/lib/transport-offer-view";
+import {
+  EMPTY_JOURNEY,
+  TIMES,
+  journeyJobFields,
+  journeyProblem,
+  type JourneyInput,
+} from "@/lib/booking-journey";
+import { CollectionFields, JourneyChoice, LoadFields } from "@/components/booking/JourneyFields";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -105,6 +113,8 @@ function BookDelivery() {
   const transportOn = useTransportPricingEnabled();
   const [pickupAddress, setPickupAddress] = useState("");
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
+  // 0183: which journey (transport only / collect from a supplier) and its details. Used only with transport pricing.
+  const [journey, setJourney] = useState<JourneyInput>(EMPTY_JOURNEY);
 
   const [step, setStep] = useState<number>(0);
   const [address, setAddress] = useState(search.address ?? "");
@@ -215,6 +225,8 @@ function BookDelivery() {
     if (!quantity || quantity < MIN_QUANTITY_M3) return toast.error("Enter quantity");
 
     if (transportOn) {
+      const problem = journeyProblem(journey);
+      if (problem) return toast.error(problem);
       if (!pickupCoords) return toast.error("Choose where the load will be collected.");
       setComputing(true);
       try {
@@ -328,7 +340,10 @@ function BookDelivery() {
         quote_id: offerData.openRequest ? null : offerData.quoteId,
         // Delivery-only pricing from the customer's own pickup point (off unless the switch is on).
         ...(offerData.dataSource === "transport" && pickupCoords
-          ? { ...transportJobFields(offerData, { address: pickupAddress, ...pickupCoords }), custom_material: materialLabel(material, null) }
+          ? {
+              ...transportJobFields(offerData, { address: pickupAddress, ...pickupCoords }),
+              ...journeyJobFields(journey, materialLabel(material, null)),
+            }
           : {}),
 
         delivery_address: address.trim(),
@@ -478,6 +493,7 @@ function BookDelivery() {
                 </HintBox>
               )}
 
+              {transportOn && <JourneyChoice value={journey} onChange={setJourney} />}
               <div id="tour-book-material" data-tour="book-material" className="space-y-3">
                 <h1 className="cz-display font-bold text-[26px] leading-tight">What do you need delivered?</h1>
                 <ChoiceChips
@@ -497,15 +513,25 @@ function BookDelivery() {
                 <LoadPicker id="qty" value={quantity} onChange={setQuantity} />
               </div>
 
+              {transportOn && <LoadFields value={journey} onChange={setJourney} />}
               {transportOn && (
                 <div data-testid="pickup-block" className="space-y-2 rounded-xl border border-cz-border bg-cz-surface p-3.5">
-                  <div className="font-semibold">Where will the load be collected?</div>
+                  <div className="font-semibold">
+                    {journey.kind === "collect_and_deliver"
+                      ? "Where does the driver collect it?"
+                      : "Where is the load now?"}
+                  </div>
                   <p className="text-[13px] text-cz-muted">
-                    You are pricing the delivery trip only, from this point to your delivery address. Arrange the
-                    material itself directly with whoever supplies it.
+                    You are pricing the delivery trip only, from this point to your delivery address. Con Z arranges
+                    the transport; the materials are yours to arrange.
                   </p>
+                  {journey.kind === "collect_and_deliver" && (
+                    <CollectionFields value={journey} onChange={setJourney} />
+                  )}
                   <AddressPicker
-                    label="Loading point"
+                    label={
+                      journey.kind === "collect_and_deliver" ? "Supplier or shop address" : "Collection point"
+                    }
                     value={pickupAddress}
                     initialCoords={pickupCoords}
                     onChange={(a, c) => {
@@ -542,6 +568,25 @@ function BookDelivery() {
                     </div>
                     <p className="mt-1 text-xs text-cz-muted">Optional — leave blank for as soon as possible.</p>
                   </div>
+                  {transportOn && (
+                    <div>
+                      <Label htmlFor="pref-time">Preferred time</Label>
+                      <select
+                        id="pref-time"
+                        value={journey.time}
+                        onChange={(e) =>
+                          setJourney({ ...journey, time: e.target.value as JourneyInput["time"] })
+                        }
+                        className="mt-1 h-11 w-full rounded-md border bg-background px-2"
+                      >
+                        {TIMES.map((t) => (
+                          <option key={t.value} value={t.value}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <Label htmlFor="notes">Notes (optional)</Label>
                     <Textarea
@@ -576,7 +621,9 @@ function BookDelivery() {
                 data-tour="book-see-price"
                 data-location-ready={locationValid ? "true" : "false"}
                 onClick={goToOffer}
-                disabled={computing || !quantityValid || !locationValid}
+                disabled={
+                  computing || !quantityValid || !locationValid || (transportOn && !journey.kind)
+                }
               >
                 {computing ? (
                   <>
@@ -746,7 +793,11 @@ function BookDelivery() {
             </>
           ) : offerData.dataSource === "transport" ? (
             <>
-              <DocketRow label="Collected from">{pickupAddress || "Your loading point"}</DocketRow>
+              <DocketRow label="Collected from">
+                {journey.kind === "collect_and_deliver" && journey.collectionName.trim()
+                  ? `${journey.collectionName.trim()}, ${pickupAddress || "supplier address"}`
+                  : pickupAddress || "Your loading point"}
+              </DocketRow>
               <p className="px-4 pb-3 text-[13px] text-cz-muted">
                 This price is for the delivery trip only. Pay the driver directly; Con Z does not hold the fare. The
                 material itself is arranged separately and is not part of this price.

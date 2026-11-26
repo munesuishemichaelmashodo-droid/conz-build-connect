@@ -1,3 +1,4 @@
+import { JobJourneyDetails } from "@/components/booking/JobJourneyDetails";
 import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
 import { DISPUTE_OPTIONS, disputeOption, disputeReason, MIN_DISPUTE_EXPLANATION, type DisputeSide } from "@/lib/dispute-options";
 import { useLaunchSwitches } from "@/lib/launch-switches";
@@ -2985,6 +2986,7 @@ function JobSummaryCard({ job, id = "tour-job-header" }: { job: any; id?: string
         <span className="text-[13px] text-cz-muted">Customer offered {usd(Number(job.budget))}</span>
       </div>
       <RouteStops pickupLabel={job.pickup_address || "Supplier pickup point"} dropLabel={job.delivery_address} />
+      <JobJourneyDetails job={job} />
       <EstimatedDelivery job={job} />
       {(job.preferred_date || job.notes) && (
         <div className="border-t border-cz-border pt-2.5 text-sm text-cz-muted space-y-1">
@@ -3227,6 +3229,11 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
 
         <ContactCard ctx={ctx} role="customer" subtitle={`${mat} · ${Number(job.quantity_m3)} m³`} />
         {readyOffline && <ReadyOfflineChip />}
+        {job.job_kind && (
+          <CzCard>
+            <JobJourneyDetails job={job} />
+          </CzCard>
+        )}
         <AgreementCard jobId={id} jobStatus={job.status} userId={ctx.userId} customerId={job.customer_id} />
         {/* 0179: deposits and balances are recorded while the job is active, not only at the end. */}
         {job.payment_method === "direct" && (
@@ -4039,6 +4046,11 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
         )}
         <SupplyConfirmationCard job={job} viewer="customer" />
         <ContactCard ctx={ctx} role="driver" subtitle={d.bid?.truck_reg ? `Truck ${d.bid.truck_reg} · ${mat}` : mat} />
+        {job.job_kind && (
+          <CzCard>
+            <JobJourneyDetails job={job} />
+          </CzCard>
+        )}
         <AgreementCard jobId={id} jobStatus={job.status} userId={ctx.userId} customerId={job.customer_id} />
         {job.payment_method === "direct" && (
           <DirectPaymentPanel jobId={id} role="customer" agreedPrice={Number(job.final_price ?? job.budget ?? 0)} jobStatus={String(job.status)} />
