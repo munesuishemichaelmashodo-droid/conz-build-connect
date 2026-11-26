@@ -99,9 +99,9 @@ select tests.login_as(current_setting('t.cust')::uuid);
 insert into public.reports (user_id, job_id, description, category)
 values (auth.uid(), current_setting('t.job')::uuid, 'Driver asked me to pay a stranger''s number', 'fraud_scam');
 select tests.as_owner();
-select ok((select urgent from public.reports where user_id = current_setting('t.cust')::uuid and category = 'fraud_scam'),
-          '25: a fraud report is urgent and admins are notified')
-  and (select count(*) from public.notifications where type = 'urgent_report' and job_id = current_setting('t.job')::uuid) >= 1;
+select ok((select urgent from public.reports where user_id = current_setting('t.cust')::uuid and category = 'fraud_scam')
+          and (select count(*) from public.notifications where type = 'urgent_report' and job_id = current_setting('t.job')::uuid) >= 1,
+          '25: a fraud report is urgent and admins are notified');
 
 -- ---------------------------------------------------------------- payments.paid_at
 insert into public.payments (id, user_id, type, amount, currency, status)

@@ -9,16 +9,27 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { Loader2, MessageSquareWarning } from "lucide-react";
+import { Loader2, MessageSquareWarning, ShieldAlert } from "lucide-react";
+import {
+  REPORT_CATEGORIES,
+  isReportCategory,
+  isUrgentCategory,
+  reportCategoryLabel,
+  type ReportCategory,
+} from "@/lib/report-categories";
 
 export const Route = createFileRoute("/_authenticated/report")({
   component: ReportPage,
-  validateSearch: (s: Record<string, unknown>) => ({ jobId: typeof s.jobId === "string" ? s.jobId : undefined }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    jobId: typeof s.jobId === "string" ? s.jobId : undefined,
+    category: isReportCategory(s.category) ? s.category : undefined,
+  }),
 });
 
 function ReportPage() {
   const { userId } = useAuth();
-  const { jobId } = Route.useSearch();
+  const { jobId, category: initialCategory } = Route.useSearch();
+  const [category, setCategory] = useState<ReportCategory>(initialCategory ?? "general");
   const qc = useQueryClient();
   const nav = useNavigate();
   const [description, setDescription] = useState("");
@@ -68,14 +79,20 @@ function ReportPage() {
   const submit = async () => {
     if (description.trim().length < 5) return toast.error("Please describe the issue in a bit more detail.");
     setSubmitting(true);
-    const { error } = await supabase.from("reports").insert({
-      user_id: userId!,
-      description: description.trim(),
-      job_id: linkedJob || null,
-    });
+    const row = { user_id: userId!, description: description.trim(), job_id: linkedJob || null };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 0178 column is newer than the generated types
+    let { error } = await supabase.from("reports").insert({ ...row, category } as any);
+    // Before 0178 is applied the category column does not exist: send the report without it.
+    if (error && /category|column|permission/i.test(error.message)) {
+      ({ error } = await supabase.from("reports").insert(row));
+    }
     setSubmitting(false);
     if (error) return toast.error(error.message);
-    toast.success("Report submitted. Admins have been notified.");
+    toast.success(
+      isUrgentCategory(category)
+        ? "Report submitted. It is marked urgent and admins have been alerted."
+        : "Report submitted. Admins have been notified.",
+    );
     setDescription("");
     setLinkedJob("");
     qc.invalidateQueries({ queryKey: ["my-reports", userId] });
@@ -93,6 +110,34 @@ function ReportPage() {
           <p className="text-xs text-muted-foreground">
             Tell us what happened. Admins review every report and will follow up if we need more info.
           </p>
+
+          <div
+            className="flex gap-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-xs"
+            data-testid="report-emergency-note"
+          >
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+            <p>
+              <b>If anyone is in danger right now, call the police (995) or emergency services (999) first.</b>{" "}
+              Con Z is not an emergency service and does not watch trips live. Reports are read by our team, and
+              safety and fraud reports are marked urgent.
+            </p>
+          </div>
+
+          <div>
+            <Label htmlFor="category">What kind of problem?</Label>
+            <select
+              id="category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value as ReportCategory)}
+              className="w-full mt-1 rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              {REPORT_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {reportCategoryLabel(c)}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <Label htmlFor="desc">What's the issue?</Label>

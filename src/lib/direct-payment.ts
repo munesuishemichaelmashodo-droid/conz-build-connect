@@ -86,3 +86,78 @@ export function directPaymentStatusLine(
       : "";
   return `${base}: ${money(c.amount)} by ${directMethodLabel(c.method)}${ref}${differs}. Con Z did not handle this payment.`;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// 0178: the customer's side. Both parties' statements are recorded separately; neither is proof of settlement.
+
+export type DirectPaymentCustomerRecord = {
+  method: DirectPaymentMethod | null;
+  amount: number | null;
+  reference: string | null;
+  reportedAt: string | null;
+  acknowledgedAt: string | null;
+};
+
+export function parseCustomerRecord(row: unknown): DirectPaymentCustomerRecord | null {
+  const r = row && typeof row === "object" ? (row as Record<string, unknown>) : null;
+  if (!r) return null;
+  const amount = r.amount == null ? null : Number(r.amount);
+  return {
+    method:
+      typeof r.method === "string" &&
+      (DIRECT_PAYMENT_METHODS as readonly string[]).includes(r.method)
+        ? (r.method as DirectPaymentMethod)
+        : null,
+    amount: amount != null && Number.isFinite(amount) ? amount : null,
+    reference: typeof r.reference === "string" && r.reference ? r.reference : null,
+    reportedAt: typeof r.reported_at === "string" ? r.reported_at : null,
+    acknowledgedAt: typeof r.acknowledged_at === "string" ? r.acknowledged_at : null,
+  };
+}
+
+/** Where a direct payment stands, from the parties' own statements. "disputed" wins over everything. */
+export type DirectPaymentStage =
+  "not_recorded" | "customer_says_paid" | "driver_confirmed" | "customer_acknowledged" | "disputed";
+
+export function directPaymentStage(
+  driver: DirectPaymentConfirmation | null,
+  customer: DirectPaymentCustomerRecord | null,
+  dispute: DisputeState,
+): DirectPaymentStage {
+  if (dispute === "open") return "disputed";
+  if (driver && customer?.acknowledgedAt) return "customer_acknowledged";
+  if (driver) return "driver_confirmed";
+  if (customer?.reportedAt) return "customer_says_paid";
+  return "not_recorded";
+}
+
+export function directPaymentStageLabel(s: DirectPaymentStage): string {
+  switch (s) {
+    case "not_recorded":
+      return "No payment recorded yet";
+    case "customer_says_paid":
+      return "Customer says they paid; waiting for the driver to confirm";
+    case "driver_confirmed":
+      return "Driver confirmed receiving payment";
+    case "customer_acknowledged":
+      return "Driver confirmed and customer agreed";
+    case "disputed":
+      return "Payment disputed";
+  }
+}
+
+/** True when the two statements (or a statement and the agreed price) do not agree on the amount. */
+export function amountsDisagree(
+  agreed: number,
+  driver: DirectPaymentConfirmation | null,
+  customer: DirectPaymentCustomerRecord | null,
+): boolean {
+  const c = (n: number) => Math.round(n * 100);
+  const amounts = [driver?.amount, customer?.amount].filter(
+    (n): n is number => typeof n === "number",
+  );
+  return (
+    amounts.some((a) => c(a) !== c(agreed)) ||
+    (amounts.length === 2 && c(amounts[0]) !== c(amounts[1]))
+  );
+}

@@ -9,6 +9,22 @@ import { EmptyState, StatusBadge } from "@/components/ui-bits";
 import { MessageSquareWarning, ShieldAlert, Phone, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { adminListReports, adminRespondToReport, isMissingRpc } from "@/lib/admin-ops";
+import { reportCategoryLabel } from "@/lib/report-categories";
+
+// 0178: category and urgent flag, read with the admin's own row access. Missing before 0178: nothing is added.
+async function withCategories<T extends { id: string }>(rows: T[]) {
+  if (rows.length === 0) return rows;
+  const { data, error } = await supabase
+    .from("reports")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 0178 columns are newer than the generated types
+    .select("id,category,urgent" as any)
+    .in("id", rows.map((r) => r.id));
+  if (error) return rows;
+  const map = new Map(((data ?? []) as unknown as { id: string; category: string; urgent: boolean }[]).map((c) => [c.id, c]));
+  return rows
+    .map((r) => ({ ...r, category: map.get(r.id)?.category, urgent: map.get(r.id)?.urgent === true }))
+    .sort((a, b) => Number(b.urgent) - Number(a.urgent));
+}
 
 export const Route = createFileRoute("/_authenticated/admin/reports")({
   component: AdminReports,
@@ -48,10 +64,12 @@ function AdminReports() {
       // 0142: the list comes from a server function that returns the private note to admins only.
       const res = await adminListReports(filter === "all" ? null : filter);
       if (!res.error) {
-        return (res.data ?? []).map((r) => ({
-          ...r,
-          profile: { full_name: r.reporter_name, phone: r.reporter_phone, email: r.reporter_email },
-        }));
+        return withCategories(
+          (res.data ?? []).map((r) => ({
+            ...r,
+            profile: { full_name: r.reporter_name, phone: r.reporter_phone, email: r.reporter_email },
+          })),
+        );
       }
       if (!isMissingRpc(res.error)) throw new Error(res.error.message);
       // Before 0142 is applied: the previous direct read.
@@ -167,6 +185,12 @@ function ReportCard({ r, onUpdate }: { r: any; onUpdate: (id: string, patch: Rep
       </div>
 
       {/* Report details */}
+      {(r.urgent || (r.category && r.category !== "general")) && (
+        <p className="text-xs font-semibold flex items-center gap-1">
+          {r.urgent && <span className="rounded bg-destructive px-1.5 py-0.5 text-destructive-foreground">Urgent</span>}
+          <span>{reportCategoryLabel(r.category)}</span>
+        </p>
+      )}
       <p className="text-sm whitespace-pre-wrap">{r.description}</p>
       {r.job_id && <p className="text-[11px] text-muted-foreground">Related job: <code>{r.job_id}</code></p>}
       <p className="text-[11px] text-muted-foreground">{new Date(r.created_at).toLocaleString()}</p>

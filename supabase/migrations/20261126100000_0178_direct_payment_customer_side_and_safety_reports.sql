@@ -188,6 +188,11 @@ do $$ begin
   end if;
 end $$;
 
+-- 0142 grants column by column: reporters may also choose a category and read it back; admins read both columns
+-- through the same select grant plus their row policy. `urgent` is set only by the trigger below.
+grant select (category, urgent) on public.reports to authenticated;
+grant insert (category) on public.reports to authenticated;
+
 -- Safety, fraud and harassment reports are urgent and reach every admin at once.
 create or replace function public.tg_reports_urgent_notify()
 returns trigger language plpgsql security definer set search_path to 'public' as $$
