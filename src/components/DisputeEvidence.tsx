@@ -14,6 +14,7 @@ import type { TrailMark } from "@/components/RouteTrailMap";
 
 const RouteTrailMap = lazy(() => import("@/components/RouteTrailMap"));
 import { ChatImage, ChatAudio } from "@/components/ChatMedia";
+import { DisputePayments } from "@/components/DisputePayments";
 
 type EvidenceRow = {
   id?: string;
@@ -214,6 +215,8 @@ export function DisputeEvidence({ jobId }: { jobId: string }) {
       )}
 
       <PickupAndRoute jobId={jobId} />
+
+      <DisputePayments jobId={jobId} />
 
       <button
         onClick={() => setChatOpen((o) => !o)}

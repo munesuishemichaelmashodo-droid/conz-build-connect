@@ -389,7 +389,62 @@ const authPolicy = () => {
     days_left: st === "ok" ? 12 : null,
   };
 };
+// 0179 stand-ins: a deposit + balance plan for every direct job (deposit $50 before pickup), and write-once
+// statements per stage. No checks beyond the basic ones: the real rules are tested in pgTAP 1130.
+function mockStage(jobId, stage) {
+  db.direct_payment_stages ??= [];
+  db.direct_payment_stage_events ??= [];
+  const plan = rpc.job_payment_plan({ _job: jobId }).find((p) => p.stage === stage);
+  let row = db.direct_payment_stages.find((r) => r.job_id === jobId && r.stage === stage);
+  if (!row && plan) {
+    row = { id: randomUUID(), job_id: jobId, stage, expected_amount: plan.expected_amount, due: plan.due,
+            method_agreed: plan.method_agreed, created_at: new Date().toISOString() };
+    db.direct_payment_stages.push(row);
+  }
+  return row;
+}
+function mockStageEvent(row, actor, action, amount, method, reference) {
+  db.direct_payment_stage_events.push({ id: db.direct_payment_stage_events.length + 1, stage_id: row.id, job_id: row.job_id,
+    stage: row.stage, actor, action, amount, method, reference, created_at: new Date().toISOString() });
+}
+
 const rpc = {
+  job_payment_plan: (a) => {
+    const job = db.jobs.find((j) => j.id === a._job);
+    const fare = Number(job?.final_price ?? job?.budget ?? 0);
+    return [
+      { stage: "deposit", expected_amount: 50, due: "before_pickup", method_agreed: "ecocash",
+        recipient_name: "Farai Sample", recipient_account: "0771 000 111", payment_instructions: "Use the job number as the reference." },
+      { stage: "balance", expected_amount: fare - 50, due: "on_delivery", method_agreed: "ecocash",
+        recipient_name: "Farai Sample", recipient_account: "0771 000 111", payment_instructions: "Use the job number as the reference." },
+    ];
+  },
+  customer_claim_stage_payment: (a, me) => {
+    const row = mockStage(a._job, a._stage);
+    if (!row.customer_claimed_at) {
+      Object.assign(row, { customer_claimed_at: new Date().toISOString(), customer_method: a._method,
+                           customer_amount: Number(a._amount), customer_reference: a._reference ?? null });
+      mockStageEvent(row, me, "customer_claimed", Number(a._amount), a._method, a._reference);
+    }
+    return row;
+  },
+  driver_confirm_stage_payment: (a, me) => {
+    const row = mockStage(a._job, a._stage);
+    if (!row.driver_confirmed_at) {
+      Object.assign(row, { driver_confirmed_at: new Date().toISOString(), driver_method: a._method,
+                           driver_amount: Number(a._amount), driver_reference: a._reference ?? null });
+      mockStageEvent(row, me, "driver_confirmed", Number(a._amount), a._method, a._reference);
+    }
+    return row;
+  },
+  customer_acknowledge_stage_payment: (a, me) => {
+    const row = mockStage(a._job, a._stage);
+    if (row.driver_confirmed_at && !row.customer_acknowledged_at) {
+      row.customer_acknowledged_at = new Date().toISOString();
+      mockStageEvent(row, me, "customer_acknowledged", row.driver_amount);
+    }
+    return row;
+  },
   admin_authenticator_policy: () => authPolicy(),
   transport_pricing_enabled: () => process.env.MOCK_TRANSPORT === "on",
   // Same as production (on, $20). MOCK_PROMO=off for the switched-off wording.

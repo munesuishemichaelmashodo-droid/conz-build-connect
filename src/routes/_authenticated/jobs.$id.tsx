@@ -3231,6 +3231,10 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
         <ContactCard ctx={ctx} role="customer" subtitle={`${mat} · ${Number(job.quantity_m3)} m³`} />
         {readyOffline && <ReadyOfflineChip />}
         <AgreementCard jobId={id} jobStatus={job.status} userId={ctx.userId} customerId={job.customer_id} />
+        {/* 0179: deposits and balances are recorded while the job is active, not only at the end. */}
+        {job.payment_method === "direct" && (
+          <DirectPaymentPanel jobId={id} role="driver" agreedPrice={Number(job.final_price ?? job.budget ?? 0)} jobStatus={String(job.status)} />
+        )}
 
         <SupplyConfirmationCard job={job} viewer="driver" />
 
@@ -4039,6 +4043,9 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
         <SupplyConfirmationCard job={job} viewer="customer" />
         <ContactCard ctx={ctx} role="driver" subtitle={d.bid?.truck_reg ? `Truck ${d.bid.truck_reg} · ${mat}` : mat} />
         <AgreementCard jobId={id} jobStatus={job.status} userId={ctx.userId} customerId={job.customer_id} />
+        {job.payment_method === "direct" && (
+          <DirectPaymentPanel jobId={id} role="customer" agreedPrice={Number(job.final_price ?? job.budget ?? 0)} jobStatus={String(job.status)} />
+        )}
         <ProofPhotos job={job} viewer="customer" />
 
         <div className="space-y-2.5">
