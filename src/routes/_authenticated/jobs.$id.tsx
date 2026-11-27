@@ -266,6 +266,8 @@ function JobDetail() {
   const { userId, is } = useAuth();
   const qc = useQueryClient();
   const nav = useNavigate();
+  // Before any early return (hooks must run in the same order on every render).
+  const escrowSwitch = useLaunchSwitches().escrowEnabled;
 
   const {
     data: job,
@@ -686,7 +688,6 @@ function JobDetail() {
   };
 
   const showEscrowBanner = isEscrow && ["accepted", "in_progress"].includes(job.status);
-  const escrowSwitch = useLaunchSwitches().escrowEnabled;
   const showBidForm = is("driver") && !isOwner && job.status === "open";
   const showCounterResponse = showBidForm && myBid?.counter_status === "countered";
   const showPickupUpload = isAssignedDriver && job.status === "accepted" && !job.pickup_photo_url;
