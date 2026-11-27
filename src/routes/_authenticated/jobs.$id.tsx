@@ -96,6 +96,7 @@ import {
 import { OfferCard } from "@/components/redesign/OfferCard";
 import { truckFactsLine } from "@/lib/truck-facts";
 import { AgreementCard } from "@/components/AgreementCard";
+import { DriverComplianceBadges } from "@/components/compliance/DriverComplianceBadges";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import {
   OFFER_SORTS,
@@ -4039,6 +4040,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
         )}
         <SupplyConfirmationCard job={job} viewer="customer" />
         <ContactCard ctx={ctx} role="driver" subtitle={d.bid?.truck_reg ? `Truck ${d.bid.truck_reg} · ${mat}` : mat} />
+        {job.driver_id && <DriverComplianceBadges driverId={job.driver_id} />}
         <AgreementCard jobId={id} jobStatus={job.status} userId={ctx.userId} customerId={job.customer_id} />
         {job.payment_method === "direct" && (
           <DirectPaymentPanel jobId={id} role="customer" agreedPrice={Number(job.final_price ?? job.budget ?? 0)} jobStatus={String(job.status)} />

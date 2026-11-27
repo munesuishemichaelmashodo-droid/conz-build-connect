@@ -1,4 +1,5 @@
 import { clearDeviceData } from "@/lib/sign-out";
+import { DriverComplianceCard } from "@/components/compliance/DriverComplianceCard";
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
@@ -153,6 +154,13 @@ function ProfilePage() {
               </p>
               {status.kind === "reverify_submitted" && <p className="text-[11px] text-muted-foreground">{REVIEW_TARGET_TEXT}</p>}
             </div>
+
+            {userId && (
+              <DriverComplianceCard
+                userId={userId}
+                truckId={(trucks?.[0] as { id?: string } | undefined)?.id ?? null}
+              />
+            )}
 
             {needsSelfieOnly && (
               <p className="text-xs text-muted-foreground">Only your selfie is needed for this check. Your ID, licence and truck photos stay as they are.</p>
