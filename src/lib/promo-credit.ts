@@ -51,12 +51,12 @@ const money = (n: number) => `$${Number.isInteger(n) ? n : n.toFixed(2)}`;
 
 /** The plain-language sentence that replaces "your first job is free". */
 export function promoCreditSentence(amount: number): string {
-  return `When you are verified you get a one-time ${money(amount)} commission credit. It can only pay Con Z commission: it is not cash and cannot be withdrawn or transferred.`;
+  return `When you are verified you get a one-time ${money(amount)} promotional allowance for the Con Z commission on your first completed job. Anything it does not use then expires. It is not cash and cannot be withdrawn or transferred.`;
 }
 
 /** What the Terms say about it (legal wording: for the owner's lawyer to review). */
 export function promoCreditTerms(amount: number): string {
-  return `Each newly verified Driver receives a one-time promotional commission credit of ${money(amount)}. It can only be used to pay Con Z commission, has no cash value, and cannot be withdrawn or transferred.`;
+  return `Each newly verified Driver who has not yet completed a job receives a one-time promotional allowance of ${money(amount)}. It is used only for the Con Z commission on the Driver's first completed job: if that commission is less, the unused part expires; if it is more, the rest is paid from the Driver's Commission Credit. A cancelled job does not use it. It has no cash value and cannot be withdrawn or transferred.`;
 }
 
 // The free first job was retired on 09/11/2026 (owner decision), so these phrases are never shown as written:

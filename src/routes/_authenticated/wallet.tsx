@@ -421,8 +421,9 @@ function WalletPage() {
         </dl>
         {promo > 0 && (
           <p className="mt-3 relative rounded-xl bg-white/5 px-3 py-2 text-xs text-white/85">
-            Promotional commission credit: <b>{money(promo)}</b>. It pays ConZ commission before
-            your own money is used. It is not cash and cannot be withdrawn or transferred.
+            Promotional allowance: <b>{money(promo)}</b>. It pays the ConZ commission on your first
+            completed job before your own credit is used; anything it does not use then expires. It
+            is not cash and cannot be withdrawn or transferred.
           </p>
         )}
 
