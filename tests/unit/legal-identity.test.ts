@@ -17,3 +17,22 @@ describe("legal pages identify the operator without private details", () => {
     });
   }
 });
+
+// Privacy Policy matches the app (27/11): no withdrawals offered, honest deletion rule, rights, no licence claims.
+describe("Privacy Policy describes the app accurately", () => {
+  const p = readFileSync("src/routes/privacy.tsx", "utf8");
+  it("does not describe withdrawals as a feature or promise deletion after a withdrawal", () => {
+    expect(p).toMatch(/withdrawals are not offered/);
+    expect(p).not.toMatch(/has been withdrawn/);
+  });
+  it("names the people's rights and the regulator without claiming a licence", () => {
+    expect(p).toMatch(/Data Protection Act/);
+    expect(p).not.toMatch(
+      /licensed by POTRAZ|POTRAZ licen[cs]e(d)? |registered with POTRAZ|our Data Protection Officer/i,
+    );
+  });
+  it("never says Con Z holds or guarantees customer fares", () => {
+    expect(p).toMatch(/Con Z does not receive or hold\s+customer fares/);
+    expect(p).not.toMatch(/escrow|guarantee/i);
+  });
+});

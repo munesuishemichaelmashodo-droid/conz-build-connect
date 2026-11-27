@@ -24,7 +24,7 @@ function PrivacyPage() {
         <header className="mt-6 mb-8">
           <div className="text-xs text-muted-foreground">Con Z Build Connect</div>
           <h1 className="font-display font-bold text-3xl tracking-tight">Privacy Policy</h1>
-          <p className="text-xs text-muted-foreground mt-2">Last updated: 26 November 2026</p>
+          <p className="text-xs text-muted-foreground mt-2">Last updated: 27 November 2026</p>
         </header>
 
         <div className="space-y-6">
@@ -58,13 +58,17 @@ function PrivacyPage() {
               </li>
               <li>
                 <b>Job and delivery data</b> — pickup and drop-off addresses, cargo type and quantity,
-                bids, prices, proof-of-delivery photos, ratings, messages between the customer and
-                driver, and dispute records.
+                bids, prices, the job agreement and its versions, collection and delivery photos and
+                reports, ratings, messages between the customer and driver, dispute records, and
+                safety or incident reports with the statements of the people involved.
               </li>
               <li>
-                <b>Wallet and payment data</b> — wallet balances, top-up requests, withdrawal
-                requests, transaction history, and a hashed withdrawal PIN. We do <b>not</b> store
-                raw card numbers on our servers.
+                <b>Commission Credit and payment data</b> — for drivers, the Commission Credit balance,
+                top-ups and transaction history (withdrawals are not offered; a withdrawal PIN set
+                earlier is stored only as a hash). For jobs paid directly to the driver: the agreed
+                fare, payment method, who is paid, deposits, references and any proof you attach,
+                and what the customer and the driver each reported. Con Z does not receive or hold
+                customer fares. We do <b>not</b> store card numbers on our servers.
               </li>
               <li>
                 <b>Device and log data</b> — basic technical logs (e.g. authentication events, error
@@ -103,16 +107,17 @@ function PrivacyPage() {
                 logs strictly to run the platform.
               </li>
               <li>
-                <b>Service providers</b> — we use trusted providers to host the database, storage
-                and website, to process payments (Paynow), to provide sign-in (Google), to display
-                maps and calculate routes, and to deliver push notifications. They act on our
-                instructions and are bound by confidentiality.
+                <b>Service providers</b> — Supabase (database, file storage and sign-in), Vercel
+                (website hosting), Paynow (Commission Credit top-ups), Google (Google sign-in and
+                push notifications), Africa's Talking (text messages), and map and route services
+                (OpenStreetMap-based maps, CARTO map tiles, OSRM routing, Nominatim and LocationIQ
+                address search). They receive only what their service needs.
               </li>
               <li>
                 <b>Storage outside Zimbabwe</b> — our database and file storage are hosted in
-                Switzerland and our website is hosted on servers outside Zimbabwe, so your data is
-                processed outside Zimbabwe. We choose providers that protect data and we limit what
-                is shared with them to what the service needs.
+                Switzerland and our website is served from the United States, so your data is
+                processed outside Zimbabwe. We limit what is shared with each provider to what the
+                service needs.
               </li>
               <li>
                 <b>Legal</b> — we may disclose data where required by law or lawful authority.
@@ -123,15 +128,17 @@ function PrivacyPage() {
 
           <Section title="5. Retention">
             <p>
-              We retain profile, job, wallet and dispute records for as long as your account is
-              active. Live location records are automatically deleted after 24 hours. While a delivery is in progress we also keep a periodic route trail for that job (visible only to Con Z administrators, for dispute handling) for up to 90 days.
+              We retain profile, job, Commission Credit and dispute records for as long as your
+              account is active. Job agreements, collection and delivery evidence, payment records
+              and incident cases are kept as a record and are not edited or deleted, because they
+              may be needed to settle a dispute or to account for a payment. Live location records are automatically deleted after 24 hours. While a delivery is in progress we also keep a periodic route trail for that job (visible only to Con Z administrators, for dispute handling) for up to 90 days.
             </p>
             <p className="mt-2">
               When you delete your account we remove your name, phone number, e-mail address,
-              profile photo, identity and vehicle documents, withdrawal PIN, saved devices, location
+              profile photo, identity and vehicle documents, any withdrawal PIN, saved devices, location
               history and the photos and voice notes you sent in chat, and we disable your login on
-              every device. We keep financial and audit records (payments, wallet transactions,
-              refunds and the administrative audit log) and the job records you shared with other
+              every device. We keep financial and audit records (payments, Commission Credit
+              transactions, refunds and the administrative audit log) and the job records you shared with other
               users, without your personal details, because we are required to be able to account
               for every payment and to handle disputes.
             </p>
@@ -141,8 +148,8 @@ function PrivacyPage() {
             <p>
               Access to your data is protected by row-level security policies in our database,
               private storage buckets for verification documents, and hashed credentials for
-              sensitive fields such as the withdrawal PIN. No system is perfectly secure — please
-              keep your login credentials and PIN confidential.
+              sensitive fields. Administrator access to evidence is logged. No system is perfectly
+              secure — please keep your login credentials confidential.
             </p>
           </Section>
 
@@ -151,9 +158,15 @@ function PrivacyPage() {
               <li>Update your profile details at any time from the Profile page.</li>
               <li>Toggle live location sharing on or off from the Location Privacy panel.</li>
               <li>
-                Delete your account yourself from Profile → Delete account. Deletion waits until any
-                money in your wallet has been withdrawn and your active jobs, payments and disputes are
-                finished. You can also ask us to delete it for you.
+                Delete your account yourself from Profile → Delete account. Deletion waits until your
+                active jobs, payments and disputes are finished. If you still have unused Commission
+                Credit or a reserved commission, deletion cannot complete in the app yet: contact us
+                and we will deal with it with you. You can also ask us to delete your account.
+              </li>
+              <li>
+                Under Zimbabwe's Data Protection Act you can ask us for a copy of your personal data,
+                ask us to correct it, or object to how we use it, by contacting us below. You can also
+                complain to the Data Protection Authority (POTRAZ).
               </li>
             </ul>
           </Section>
