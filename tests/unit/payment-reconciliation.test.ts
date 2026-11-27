@@ -78,8 +78,13 @@ describe("0188 migration keeps the business model", () => {
 describe("local stand-in", () => {
   it("marks its reconciliation as simulated and the panel says so", () => {
     const mock = readFileSync("scripts/dev/mock-supabase.mjs", "utf8");
-    const rec = mock.slice(mock.indexOf("job_payment_reconciliation:"), mock.indexOf("attach_stage_payment_evidence:"));
+    const rec = mock.slice(
+      mock.indexOf("job_payment_reconciliation:"),
+      mock.indexOf("attach_stage_payment_evidence:"),
+    );
     expect(rec).toMatch(/simulated: true/);
-    expect(readFileSync("src/components/payments/DirectPaymentPanel.tsx", "utf8")).toMatch(/Simulated sample data from the local stand-in/);
+    expect(readFileSync("src/components/payments/DirectPaymentPanel.tsx", "utf8")).toMatch(
+      /Simulated sample data from the local stand-in/,
+    );
   });
 });
