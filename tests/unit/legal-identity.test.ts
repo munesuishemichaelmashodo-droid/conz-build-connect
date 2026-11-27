@@ -30,3 +30,15 @@ describe("Terms describe Commission Credit and fares accurately", () => {
     expect(t).toMatch(/Con Z does not refund customer fares/);
   });
 });
+
+describe("no promise that Con Z holds money", () => {
+  it("Terms section 7 describes direct payment only", () => {
+    const t = readFileSync("src/routes/terms.tsx", "utf8");
+    expect(t).not.toMatch(/paying through Con Z at checkout/);
+    expect(t).toMatch(/a record is not proof that a payment was made/);
+  });
+  it("the job page never says money is held safely or held by Con Z", () => {
+    const j = readFileSync("src/routes/_authenticated/jobs.$id.tsx", "utf8");
+    expect(j).not.toMatch(/held safely|we'll hold the money/i);
+  });
+});
