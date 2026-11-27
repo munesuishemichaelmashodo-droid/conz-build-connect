@@ -419,6 +419,36 @@ const rpc = {
         recipient_name: "Farai Sample", recipient_account: "0771 000 111", payment_instructions: "Use the job number as the reference." },
     ];
   },
+  // 0188 stand-in: reconciliation built only from the stand-in's own stage rows. Marked simulated.
+  job_payment_reconciliation: (a) => {
+    const job = db.jobs.find((j) => j.id === a._job);
+    if (!job) return null;
+    const plan = rpc.job_payment_plan({ _job: job.id });
+    const rows = (db.direct_payment_stages ?? []).filter((r) => r.job_id === job.id);
+    const ev = db.direct_payment_evidence ?? [];
+    const fare = Number(job.final_price ?? job.budget ?? 0);
+    const received = rows.reduce((t, r) => t + Number(r.driver_amount ?? 0), 0);
+    return {
+      simulated: true, job_id: job.id, payment_route: job.payment_method, agreed_fare: fare,
+      basis: "The customer pays the driver directly. Con Z does not collect, hold or guarantee this money. (Local stand-in: simulated sample data.)",
+      stages: plan.map((p) => {
+        const r = rows.find((x) => x.stage === p.stage);
+        const e = ev.filter((x) => x.job_id === job.id && x.stage === p.stage);
+        const state = !r ? "not_reported" : r.driver_confirmed_at && r.customer_acknowledged_at ? "both_confirmed"
+          : r.driver_confirmed_at ? "receipt_claimed" : r.customer_claimed_at ? "payment_reported" : "not_reported";
+        return { stage: p.stage, expected_amount: p.expected_amount, state, evidence: e, evidence_submitted: e.length > 0,
+          screenshot_only: e.length > 0 && e.every((x) => x.kind === "screenshot"), reviews: [], flags: [] };
+      }),
+      totals: { agreed: fare, reported_by_customer: rows.reduce((t, r) => t + Number(r.customer_amount ?? 0), 0),
+        received_by_driver: received, outstanding: Math.max(fare - received, 0), under_review: 0 },
+    };
+  },
+  attach_stage_payment_evidence: (a, me) => {
+    db.direct_payment_evidence ??= [];
+    const row = { kind: a._kind, by_role: "customer", at: new Date().toISOString(), job_id: a._job, stage: a._stage, simulated: true };
+    db.direct_payment_evidence.push(row);
+    return row;
+  },
   customer_claim_stage_payment: (a, me) => {
     const row = mockStage(a._job, a._stage);
     if (!row.customer_claimed_at) {

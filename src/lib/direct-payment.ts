@@ -213,3 +213,93 @@ const DUE_LABEL: Record<string, string> = {
 export function dueLabel(due: string | null | undefined): string {
   return (due && DUE_LABEL[due]) || "as agreed with the driver";
 }
+
+// ---- 0188: reconciliation -----------------------------------------------------------------------------------------
+// One status per stage, as the database computes it (direct_payment_stage_state). Attached proof never upgrades a
+// status; only a Con Z admin's check of a bank or provider record makes a payment "independently confirmed".
+
+export type ReconState =
+  | "not_reported"
+  | "payment_reported"
+  | "receipt_claimed"
+  | "both_confirmed"
+  | "independently_confirmed"
+  | "disputed"
+  | "reversal_reported";
+
+export type ReconStage = {
+  stage: PaymentStageName;
+  state: ReconState;
+  evidence: { kind: string; by_role: string; at: string }[];
+  evidence_submitted: boolean;
+  screenshot_only: boolean;
+  flags: string[];
+};
+
+export type Reconciliation = {
+  agreed_fare: number;
+  basis: string;
+  stages: ReconStage[];
+  totals: {
+    agreed: number;
+    reported_by_customer: number;
+    received_by_driver: number;
+    outstanding: number;
+    under_review: number;
+  };
+  /** Only the local stand-in sets this: sample data, never a real record. */
+  simulated?: boolean;
+};
+
+export function reconStateLabel(s: ReconState): string {
+  switch (s) {
+    case "not_reported":
+      return "Not recorded yet";
+    case "payment_reported":
+      return "Customer reports paying (not confirmed)";
+    case "receipt_claimed":
+      return "Driver says received (not checked by Con Z)";
+    case "both_confirmed":
+      return "Driver and customer agree (not checked by Con Z)";
+    case "independently_confirmed":
+      return "Checked by Con Z against a bank or provider record";
+    case "disputed":
+      return "Disputed";
+    case "reversal_reported":
+      return "Reported as reversed";
+  }
+}
+
+const FLAG_LABEL: Record<string, string> = {
+  customer_amount_differs: "The customer's amount differs from what was agreed.",
+  driver_amount_differs: "The driver's amount differs from what was agreed.",
+  customer_and_driver_differ: "The customer and the driver recorded different amounts.",
+  references_differ: "The customer and the driver gave different payment references.",
+  recorded_under_earlier_agreement: "Recorded under an earlier version of the agreement.",
+};
+
+export function reconFlagLabels(flags: readonly string[]): string[] {
+  return flags.map((f) => FLAG_LABEL[f] ?? f.replace(/_/g, " "));
+}
+
+export const PROOF_KINDS = [
+  { value: "screenshot", label: "Screenshot (EcoCash/bank message)" },
+  { value: "receipt_photo", label: "Photo of a receipt" },
+  { value: "bank_statement", label: "Bank statement" },
+  { value: "provider_statement", label: "EcoCash/OneMoney/InnBucks statement" },
+  { value: "other", label: "Other" },
+] as const;
+
+/** One line about attached proof. A screenshot alone is said out loud to be weak. */
+export function proofLine(s: Pick<ReconStage, "evidence" | "screenshot_only">): string | null {
+  if (!s.evidence.length) return null;
+  const n = s.evidence.length;
+  const base = `${n} file${n === 1 ? "" : "s"} attached as proof.`;
+  return s.screenshot_only ? `${base} Screenshots alone do not confirm a payment.` : base;
+}
+
+export function parseReconciliation(raw: unknown): Reconciliation | null {
+  if (!raw || typeof raw !== "object" || !Array.isArray((raw as Reconciliation).stages))
+    return null;
+  return raw as Reconciliation;
+}
