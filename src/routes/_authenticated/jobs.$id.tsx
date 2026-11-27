@@ -510,7 +510,7 @@ function JobDetail() {
       .then((res) => {
         if (res.credited > 0) {
           qc.invalidateQueries({ queryKey: ["escrow-payment", id] });
-          toast.success("Payment confirmed — held safely until delivery is confirmed.");
+          toast.success("Payment confirmed by Paynow.");
         }
       })
       .catch(() => {});
@@ -861,13 +861,13 @@ function JobDetail() {
                   {escrowPaid ? (
                     <p className="text-sm text-muted-foreground">
                       {isOwner
-                        ? "Payment received and held safely. It'll be released to the driver once you confirm delivery."
+                        ? "Paynow confirmed this payment. It is released to the driver when you confirm delivery."
                         : "The customer has paid. Funds are held and will be released to your wallet once delivery is confirmed — or automatically after 72 hours."}
                     </p>
                   ) : isOwner ? (
                     <>
                       <p className="text-sm text-muted-foreground">
-                        This job is set up to pay through Con Z Pay. Pay now — we'll hold the money until you confirm delivery.
+                        This job is set up to pay through Con Z Pay, which is not available. Agree with the driver to pay them directly instead.
                       </p>
                       <Button onClick={payEscrow} disabled={payingEscrow} className="w-full">
                         {payingEscrow ? <Loader2 className="w-4 h-4 animate-spin" /> : `Pay ${money(Number(job.final_price ?? job.budget))} now`}
@@ -3968,7 +3968,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
           {onPay && (
             <HintBox tone="warn" icon={<ShieldCheck className="w-4 h-4" />}>
               <div className="space-y-2">
-                <div>This job is set up to pay through Con Z Pay. Pay now — we'll hold the money until delivery is confirmed.</div>
+                <div>This job is set up to pay through Con Z Pay, which is not available. Agree with the driver to pay them directly instead.</div>
                 <button type="button" onClick={onPay} className="font-bold underline underline-offset-2">
                   Pay {usd2(Number(job.final_price ?? job.budget))} now
                 </button>

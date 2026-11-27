@@ -98,12 +98,12 @@ function TermsPage() {
 
           <Section title="7. Payments Between Customer and Driver">
             <p>
-              Unless the app shows that the Customer is paying through Con Z at checkout, the
-              Customer pays the Driver directly for the materials and delivery. In that case
-              Con Z does not receive, hold or guarantee the Customer's money, is not an escrow
-              provider, and does not guarantee any refund. Any deposit or advance payment is agreed
-              directly between the Customer and the Driver, and Con Z is not responsible for it. If a
-              payment through Con Z is offered, the terms shown at that checkout apply as well.
+              The Customer pays the Driver directly for the delivery (and for any materials the
+              Driver supplies), using the method they agree. Con Z does not receive, hold, distribute
+              or guarantee the Customer's money, is not an escrow provider, and does not guarantee any
+              refund. Any deposit or advance payment is agreed directly between the Customer and the
+              Driver. Con Z records what each of them reports about a payment, which can help if there
+              is a dispute, but a record is not proof that a payment was made.
             </p>
           </Section>
 
