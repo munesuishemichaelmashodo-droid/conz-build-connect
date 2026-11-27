@@ -25,6 +25,14 @@ export function EvidenceRecordSummary({ jobId }: { jobId: string }) {
   return (
     <div className="rounded-lg border p-2.5 space-y-2 text-[11px]" data-testid="evidence-record">
       <p className="font-semibold text-xs">Evidence record</p>
+      {data.simulated && (
+        <p
+          className="rounded bg-muted px-1.5 py-0.5 font-semibold"
+          data-testid="evidence-record-simulated"
+        >
+          Simulated sample data from the local stand-in. Not a real record.
+        </p>
+      )}
       <p className="text-muted-foreground">{data.basis}</p>
       {flags.length > 0 && (
         <ul className="space-y-0.5">
@@ -52,7 +60,9 @@ export function EvidenceRecordSummary({ jobId }: { jobId: string }) {
               </span>
               {reportLine({ ...(r as unknown as StageReport), reporter_role: r.by_role })}
               {r.note ? ` “${r.note}”` : ""}
-              {r.added_after_dispute ? " (after the dispute opened)" : ""}
+              {r.added_after_dispute
+                ? " (filed after the dispute opened; a party's statement, not verification)"
+                : " (a party's statement)"}
             </li>
           ))}
         </ul>

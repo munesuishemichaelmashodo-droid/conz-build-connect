@@ -17,6 +17,8 @@ export type StageReport = {
   note: string | null;
   evidence_id: string | null;
   corrects_report: string | null;
+  /** 0187: filed while the job already had a dispute. */
+  filed_during_dispute?: boolean;
   created_at: string;
 };
 
@@ -99,4 +101,14 @@ export function availableReports(
   const recent = !!completedAt && now - new Date(completedAt).getTime() < 7 * 24 * 3600 * 1000;
   if (status === "in_progress" || (status === "completed" && recent)) return ["delivery_problem"];
   return [];
+}
+
+/** The label under every report: who said it, that Con Z did not check it, and whether it came during a dispute. */
+export function reportAttribution(
+  r: Pick<StageReport, "reporter_role" | "filed_during_dispute">,
+): string {
+  const who = r.reporter_role === "driver" ? "the driver" : "the customer";
+  return r.filed_during_dispute
+    ? `Statement by ${who}, filed after a dispute was opened. Not checked by Con Z.`
+    : `Statement by ${who}. Not checked by Con Z.`;
 }

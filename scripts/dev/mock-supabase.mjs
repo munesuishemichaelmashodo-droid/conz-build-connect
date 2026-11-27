@@ -511,7 +511,8 @@ const rpc = {
     db.job_stage_reports ??= [];
     const row = { id: randomUUID(), job_id: job.id, reported_by: me.id, reporter_role: role, event: a._event, issue: a._issue ?? null,
       condition: a._condition ?? null, quantity_m3: a._quantity_m3 ?? null, eta_minutes: a._eta_minutes ?? null, note: a._note ?? null,
-      evidence_id: null, corrects_report: a._corrects ?? null, job_status: job.status, created_at: new Date().toISOString() };
+      evidence_id: null, corrects_report: a._corrects ?? null, job_status: job.status, filed_during_dispute: false,
+      created_at: new Date().toISOString() };
     db.job_stage_reports.push(row);
     return row;
   },
@@ -525,10 +526,13 @@ const rpc = {
       photos: [],
       reports: (db.job_stage_reports ?? []).filter((r) => r.job_id === job.id).map((r) => ({ id: r.id, event: r.event, by_role: r.reporter_role,
         issue: r.issue, condition: r.condition, quantity_m3: r.quantity_m3, eta_minutes: r.eta_minutes, note: r.note, corrects: r.corrects_report,
-        at: r.created_at, added_after_dispute: false, verification: "statement" })),
-      delivery_code: { issued: true, confirmed_at: null, wrong_attempts: 1, verification: "not_confirmed" },
+        at: r.created_at, added_after_dispute: !!r.filed_during_dispute, verification: "statement",
+        reviewer_note: "A statement by one of the parties, not independent verification." })),
+      delivery_code: { issued: false, confirmed_at: null, wrong_attempts: 0, verification: "not_confirmed" },
       quantity: { ordered_m3: job.quantity_m3, delivered_m3: null, receiver_name: null },
-      disputes: [], recorded_gps_points: 12,
+      disputes: [], recorded_gps_points: null,
+      // Local stand-in only: the app labels this record "Simulated" so it is never mistaken for a real one.
+      simulated: true,
     };
   },
   accept_job_agreement: (a, me) => {

@@ -2,7 +2,7 @@
 -- person cannot be attached; photo records and stored files cannot be silently replaced; corrections keep history;
 -- the delivery code locks out guessing; the final record separates submitted material from system checks.
 begin;
-select plan(40);
+select plan(42);
 alter table public.jobs disable trigger trg_jobs_one_active_per_driver;
 select tests.enable_launch_features();
 
@@ -144,6 +144,16 @@ select tests.login_as(current_setting('t.drv')::uuid);
 select set_config('t.p4', (public.record_job_evidence(current_setting('t.job')::uuid, 'delivery', current_setting('t.job') || '/delivery-2.jpg')).id::text, true);
 select throws_like(format($$select public.supersede_job_evidence(%L, %L, 'Better angle of the pile')$$, current_setting('t.p3'), current_setting('t.p4')),
                    '%dispute%', '34: photos cannot be replaced while a dispute is open (disputed damage)');
+select set_config('t.late', (public.report_job_stage(current_setting('t.job')::uuid, 'delivery_problem', 'damage', null, null, null,
+  'Driver says the load was dry when tipped')).id::text, true);
+select tests.as_owner();
+select ok((select filed_during_dispute from public.job_stage_reports where id = current_setting('t.late')::uuid),
+          '34b: a report filed while the job has a dispute is stored as filed during the dispute');
+select tests.login_as(current_setting('t.cust')::uuid);
+select ok((select x->>'verification' = 'statement' and (x->>'added_after_dispute')::boolean and x->>'reviewer_note' like 'Filed after the dispute opened%not independent verification.'
+             from public.job_evidence_record(current_setting('t.job')::uuid) r, jsonb_array_elements(r->'reports') x
+            where x->>'id' = current_setting('t.late')),
+          '34c: in the record it is marked as filed after the dispute and as a statement, not verification');
 
 -- ============================================================ E. the final record
 select tests.login_as(current_setting('t.cust')::uuid);
@@ -165,7 +175,7 @@ select ok((select (r->'delivery_code'->>'wrong_attempts')::int = 1 and r->'recor
              from public.job_evidence_record(current_setting('t.job')::uuid) r), '39: admins see wrong code attempts and GPS counts');
 
 select tests.as_owner();
-select is((select count(*)::int from public.job_stage_reports where job_id = current_setting('t.job')::uuid), 5, '40: five reports, none edited or removed');
+select is((select count(*)::int from public.job_stage_reports where job_id = current_setting('t.job')::uuid), 6, '40: six reports, none edited or removed');
 
 select * from finish();
 rollback;

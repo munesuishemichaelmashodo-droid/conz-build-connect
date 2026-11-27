@@ -11,6 +11,7 @@ import {
   DELIVERY_PROBLEMS,
   EVENT_TITLE,
   availableReports,
+  reportAttribution,
   reportLine,
   type StageEvent,
   type StageReport,
@@ -151,6 +152,16 @@ export function JobStageReports({
               {r.corrects_report && (
                 <p className="text-xs text-cz-muted">Correction of an earlier report.</p>
               )}
+              <p
+                className={
+                  r.filed_during_dispute
+                    ? "text-xs font-semibold text-warning"
+                    : "text-xs text-cz-muted"
+                }
+                data-testid="stage-report-attribution"
+              >
+                {reportAttribution(r)}
+              </p>
             </li>
           ))}
         </ul>

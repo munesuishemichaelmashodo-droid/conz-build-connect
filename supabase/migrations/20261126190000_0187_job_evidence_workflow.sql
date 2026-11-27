@@ -25,7 +25,8 @@
 --     the driver, not independently verified", with location status, and whether added after a dispute opened),
 --     reports (statements), the delivery-code result (checked by the system) and disputes. Route-point counts are
 --     shown to admins only and are called recorded GPS points, not live tracking.
--- No DROP, no DELETE, no money, no settings. Undo: supabase/rollbacks/20261126190000_0187_rollback.sql.
+-- No DROP, no DELETE, no money, no settings. Recovery (forward-safe, keeps every protection and record):
+-- supabase/rollbacks/20261126190000_0187_rollback.sql.
 -- -----------------------------------------------------------------------------
 
 -- 1. Photo records: every field protected; supersede set once ------------------------------------------------------
@@ -123,6 +124,8 @@ create table if not exists public.job_stage_reports (
   evidence_id uuid references public.job_evidence(id),
   corrects_report uuid references public.job_stage_reports(id),
   job_status text not null,
+  -- set by report_job_stage when the job already had a dispute: a party's statement made during the dispute
+  filed_during_dispute boolean not null default false,
   created_at timestamptz not null default now()
 );
 create index if not exists job_stage_reports_job_idx on public.job_stage_reports (job_id, created_at);
@@ -230,8 +233,9 @@ begin
   end if;
 
   insert into public.job_stage_reports (job_id, reported_by, reporter_role, event, issue, condition, quantity_m3, eta_minutes,
-                                        note, evidence_id, corrects_report, job_status)
-  values (_job, auth.uid(), _role, _event, _issue, _condition, _quantity_m3, _eta_minutes, _n, _evidence, _corrects, _j.status::text)
+                                        note, evidence_id, corrects_report, job_status, filed_during_dispute)
+  values (_job, auth.uid(), _role, _event, _issue, _condition, _quantity_m3, _eta_minutes, _n, _evidence, _corrects, _j.status::text,
+          exists (select 1 from public.disputes d where d.job_id = _job))
   returning * into _row;
 
   _other := case when _role = 'driver' then _j.customer_id else _j.driver_id end;
@@ -299,15 +303,21 @@ begin
                'is_photo_of_record', e.storage_path in (coalesce(_j.pickup_photo_url, ''), coalesce(_j.delivery_photo_url, '')),
                'replaced_by', e.superseded_by, 'replaced_note', e.notes,
                'added_after_dispute', _dispute_at is not null and e.uploaded_at > _dispute_at,
-               'verification', 'submitted') order by e.uploaded_at)
+               'verification', 'submitted',
+               'reviewer_note', case when _dispute_at is not null and e.uploaded_at > _dispute_at
+                 then 'Uploaded after the dispute opened by one of the parties. Not independently verified.'
+                 else 'Uploaded by one of the parties. Not independently verified.' end) order by e.uploaded_at)
         from public.job_evidence e where e.job_id = _job), '[]'::jsonb),
     'reports', coalesce((
       select jsonb_agg(jsonb_build_object(
                'id', r.id, 'event', r.event, 'by_role', r.reporter_role, 'issue', r.issue, 'condition', r.condition,
                'quantity_m3', r.quantity_m3, 'eta_minutes', r.eta_minutes, 'note', r.note, 'evidence_id', r.evidence_id,
                'corrects', r.corrects_report, 'at', r.created_at,
-               'added_after_dispute', _dispute_at is not null and r.created_at > _dispute_at,
-               'verification', 'statement') order by r.created_at)
+               'added_after_dispute', r.filed_during_dispute or (_dispute_at is not null and r.created_at > _dispute_at),
+               'verification', 'statement',
+               'reviewer_note', case when r.filed_during_dispute or (_dispute_at is not null and r.created_at > _dispute_at)
+                 then 'Filed after the dispute opened by one of the parties. A statement, not independent verification.'
+                 else 'A statement by one of the parties, not independent verification.' end) order by r.created_at)
         from public.job_stage_reports r where r.job_id = _job), '[]'::jsonb),
     'delivery_code', jsonb_build_object(
       'issued', _pin.job_id is not null,

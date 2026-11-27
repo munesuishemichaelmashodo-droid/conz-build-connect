@@ -18,6 +18,7 @@ export type EvidenceRecord = {
     replaced_note: string | null;
     added_after_dispute: boolean;
     verification: "submitted";
+    reviewer_note?: string;
   }[];
   reports: {
     id: string;
@@ -32,6 +33,7 @@ export type EvidenceRecord = {
     at: string;
     added_after_dispute: boolean;
     verification: "statement";
+    reviewer_note?: string;
   }[];
   delivery_code: {
     issued: boolean;
@@ -46,6 +48,8 @@ export type EvidenceRecord = {
   };
   disputes: { status: string; category: string; opened_at: string; resolved_at: string | null }[];
   recorded_gps_points: number | null;
+  /** Only the local stand-in sets this: sample data, never a real record. */
+  simulated?: boolean;
 };
 
 export function evidenceRecordFlags(r: EvidenceRecord): string[] {

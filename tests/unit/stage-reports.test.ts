@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { availableReports, reportLine, type StageReport } from "@/lib/stage-reports";
+import {
+  availableReports,
+  reportAttribution,
+  reportLine,
+  type StageReport,
+} from "@/lib/stage-reports";
 import { evidenceRecordFlags, type EvidenceRecord } from "@/lib/evidence-record";
 
 const r = (p: Partial<StageReport>): StageReport => ({
@@ -57,6 +62,34 @@ describe("stage reports (0187)", () => {
       [],
     );
     expect(availableReports("customer", "accepted", false, null, now)).toEqual([]);
+  });
+  it("labels every report as a party's statement, and says when it came during a dispute", () => {
+    expect(reportAttribution({ reporter_role: "driver" })).toBe(
+      "Statement by the driver. Not checked by Con Z.",
+    );
+    expect(reportAttribution({ reporter_role: "customer", filed_during_dispute: true })).toBe(
+      "Statement by the customer, filed after a dispute was opened. Not checked by Con Z.",
+    );
+  });
+  it("the stand-in never invents GPS points or code attempts, and marks its record simulated", () => {
+    const mock = readFileSync("scripts/dev/mock-supabase.mjs", "utf8");
+    const rec = mock.slice(
+      mock.indexOf("job_evidence_record:"),
+      mock.indexOf("accept_job_agreement:"),
+    );
+    expect(rec).toMatch(/recorded_gps_points: null/);
+    expect(rec).toMatch(/wrong_attempts: 0/);
+    expect(rec).toMatch(/simulated: true/);
+    expect(readFileSync("src/components/evidence/EvidenceRecordSummary.tsx", "utf8")).toMatch(
+      /Simulated sample data/,
+    );
+  });
+  it("the recovery script keeps every protection", () => {
+    const sql = readFileSync("supabase/rollbacks/20261126190000_0187_rollback.sql", "utf8").replace(
+      /--.*$/gm,
+      "",
+    );
+    expect(sql).not.toMatch(/\bdrop\b|alter policy|job_evidence_immutable|delete from/i);
   });
   it("the reports panel never calls reports verified", () => {
     const src = readFileSync("src/components/evidence/JobStageReports.tsx", "utf8");
