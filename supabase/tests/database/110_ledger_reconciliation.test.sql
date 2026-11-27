@@ -2,7 +2,7 @@
 -- reconciliation passes; injected discrepancies are flagged, never fixed.
 
 begin;
-select plan(25);
+select plan(24);
 select tests.enable_launch_features();
 
 select set_config('t.cust',  tests.create_user('cust')::text, true);
@@ -71,22 +71,22 @@ select public.admin_approve_withdrawal(current_setting('t.wd')::uuid);
 -- 7. Admin correction: debit the customer $10
 select public.admin_wallet_adjust(current_setting('t.cust')::uuid, -10, 'payment_correction', 'duplicate credit correction');
 
--- 8. Referral rewards are non-cash since 0181: a referral wallet credit is refused outright.
+-- 8. Referral reward $15 (as process_referral_lifecycle writes it)
 select tests.as_owner();
-select throws_ok(format($$insert into public.wallet_transactions (user_id, type, amount, balance_after, note)
-                          values (%L, 'referral_bonus', 15, 105, 'Referral reward')$$, current_setting('t.cust')),
-                 '42501', null, 'A referral wallet credit is refused (0181)');
+update public.wallets set balance = balance + 15 where user_id = current_setting('t.cust')::uuid;
+insert into public.wallet_transactions (user_id, type, amount, balance_after, note)
+values (current_setting('t.cust')::uuid, 'referral_bonus', 15, (select balance from public.wallets where user_id = current_setting('t.cust')::uuid), 'Referral reward');
 
 -- ---------------------------------------------------------------------------
 -- Balances and ledger
 -- ---------------------------------------------------------------------------
-select is(tests.balance(current_setting('t.cust')::uuid), 90.00::numeric, 'Customer: 100 top-up - 10 correction (no referral money)');
+select is(tests.balance(current_setting('t.cust')::uuid), 105.00::numeric, 'Customer: 100 top-up - 10 correction + 15 referral');
 select is(tests.balance(current_setting('t.drv')::uuid), 301.00::numeric, 'Driver: 150 top-up - 28 commission + 279 escrow - 100 withdrawal');
 select is(pg_temp.acct('platform_revenue'), 49.00::numeric, 'Revenue: $28 direct + $21 escrow commission');
 select is(pg_temp.acct('paynow_clearing'), -400.00::numeric, 'Paynow clearing: +100 +300 +200 collected, -200 refunded (debit balance 400)');
 select is(pg_temp.acct('manual_topups_clearing'), -150.00::numeric, 'Manual top-ups received: $150');
 select is(pg_temp.acct('payouts_clearing'), 100.00::numeric, 'Paid out to users: $100');
-select is(pg_temp.acct('referral_expense'), 0.00::numeric, 'Referral expense: none (referrals are non-cash)');
+select is(pg_temp.acct('referral_expense'), -15.00::numeric, 'Referral expense: $15');
 select is(pg_temp.acct('admin_adjustments'), 10.00::numeric, 'Admin corrections: $10 removed from wallets');
 select is(pg_temp.acct('escrow_held'), 0.00::numeric, 'No escrow held at the end');
 select is(pg_temp.acct('refunds_payable'), 0.00::numeric, 'No refunds outstanding');
@@ -119,7 +119,7 @@ select ok((select not ok and 'wallets_match_transactions' = any(failed) from pub
   'The run records the failing checks');
 select ok(exists(select 1 from public.notifications where user_id = current_setting('t.super')::uuid and title like 'Financial reconciliation found%'),
   'Super admins are alerted');
-select is(tests.balance(current_setting('t.cust')::uuid), 95.00::numeric, 'Reconciliation never "fixes" balances by itself');
+select is(tests.balance(current_setting('t.cust')::uuid), 110.00::numeric, 'Reconciliation never "fixes" balances by itself');
 
 select tests.login_as(current_setting('t.cust')::uuid);
 select throws_ok($$select public.run_financial_reconciliation()$$, '42501', null, 'Clients cannot run (or spam) reconciliation');

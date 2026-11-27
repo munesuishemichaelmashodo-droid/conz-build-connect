@@ -1,7 +1,7 @@
--- 0184 (+0181 rule): dispute decisions only through audited functions; leftover grants closed; trust signals are
--- admin-only, read-only, privacy-preserving and logged; clearing a referral fraud flag needs a reason.
+-- 0184: dispute decisions only through audited functions; leftover grants closed; trust signals are
+-- admin-only, read-only, privacy-preserving and logged. (The referral fraud-flag reason rule is 0181, in PR #156.)
 begin;
-select plan(29);
+select plan(28);
 select tests.enable_launch_features();
 alter table public.jobs disable trigger trg_jobs_one_active_per_driver;
 
@@ -118,11 +118,6 @@ select ok(exists(select 1 from _sig where signal = 'flagged_referral'), '27: a f
 select tests.as_owner();
 select is((select string_agg(id::text || coalesce(status::text, ''), ',' order by id) from public.profiles), current_setting('t.status_before'),
           '28: no account was changed by the signals (no automatic suspension)');
-
--- ================================================================ E. clearing a referral fraud flag needs a reason
-select tests.login_as(current_setting('t.adm')::uuid);
-select throws_like(format($$select public.admin_referral_action(%L, 'approve')$$, current_setting('t.ref')), '%reason%',
-                   '29: clearing a fraud flag without a reason is refused');
 
 select * from finish();
 rollback;

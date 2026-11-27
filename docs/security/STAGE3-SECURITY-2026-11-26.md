@@ -9,11 +9,11 @@ Branch `stage3/security`, from `main` at `10d4b14`.
 
 | # | Severity | Finding | Exploitable? | Fixed by |
 | --- | --- | --- | --- | --- |
-| V1 | High | Referral processing credits **real commission credit**; admin "release" too; no locking (possible double credit) | When a referred driver completes 5 jobs (0 referrals live) | 0181 (from PR #151), here |
+| V1 | High | Referral processing credits **real commission credit**; admin "release" too; no locking (possible double credit) | When a referred driver completes 5 jobs (0 referrals live) | 0181, moved to PR #156 (one copy only) |
 | V2 | Medium | Any admin can close a dispute by editing the row: no audit entry, no `resolved_by`, no notice to either party (the admin screen's "Reject" did exactly this) | Any admin account | 0184: `admin_reject_dispute` / `admin_mark_dispute_investigating`; direct UPDATE/DELETE revoked |
 | V3 | Low | `disputes` / `chat_flags`: anon SELECT, authenticated write grants left over | No: RLS has no matching policy (defence in depth) | 0184 |
 | V4 | Medium | No place to review weak fraud signals: shared phones, self-dealing pairs, reused payment references, flagged referrals | — | 0184 `admin_trust_signals()` + admin "Trust" screen |
-| V5 | Low | Clearing a referral fraud flag needed no reason | Any admin | 0181 (reason required) |
+| V5 | Low | Clearing a referral fraud flag needed no reason | Any admin | 0181 in PR #156 (reason required) |
 
 ## 2. Existing protections preserved (inspected, not rebuilt)
 

@@ -1,12 +1,11 @@
--- Undo 0184. Gives back the grants exactly as they were live on 26/11/2026 and stops clients calling the three new
--- functions (removing them would need DROP). The app falls back to its previous direct dispute updates when the
--- functions are not callable. No data is changed by 0184, so nothing else needs undoing.
+-- Recovery for 0184 — forward-safe. Run in the SQL editor only if 0184 causes a problem in production.
+--
+-- This script deliberately does NOT give back the grants 0184 closed: signed-out read access to disputes and
+-- chat flags, and direct UPDATE/DELETE on disputes by signed-in users. Restoring them would let anyone rewrite or
+-- delete dispute records without a reason or an audit entry.
+-- It also keeps admin_mark_dispute_investigating and admin_reject_dispute callable: with the direct grants
+-- closed they are the only way admins can act on disputes.
+-- What it can switch off without weakening anything is the read-only trust-signals list. Re-run the GRANT line in
+-- 0184 to turn it back on. If a dispute function is wrong, fix it forward with a new migration.
 
-grant select on public.disputes to anon;
-grant update, delete on public.disputes to authenticated;
-grant select on public.chat_flags to anon;
-grant insert, update, delete on public.chat_flags to authenticated;
-
-revoke execute on function public.admin_mark_dispute_investigating(uuid) from authenticated;
-revoke execute on function public.admin_reject_dispute(uuid, text) from authenticated;
 revoke execute on function public.admin_trust_signals() from authenticated;

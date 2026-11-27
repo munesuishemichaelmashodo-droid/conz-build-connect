@@ -21,7 +21,7 @@
 --   * admin_trust_signals(): admin-only, read-only list of signals for HUMAN REVIEW. It changes nothing about any
 --     account (no suspension, no block, no flag). Phone numbers are shown as the last 3 digits only; no national
 --     ID, document or address is returned. Each viewing is written to the audit log.
--- No DROP, no DELETE. Undo: supabase/rollbacks/20261126160000_0184_rollback.sql.
+-- No DROP, no DELETE. Recovery (forward-safe, keeps the closed grants): supabase/rollbacks/20261126160000_0184_rollback.sql.
 -- -----------------------------------------------------------------------------
 
 -- 1. Dispute actions --------------------------------------------------------------------------------------------

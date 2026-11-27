@@ -63,9 +63,9 @@ select tests.login_as_mfa(current_setting('t.super')::uuid);
 select throws_like(format($$select public.admin_referral_action(%L, 'release')$$, current_setting('t.r_frozen')), 'Only an approved, unflagged reward%',
   'Audit-2: a fraud-frozen reward cannot be released');
 select lives_ok(format($$select public.admin_referral_action(%L, 'release')$$, current_setting('t.r_ok')),
-  'Super admin with MFA can recognise a legitimate approved referral early');
+  'Super admin with MFA can release a legitimate approved reward');
 select tests.as_owner();
-select is(tests.balance(current_setting('t.drv')::uuid), 28.00::numeric, '0181: releasing a referral recognises it and credits nothing (balance = the $28 commission returned by 0160)');
+select is(tests.balance(current_setting('t.drv')::uuid), 43.00::numeric, 'Referrer credited once ($15 reward on top of the $28 commission returned by 0160)');
 
 -- 4. Commission rate changes need MFA
 select tests.login_as(current_setting('t.super')::uuid);
