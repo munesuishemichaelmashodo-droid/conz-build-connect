@@ -867,7 +867,7 @@ function JobDetail() {
                   ) : isOwner ? (
                     <>
                       <p className="text-sm text-muted-foreground">
-                        This job is set up to pay through Con Z Pay. Pay now — we'll hold the money until you confirm delivery.
+                        This job is set up to pay through Con Z Pay, which is not available. Agree with the driver to pay them directly instead.
                       </p>
                       <Button onClick={payEscrow} disabled={payingEscrow} className="w-full">
                         {payingEscrow ? <Loader2 className="w-4 h-4 animate-spin" /> : `Pay ${money(Number(job.final_price ?? job.budget))} now`}
