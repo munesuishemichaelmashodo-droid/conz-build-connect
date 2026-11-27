@@ -6,10 +6,16 @@
 --   * Each new version records what the job WAS when it was proposed, copied by the database from the job,
 --     the accepted offer and its truck (never typed by the user): customer, driver, truck (registration and
 --     capacity), material and quantity, collection and delivery places, preferred date, plus who loads and
---     who offloads, collection instructions and the agreed date. A content hash is stored with it.
---   * A version can never be edited or deleted. Only its status moves forward (proposed -> accepted /
---     declined / superseded; accepted -> superseded) and each side's acceptance time is set once.
---     That holds for admins and SECURITY DEFINER functions too.
+--     who offloads, collection instructions and the agreed date. A SHA-256 hash of the recorded contents is stored
+--     with it (job_agreement_content_hash), so a later change to a stored version can be detected by recomputing it.
+--   * A version can never be edited or deleted through the application. Only its status moves forward
+--     (proposed -> accepted / declined / superseded; accepted -> superseded) and each side's acceptance time is set once.
+--     The guard is a trigger, so it applies to every role that writes through normal SQL: customers, drivers,
+--     admins, the app's SECURITY DEFINER functions and the service role.
+--     What it does NOT stop: a database superuser or the table owner can switch triggers off (ALTER TABLE ... DISABLE
+--     TRIGGER, or session_replication_role = replica) and then edit rows. That is direct database access, outside the
+--     app, and is the reason for the content hash: a version whose stored hash no longer matches its contents has been
+--     altered outside the rules. Access to production database credentials must stay limited to the owners.
 --   * Accepting a version is refused if the job's material, quantity, places, date, fare, driver or truck
 --     changed after it was proposed: a new version must be proposed, which the other side must accept.
 --     When a newer version is accepted, the older accepted one is marked superseded (kept).
@@ -97,6 +103,16 @@ $$;
 revoke all on function public.job_agreement_changed_fields(jsonb, jsonb) from public, anon, authenticated;
 
 -- 2. Fill the snapshot on insert (the database, not the user) ------------------------------------------------
+-- SHA-256 (built into PostgreSQL 11+, no extension) of the recorded contents: every column except status, the two
+-- acceptance times and the hash itself. Recompute and compare to check a stored version has not been altered.
+create or replace function public.job_agreement_content_hash(_a public.job_agreements)
+returns text language sql immutable set search_path to 'public', 'pg_catalog' as $$
+  select encode(sha256(convert_to(
+    (to_jsonb(_a) - 'status' - 'customer_accepted_at' - 'driver_accepted_at' - 'content_hash')::text, 'UTF8')), 'hex')
+$$;
+revoke all on function public.job_agreement_content_hash(public.job_agreements) from public, anon;
+grant execute on function public.job_agreement_content_hash(public.job_agreements) to authenticated, service_role;
+
 create or replace function public.tg_job_agreement_snapshot()
 returns trigger language plpgsql security definer set search_path to 'public' as $$
 declare _f jsonb := public.job_agreement_job_facts(new.job_id);
@@ -116,7 +132,7 @@ begin
   new.delivery_lng := (_f->>'delivery_lng')::double precision;
   new.preferred_date := (_f->>'preferred_date')::date;
   new.created_at := now();
-  new.content_hash := md5((to_jsonb(new) - 'status' - 'customer_accepted_at' - 'driver_accepted_at' - 'content_hash')::text);
+  new.content_hash := public.job_agreement_content_hash(new);
   return new;
 end $$;
 revoke all on function public.tg_job_agreement_snapshot() from public, anon, authenticated;

@@ -512,7 +512,7 @@ const rpc = {
       material: job.custom_material || job.material, quantity_m3: job.quantity_m3,
       pickup_address: job.pickup_address ?? null, delivery_address: job.delivery_address, preferred_date: job.preferred_date ?? null,
       agreed_date: a._agreed_date || null, loading_by: a._loading_by || null, offloading_by: a._offloading_by || null,
-      collection_instructions: a._collection_instructions || null, content_hash: "mock".padEnd(32, "0"),
+      collection_instructions: a._collection_instructions || null, content_hash: "simulated".padEnd(64, "0"), // stand-in value, not a real hash
     });
     return row;
   },

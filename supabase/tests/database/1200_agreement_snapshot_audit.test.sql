@@ -1,7 +1,7 @@
 -- 0186: each agreement version records the job as it was, cannot be rewritten or deleted by anyone, is refused when
 -- the job changed after it was proposed, and every step is in an append-only history.
 begin;
-select plan(35);
+select plan(37);
 select tests.enable_launch_features();
 alter table public.jobs disable trigger trg_jobs_one_active_per_driver;
 
@@ -47,7 +47,8 @@ select ok((select material = 'custom' and quantity_m3 = 12 and pickup_address = 
 select ok((select loading_by = 'collection_point' and offloading_by = 'driver_tips' and collection_instructions like 'Ask for%'
                   and agreed_date = current_date + 2 and cancellation_terms is not null and fare = 100 from pg_temp.v(1)),
           '5: handling, instructions, agreed date, cancellation terms and fare are recorded');
-select ok((select content_hash ~ '^[0-9a-f]{32}$' from pg_temp.v(1)), '6: a content hash is stored');
+select ok((select content_hash ~ '^[0-9a-f]{64}$' and content_hash = public.job_agreement_content_hash(a) from pg_temp.v(1) a),
+          '6: a SHA-256 hash is stored and matches the recorded contents');
 select set_config('t.a1', (pg_temp.v(1)).id::text, true);
 
 -- ============================================================ B. nobody rewrites it
@@ -58,11 +59,11 @@ select throws_ok(format($$insert into public.job_agreements (job_id, version, pr
                  '42501', null, '8: nor insert one with chosen details');
 select tests.as_owner();
 select throws_like($$update public.job_agreements set fare = 1 where version = 1 and job_id = current_setting('t.job')::uuid$$,
-                   '%cannot be changed%', '9: even the database owner cannot change a version''s content');
+                   '%cannot be changed%', '9: the guard refuses a content change from a privileged SQL session too (app-level protection)');
 select throws_like($$update public.job_agreements set truck_registration = 'FAKE-1' where version = 1 and job_id = current_setting('t.job')::uuid$$,
                    '%cannot be changed%', '10: nor swap the recorded truck');
 select throws_like($$delete from public.job_agreements where job_id = current_setting('t.job')::uuid$$,
-                   '%cannot be deleted%', '11: nor delete a version');
+                   '%cannot be deleted%', '11: nor a delete');
 select throws_like($$update public.job_agreements set driver_accepted_at = now() - interval '1 day' where version = 1 and job_id = current_setting('t.job')::uuid$$,
                    '%acceptance cannot be changed%', '12: nor back-date an acceptance');
 
@@ -125,7 +126,16 @@ select is((select string_agg(action || ':' || actor_role || ':' || coalesce(vers
           '33: every step is in the history with who did it');
 select throws_like($$delete from public.job_agreement_events$$, '%history cannot be changed%', '34: the history cannot be deleted');
 
-select is(pg_temp.money(), current_setting('t.money'), '35: no balance, wallet entry or payment changed');
+select ok((select bool_and(content_hash = public.job_agreement_content_hash(a)) from public.job_agreements a
+            where job_id = current_setting('t.job')::uuid),
+          '35: after accepts and supersedes, every stored hash still matches its version (status changes are not contents)');
+-- what the hash is for: a change made with the guard switched off (superuser/owner access) is detectable
+alter table public.job_agreements disable trigger trg_job_agreement_immutable;
+update public.job_agreements set fare = 1 where job_id = current_setting('t.job')::uuid and version = 1;
+alter table public.job_agreements enable trigger trg_job_agreement_immutable;
+select ok((select content_hash <> public.job_agreement_content_hash(a) from pg_temp.v(1) a),
+          '36: an edit made by switching the guard off no longer matches its stored hash');
+select is(pg_temp.money(), current_setting('t.money'), '37: no balance, wallet entry or payment changed');
 
 select * from finish();
 rollback;

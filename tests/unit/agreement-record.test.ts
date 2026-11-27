@@ -28,7 +28,7 @@ describe("recorded agreement details (0186)", () => {
   it("lists the load, truck, places, date and handling", () => {
     const rows = recordedDetails({
       ...base,
-      content_hash: "0".repeat(32),
+      content_hash: "0".repeat(64),
       material: "river_sand",
       quantity_m3: 12,
       truck_registration: "AEX 1234",
@@ -67,6 +67,17 @@ describe("0186 migration", () => {
     expect(sql).not.toMatch(
       /public\.wallets|wallet_transactions|system_settings|held_commission\s*=/i,
     );
+  });
+  it("hashes with SHA-256, not MD5", () => {
+    expect(sql).toMatch(/sha256\(convert_to/);
+    expect(sql).not.toMatch(/\bmd5\(/i);
+  });
+  it("does not claim superusers cannot bypass the guard", () => {
+    const raw = readFileSync(
+      "supabase/migrations/20261126180000_0186_agreement_snapshot_and_audit.sql",
+      "utf8",
+    );
+    expect(raw).toMatch(/superuser or the table owner can switch triggers off/);
   });
   it("blocks edits and deletes of versions and of their history", () => {
     expect(sql).toMatch(/before update or delete on public\.job_agreements/);
