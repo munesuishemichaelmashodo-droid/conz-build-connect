@@ -218,7 +218,7 @@ function OfferModal({
     setAccepting(false);
     if (error) {
       const msg = error.message ?? "Could not accept";
-      if (/insufficient wallet balance/i.test(msg)) {
+      if (/insufficient wallet balance/i.test(msg) || msg.includes("COMMISSION_CREDIT")) {
         toast.error("Commission credit too low to send an offer — top up first");
         onClose();
         nav({ to: "/wallet" });

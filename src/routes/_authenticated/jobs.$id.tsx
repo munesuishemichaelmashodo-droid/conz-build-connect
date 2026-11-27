@@ -97,6 +97,8 @@ import {
 import { OfferCard } from "@/components/redesign/OfferCard";
 import { truckFactsLine } from "@/lib/truck-facts";
 import { AgreementCard } from "@/components/AgreementCard";
+import { BUSY_OFFER_TEXT, driverOfferError, useMyActiveJob } from "@/lib/driver-offer-rules";
+import { DispatchEligibilityPanel } from "@/components/admin/DispatchEligibilityPanel";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import {
   OFFER_SORTS,
@@ -975,6 +977,7 @@ function JobDetail() {
               {showCancel && (
                 <CancelJobDialog jobId={id} status={job.status} asAdmin={isAdminViewer} asDriver={isAssignedDriver} onCancelled={() => nav({ to: isAdminViewer ? "/admin/jobs" : "/jobs" })} />
               )}
+              {isAdminViewer && <DispatchEligibilityPanel jobId={id} />}
             </div>
           </Section>
         )}
@@ -1438,8 +1441,13 @@ function BidForm({
   // Why "Send offer" is disabled, shown next to the button so the driver never has
   // to scroll back up to find out. Same two conditions the button used before.
   // While the truck list is still loading the button stays disabled without a reason.
+  // 0195: on another job (owner rule): browse only until it is finished or cancelled.
+  const { data: activeJob } = useMyActiveJob(userId);
+  const onOtherJob = !!activeJob && activeJob.id !== jobId;
   const sendBlockedReason =
-    trucks && trucks.length === 0
+    onOtherJob
+      ? BUSY_OFFER_TEXT
+    : trucks && trucks.length === 0
       ? "Add a truck to your profile to send an offer."
     : showFundsWarning
       ? `Top up ${money(shortfall)} to send this offer.`
@@ -1476,7 +1484,7 @@ function BidForm({
       { onConflict: "job_id,driver_id" },
     );
     setLoading(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(driverOfferError(error.message) ?? error.message); return; }
     toast.success(existing ? "Bid updated" : "Bid submitted");
     onSaved();
   };
@@ -2799,7 +2807,7 @@ function DriverOpenJob({ ctx }: { ctx: JobScreenCtx }) {
     setResending(true);
     const { error } = await supabase.from("bids").update({ price: Number(myBid.price) } as any).eq("id", myBid.id);
     setResending(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(driverOfferError(error.message) ?? error.message);
     toast.success(`Offer sent again · ${usd(Number(myBid.price))}`);
     ctx.invalidateBids();
   };

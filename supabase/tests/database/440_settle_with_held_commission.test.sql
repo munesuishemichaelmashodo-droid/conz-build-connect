@@ -117,11 +117,13 @@ select set_config('t.b7', tests.create_bid(current_setting('t.j7')::uuid, curren
 -- Two jobs held by one driver can no longer be created by accepting offers (0144, one active job per
 -- driver), but drivers booked before that rule still exist. This simulates one of them.
 alter table public.jobs disable trigger trg_jobs_one_active_per_driver;
+alter table public.jobs disable trigger trg_jobs_withdraw_assigned_driver_offers;  -- 0195 would withdraw the second offer
 select tests.login_as(current_setting('t.cust')::uuid);
 select public.accept_bid(current_setting('t.b6')::uuid);
 select public.accept_bid(current_setting('t.b7')::uuid);
 select tests.as_owner();
 alter table public.jobs enable trigger trg_jobs_one_active_per_driver;
+alter table public.jobs enable trigger trg_jobs_withdraw_assigned_driver_offers;
 select is((select array_agg(held_commission order by budget) from public.jobs
             where id in (current_setting('t.j6')::uuid, current_setting('t.j7')::uuid)), array[28,35]::numeric[],
   'Both jobs reserve 7% (no free first job): $28 and $35');
