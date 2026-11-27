@@ -36,3 +36,16 @@ describe("Privacy Policy describes the app accurately", () => {
     expect(p).not.toMatch(/escrow|guarantee/i);
   });
 });
+
+// Owner rules (27/11): Commission Credit cannot be withdrawn or transferred; Con Z never holds or refunds fares.
+describe("Terms describe Commission Credit and fares accurately", () => {
+  const t = readFileSync("src/routes/terms.tsx", "utf8");
+  it("does not offer withdrawals or a withdrawal PIN", () => {
+    expect(t).not.toMatch(/withdrawal PIN|balances and withdrawals|withdrawal methods/i);
+    expect(t).toMatch(/cannot be withdrawn or\s+transferred to another Driver/);
+  });
+  it("does not promise refunds through a wallet", () => {
+    expect(t).not.toMatch(/refunds through the wallet/);
+    expect(t).toMatch(/Con Z does not refund customer fares/);
+  });
+});
