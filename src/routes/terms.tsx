@@ -75,11 +75,9 @@ function TermsPage() {
           <Section title="6. Commission and Commission Credit">
             <p>
               Registering, verification, browsing jobs and sending offers are free for Drivers. Con Z
-              charges a flat platform commission of <b>7%</b> of{" "}
-              {transportOn
-                ? "the total agreed price for the job, including materials and transport where the job includes them"
-                : "the full job price, including materials and transport"}
-              . When a Customer selects a Driver, Con Z reserves the
+              charges a flat platform commission of <b>7%</b> of the total agreed job value: the
+              delivery price when the Driver only delivers, or materials and delivery together when the
+              Driver also supplies the materials (for example $300 + $100 = $400, commission $28). When a Customer selects a Driver, Con Z reserves the
               commission for that job from the Driver's Commission Credit. The reservation is confirmed
               against the job, it is not a fee for browsing or offering, and it is released if the job
               is cancelled before the load is collected. The commission is earned when the delivery
