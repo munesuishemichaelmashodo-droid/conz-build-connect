@@ -863,7 +863,7 @@ function JobDetail() {
                     <p className="text-sm text-muted-foreground">
                       {isOwner
                         ? "Paynow confirmed this payment. It is released to the driver when you confirm delivery."
-                        : "The customer has paid. Funds are held and will be released to your wallet once delivery is confirmed — or automatically after 72 hours."}
+                        : "The customer paid through Con Z Pay. Contact Con Z support about this payment; Con Z Pay is not used for new jobs."}
                     </p>
                   ) : isOwner ? (
                     <>
@@ -3756,10 +3756,10 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
       <footer className="sticky bottom-0 z-20 space-y-2.5 border-t border-cz-border bg-cz-surface px-5 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))]">
         <div id="tour-next-steps">
           <CzButton onClick={ctx.payEscrow} disabled={ctx.payingEscrow}>
-            {ctx.payingEscrow ? <Loader2 className="w-5 h-5 animate-spin" /> : `Pay ${usd2(total)} with Paynow`}
+            {ctx.payingEscrow ? <Loader2 className="w-5 h-5 animate-spin" /> : `Pay ${usd2(total)} through Con Z Pay`}
           </CzButton>
         </div>
-        <p className="text-center text-xs text-cz-faint">Secured by Paynow · All amounts in USD</p>
+        <p className="text-center text-xs text-cz-faint">Payment page run by Paynow · All amounts in USD</p>
         <div className="grid grid-cols-2 gap-2.5">
           <CzButton kind="ghost" size="sm" onClick={onViewTracking}>View tracking</CzButton>
           {ctx.showCancel ? (
