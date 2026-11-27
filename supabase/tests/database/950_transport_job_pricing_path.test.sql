@@ -17,8 +17,10 @@ create or replace function pg_temp.mkjob(_q uuid, _budget numeric, _basis text d
 declare _id uuid;
 begin
   insert into public.jobs (customer_id, material, quantity_m3, delivery_address, pickup_address, budget, delivery_lat, delivery_lng,
-                           pickup_lat, pickup_lng, pricing_basis, transport_quote_id)
-  values (current_setting('t.cust')::uuid, 'custom', _qty, 'Harare', 'Own pickup, Norton', _budget, -17.93, 31.10, _plat, 31.05, _basis, _q)
+                           pickup_lat, pickup_lng, pricing_basis, transport_quote_id, job_kind, custom_material)
+  values (current_setting('t.cust')::uuid, 'custom', _qty, 'Harare', 'Own pickup, Norton', _budget, -17.93, 31.10, _plat, 31.05, _basis, _q,
+          -- 0183: a transport-priced job is always a "Transport only" booking with a load description
+          case when _basis = 'transport_only' then 'transport_only' end, 'Bricks')
   returning id into _id;
   return _id;
 end $$;

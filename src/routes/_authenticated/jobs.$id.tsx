@@ -1577,6 +1577,8 @@ function BidForm({
               Customer offered <strong className="text-cz-text">{usd(budget)}</strong>
               {job.preferred_date ? <span className="text-cz-muted"> · wanted {job.preferred_date}</span> : null}
             </div>
+            {/* 0183: booking type, truck needed, preferred time, load details (masked for unselected drivers). */}
+            <JobJourneyDetails job={job} />
             {job.notes && <p className="border-t border-cz-border pt-2 text-sm text-cz-muted">{job.notes}</p>}
           </CzCard>
         )}
@@ -1643,7 +1645,7 @@ function BidForm({
         {fee != null && (
           <div className="space-y-1 text-[13px] leading-relaxed text-cz-muted" data-testid="fee-explainer">
             <p>
-              {job?.pricing_basis === "transport_only"
+              {job?.pricing_basis === "transport_only" || job?.pricing_basis === "transport_request"
                   ? `Con Z keeps ${pctLabel} of your total agreed price for this job. It is reserved from your commission credit when the customer accepts and charged when the job is completed.`
                   : `Con Z keeps ${pctLabel} of your full offer price, material and transport included. It is reserved from your commission credit when the customer accepts, charged once when the delivery is verified, and returned if the job is cancelled.`}
             </p>

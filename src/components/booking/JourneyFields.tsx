@@ -1,9 +1,53 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { JOURNEYS, LIMITS, TRUCKS, type JourneyInput } from "@/lib/booking-journey";
+import { JOURNEYS, LIMITS, SERVICES, TRUCKS, type JourneyInput } from "@/lib/booking-journey";
 
-/** The journey choice (shown first) — two large options, one must be picked. */
+/** The first question on the booking screen, always shown: transport only, or materials and transport. */
+export function ServiceChoice({
+  value,
+  onChange,
+}: {
+  value: JourneyInput;
+  onChange: (next: JourneyInput) => void;
+}) {
+  return (
+    <fieldset className="space-y-2" data-testid="service-choice">
+      <legend className="cz-display mb-1 text-[22px] font-bold leading-tight">
+        What do you need?
+      </legend>
+      {SERVICES.map((o) => {
+        const active = value.service === o.value;
+        return (
+          <label
+            key={o.value}
+            className={cn(
+              "flex min-h-14 cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3",
+              active
+                ? "border-primary bg-primary/5 shadow-[inset_0_0_0_1px_var(--color-primary)]"
+                : "border-cz-border bg-cz-surface",
+            )}
+          >
+            <input
+              type="radio"
+              name="service"
+              value={o.value}
+              checked={active}
+              onChange={() => onChange({ ...value, service: o.value })}
+              className="mt-1 h-4 w-4 accent-[var(--color-primary)]"
+            />
+            <span className="min-w-0">
+              <span className="block font-semibold">{o.title}</span>
+              <span className="block text-[13px] text-cz-muted">{o.body}</span>
+            </span>
+          </label>
+        );
+      })}
+    </fieldset>
+  );
+}
+
+/** Transport only: where the load is collected (own place, or a shop/yard where it was bought). */
 export function JourneyChoice({
   value,
   onChange,
@@ -13,9 +57,7 @@ export function JourneyChoice({
 }) {
   return (
     <fieldset className="space-y-2" data-testid="journey-choice">
-      <legend className="cz-display mb-1 text-[22px] font-bold leading-tight">
-        What do you need?
-      </legend>
+      <legend className="mb-1 font-semibold">Where is the load now?</legend>
       {JOURNEYS.map((j) => {
         const active = value.kind === j.value;
         return (
@@ -61,7 +103,7 @@ export function LoadFields({
       data-testid="load-fields"
     >
       <div>
-        <Label htmlFor="load-description">What are you moving? (optional)</Label>
+        <Label htmlFor="load-description">What are you moving?</Label>
         <Input
           id="load-description"
           value={value.loadDescription}
@@ -69,6 +111,7 @@ export function LoadFields({
           placeholder="e.g. 2,000 bricks, roofing sheets, river sand"
           onChange={(e) => onChange({ ...value, loadDescription: e.target.value })}
           className="min-h-11"
+          aria-required
         />
       </div>
       <div>

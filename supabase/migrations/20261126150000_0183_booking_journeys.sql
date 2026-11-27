@@ -1,32 +1,45 @@
 -- -----------------------------------------------------------------------------
--- 0183: two customer booking journeys (Stage 2, 26/11/2026).
+-- 0183: two customer booking journeys (Stage 2, 26/11/2026; revised 27/11/2026).
 --
---   transport_only       the customer already has the load and needs a truck (from their yard, site, etc.)
---   collect_and_deliver  the driver collects materials the customer arranged at a shop, yard or other location
+-- The customer first chooses A "Transport only" (already has the materials) or B "Materials and transport" (the
+-- existing materials order, job_kind NULL, unchanged). A transport-only job has a job_kind:
+--   transport_only       the load is at the customer's own yard, site or another place
+--   collect_and_deliver  the driver collects materials the customer bought at a shop, yard or other location
 --                        (the shop name is only a collection detail the customer types; Con Z has no supplier accounts)
 --
--- Both use the existing transport-only pricing path (0158/0159): the customer gives the collection point and the
--- delivery point, the SERVER measures the road distance into a single-use transport quote, and the budget must sit
--- in the guide band. No second pricing engine; the commission is unchanged (7% of the accepted price, which for
--- these jobs is the transport fare). Con Z arranges transport only; the customer arranges and pays for materials.
+-- A transport-only job is never a material order: material = 'custom', no material quote, no supply location, the
+-- load description (custom_material) is required. Two ways to post it, both from the customer's collection point:
+--   pricing_basis 'transport_only'     transport pricing is ON: the existing 0158/0159 path (server-measured road
+--                                      distance, single-use transport quote, budget inside the guide band).
+--   pricing_basis 'transport_request'  transport pricing is OFF (or no price could be worked out): no Con Z price,
+--                                      no guide range, no quote; the budget is the customer's own offer and drivers
+--                                      accept it or send their own price. Allowed whatever the switch says, so the
+--                                      switch never takes the transport-only choice away from the customer.
+-- No second pricing engine; the commission is unchanged (7% of the accepted price, which for these jobs is the
+-- transport fare). Con Z arranges transport only; the customer arranges and pays for materials.
 --
 -- New nullable job columns (existing jobs keep NULL = the legacy journey; nothing is backfilled):
 --   job_kind, load_details, truck_requirement, preferred_time,
 --   collection_name, collection_contact, collection_reference.
 -- Rules enforced here (not only in the app):
---   * job_kind needs pricing_basis = 'transport_only' (so the transport switch, quote and price band apply).
+--   * job_kind needs pricing_basis 'transport_only' or 'transport_request', material 'custom', no material quote,
+--     a load description, and a collection point in Zimbabwe; 'transport_request' also needs no transport quote, a
+--     customer offer of $1-$100,000, and stores no guide range. Clients cannot post a transport-priced job without
+--     a job_kind (no contradictory "material order priced as transport"). pricing_basis is widened to allow
+--     'transport_request' (constraint replaced; the only DROP is that constraint, re-added in the same statement).
 --   * collect_and_deliver needs a collection_name; transport_only must not carry collection fields (switching
 --     journeys cannot leave hidden data behind).
 --   * Length and control-character limits on every free-text field.
 --   * After posting: job_kind can never change; the customer may correct the collection contact / reference /
 --     details while the job is open or accepted; drivers can change none of these fields.
 -- Privacy for drivers who have not been selected (mask_job_for_driver, find_next_loads_for_driver):
---   * a customer-chosen collection point (transport_only pricing) is shown as an area with ~1 km coordinates,
+--   * a customer-chosen collection point (both transport bases) is shown as an area with ~1 km coordinates,
 --     like the delivery point; collection contact and reference are removed; load details, the load description
 --     (custom_material) and the shop / collection place name are contact-redacted (phone numbers and e-mails removed).
 --   * Before 0183 the collection point of a transport-priced job was returned exactly; no such job exists live
 --     (the transport switch has always been off).
--- No DROP, no DELETE. Undo: supabase/rollbacks/20261126150000_0183_rollback.sql.
+-- No DELETE; the only DROP is the pricing_basis check constraint, replaced by a wider one in the same statement.
+-- Undo: supabase/rollbacks/20261126150000_0183_rollback.sql.
 -- -----------------------------------------------------------------------------
 
 -- 1. Columns ------------------------------------------------------------------------------------------------
@@ -47,6 +60,11 @@ alter table public.jobs
     check (collection_reference is null or (char_length(collection_reference) <= 80 and collection_reference !~ '[[:cntrl:]]'));
 
 -- 2. Validation (SECURITY INVOKER on purpose: current_user must be the caller) -----------------------------
+alter table public.jobs
+  drop constraint if exists jobs_pricing_basis_check,
+  add constraint jobs_pricing_basis_check
+    check (pricing_basis in ('legacy_material_plus_transport', 'transport_only', 'transport_request'));
+
 create or replace function public.tg_validate_job_kind()
 returns trigger
 language plpgsql
@@ -85,14 +103,45 @@ begin
     if new.collection_name is not null or new.collection_contact is not null or new.collection_reference is not null then
       raise exception 'Collection details need a booking type.' using errcode = '22023';
     end if;
+    if new.pricing_basis = 'transport_request' then
+      raise exception 'A transport request needs a booking type.' using errcode = '22023';
+    end if;
+    if tg_op = 'INSERT' and _client and new.pricing_basis = 'transport_only' then
+      raise exception 'Choose transport only to book a transport-priced trip.' using errcode = '22023';
+    end if;
     return new;
   end if;
 
-  if new.pricing_basis is distinct from 'transport_only' then
+  if new.pricing_basis not in ('transport_only', 'transport_request') then
     raise exception 'This booking type must be priced for transport only.' using errcode = '22023';
   end if;
   if new.pickup_lat is null or new.pickup_lng is null or nullif(btrim(coalesce(new.pickup_address, '')), '') is null then
     raise exception 'Choose where the load is collected.' using errcode = '22023';
+  end if;
+  if tg_op = 'INSERT' then
+    -- A transport-only job is never a material order (no catalogue material, material quote or supply location).
+    if new.material is distinct from 'custom' or new.quote_id is not null or new.supply_location_id is not null then
+      raise exception 'A transport-only booking cannot include a material order.' using errcode = '22023';
+    end if;
+    if char_length(btrim(coalesce(new.custom_material, ''))) not between 2 and 120
+       or new.custom_material ~ '[[:cntrl:]]' then
+      raise exception 'Say what the driver is moving (2 to 120 characters).' using errcode = '22023';
+    end if;
+    if not (new.pickup_lat between -23.0 and -15.0 and new.pickup_lng between 25.0 and 33.5) then
+      raise exception 'The collection point must be in Zimbabwe.' using errcode = '22023';
+    end if;
+  end if;
+  if new.pricing_basis = 'transport_request' then
+    if new.transport_quote_id is not null then
+      raise exception 'A transport request has no Con Z price quote.' using errcode = '22023';
+    end if;
+    if tg_op = 'INSERT' then
+      if new.budget is null or new.budget < 1 or new.budget > 100000 then
+        raise exception 'Enter an offer between $1 and $100,000.' using errcode = '22023';
+      end if;
+      new.pricing_breakdown := null;  -- no guide range: nothing stored that could look like a Con Z price
+      new.pricing_version := null;
+    end if;
   end if;
   if new.job_kind = 'collect_and_deliver' then
     if new.collection_name is null then
@@ -125,7 +174,7 @@ begin
   j.delivery_photo_url := null; j.pickup_photo_url := null;
   -- (0183) A collection point the customer chose is private like the delivery point; the listed pickup
   -- locations of legacy material pricing stay as they were.
-  if j.pricing_basis = 'transport_only' then
+  if j.pricing_basis in ('transport_only', 'transport_request') then
     j.pickup_address := public.coarse_place(j.pickup_address);
     j.pickup_lat := public.coarse_coord(j.pickup_lat);
     j.pickup_lng := public.coarse_coord(j.pickup_lng);
@@ -149,9 +198,9 @@ returns table(job_id uuid, material public.material_category, quantity_m3 numeri
 language sql stable security definer set search_path to 'public'
 as $$
   select e.job_id, e.material, e.quantity_m3,
-         case when j.pricing_basis = 'transport_only' then public.coarse_place(e.pickup_address) else e.pickup_address end,
-         case when j.pricing_basis = 'transport_only' then public.coarse_coord(e.pickup_lat) else e.pickup_lat end,
-         case when j.pricing_basis = 'transport_only' then public.coarse_coord(e.pickup_lng) else e.pickup_lng end,
+         case when j.pricing_basis in ('transport_only', 'transport_request') then public.coarse_place(e.pickup_address) else e.pickup_address end,
+         case when j.pricing_basis in ('transport_only', 'transport_request') then public.coarse_coord(e.pickup_lat) else e.pickup_lat end,
+         case when j.pricing_basis in ('transport_only', 'transport_request') then public.coarse_coord(e.pickup_lng) else e.pickup_lng end,
          public.coarse_place(e.delivery_address), public.coarse_coord(e.delivery_lat), public.coarse_coord(e.delivery_lng),
          e.budget, e.preferred_date, e.repositioning_km, e.next_load_km, e.empty_km_saved, e.capacity_tier,
          e.capacity_trips, e.recommendation_tier

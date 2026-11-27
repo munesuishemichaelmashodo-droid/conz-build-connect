@@ -29,15 +29,22 @@ import { useAuth } from "@/lib/auth";
 import { useLaunchSwitches } from "@/lib/launch-switches";
 import { computeTransportOffer } from "@/lib/transport-quote.functions";
 import { useTransportPricingEnabled } from "@/lib/transport-pricing";
-import { transportJobFields, transportToOfferResult } from "@/lib/transport-offer-view";
+import {
+  transportJobFields,
+  transportRequestJobFields,
+  transportRequestOfferResult,
+  transportToOfferResult,
+} from "@/lib/transport-offer-view";
 import {
   EMPTY_JOURNEY,
+  MAX_REQUEST_OFFER,
   TIMES,
   journeyJobFields,
   journeyProblem,
+  requestOfferProblem,
   type JourneyInput,
 } from "@/lib/booking-journey";
-import { CollectionFields, JourneyChoice, LoadFields } from "@/components/booking/JourneyFields";
+import { CollectionFields, JourneyChoice, LoadFields, ServiceChoice } from "@/components/booking/JourneyFields";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -113,8 +120,10 @@ function BookDelivery() {
   const transportOn = useTransportPricingEnabled();
   const [pickupAddress, setPickupAddress] = useState("");
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
-  // 0183: which journey (transport only / collect materials from a shop) and its details. Used only with transport pricing.
+  // 0183: the customer's first choice (transport only / materials and transport) and the transport details.
+  // Shown whatever the pricing switches say; transport_pricing_enabled only decides whether Con Z prices the trip.
   const [journey, setJourney] = useState<JourneyInput>(EMPTY_JOURNEY);
+  const isTransport = journey.service === "transport";
 
   const [step, setStep] = useState<number>(0);
   const [address, setAddress] = useState(search.address ?? "");
@@ -224,10 +233,19 @@ function BookDelivery() {
 
     if (!quantity || quantity < MIN_QUANTITY_M3) return toast.error("Enter quantity");
 
-    if (transportOn) {
-      const problem = journeyProblem(journey);
-      if (problem) return toast.error(problem);
-      if (!pickupCoords) return toast.error("Choose where the load will be collected.");
+    const problem = journeyProblem(journey);
+    if (problem) return toast.error(problem);
+
+    // A. Transport only: never the material catalogue, material pricing or sourcing.
+    if (isTransport) {
+      if (!pickupCoords) return toast.error("Choose where the load is collected.");
+      const asRequest = () => {
+        setOfferData(transportRequestOfferResult(quantity));
+        setOffer(0);
+        setStep(5);
+      };
+      // Transport pricing off: record a request; the customer states their own offer and drivers reply.
+      if (!transportOn) return asRequest();
       setComputing(true);
       try {
         const t = await runTransport({
@@ -244,7 +262,11 @@ function BookDelivery() {
         setOffer(o.offer);
         setStep(5);
       } catch (e: any) {
-        toast.error(e?.message ?? "Could not calculate the delivery price");
+        // No price could be worked out (e.g. the road distance service failed): no guessed price, a request instead.
+        toast.error(
+          `${e?.message ?? "Could not calculate the delivery price"}. You can still post the trip with your own offer.`,
+        );
+        asRequest();
       } finally {
         setComputing(false);
       }
@@ -320,6 +342,17 @@ function BookDelivery() {
       setStep(2);
       return toast.error("Select the delivery point on the map before confirming.");
     }
+    const requestOnly = offerData.dataSource === "transport_request";
+    const transportJob = offerData.dataSource === "transport" || requestOnly;
+    if (transportJob && !pickupCoords) {
+      setStep(0);
+      return toast.error("Choose where the load is collected.");
+    }
+    if (requestOnly) {
+      const bad = requestOfferProblem(offer);
+      if (bad) return toast.error(bad);
+    }
+    const pickup = pickupCoords ? { address: pickupAddress, ...pickupCoords } : null;
 
     setPosting(true);
     attemptId.current ??= newBookingAttemptId();
@@ -334,15 +367,21 @@ function BookDelivery() {
         // Open request (no ConZ supplier): posted as the existing unpriced
         // "custom" type so no supplier quote is required; the real material
         // is kept as the label and in the notes. Drivers bid their own price.
-        material: offerData.openRequest ? "custom" : material,
-        custom_material: offerData.openRequest ? offerData.label : null,
+        // B. Materials and transport only; a transport-only booking never sends a material or material quote.
+        ...(transportJob
+          ? {}
+          : {
+              material: offerData.openRequest ? "custom" : material,
+              custom_material: offerData.openRequest ? offerData.label : null,
+              quote_id: offerData.openRequest ? null : offerData.quoteId,
+            }),
         quantity_m3: quantity,
-        quote_id: offerData.openRequest ? null : offerData.quoteId,
-        // Delivery-only pricing from the customer's own pickup point (off unless the switch is on).
-        ...(offerData.dataSource === "transport" && pickupCoords
+        // A. Transport only: the customer's own collection point; priced by the transport engine or posted as a
+        // request with the customer's own offer (material "custom", the load description as its label).
+        ...(transportJob && pickup
           ? {
-              ...transportJobFields(offerData, { address: pickupAddress, ...pickupCoords }),
-              ...journeyJobFields(journey, materialLabel(material, null)),
+              ...(requestOnly ? transportRequestJobFields(pickup) : transportJobFields(offerData, pickup)),
+              ...journeyJobFields(journey),
             }
           : {}),
 
@@ -350,7 +389,7 @@ function BookDelivery() {
         delivery_lat: coords.lat,
         delivery_lng: coords.lng,
 
-        ...(offerData.dataSource === "transport" && pickupCoords
+        ...(transportJob
           ? {}
           : {
               pickup_address: offerData.resolvedSource
@@ -364,7 +403,7 @@ function BookDelivery() {
         budget: offer,
         preferred_date: date || null,
         notes:
-          [offerData.openRequest ? `Open request: ${offerData.label} — driver arranges pickup and bids their own price.` : "", notes.trim()]
+          [offerData.openRequest && !transportJob ? `Open request: ${offerData.label} — driver arranges pickup and bids their own price.` : "", notes.trim()]
             .filter(Boolean)
             .join(" ") || null,
         preferred_driver_id: search.driverId || null,
@@ -493,28 +532,34 @@ function BookDelivery() {
                 </HintBox>
               )}
 
-              {transportOn && <JourneyChoice value={journey} onChange={setJourney} />}
-              <div id="tour-book-material" data-tour="book-material" className="space-y-3">
-                <h1 className="cz-display font-bold text-[26px] leading-tight">What do you need delivered?</h1>
-                <ChoiceChips
-                  label="Material"
-                  scroll
-                  options={BOOKABLE_MATERIALS.map((m) => ({
-                    value: m.value,
-                    label: m.label,
-                    media: <MaterialThumb material={m.value} size={28} />,
-                  }))}
-                  value={material}
-                  onChange={(v) => setMaterial(v as MaterialCategory)}
-                />
-              </div>
+              <ServiceChoice value={journey} onChange={setJourney} />
+              {journey.service === "materials" && (
+                <div id="tour-book-material" data-tour="book-material" className="space-y-3">
+                  <h2 className="cz-display font-bold text-[22px] leading-tight">Which material?</h2>
+                  <ChoiceChips
+                    label="Material"
+                    scroll
+                    options={BOOKABLE_MATERIALS.map((m) => ({
+                      value: m.value,
+                      label: m.label,
+                      media: <MaterialThumb material={m.value} size={28} />,
+                    }))}
+                    value={material}
+                    onChange={(v) => setMaterial(v as MaterialCategory)}
+                  />
+                </div>
+              )}
 
-              <div data-tour="book-quantity" className="rounded-xl border border-cz-border bg-cz-surface p-3.5">
-                <LoadPicker id="qty" value={quantity} onChange={setQuantity} />
-              </div>
+              {isTransport && <LoadFields value={journey} onChange={setJourney} />}
 
-              {transportOn && <LoadFields value={journey} onChange={setJourney} />}
-              {transportOn && (
+              {journey.service && (
+                  <div data-tour="book-quantity" className="rounded-xl border border-cz-border bg-cz-surface p-3.5">
+                    <LoadPicker id="qty" value={quantity} onChange={setQuantity} />
+                  </div>
+              )}
+
+              {isTransport && <JourneyChoice value={journey} onChange={setJourney} />}
+              {isTransport && (
                 <div data-testid="pickup-block" className="space-y-2 rounded-xl border border-cz-border bg-cz-surface p-3.5">
                   <div className="font-semibold">
                     {journey.kind === "collect_and_deliver"
@@ -522,8 +567,8 @@ function BookDelivery() {
                       : "Where is the load now?"}
                   </div>
                   <p className="text-[13px] text-cz-muted">
-                    You are pricing the delivery trip only, from this point to your delivery address. Con Z arranges
-                    the transport; the materials are yours to arrange.
+                    The trip is from this point to your delivery address. The driver delivers your load; the
+                    materials are yours.
                   </p>
                   {journey.kind === "collect_and_deliver" && (
                     <CollectionFields value={journey} onChange={setJourney} />
@@ -568,7 +613,7 @@ function BookDelivery() {
                     </div>
                     <p className="mt-1 text-xs text-cz-muted">Optional — leave blank for as soon as possible.</p>
                   </div>
-                  {transportOn && (
+                  {isTransport && (
                     <div>
                       <Label htmlFor="pref-time">Preferred time</Label>
                       <select
@@ -598,19 +643,25 @@ function BookDelivery() {
                       placeholder="Access instructions, contact person, gate code…"
                     />
                   </div>
-                  <p className="text-xs text-cz-muted">
-                    Under 1 m³ includes a minimum trip charge that covers dispatch and the driver's return trip. From 1–20 m³, we
-                    price against the next load size up (e.g. 13 m³ is priced as a 15 m³ load). Above 20 m³, we price it from
-                    recent driver bids on similar-sized loads once there's enough data — otherwise it's routed to a custom quote.
-                  </p>
+                  {!isTransport && (
+                    <p className="text-xs text-cz-muted">
+                      Under 1 m³ includes a minimum trip charge that covers dispatch and the driver's return trip. From 1–20 m³, we
+                      price against the next load size up (e.g. 13 m³ is priced as a 15 m³ load). Above 20 m³, we price it from
+                      recent driver bids on similar-sized loads once there's enough data — otherwise it's routed to a custom quote.
+                    </p>
+                  )}
                 </div>
               </details>
 
-              <p className="text-[13px] text-cz-muted">
-                {transportOn
-                  ? "We measure the road distance from your loading point to your delivery point and give a guide range for the trip. Drivers send offers and you choose."
-                  : "You don't choose a supplier. We find a listed one near your delivery point and price the road trip. If none covers it, drivers arrange the pickup and you get a guide range."}
+              {journey.service && (
+              <p className="text-[13px] text-cz-muted" data-testid="journey-pricing-note">
+                {!isTransport
+                  ? "You don't choose a supplier. We find a listed one near your delivery point and price the road trip. If none covers it, drivers arrange the pickup and you get a guide range."
+                  : transportOn
+                    ? "We measure the road distance from your collection point to your delivery point and give a guide range for the trip. Drivers send offers and you choose."
+                    : "Con Z does not price transport-only trips yet. Next, you say what you offer for the trip; drivers accept it or send their own price, and you choose. Nothing is agreed until you accept an offer."}
               </p>
+              )}
               {address.trim().length > 2 && !coords && (
                 <p className="text-[13px] text-cz-danger-text">
                   Tap the map or pick a search result so the driver can navigate accurately.
@@ -621,9 +672,7 @@ function BookDelivery() {
                 data-tour="book-see-price"
                 data-location-ready={locationValid ? "true" : "false"}
                 onClick={goToOffer}
-                disabled={
-                  computing || !quantityValid || !locationValid || (transportOn && !journey.kind)
-                }
+                disabled={computing || !quantityValid || !locationValid || !journey.service}
               >
                 {computing ? (
                   <>
@@ -633,6 +682,10 @@ function BookDelivery() {
                   "Set the delivery point first"
                 ) : !coords ? (
                   "Tap the map to set the delivery point"
+                ) : !journey.service ? (
+                  "Choose what you need"
+                ) : isTransport && !transportOn ? (
+                  "Continue"
                 ) : (
                   "See price"
                 )}
@@ -650,16 +703,25 @@ function BookDelivery() {
     { key: "high", title: "High", value: offerData.high, hint: "More drivers may respond" },
   ].filter((t) => Number.isFinite(t.value) && t.value >= offerData.min && t.value <= offerData.max);
 
+  const requestOnly = offerData.dataSource === "transport_request";
+  const requestProblem = requestOnly ? requestOfferProblem(offer) : null;
+
   return (
     <CzScreen>
       <CzHeader
-        title="Choose your price"
+        title={requestOnly ? "Your offer for the trip" : "Choose your price"}
         onBack={goBack}
-        subtitle={`${offerData.label.charAt(0).toUpperCase()}${offerData.label.slice(1)} · ${quantity} m³ → ${areaOf(address) || address} · ${offerData.openRequest ? "open request" : `${offerData.distanceKm} km`}`}
+        subtitle={`${offerData.label.charAt(0).toUpperCase()}${offerData.label.slice(1)} · ${quantity} m³ → ${areaOf(address) || address} · ${requestOnly ? "transport request" : offerData.openRequest ? "open request" : `${offerData.distanceKm} km`}`}
       />
 
       <div className="flex-1 space-y-4 px-5 pb-6">
-        {offerData.openRequest && (
+        {requestOnly && (
+          <Notice tone="info" title="Con Z has not priced this trip">
+            Enter what you are willing to pay the driver for this trip. Drivers see your offer and can accept it or send
+            their own price; you compare and choose. The price is only agreed when you accept an offer.
+          </Notice>
+        )}
+        {offerData.openRequest && !requestOnly && (
           <Notice tone="info" title="No listed supplier covers this area yet">
             These amounts are a guide for hauls of {OPEN_REQUEST_HAUL_KM.low} to {OPEN_REQUEST_HAUL_KM.high} km. Drivers collect from their own source and
             send their own price; availability is confirmed only when a driver accepts.
@@ -710,72 +772,91 @@ function BookDelivery() {
           This is the amount you offer drivers. They can accept it or send their own price, and you choose.
           Posting the job doesn't charge you.
         </p>
-        <div id="tour-book-offer" data-tour="book-offer" className="space-y-3">
-          <div role="radiogroup" aria-label="Your price" className="grid gap-2.5">
-            {tiers.map((t) => {
-              const on = offer === t.value;
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  onClick={() => setOffer(t.value)}
-                  className={cn(
-                    "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 text-left transition",
-                    // Selected = raised neutral with a filled radio mark; orange stays on "Post job".
-                    on
-                      ? "border-cz-text bg-cz-surface-2 shadow-[inset_0_0_0_1px_var(--cz-text)]"
-                      : "border-cz-border bg-cz-surface hover:bg-cz-surface-2",
-                  )}
-                >
-                  <span
-                    aria-hidden
-                    className={cn(
-                      "h-5 w-5 shrink-0 rounded-full border-2",
-                      on ? "border-[6px] border-cz-text bg-cz-surface" : "border-cz-control",
-                    )}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2 font-semibold">
-                      {t.title}
-                      {t.key === "recommended" && (
-                        <span className="rounded-full bg-cz-amber-tint-2 px-2 py-0.5 text-[11px] font-semibold text-cz-amber-text">
-                          Suggested
-                        </span>
-                      )}
-                    </span>
-                    <span className="block text-[13px] text-cz-muted">{t.hint}</span>
-                  </span>
-                  <span className="cz-display font-bold text-[30px] tabular-nums text-cz-text">{usd(t.value)}</span>
-                </button>
-              );
-            })}
+        {requestOnly ? (
+          <div className="space-y-1.5" data-testid="request-offer">
+            <Label htmlFor="request-offer">Your offer (USD)</Label>
+            <Input
+              id="request-offer"
+              type="number"
+              inputMode="decimal"
+              min={1}
+              max={MAX_REQUEST_OFFER}
+              step="0.01"
+              value={offer > 0 ? String(offer) : ""}
+              onChange={(e) => setOffer(Number(e.target.value))}
+              className="min-h-12 text-lg"
+              aria-invalid={!!requestProblem && offer !== 0}
+            />
+            {requestProblem && offer !== 0 && <p className="text-[13px] text-cz-danger-text">{requestProblem}</p>}
           </div>
+        ) : (
+          <div id="tour-book-offer" data-tour="book-offer" className="space-y-3">
+            <div role="radiogroup" aria-label="Your price" className="grid gap-2.5">
+              {tiers.map((t) => {
+                const on = offer === t.value;
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => setOffer(t.value)}
+                    className={cn(
+                      "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 text-left transition",
+                      // Selected = raised neutral with a filled radio mark; orange stays on "Post job".
+                      on
+                        ? "border-cz-text bg-cz-surface-2 shadow-[inset_0_0_0_1px_var(--cz-text)]"
+                        : "border-cz-border bg-cz-surface hover:bg-cz-surface-2",
+                    )}
+                  >
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "h-5 w-5 shrink-0 rounded-full border-2",
+                        on ? "border-[6px] border-cz-text bg-cz-surface" : "border-cz-control",
+                      )}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2 font-semibold">
+                        {t.title}
+                        {t.key === "recommended" && (
+                          <span className="rounded-full bg-cz-amber-tint-2 px-2 py-0.5 text-[11px] font-semibold text-cz-amber-text">
+                            Suggested
+                          </span>
+                        )}
+                      </span>
+                      <span className="block text-[13px] text-cz-muted">{t.hint}</span>
+                    </span>
+                    <span className="cz-display font-bold text-[30px] tabular-nums text-cz-text">{usd(t.value)}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-          <div className="rounded-2xl border border-cz-border bg-cz-surface px-4 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm text-cz-muted">Or set your own</span>
-              <div className="flex items-center gap-2">
-                <IconButton onClick={() => adjust(-1)} aria-label="Decrease offer">
-                  <Minus className="w-[18px] h-[18px]" />
-                </IconButton>
-                <span
-                  aria-live="polite"
-                  className="min-w-[84px] text-center cz-display font-bold text-[30px] text-cz-text tabular-nums"
-                >
-                  {usd(offer)}
-                </span>
-                <IconButton onClick={() => adjust(1)} aria-label="Increase offer">
-                  <Plus className="w-[18px] h-[18px]" />
-                </IconButton>
+            <div className="rounded-2xl border border-cz-border bg-cz-surface px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-cz-muted">Or set your own</span>
+                <div className="flex items-center gap-2">
+                  <IconButton onClick={() => adjust(-1)} aria-label="Decrease offer">
+                    <Minus className="w-[18px] h-[18px]" />
+                  </IconButton>
+                  <span
+                    aria-live="polite"
+                    className="min-w-[84px] text-center cz-display font-bold text-[30px] text-cz-text tabular-nums"
+                  >
+                    {usd(offer)}
+                  </span>
+                  <IconButton onClick={() => adjust(1)} aria-label="Increase offer">
+                    <Plus className="w-[18px] h-[18px]" />
+                  </IconButton>
+                </div>
               </div>
             </div>
+            {offerData.explanation && <p className="text-[13px] text-cz-muted">{offerData.explanation}</p>}
           </div>
-          {offerData.explanation && <p className="text-[13px] text-cz-muted">{offerData.explanation}</p>}
-        </div>
+        )}
 
-        <DocketPanel title="What the price is based on">
+        <DocketPanel title={requestOnly ? "Your request" : "What the price is based on"}>
           {offerData.materialCost > 0 && (
             <DocketRow label={`Material (${quantity} m³)`}>{usd2(offerData.materialCost)}</DocketRow>
           )}
@@ -791,16 +872,17 @@ function BookDelivery() {
                 <StockStatusNote status={offerData.resolvedSource.stockStatus} />
               </div>
             </>
-          ) : offerData.dataSource === "transport" ? (
+          ) : offerData.dataSource === "transport" || requestOnly ? (
             <>
               <DocketRow label="Collected from">
                 {journey.kind === "collect_and_deliver" && journey.collectionName.trim()
                   ? `${journey.collectionName.trim()}, ${pickupAddress || "collection address"}`
                   : pickupAddress || "Your loading point"}
               </DocketRow>
+              <DocketRow label="Moving">{journey.loadDescription.trim()}</DocketRow>
               <p className="px-4 pb-3 text-[13px] text-cz-muted">
-                This price is for the delivery trip only. Pay the driver directly; Con Z does not hold the fare. The
-                material itself is arranged separately and is not part of this price.
+                {requestOnly ? "Your offer" : "This price"} is for the delivery trip only. Pay the driver directly; Con Z
+                does not hold the fare. The material itself is yours and is not part of this price.
               </p>
             </>
           ) : (
@@ -823,10 +905,12 @@ function BookDelivery() {
               </p>
             );
           })()}
-          <p className="px-4 py-3 text-[13px] text-cz-muted">
-            Estimated {offerData.tripCount} trip{offerData.tripCount === 1 ? "" : "s"}, based on a {offerData.referenceCapacityM3} m³
-            reference truck. All amounts in USD.
-          </p>
+          {!requestOnly && (
+            <p className="px-4 py-3 text-[13px] text-cz-muted">
+              Estimated {offerData.tripCount} trip{offerData.tripCount === 1 ? "" : "s"}, based on a {offerData.referenceCapacityM3} m³
+              reference truck. All amounts in USD.
+            </p>
+          )}
         </DocketPanel>
 
         {!launch.escrowEnabled && (
@@ -902,8 +986,8 @@ function BookDelivery() {
       </div>
 
       <footer className="sticky bottom-0 z-20 space-y-2 border-t border-cz-border bg-cz-surface px-5 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))]">
-        <CzButton id="tour-book-confirm" data-tour="book-confirm" onClick={confirm} disabled={posting}>
-          {posting ? <Loader2 className="w-5 h-5 animate-spin" /> : `Post job · ${usd(offer)}`}
+        <CzButton id="tour-book-confirm" data-tour="book-confirm" onClick={confirm} disabled={posting || !!requestProblem}>
+          {posting ? <Loader2 className="w-5 h-5 animate-spin" /> : requestProblem ? "Enter your offer" : `Post job · ${usd(offer)}`}
         </CzButton>
         <p className="text-center text-xs text-cz-muted">Verified drivers can see your request and send offers. You compare them and make the final choice.</p>
       </footer>

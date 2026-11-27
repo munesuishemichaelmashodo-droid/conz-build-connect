@@ -1,7 +1,9 @@
 -- Undo 0183. Restores find_next_loads_for_driver exactly as live on 26/11/2026, and the previous
 -- mask_job_for_driver, with ONE deliberate difference: the mask keeps removing collection_contact and
--- collection_reference. Those columns did not exist before 0183, and any job posted while 0183 was live may
--- hold them; restoring the bare previous body would show them to drivers who were not selected.
+-- collection_reference, and it keeps showing only an area for a customer-chosen collection point
+-- (pricing_basis 'transport_only' or 'transport_request'). Those columns and the 'transport_request' value did not
+-- exist before 0183, and any job posted while 0183 was live may hold them; restoring the bare previous body would
+-- show them to drivers who were not selected. The wider pricing_basis constraint stays (existing rows may use it).
 -- The validation trigger becomes a pass-through (removing it would need DROP). The new columns stay (no DROP);
 -- they are nullable and ignored by the app once it is rolled back.
 
@@ -28,6 +30,11 @@ begin
   j.delivery_pin := null;
   j.delivery_photo_url := null; j.pickup_photo_url := null;
   j.collection_contact := null; j.collection_reference := null;  -- kept from 0183, see header
+  if j.pricing_basis in ('transport_only', 'transport_request') then  -- kept from 0183, see header
+    j.pickup_address := public.coarse_place(j.pickup_address);
+    j.pickup_lat := public.coarse_coord(j.pickup_lat);
+    j.pickup_lng := public.coarse_coord(j.pickup_lng);
+  end if;
   return j;
 end $function$;
 
