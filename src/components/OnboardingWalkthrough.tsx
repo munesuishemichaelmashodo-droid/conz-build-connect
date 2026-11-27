@@ -45,7 +45,7 @@ const DRIVER_SLIDES: Slide[] = [
   {
     icon: Wallet,
     title: "You're in control",
-    body: "Your first completed job has no commission. After that, Con Z commission is 7% of the full job value, materials and transport included. As you use the app, we'll point out what each new screen does.",
+    body: "Your first completed job has no commission. After that, Con Z commission is 7% of the total agreed job value: the delivery price when the driver only delivers, or materials and delivery together when the driver also supplies the materials. As you use the app, we'll point out what each new screen does.",
   },
 ];
 
