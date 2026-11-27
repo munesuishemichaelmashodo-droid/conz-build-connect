@@ -31,16 +31,14 @@ function TermsPage() {
         <header className="mt-6 mb-8">
           <div className="text-xs text-muted-foreground">Con Z Build Connect</div>
           <h1 className="font-display font-bold text-3xl tracking-tight">Terms and Conditions</h1>
-          <p className="text-xs text-muted-foreground mt-2">Last updated: 3 November 2026</p>
+          <p className="text-xs text-muted-foreground mt-2">Last updated: 26 November 2026</p>
         </header>
 
         <div className="prose prose-sm dark:prose-invert max-w-none space-y-6">
           <Section title="1. About Con Z Build Connect">
             <p>
               Con Z Build Connect ("Con Z") is operated by Navysky Innovations (Private) Limited, a company
-              registered in Zimbabwe (company number 145174A02102026; ZIMRA tax identification
-              number (TIN) 2002683072) with its registered
-              office at 12705 Timire Park, Ruwa. It operates a construction
+              registered in Zimbabwe (company number 145174A02102026). It operates a construction
               logistics marketplace that connects customers requiring bulk material
               deliveries with independent tipper truck drivers ("Drivers").
             </p>
