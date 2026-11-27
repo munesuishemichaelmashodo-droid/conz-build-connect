@@ -1,0 +1,11 @@
+-- Recovery for 0190 — forward-safe. Run in the SQL editor only if 0190 causes a problem in production.
+--
+-- This script deliberately does NOT restore the 0073 apply_paynow_result: that version credits a top-up on
+-- "Awaiting Delivery", while Paynow BuySafe still holds the money and the buyer can dispute it.
+--
+-- If 0190's gate is stopping genuine top-ups, the fix is the owner's mode decision, not a rollback:
+--   select public.admin_set_paynow_mode('live', '<reason, owner approval reference>');   -- super admin + step-up
+-- Payments that arrived while the mode was not live stay 'initiated' with a 'held_mode_not_live' event; after the
+-- mode is live, the reconcile job (or an admin reconcile) credits each of them exactly once.
+-- If a rule in 0190 itself is wrong, fix it forward with a new migration.
+select public.paynow_mode() as current_mode;

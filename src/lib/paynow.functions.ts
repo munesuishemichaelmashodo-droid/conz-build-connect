@@ -27,6 +27,12 @@ export const initiatePaynowTopup = createServerFn({ method: "POST" })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service-role RPCs/tables added by 0073+ are not in the generated Supabase types yet
     const db = supabaseAdmin as any;
 
+    // 0190: only LIVE mode starts a real Paynow payment. OFF refuses; TEST is simulated (no payment row, no
+    // Paynow call, no credit). The database applies the same rule to any result that arrives.
+    const { readPaynowMode, paynowStartDecision } = await import("@/lib/paynow.server");
+    const decision = paynowStartDecision(await readPaynowMode(db));
+    if (!decision.start) return { ok: false, error: decision.error };
+
     // Cap unfinished top-ups per user: each call writes a payments row and calls Paynow.
     const { count: pendingTopups } = await db
       .from("payments")
@@ -116,6 +122,12 @@ export const initiateEscrowPayment = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service-role RPCs/tables added by 0073+ are not in the generated Supabase types yet
     const db = supabaseAdmin as any;
+
+    {
+      const { readPaynowMode, paynowStartDecision } = await import("@/lib/paynow.server");
+      const decision = paynowStartDecision(await readPaynowMode(db));
+      if (!decision.start) return { ok: false, error: decision.error };
+    }
 
     // MVP launch: Con Z Pay (escrow) is paused until the owner switches it on (migration 0107).
     // Fail closed: if the switch cannot be read, the payment is not started.
