@@ -1,15 +1,11 @@
--- Undo 0182: restores the rating policies, grants and average triggers exactly as they were live on 26/11/2026.
--- WARNING: this re-opens every rating row to every signed-in user and brings back averages that never update.
--- The one-off recompute in 0182 is not undone (it only corrected figures to match the ratings that exist).
-
-alter policy "Ratings readable by the two parties and admins" on public.ratings using (true);
-alter policy "Ratings readable by the two parties and admins" on public.ratings rename to "Ratings readable by authenticated";
-
-alter policy "Customer ratings readable by the two parties and admins" on public.customer_ratings using (true);
-alter policy "Customer ratings readable by the two parties and admins" on public.customer_ratings rename to "Authenticated can read customer ratings";
-
-grant select on public.ratings, public.customer_ratings to anon;
-grant update, delete on public.ratings, public.customer_ratings to authenticated;
+-- Recovery for 0182 — forward-safe. Run in the SQL editor only if 0182 causes a problem in production.
+--
+-- This script deliberately does NOT reopen ratings: the "two parties and admins" read policies stay, signed-out
+-- visitors stay unable to read ratings, and signed-in users stay unable to edit or delete them.
+-- The only part it reverses is the change most likely to misbehave: the two rating-average triggers go back to
+-- their previous bodies (they run as the caller). With those bodies the averages stop updating, which is how
+-- production was before 0182; no rating row is changed or removed, and the averages already written stay.
+-- If a 0182 rule is wrong, fix it forward with a new migration.
 
 CREATE OR REPLACE FUNCTION public.tg_rating_aggregate()
  RETURNS trigger

@@ -21,7 +21,7 @@
 --   * anon loses SELECT; authenticated loses UPDATE/DELETE/TRUNCATE (RLS already had no such policies; ratings
 --     cannot be edited or deleted by users).
 -- Policies are changed with ALTER POLICY (no DROP). No DELETE.
--- Undo: supabase/rollbacks/20261126140000_0182_rollback.sql (exact previous definitions and grants).
+-- Recovery (forward-safe, keeps ratings private): supabase/rollbacks/20261126140000_0182_rollback.sql.
 -- -----------------------------------------------------------------------------
 
 -- 1. Who can read rating rows -------------------------------------------------------------------------------
