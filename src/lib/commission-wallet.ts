@@ -34,7 +34,7 @@ export const COMMISSION_WALLET_TITLE = "ConZ Commission Credit";
 export const COMMISSION_WALLET_RULES: string[] = [
   "This is prepaid credit used only to pay Con Z's commission. It is not your earnings.",
   "Customers pay you directly for every job. Con Z never holds or passes on transport money.",
-  "Con Z's commission is 7% of the agreed job price (materials and transport together).",
+  "Con Z's commission is 7% of the total agreed job value: the delivery price when you only deliver, or materials and delivery together when you also supply the materials.",
   "When you accept a job, its 7% is reserved from your available credit. If you do not have enough, you cannot accept.",
   "When the delivery is verified, the reserved amount is charged once. If the job is cancelled under the rules, it is released once.",
   "Credit cannot be withdrawn, cashed out or transferred. If you topped up by mistake, contact support.",
