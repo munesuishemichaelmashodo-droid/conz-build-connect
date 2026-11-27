@@ -111,7 +111,11 @@ function PrivacyPage() {
                 (website hosting), Paynow (Commission Credit top-ups), Google (Google sign-in and
                 push notifications), Africa's Talking (text messages), and map and route services
                 (OpenStreetMap-based maps, CARTO map tiles, OSRM routing, Nominatim and LocationIQ
-                address search). They receive only what their service needs.
+                address search). A text-writing AI service (Lovable AI gateway) may be sent the material,
+                quantity and approximate distance of a price check to word a one-line explanation, never
+                your name, contact details or exact location. When an administrator changes a balance, the
+                administrator's own browser asks ipify for its public IP address for the audit record.
+                They receive only what their service needs.
               </li>
               <li>
                 <b>Storage outside Zimbabwe</b> — our database and file storage are hosted in

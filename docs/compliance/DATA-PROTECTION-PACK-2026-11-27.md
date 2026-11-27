@@ -36,6 +36,8 @@ Controller: Navysky Innovations (Private) Limited, company no. 145174A02102026, 
 | Google | Google sign-in, push (FCM) | global | name, e-mail, device token |
 | Africa's Talking | SMS | **CONFIRM** region | phone, message text |
 | CARTO, OpenStreetMap/OSRM, Nominatim, LocationIQ | map tiles, routing, address search | various | coordinates, address text |
+| Lovable AI gateway (Google model) | one-line price-check explanation, only if `LOVABLE_API_KEY` is set | **CONFIRM** region | material, quantity, rounded distance (no personal data) |
+| ipify | admin balance changes: admin's public IP for the audit log | US | the admin's IP address |
 
 **CONFIRM** with a lawyer: the legal basis for transfers outside Zimbabwe under the Cyber and Data Protection Act, and whether processor agreements (DPAs) are needed with each provider. Supabase and Vercel publish standard DPAs; signed copies are not on file.
 

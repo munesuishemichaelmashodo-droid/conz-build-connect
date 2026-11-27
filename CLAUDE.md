@@ -15,6 +15,8 @@
 >   direct payment once (`direct_payment_confirmations`). App side is PR #147. Evidence: `docs/payments/DIRECT-PAY-LAUNCH-2026-11-25.md`.
 > - **0129 and 0172 are LIVE** (26/11, recorded `20261103110000` / `20261124120000`): no $500 ceiling; super-admin launch-switch setter; large-job alert ≥ $1,000.
 > - **0170 is LIVE** (26/11, recorded `20261124100000`): `driver_public_profiles` = verified drivers + own row + admins.
+> - **Release closure 27/11:** 14 open PRs (#152-#166), merge order, migration checklist 0182->0194 (0183/0189/0192 via SQL editor),
+>   payment test plan and launch checklist: `docs/release/RELEASE-CLOSURE-2026-11-27.md`. None merged or applied yet.
 > - **0178, 0179, 0180 are LIVE** (26/11, recorded `20261126100000/110000/120000`; app PR #148, 0180 is the follow-up fix): safety report categories, agreement payment
 >   terms, deposit/balance/full payment stages (statements only, never proof). Wallet has no withdrawals. Report: `docs/release/MVP-FINALISATION-2026-11-26.md`.
 >   Null-safety: `uid in (customer_id, driver_id)` is NULL when driver_id is null; wrap party checks in `coalesce(..., false)`.
