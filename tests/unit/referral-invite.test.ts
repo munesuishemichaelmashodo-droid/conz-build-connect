@@ -163,3 +163,20 @@ describe("no referral money path is left in the referral migrations", () => {
     });
   }
 });
+
+describe("referral recovery scripts never bring money back", () => {
+  for (const f of ["20261126130000_0181_rollback.sql", "20261126170000_0185_rollback.sql"]) {
+    it(`${f} keeps the no-money guard and the protections`, () => {
+      const sql = readFileSync(`supabase/rollbacks/${f}`, "utf8").replace(/--.*$/gm, "");
+      expect(sql).not.toMatch(
+        /wallets|wallet_transactions|referral_bonus|reward_amount|\bdrop\b|disable trigger/i,
+      );
+      expect(sql).not.toMatch(/create or replace function/i); // no old bodies are restored
+    });
+  }
+  it("the Terms promise recognition only", () => {
+    const t = readFileSync("src/routes/terms.tsx", "utf8");
+    expect(t).toMatch(/Referrals give recognition only/);
+    expect(t).not.toMatch(/Referral rewards are paid|referral rewards/i);
+  });
+});

@@ -24,7 +24,7 @@
 --   * record_referral: unchanged rules; its notification no longer promises a reward.
 --   * Direct writes on referrals by anon/authenticated are revoked (all writers are SECURITY DEFINER;
 --     RLS already had no write policy).
--- No DROP, no DELETE. Undo: supabase/rollbacks/20261126130000_0181_rollback.sql (exact previous live bodies).
+-- No DROP, no DELETE. Recovery (forward-safe, never restores referral money): supabase/rollbacks/20261126130000_0181_rollback.sql.
 -- -----------------------------------------------------------------------------
 
 -- 1. Hard guard: no new referral money --------------------------------------------------------------------

@@ -18,7 +18,7 @@
 --     rejected/frozen/flagged referrals, partner-benefit cost (none approved), and demand by area. Areas with
 --     fewer than 5 jobs are grouped as "Other areas".
 -- Existing milestone rows are not touched by this file (production has none); the trigger acts on the next change.
--- No DROP, no DELETE, no money, no settings written. Undo: supabase/rollbacks/20261126170000_0185_rollback.sql.
+-- No DROP, no DELETE, no money, no settings written. Recovery (forward-safe): supabase/rollbacks/20261126170000_0185_rollback.sql.
 -- -----------------------------------------------------------------------------
 
 -- 1. Milestones can be revoked, never deleted -------------------------------------------------------------
