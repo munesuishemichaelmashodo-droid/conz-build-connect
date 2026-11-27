@@ -7,7 +7,7 @@
 import { execFile, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { promisify } from "node:util";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { processPaynowIpn, type PaynowResultDb } from "@/lib/paynow.server";
 
 const HOST = process.env["CONZ_TEST_PG_HOST"];
@@ -92,6 +92,25 @@ const ipn = (body: string) => processPaynowIpn(body, { integrationKey: KEY, db }
 describe.skipIf(!enabled)(
   "Paynow IPN -> apply_paynow_result (local Postgres, provider mocked)",
   () => {
+    // 0190: results credit only in LIVE mode (default off). This file tests the live path, so it switches LIVE on
+    // for itself and removes the setting afterwards (the database is disposable, but other tests read the default).
+    beforeAll(() => {
+      q(`insert into public.system_settings (key, value) values ('paynow_mode', '"live"'::jsonb)
+           on conflict (key) do update set value = excluded.value`);
+    });
+    afterAll(() => {
+      q(`delete from public.system_settings where key = 'paynow_mode'`);
+    });
+
+    it("outside LIVE mode a valid Paid message is recorded but not credited (0190)", async () => {
+      q(`update public.system_settings set value = '"off"'::jsonb where key = 'paynow_mode'`);
+      const { user, pay } = newTopup();
+      expect((await ipn(signed({ reference: pay }))).status).toBe(200);
+      expect(balance(user)).toBe(0);
+      expect(q(`select status from public.payments where id='${pay}'`)).toBe("initiated");
+      q(`update public.system_settings set value = '"live"'::jsonb where key = 'paynow_mode'`);
+    });
+
     it("rejects a tampered amount (bad hash) and credits nothing", async () => {
       const { user, pay } = newTopup();
       const r = await ipn(signed({ reference: pay }, "2500.00"));
