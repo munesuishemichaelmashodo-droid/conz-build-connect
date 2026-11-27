@@ -159,9 +159,11 @@ function PrivacyPage() {
               <li>Toggle live location sharing on or off from the Location Privacy panel.</li>
               <li>
                 Delete your account yourself from Profile → Delete account. Deletion waits until your
-                active jobs, payments and disputes are finished. If you still have unused Commission
-                Credit or a reserved commission, deletion cannot complete in the app yet: contact us
-                and we will deal with it with you. You can also ask us to delete your account.
+                active jobs, payments and disputes are finished. If you still have unused purchased
+                Commission Credit, ask for it back on the same screen first: we send it to the number or
+                account you give us and record the transaction reference, and we keep that refund record
+                with your other financial records. Promotional credit has no cash value and is not
+                refunded. You can also ask us to delete your account.
               </li>
               <li>
                 Under Zimbabwe's Data Protection Act you can ask us for a copy of your personal data,

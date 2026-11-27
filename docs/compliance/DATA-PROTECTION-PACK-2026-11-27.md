@@ -25,7 +25,7 @@ Controller: Navysky Innovations (Private) Limited, company no. 145174A02102026, 
 - Notifications: read/archived after 14 days, all after 180 days (0165).
 - Account deletion (`delete_my_account`, 0141/0173): removes name, phone, e-mail, photo, identity and vehicle documents, devices, location history, own chat media; keeps financial, audit and shared job records without personal details.
 - Agreements, evidence, payment records, cases: kept and append-only (no fixed end date). **CONFIRM** retention periods with a lawyer (financial records vs. evidence), then add scheduled anonymisation.
-- **Open defect (owner decision):** deletion is blocked while a driver has unused Commission Credit (`wallet_balance_positive`). Credit cannot be withdrawn, so the policy for unused credit at closure (forfeit vs. refund) must be decided before this can be fixed. The Privacy Policy now says so.
+- **Closure refund (owner decision 27/11, migration 0194, not live until applied):** a driver with unused purchased Commission Credit asks for it back from Profile → Delete account (method + number/account). A super admin with a fresh step-up sends it outside the app and records the transaction reference (unique); the wallet is debited through `admin_apply_wallet_change` (category `refund`, ledger + audit). Promotional credit is forfeited, never paid. No new offers while a request is open. Afterwards the balance is 0 and in-app deletion completes. The refund record is kept with the financial records.
 
 ## 3. Hosting and transfers outside Zimbabwe
 | Processor | Role | Location | Data |
