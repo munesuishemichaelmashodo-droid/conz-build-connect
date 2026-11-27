@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { CaseDetails } from "@/components/cases/CaseDetails";
 import { sentence } from "@/lib/status-stamp";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -47,6 +48,21 @@ function ReportPage() {
         .order("created_at", { ascending: false })
         .limit(30);
       return data ?? [];
+    },
+  });
+
+  // 0192: cases where someone else reported a problem involving this user: they can give their side and appeal.
+  const { data: aboutMe } = useQuery({
+    queryKey: ["cases-about-me", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reports")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 0192 columns are newer than the generated types
+        .select("id,case_ref,created_at" as any)
+        .eq("affected_user_id" as never, userId!)
+        .order("created_at", { ascending: false });
+      return error ? [] : ((data ?? []) as unknown as { id: string; case_ref: string | null }[]);
     },
   });
 
@@ -189,9 +205,24 @@ function ReportPage() {
                       <b>Con Z reply:</b> {r.admin_reply}
                     </p>
                   )}
+                  <CaseDetails reportId={r.id} />
                 </div>
               ))}
             </div>
+          </section>
+        )}
+        {!!aboutMe?.length && (
+          <section className="space-y-2" aria-label="Cases involving you">
+            <h2 className="font-semibold text-sm">Cases involving you</h2>
+            <p className="text-xs text-muted-foreground">
+              Someone reported a problem that involves you. Give your side; you will be told the
+              decision and can appeal it.
+            </p>
+            {aboutMe.map((r) => (
+              <div key={r.id} className="rounded-xl border bg-card p-3 text-sm">
+                <CaseDetails reportId={r.id} />
+              </div>
+            ))}
           </section>
         )}
       </div>
