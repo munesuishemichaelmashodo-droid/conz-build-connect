@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { AdminComplianceReview } from "@/components/compliance/AdminComplianceReview";
 import { sentence } from "@/lib/status-stamp";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -84,6 +85,7 @@ function AdminVerifications() {
 
   return (
     <div className="space-y-3">
+      <AdminComplianceReview />
       {/* Status filter — defaults to "pending", the queue needing a decision */}
       <div className="flex gap-2">
         {(["pending", "verified", "rejected"] as Filter[]).map((f) => (

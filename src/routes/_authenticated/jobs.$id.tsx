@@ -98,6 +98,7 @@ import { OfferCard } from "@/components/redesign/OfferCard";
 import { truckFactsLine } from "@/lib/truck-facts";
 import { AgreementCard } from "@/components/AgreementCard";
 import { JobStageReports } from "@/components/evidence/JobStageReports";
+import { DriverComplianceBadges } from "@/components/compliance/DriverComplianceBadges";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import {
   OFFER_SORTS,
@@ -4075,6 +4076,7 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
             <JobJourneyDetails job={job} />
           </CzCard>
         )}
+        {job.driver_id && <DriverComplianceBadges driverId={job.driver_id} />}
         <AgreementCard jobId={id} jobStatus={job.status} userId={ctx.userId} customerId={job.customer_id} />
         <JobStageReports
           jobId={id}
