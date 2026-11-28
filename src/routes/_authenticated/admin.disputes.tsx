@@ -1,3 +1,4 @@
+import { callDisputeAction } from "@/lib/admin-disputes";
 import { createFileRoute } from "@tanstack/react-router";
 import { sentence } from "@/lib/status-stamp";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -78,7 +79,11 @@ function AdminDisputes() {
   });
 
   const setInvestigating = async (id: string) => {
-    const { error } = await supabase.from("disputes").update({ status: "investigating" }).eq("id", id);
+    const { error } = await callDisputeAction(
+      "admin_mark_dispute_investigating",
+      { _dispute_id: id },
+      () => supabase.from("disputes").update({ status: "investigating" }).eq("id", id),
+    );
     if (error) return toast.error(error.message);
     toast.success("Marked as investigating");
     qc.invalidateQueries({ queryKey: ["admin-disputes"] });
@@ -87,10 +92,13 @@ function AdminDisputes() {
   const reject = async (id: string) => {
     const resolution = window.prompt("Why is this dispute being rejected? (e.g. no evidence, spam)") ?? "";
     if (!resolution.trim()) return;
-    const { error } = await supabase
-      .from("disputes")
-      .update({ status: "rejected", resolution, resolved_at: new Date().toISOString() })
-      .eq("id", id);
+    const reason = { _dispute_id: id, _reason: resolution.trim() };
+    const { error } = await callDisputeAction("admin_reject_dispute", reason, () =>
+      supabase
+        .from("disputes")
+        .update({ status: "rejected", resolution, resolved_at: new Date().toISOString() })
+        .eq("id", id),
+    );
     if (error) return toast.error(error.message);
     toast.success("Dispute rejected");
     qc.invalidateQueries({ queryKey: ["admin-disputes"] });
