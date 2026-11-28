@@ -1,3 +1,4 @@
+import { JobJourneyDetails } from "@/components/booking/JobJourneyDetails";
 import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
 import { DISPUTE_OPTIONS, disputeOption, disputeReason, MIN_DISPUTE_EXPLANATION, type DisputeSide } from "@/lib/dispute-options";
 import { useLaunchSwitches } from "@/lib/launch-switches";
@@ -96,6 +97,8 @@ import {
 import { OfferCard } from "@/components/redesign/OfferCard";
 import { truckFactsLine } from "@/lib/truck-facts";
 import { AgreementCard } from "@/components/AgreementCard";
+import { JobStageReports } from "@/components/evidence/JobStageReports";
+import { DriverComplianceBadges } from "@/components/compliance/DriverComplianceBadges";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import {
   OFFER_SORTS,
@@ -1583,6 +1586,8 @@ function BidForm({
               Customer offered <strong className="text-cz-text">{usd(budget)}</strong>
               {job.preferred_date ? <span className="text-cz-muted"> · wanted {job.preferred_date}</span> : null}
             </div>
+            {/* 0183: booking type, truck needed, preferred time, load details (masked for unselected drivers). */}
+            <JobJourneyDetails job={job} />
             {job.notes && <p className="border-t border-cz-border pt-2 text-sm text-cz-muted">{job.notes}</p>}
           </CzCard>
         )}
@@ -1649,7 +1654,7 @@ function BidForm({
         {fee != null && (
           <div className="space-y-1 text-[13px] leading-relaxed text-cz-muted" data-testid="fee-explainer">
             <p>
-              {job?.pricing_basis === "transport_only"
+              {job?.pricing_basis === "transport_only" || job?.pricing_basis === "transport_request"
                   ? `Con Z keeps ${pctLabel} of your total agreed price for this job. It is reserved from your commission credit when the customer accepts and charged when the job is completed.`
                   : `Con Z keeps ${pctLabel} of your full offer price, material and transport included. It is reserved from your commission credit when the customer accepts, charged once when the delivery is verified, and returned if the job is cancelled.`}
             </p>
@@ -2992,6 +2997,7 @@ function JobSummaryCard({ job, id = "tour-job-header" }: { job: any; id?: string
         <span className="text-[13px] text-cz-muted">Customer offered {usd(Number(job.budget))}</span>
       </div>
       <RouteStops pickupLabel={job.pickup_address || "Supplier pickup point"} dropLabel={job.delivery_address} />
+      <JobJourneyDetails job={job} />
       <EstimatedDelivery job={job} />
       {(job.preferred_date || job.notes) && (
         <div className="border-t border-cz-border pt-2.5 text-sm text-cz-muted space-y-1">
@@ -3234,7 +3240,19 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
 
         <ContactCard ctx={ctx} role="customer" subtitle={`${mat} · ${Number(job.quantity_m3)} m³`} />
         {readyOffline && <ReadyOfflineChip />}
+        {job.job_kind && (
+          <CzCard>
+            <JobJourneyDetails job={job} />
+          </CzCard>
+        )}
         <AgreementCard jobId={id} jobStatus={job.status} userId={ctx.userId} customerId={job.customer_id} />
+        <JobStageReports
+          jobId={id}
+          jobStatus={String(job.status)}
+          role="driver"
+          hasPickupPhoto={!!job.pickup_photo_url}
+          completedAt={job.completed_at ?? null}
+        />
         {/* 0179: deposits and balances are recorded while the job is active, not only at the end. */}
         {job.payment_method === "direct" && (
           <DirectPaymentPanel jobId={id} role="driver" agreedPrice={Number(job.final_price ?? job.budget ?? 0)} jobStatus={String(job.status)} />
@@ -4053,7 +4071,20 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
         )}
         <SupplyConfirmationCard job={job} viewer="customer" />
         <ContactCard ctx={ctx} role="driver" subtitle={d.bid?.truck_reg ? `Truck ${d.bid.truck_reg} · ${mat}` : mat} />
+        {job.job_kind && (
+          <CzCard>
+            <JobJourneyDetails job={job} />
+          </CzCard>
+        )}
+        {job.driver_id && <DriverComplianceBadges driverId={job.driver_id} />}
         <AgreementCard jobId={id} jobStatus={job.status} userId={ctx.userId} customerId={job.customer_id} />
+        <JobStageReports
+          jobId={id}
+          jobStatus={String(job.status)}
+          role="customer"
+          hasPickupPhoto={!!job.pickup_photo_url}
+          completedAt={job.completed_at ?? null}
+        />
         {job.payment_method === "direct" && (
           <DirectPaymentPanel jobId={id} role="customer" agreedPrice={Number(job.final_price ?? job.budget ?? 0)} jobStatus={String(job.status)} />
         )}

@@ -21,6 +21,13 @@ import {
   type PaymentStageName,
   type PaymentStageRecord,
   type PlannedStage,
+  PROOF_KINDS,
+  parseReconciliation,
+  proofLine,
+  reconFlagLabels,
+  reconStateLabel,
+  type Reconciliation,
+  type ReconStage,
 } from "@/lib/direct-payment";
 
 // Direct-pay jobs: the customer pays the driver; Con Z never handles the fare. This panel shows what the two parties
@@ -35,6 +42,7 @@ type Loaded = {
   history: HistoryRow[];
   legacy: DirectPaymentConfirmation | null;
   dispute: DisputeState;
+  recon: Reconciliation | null; // null before 0188
 };
 
 type RpcFn = (
@@ -62,6 +70,7 @@ async function load(jobId: string): Promise<Loaded | null> {
       history: [],
       legacy: parseConfirmation(conf),
       dispute: disputeState(disputes),
+      recon: null,
     };
   }
   const { data: rows } = await db.from("direct_payment_stages").select("*").eq("job_id", jobId);
@@ -70,12 +79,14 @@ async function load(jobId: string): Promise<Loaded | null> {
     .select("stage, action, amount, created_at")
     .eq("job_id", jobId)
     .order("created_at", { ascending: true });
+  const recon = await rpc("job_payment_reconciliation", { _job: jobId });
   return {
     plan: parsePlan(plan.data),
     records: parseStageRecords(rows),
     history: (hist ?? []) as HistoryRow[],
     legacy: confError ? null : parseConfirmation(conf),
     dispute: disputeState(disputes),
+    recon: recon.error ? null : parseReconciliation(recon.data),
   };
 }
 
@@ -173,9 +184,51 @@ export function DirectPaymentPanel({
           {data.legacy && (
             <p className="text-cz-muted">{directPaymentStatusLine(data.legacy, true)}</p>
           )}
+          {data.recon?.simulated && (
+            <p
+              className="rounded bg-muted px-2 py-1 text-xs font-semibold"
+              data-testid="payment-simulated"
+            >
+              Simulated sample data from the local stand-in. Not a real record.
+            </p>
+          )}
+          {data.recon && (
+            <p className="text-cz-muted" data-testid="payment-outstanding">
+              Agreed ${Number(data.recon.totals.agreed).toFixed(2)} · driver confirmed $
+              {Number(data.recon.totals.received_by_driver).toFixed(2)} · outstanding $
+              {Number(data.recon.totals.outstanding).toFixed(2)}
+              {data.recon.totals.under_review ? " · some payments are under review" : ""}
+            </p>
+          )}
           {data.plan.map((p) => (
             <StageCard
               key={p.stage}
+              recon={data.recon?.stages.find((x) => x.stage === p.stage) ?? null}
+              onAttach={async (kind, file) => {
+                const { data: u } = await supabase.auth.getUser();
+                const uid = u.user?.id;
+                if (!uid) return false;
+                const path = `${jobId}/${uid}/payment-${Date.now()}-${file.name.replace(/[^a-z0-9.]/gi, "_")}`;
+                const up = await supabase.storage
+                  .from("chat-media")
+                  .upload(path, file, { contentType: file.type || undefined });
+                if (up.error) {
+                  toast.error(up.error.message);
+                  return false;
+                }
+                return save(
+                  "attach_stage_payment_evidence",
+                  { _job: jobId, _stage: p.stage, _kind: kind, _storage_path: path },
+                  "Proof attached. It is kept with this payment.",
+                );
+              }}
+              onFlag={(action, reason) =>
+                save(
+                  "flag_stage_payment",
+                  { _job: jobId, _stage: p.stage, _action: action, _reason: reason },
+                  "Reported. The other person and Con Z have been told.",
+                )
+              }
               jobId={jobId}
               plan={p}
               rec={data.records.find((r) => r.stage === p.stage) ?? null}
@@ -227,6 +280,9 @@ export function DirectPaymentPanel({
 }
 
 function StageCard({
+  recon,
+  onAttach,
+  onFlag,
   jobId,
   plan,
   rec,
@@ -248,8 +304,22 @@ function StageCard({
   onClaim: (m: string, a: number, r: string | null) => Promise<boolean>;
   onConfirm: (m: string, a: number, r: string | null) => Promise<boolean>;
   onAcknowledge: () => Promise<boolean>;
+  recon: ReconStage | null;
+  onAttach: (kind: string, file: File) => Promise<boolean>;
+  onFlag: (action: "disputed" | "reversal_reported", reason: string) => Promise<boolean>;
 }) {
   const status = stageStatus(rec, dispute);
+  const [proofKind, setProofKind] = useState("screenshot");
+  const recorded = !!(rec?.customerClaimedAt || rec?.driverConfirmedAt);
+  const flag = (action: "disputed" | "reversal_reported") => {
+    const reason = window.prompt(
+      action === "disputed"
+        ? "What is wrong with this payment? (at least 10 characters)"
+        : "What was reversed, and when? (at least 10 characters)",
+    );
+    if (reason && reason.trim().length >= 10) void onFlag(action, reason.trim());
+    else if (reason) toast.error("Please give a little more detail (at least 10 characters).");
+  };
   const canClaim = role === "customer" && active && !rec?.customerClaimedAt;
   const canConfirm = role === "driver" && active && !rec?.driverConfirmedAt;
   const canAck =
@@ -267,7 +337,7 @@ function StageCard({
           {stageName(plan.stage)} · ${plan.expectedAmount.toFixed(2)}
         </span>
         <span className="text-right" data-testid="payment-stage-status">
-          {stageStatusLabel(status)}
+          {recon ? reconStateLabel(recon.state) : stageStatusLabel(status)}
         </span>
       </div>
       <p className="text-cz-muted">
@@ -306,6 +376,70 @@ function StageCard({
           </a>
           .
         </p>
+      )}
+      {recon && proofLine(recon) && (
+        <p className="text-cz-muted" data-testid="payment-proof-line">
+          {proofLine(recon)}
+        </p>
+      )}
+      {recon &&
+        reconFlagLabels(recon.flags).map((f) => (
+          <p key={f} className="text-warning">
+            {f}
+          </p>
+        ))}
+      {recon && active && recorded && (
+        <div className="flex flex-wrap items-center gap-2" data-testid="payment-stage-actions">
+          <label className="sr-only" htmlFor={`proof-kind-${plan.stage}`}>
+            Kind of proof
+          </label>
+          <select
+            id={`proof-kind-${plan.stage}`}
+            value={proofKind}
+            onChange={(e) => setProofKind(e.target.value)}
+            className="h-9 rounded-md border bg-background px-2"
+          >
+            {PROOF_KINDS.map((k) => (
+              <option key={k.value} value={k.value}>
+                {k.label}
+              </option>
+            ))}
+          </select>
+          <label className="cursor-pointer rounded-xl border px-3 py-1.5 font-semibold">
+            Attach proof
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              className="sr-only"
+              disabled={busy}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void onAttach(proofKind, f);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          {recon.state !== "disputed" && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => flag("disputed")}
+              className="rounded-xl border px-3 py-1.5 font-semibold"
+            >
+              Report a problem
+            </button>
+          )}
+          {recon.state !== "reversal_reported" && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => flag("reversal_reported")}
+              className="rounded-xl border px-3 py-1.5 font-semibold"
+            >
+              Report a reversal
+            </button>
+          )}
+        </div>
       )}
       {stageAmountsDisagree(rec) && (
         <p className="text-destructive">
