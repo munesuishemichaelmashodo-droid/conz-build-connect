@@ -67,14 +67,15 @@ describe("promoCopy", () => {
       "Con Z commission is 7% of the full job value.",
     );
     expect(promoCopy(walk, on)).toMatch(
-      /^When you are verified you get a one-time \$20 commission credit\..* Con Z commission is 7%/,
+      /^When you are verified you get a one-time \$20 promotional allowance for the Con Z commission on your first completed job\..* Con Z commission is 7%/,
     );
   });
 
   it("replaces the free-first-job promise once the credit is on", () => {
     for (const t of legacy) {
       const out = promoCopy(t, on);
-      expect(out).not.toMatch(/first completed job/i);
+      // the retired promise was "no commission on the first job"; the allowance pays that commission instead (0189)
+      expect(out).not.toMatch(/has no (Con Z )?commission/i);
       expect(out).not.toMatch(/commission-free/i);
     }
   });
@@ -83,7 +84,8 @@ describe("promoCopy", () => {
     const s = promoCreditSentence(20);
     expect(s).toContain("$20");
     expect(s).toMatch(/one-time/);
-    expect(s).toMatch(/only pay Con Z commission/);
+    expect(s).toMatch(/Con Z commission on your first completed job/);
+    expect(s).toMatch(/does not use then expires/);
     expect(s).toMatch(/not cash/);
     expect(s).toMatch(/cannot be withdrawn or transferred/);
     expect(s).not.toMatch(/wallet|escrow|we hold/i);
@@ -100,7 +102,9 @@ describe("promoCopy", () => {
 
   it("gives the Terms a factual sentence with the same limits", () => {
     const t = promoCreditTerms(20);
-    expect(t).toMatch(/one-time promotional commission credit of \$20/);
+    expect(t).toMatch(/one-time promotional allowance of \$20/);
+    expect(t).toMatch(/first completed job: if that commission is less, the unused part expires/);
+    expect(t).toMatch(/A cancelled job does not use it/);
     expect(t).toMatch(/no cash value/);
     expect(t).toMatch(/cannot be withdrawn or transferred/);
   });

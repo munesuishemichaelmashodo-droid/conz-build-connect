@@ -67,7 +67,7 @@ select tests.complete(current_setting('t.j2')::uuid);
 select tests.as_owner();
 select is((select balance from public.wallets where user_id = current_setting('t.d2')::uuid), 10.00::numeric, 'after verified delivery the cash is $10 (the reserve paid the commission)');
 select is((select held from public.wallets where user_id = current_setting('t.d2')::uuid), 0.00::numeric, '... nothing is held');
-select is((select promo_balance from public.wallets where user_id = current_setting('t.d2')::uuid), 6.00::numeric, '... and $6 of promo credit remains');
+select is((select promo_balance from public.wallets where user_id = current_setting('t.d2')::uuid), 0.00::numeric, '... and the unused $6 expired: the allowance is for the first completed job only (0189)');
 select is((select sum(amount) from public.platform_ledger where job_id = current_setting('t.j2')::uuid and account = 'platform_revenue'), -14::numeric,
   'ConZ earns the full $14 commission');
 

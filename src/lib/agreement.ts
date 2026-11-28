@@ -26,7 +26,112 @@ export type JobAgreement = {
   cancellation_terms?: string | null;
   /** The exact method (0179); payment_method keeps only cash/ecocash/bank_transfer/other. */
   payment_channel?: JobAgreement["payment_method"] | null;
+  // 0186: what the job was when this version was proposed (copied by the database, never typed) and handling.
+  // Missing before 0186; null on versions recorded before it.
+  customer_id?: string | null;
+  driver_id?: string | null;
+  truck_registration?: string | null;
+  truck_capacity_m3?: number | null;
+  material?: string | null;
+  quantity_m3?: number | null;
+  pickup_address?: string | null;
+  delivery_address?: string | null;
+  preferred_date?: string | null;
+  agreed_date?: string | null;
+  loading_by?: LoadingBy | null;
+  offloading_by?: OffloadingBy | null;
+  collection_instructions?: string | null;
+  content_hash?: string | null;
 };
+
+export type LoadingBy = "driver" | "customer" | "collection_point" | "not_needed";
+export type OffloadingBy = "driver_tips" | "driver" | "customer" | "not_needed";
+
+export const LOADING_BY: { value: LoadingBy; label: string }[] = [
+  { value: "collection_point", label: "Staff at the collection point" },
+  { value: "driver", label: "The driver" },
+  { value: "customer", label: "The customer" },
+  { value: "not_needed", label: "Not needed" },
+];
+
+export const OFFLOADING_BY: { value: OffloadingBy; label: string }[] = [
+  { value: "driver_tips", label: "The driver tips the load" },
+  { value: "driver", label: "The driver offloads by hand" },
+  { value: "customer", label: "The customer" },
+  { value: "not_needed", label: "Not needed" },
+];
+
+const FIELD_LABEL: Record<string, string> = {
+  customer_id: "the customer",
+  driver_id: "the driver",
+  truck_id: "the truck",
+  truck_registration: "the truck",
+  truck_capacity_m3: "the truck capacity",
+  material: "the material",
+  quantity_m3: "the quantity",
+  pickup_address: "the collection place",
+  pickup_lat: "the collection place",
+  pickup_lng: "the collection place",
+  delivery_address: "the delivery address",
+  delivery_lat: "the delivery address",
+  delivery_lng: "the delivery address",
+  preferred_date: "the date",
+  fare: "the fare",
+};
+
+/** Plain words for the job details that changed since both agreed (0186 job_agreement_in_force). */
+export function changedDetailLabels(fields: readonly string[]): string[] {
+  return [...new Set(fields.map((f) => FIELD_LABEL[f] ?? f.replace(/_/g, " ")))];
+}
+
+/** The job details recorded with a version (0186). Empty for versions recorded before 0186. */
+export function recordedDetails(a: JobAgreement): { label: string; value: string }[] {
+  if (!a.content_hash) return [];
+  const out: { label: string; value: string }[] = [];
+  if (a.quantity_m3 != null || a.material)
+    out.push({
+      label: "Load",
+      value: [
+        a.quantity_m3 != null ? `${Number(a.quantity_m3)} m³` : null,
+        a.material?.replace(/_/g, " "),
+      ]
+        .filter(Boolean)
+        .join(" of "),
+    });
+  if (a.truck_registration)
+    out.push({
+      label: "Truck",
+      value:
+        a.truck_capacity_m3 != null
+          ? `${a.truck_registration} (${Number(a.truck_capacity_m3)} m³)`
+          : a.truck_registration,
+    });
+  if (a.pickup_address) out.push({ label: "Collect from", value: a.pickup_address });
+  if (a.delivery_address) out.push({ label: "Deliver to", value: a.delivery_address });
+  const date = a.agreed_date ?? a.preferred_date;
+  if (date)
+    out.push({
+      label: "Date",
+      value: new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      }),
+    });
+  if (a.loading_by)
+    out.push({
+      label: "Loading",
+      value: LOADING_BY.find((o) => o.value === a.loading_by)?.label ?? a.loading_by,
+    });
+  if (a.offloading_by)
+    out.push({
+      label: "Offloading",
+      value: OFFLOADING_BY.find((o) => o.value === a.offloading_by)?.label ?? a.offloading_by,
+    });
+  if (a.collection_instructions)
+    out.push({ label: "Collection instructions", value: a.collection_instructions });
+  return out;
+}
 
 /** The method to show and edit: the exact channel when present (0179), else the older column. */
 export const agreedMethod = (row: Pick<JobAgreement, "payment_method" | "payment_channel">) =>
