@@ -433,7 +433,7 @@ function WalletPage() {
         </div>
 
         <p className="text-xs text-white/75 mt-4 relative">
-          {commissionCopy("Prepaid credit used only to pay Con Z's commission: 7% of the full job price, materials and transport included.", transportOn)}{" "}
+          {commissionCopy("Prepaid credit used only to pay Con Z's commission: 7% of the total agreed job value: the delivery price when the driver only delivers, or materials and delivery together when the driver also supplies the materials.", transportOn)}{" "}
           It is not your earnings: customers pay you directly. It cannot be withdrawn or transferred. You can hold up to{" "}
           {money(launch.maxWalletBalance)} in credit.
         </p>

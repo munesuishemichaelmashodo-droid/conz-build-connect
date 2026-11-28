@@ -464,9 +464,7 @@ function Welcome() {
               <div className="rounded-2xl border border-cz-amber/50 bg-gradient-to-b from-cz-amber/15 to-cz-surface p-6 md:p-8">
                 <h3 className="cz-display text-[28px] font-bold">What Con Z charges</h3>
                 <p className="mt-3 text-[17px] leading-relaxed">
-                  {transportOn
-                    ? "7% commission on the total agreed price, including materials and transport where the job includes them."
-                    : "7% commission on the total agreed price, including materials and transport."}{" "}
+                  {"7% commission on the total agreed job value: the delivery price, or materials and delivery together when the driver supplies the materials."}{" "}
                   {promoCopy("Your first completed job is commission-free.", promo)}
                 </p>
                 <p className="mt-3 text-[14px] leading-relaxed text-cz-muted">
