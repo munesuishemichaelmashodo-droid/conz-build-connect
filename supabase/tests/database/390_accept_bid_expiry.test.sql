@@ -16,6 +16,8 @@ select plan(14);
 -- pickup checks, settlement). The one-active-job rule (0144) has its own test, 780, so it is switched off
 -- here, inside this rolled-back transaction only.
 alter table public.jobs disable trigger trg_jobs_one_active_per_driver;
+-- 0195: this file reuses one driver across jobs, so also keep their other offers open (auto-withdrawal off).
+alter table public.jobs disable trigger trg_jobs_withdraw_assigned_driver_offers;
 select tests.enable_launch_features();
 
 select set_config('t.cust',  tests.create_user('exp_cust')::text, true);

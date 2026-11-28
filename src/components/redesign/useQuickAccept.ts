@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { previewCapacityMatch } from "@/lib/capacityMatch";
 import { usd } from "@/components/redesign";
+import { BUSY_OFFER_TEXT, driverOfferError } from "@/lib/driver-offer-rules";
 
 type Truck = { id: string; registration: string; capacity_m3: number };
 type Funds = {
@@ -39,6 +40,18 @@ export function useQuickAccept() {
     if (!userId || busyJobId) return;
     setBusyJobId(job.id);
     try {
+      // 0195: a driver on another job may browse but not send offers (the database refuses too).
+      const { data: active } = await supabase
+        .from("jobs")
+        .select("id")
+        .eq("driver_id", userId)
+        .in("status", ["accepted", "in_progress"])
+        .limit(1)
+        .maybeSingle();
+      if (active && active.id !== job.id) {
+        toast.error(BUSY_OFFER_TEXT);
+        return;
+      }
       // Same query + cache key as BidForm's truck list.
       const trucks = await qc.fetchQuery({
         queryKey: ["my-trucks", userId],
@@ -106,7 +119,7 @@ export function useQuickAccept() {
         { onConflict: "job_id,driver_id" },
       );
       if (error) {
-        toast.error(error.message);
+        toast.error(driverOfferError(error.message) ?? error.message);
         return;
       }
       toast.success(`Offer sent · ${usd(price)}`);

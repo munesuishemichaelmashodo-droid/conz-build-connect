@@ -214,4 +214,24 @@ done
 rm -f /tmp/cc_s13_*.out
 [ "$S13BAD" = 0 ] && ok "S13 release-vs-refund race x5 -> never both: released=$S13REL rounds, refund_due=$S13REF rounds, money consistent each time" || bad "S13 inconsistent rounds=$S13BAD"
 
+# ---- S14 (0195): two customers accept the SAME driver's offers on two jobs at once, 5 rounds -> one assignment, the
+# other refused cleanly (DRIVER_BUSY, never a deadlock), the driver's other offer withdrawn or left for a clean refusal ---
+S14BAD=0; S14DL=0
+for r in 1 2 3 4 5; do
+  DR=$(Q -c "select tests.create_driver('cc_s14_${N}_$r',200,true)")
+  C2=$(Q -c "select tests.create_user('cc_s14c_${N}_$r')")
+  JA=$(Q -c "select tests.create_job('$CUST',300)"); JB=$(Q -c "select tests.create_job('$C2',300)")
+  BA=$(Q -c "select tests.create_bid('$JA','$DR',300)"); BB=$(Q -c "select tests.create_bid('$JB','$DR',300)")
+  Q -c "begin; select tests.login_as('$CUST'); select public.accept_bid('$BA'); commit;" >/tmp/cc_s14_a.out 2>&1 &
+  Q -c "begin; select tests.login_as('$C2'); select public.accept_bid('$BB'); commit;" >/tmp/cc_s14_b.out 2>&1 &
+  wait
+  NACC=$(Q -c "select count(*) from public.jobs where id in ('$JA','$JB') and status='accepted' and driver_id='$DR'")
+  DLK=$(cat /tmp/cc_s14_a.out /tmp/cc_s14_b.out | grep -ci 'deadlock')
+  ERRS=$(cat /tmp/cc_s14_a.out /tmp/cc_s14_b.out | grep -ciE 'DRIVER_BUSY|Bid no longer available')
+  S14DL=$((S14DL+DLK))
+  if [ "$NACC" != 1 ] || [ "$DLK" != 0 ] || [ "$ERRS" -lt 1 ]; then S14BAD=$((S14BAD+1)); echo "  S14 round $r: accepted=$NACC deadlocks=$DLK clean_refusals=$ERRS"; fi
+  rm -f /tmp/cc_s14_*.out
+done
+[ "$S14BAD" = 0 ] && ok "S14 two customers accept one driver at once x5 -> one assignment each round, the other refused cleanly, no deadlock" || bad "S14 bad rounds=$S14BAD deadlocks=$S14DL"
+
 [ $fail = 0 ] && echo "ALL CONCURRENCY CHECKS PASSED" || { echo "SOME CHECKS FAILED"; exit 1; }

@@ -42,6 +42,10 @@ export function friendlyAcceptError(message: string | null | undefined): string 
   if (message?.includes("DRIVER_BUSY")) {
     return "This driver has just taken another job. Please choose another offer.";
   }
+  // 0195: a driver's other offers are withdrawn when they are given a job.
+  if (message?.includes("Bid no longer available")) {
+    return "This offer is no longer available: the driver took another job or withdrew it. Please choose another offer.";
+  }
   return null;
 }
 
