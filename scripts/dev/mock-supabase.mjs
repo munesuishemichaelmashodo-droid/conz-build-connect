@@ -533,6 +533,39 @@ const rpc = {
     });
     return row;
   },
+  // 0187 stand-ins: structured reports and the evidence record.
+  report_job_stage: (a, me) => {
+    const job = db.jobs.find((j) => j.id === a._job);
+    if (!me || !job) return null;
+    const role = me.id === job.driver_id ? "driver" : me.id === job.customer_id ? "customer" : null;
+    if (!role) return null;
+    db.job_stage_reports ??= [];
+    const row = { id: randomUUID(), job_id: job.id, reported_by: me.id, reporter_role: role, event: a._event, issue: a._issue ?? null,
+      condition: a._condition ?? null, quantity_m3: a._quantity_m3 ?? null, eta_minutes: a._eta_minutes ?? null, note: a._note ?? null,
+      evidence_id: null, corrects_report: a._corrects ?? null, job_status: job.status, filed_during_dispute: false,
+      created_at: new Date().toISOString() };
+    db.job_stage_reports.push(row);
+    return row;
+  },
+  job_evidence_record: (a) => {
+    const job = db.jobs.find((j) => j.id === a._job);
+    if (!job) return null;
+    return {
+      job_id: job.id, status: job.status,
+      basis: "Photos and reports are submitted by the customer or driver; Con Z has not independently verified them. The delivery code check is done by the system.",
+      timeline: [{ step: "created_at", at: job.created_at }, ...(job.completed_at ? [{ step: "completed_at", at: job.completed_at }] : [])],
+      photos: [],
+      reports: (db.job_stage_reports ?? []).filter((r) => r.job_id === job.id).map((r) => ({ id: r.id, event: r.event, by_role: r.reporter_role,
+        issue: r.issue, condition: r.condition, quantity_m3: r.quantity_m3, eta_minutes: r.eta_minutes, note: r.note, corrects: r.corrects_report,
+        at: r.created_at, added_after_dispute: !!r.filed_during_dispute, verification: "statement",
+        reviewer_note: "A statement by one of the parties, not independent verification." })),
+      delivery_code: { issued: false, confirmed_at: null, wrong_attempts: 0, verification: "not_confirmed" },
+      quantity: { ordered_m3: job.quantity_m3, delivered_m3: null, receiver_name: null },
+      disputes: [], recorded_gps_points: null,
+      // Local stand-in only: the app labels this record "Simulated" so it is never mistaken for a real one.
+      simulated: true,
+    };
+  },
   // 0186 stand-in: 0179 plus handling, with the job's details recorded on the version.
   propose_job_agreement_full: (a, me) => {
     const row = rpc.propose_job_agreement_terms(a, me);

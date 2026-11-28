@@ -97,6 +97,7 @@ import {
 import { OfferCard } from "@/components/redesign/OfferCard";
 import { truckFactsLine } from "@/lib/truck-facts";
 import { AgreementCard } from "@/components/AgreementCard";
+import { JobStageReports } from "@/components/evidence/JobStageReports";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import {
   OFFER_SORTS,
@@ -3244,6 +3245,13 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
           </CzCard>
         )}
         <AgreementCard jobId={id} jobStatus={job.status} userId={ctx.userId} customerId={job.customer_id} />
+        <JobStageReports
+          jobId={id}
+          jobStatus={String(job.status)}
+          role="driver"
+          hasPickupPhoto={!!job.pickup_photo_url}
+          completedAt={job.completed_at ?? null}
+        />
         {/* 0179: deposits and balances are recorded while the job is active, not only at the end. */}
         {job.payment_method === "direct" && (
           <DirectPaymentPanel jobId={id} role="driver" agreedPrice={Number(job.final_price ?? job.budget ?? 0)} jobStatus={String(job.status)} />
@@ -4068,6 +4076,13 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
           </CzCard>
         )}
         <AgreementCard jobId={id} jobStatus={job.status} userId={ctx.userId} customerId={job.customer_id} />
+        <JobStageReports
+          jobId={id}
+          jobStatus={String(job.status)}
+          role="customer"
+          hasPickupPhoto={!!job.pickup_photo_url}
+          completedAt={job.completed_at ?? null}
+        />
         {job.payment_method === "direct" && (
           <DirectPaymentPanel jobId={id} role="customer" agreedPrice={Number(job.final_price ?? job.budget ?? 0)} jobStatus={String(job.status)} />
         )}
