@@ -35,6 +35,53 @@ export function transportToOfferResult(t: TransportOffer, quantity: number): Off
   };
 }
 
+/**
+ * A transport-only request with no Con Z price (transport pricing switched off, or the road distance could not be
+ * measured). No guide range is shown or stored: the customer states their own offer and drivers accept or reply.
+ */
+export function transportRequestOfferResult(quantity: number): OfferResult {
+  return {
+    status: "offer",
+    offer: 0,
+    min: 0,
+    max: 100000,
+    low: Number.NaN,
+    recommended: Number.NaN,
+    high: Number.NaN,
+    step: 5,
+    label: "Transport only",
+    unit: "m³",
+    enforced: false,
+    etaMinutes: 0,
+    distanceKm: 0,
+    explanation: "",
+    materialCost: 0,
+    transportCost: 0,
+    tripCount: Math.max(1, Math.ceil(quantity / 20)),
+    referenceCapacityM3: 20,
+    pricingVersion: "transport-request",
+    quoteId: null,
+    openRequest: true,
+    resolvedSource: null,
+    dataSource: "transport_request",
+    materialPriceUpdatedAt: null,
+    assumptions: null,
+  };
+}
+
+/** The fields the job row needs for an unpriced transport-only request. */
+export function transportRequestJobFields(pickup: { address: string; lat: number; lng: number }) {
+  return {
+    material: "custom" as const,
+    quote_id: null,
+    transport_quote_id: null,
+    pricing_basis: "transport_request" as const,
+    pickup_address: pickup.address.trim() || "Collection point chosen by the customer",
+    pickup_lat: pickup.lat,
+    pickup_lng: pickup.lng,
+  };
+}
+
 /** The fields the job row needs for a transport-priced booking. */
 export function transportJobFields(
   offer: OfferResult,

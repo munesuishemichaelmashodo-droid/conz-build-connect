@@ -74,9 +74,10 @@ const db = {
     phone: u.phone || null,
     avatar_url: null,
     status: "active",
-    referral_code: null,
+    referral_code: u.id === ID.customer ? "TAPIWA7" : u.id === ID.driver ? "FARAI42" : null,
     created_at: u.created_at,
   })),
+  referral_milestones_achieved: [{ user_id: ID.driver, milestone: 1, achieved_at: hoursAgo(300), revoked_at: null, revoked_reason: null }],
   user_roles: [
     { user_id: ID.customer, role: "customer" },
     { user_id: ID.driver, role: "driver" },
@@ -409,6 +410,36 @@ function mockStageEvent(row, actor, action, amount, method, reference) {
 }
 
 const rpc = {
+  // 0185 Invite page: progress only, no names or ids of the people invited.
+  my_referral_progress: (_a, me) =>
+    me?.id === ID.driver
+      ? [
+          { ref_key: "a1", invited_as: "driver", joined_month: "2026-10-01", stage: "recognised", verified: true, jobs_done: 5, jobs_needed: 5, recognised_on: "2026-11-12" },
+          { ref_key: "a2", invited_as: "driver", joined_month: "2026-11-01", stage: "in_progress", verified: true, jobs_done: 3, jobs_needed: 5, recognised_on: null },
+          { ref_key: "a3", invited_as: "customer", joined_month: "2026-11-01", stage: "qualified", verified: null, jobs_done: 1, jobs_needed: 1, recognised_on: null },
+        ]
+      : me?.id === ID.customer
+        ? [{ ref_key: "b1", invited_as: "customer", joined_month: "2026-11-01", stage: "in_progress", verified: null, jobs_done: 0, jobs_needed: 1, recognised_on: null }]
+        : [],
+  record_referral_share: () => true,
+  admin_referral_metrics: () => ({
+    window_days: 90,
+    shares: { total: 14, people_sharing: 5, by_channel: { whatsapp: 9, copy_link: 4, share_sheet: 1 } },
+    signups: { customers: 3, drivers: 2 },
+    customers_first_delivery: 2, drivers_verified: 2, drivers_five_jobs: 1, recognised: 1,
+    repeat_customers: 1, repeat_bookings: 2,
+    retention: [
+      { role: "customer", day: 30, eligible: 2, active: 1 }, { role: "customer", day: 60, eligible: 0, active: 0 },
+      { role: "customer", day: 90, eligible: 0, active: 0 }, { role: "driver", day: 30, eligible: 1, active: 1 },
+      { role: "driver", day: 60, eligible: 0, active: 0 }, { role: "driver", day: 90, eligible: 0, active: 0 },
+    ],
+    review: { flagged: 1, frozen: 0, rejected: 0, milestones_revoked: 0 },
+    partner_benefits: { approved: 0, cost: 0, note: "No partner benefits are approved. Referrals give recognition only." },
+    areas: [
+      { area: "Chitungwiza", posted: 9, with_offer: 7, completed: 5, no_offer: 2, from_referred_customers: 1 },
+      { area: "Other areas", posted: 4, with_offer: 4, completed: 3, no_offer: 0, from_referred_customers: 0 },
+    ],
+  }),
   job_payment_plan: (a) => {
     const job = db.jobs.find((j) => j.id === a._job);
     const fare = Number(job?.final_price ?? job?.budget ?? 0);
@@ -418,6 +449,36 @@ const rpc = {
       { stage: "balance", expected_amount: fare - 50, due: "on_delivery", method_agreed: "ecocash",
         recipient_name: "Farai Sample", recipient_account: "0771 000 111", payment_instructions: "Use the job number as the reference." },
     ];
+  },
+  // 0188 stand-in: reconciliation built only from the stand-in's own stage rows. Marked simulated.
+  job_payment_reconciliation: (a) => {
+    const job = db.jobs.find((j) => j.id === a._job);
+    if (!job) return null;
+    const plan = rpc.job_payment_plan({ _job: job.id });
+    const rows = (db.direct_payment_stages ?? []).filter((r) => r.job_id === job.id);
+    const ev = db.direct_payment_evidence ?? [];
+    const fare = Number(job.final_price ?? job.budget ?? 0);
+    const received = rows.reduce((t, r) => t + Number(r.driver_amount ?? 0), 0);
+    return {
+      simulated: true, job_id: job.id, payment_route: job.payment_method, agreed_fare: fare,
+      basis: "The customer pays the driver directly. Con Z does not collect, hold or guarantee this money. (Local stand-in: simulated sample data.)",
+      stages: plan.map((p) => {
+        const r = rows.find((x) => x.stage === p.stage);
+        const e = ev.filter((x) => x.job_id === job.id && x.stage === p.stage);
+        const state = !r ? "not_reported" : r.driver_confirmed_at && r.customer_acknowledged_at ? "both_confirmed"
+          : r.driver_confirmed_at ? "receipt_claimed" : r.customer_claimed_at ? "payment_reported" : "not_reported";
+        return { stage: p.stage, expected_amount: p.expected_amount, state, evidence: e, evidence_submitted: e.length > 0,
+          screenshot_only: e.length > 0 && e.every((x) => x.kind === "screenshot"), reviews: [], flags: [] };
+      }),
+      totals: { agreed: fare, reported_by_customer: rows.reduce((t, r) => t + Number(r.customer_amount ?? 0), 0),
+        received_by_driver: received, outstanding: Math.max(fare - received, 0), under_review: 0 },
+    };
+  },
+  attach_stage_payment_evidence: (a, me) => {
+    db.direct_payment_evidence ??= [];
+    const row = { kind: a._kind, by_role: "customer", at: new Date().toISOString(), job_id: a._job, stage: a._stage, simulated: true };
+    db.direct_payment_evidence.push(row);
+    return row;
   },
   customer_claim_stage_payment: (a, me) => {
     const row = mockStage(a._job, a._stage);
@@ -502,6 +563,65 @@ const rpc = {
     });
     return row;
   },
+  // 0187 stand-ins: structured reports and the evidence record.
+  report_job_stage: (a, me) => {
+    const job = db.jobs.find((j) => j.id === a._job);
+    if (!me || !job) return null;
+    const role = me.id === job.driver_id ? "driver" : me.id === job.customer_id ? "customer" : null;
+    if (!role) return null;
+    db.job_stage_reports ??= [];
+    const row = { id: randomUUID(), job_id: job.id, reported_by: me.id, reporter_role: role, event: a._event, issue: a._issue ?? null,
+      condition: a._condition ?? null, quantity_m3: a._quantity_m3 ?? null, eta_minutes: a._eta_minutes ?? null, note: a._note ?? null,
+      evidence_id: null, corrects_report: a._corrects ?? null, job_status: job.status, filed_during_dispute: false,
+      created_at: new Date().toISOString() };
+    db.job_stage_reports.push(row);
+    return row;
+  },
+  job_evidence_record: (a) => {
+    const job = db.jobs.find((j) => j.id === a._job);
+    if (!job) return null;
+    return {
+      job_id: job.id, status: job.status,
+      basis: "Photos and reports are submitted by the customer or driver; Con Z has not independently verified them. The delivery code check is done by the system.",
+      timeline: [{ step: "created_at", at: job.created_at }, ...(job.completed_at ? [{ step: "completed_at", at: job.completed_at }] : [])],
+      photos: [],
+      reports: (db.job_stage_reports ?? []).filter((r) => r.job_id === job.id).map((r) => ({ id: r.id, event: r.event, by_role: r.reporter_role,
+        issue: r.issue, condition: r.condition, quantity_m3: r.quantity_m3, eta_minutes: r.eta_minutes, note: r.note, corrects: r.corrects_report,
+        at: r.created_at, added_after_dispute: !!r.filed_during_dispute, verification: "statement",
+        reviewer_note: "A statement by one of the parties, not independent verification." })),
+      delivery_code: { issued: false, confirmed_at: null, wrong_attempts: 0, verification: "not_confirmed" },
+      quantity: { ordered_m3: job.quantity_m3, delivered_m3: null, receiver_name: null },
+      disputes: [], recorded_gps_points: null,
+      // Local stand-in only: the app labels this record "Simulated" so it is never mistaken for a real one.
+      simulated: true,
+    };
+  },
+  // 0186 stand-in: 0179 plus handling, with the job's details recorded on the version.
+  propose_job_agreement_full: (a, me) => {
+    const row = rpc.propose_job_agreement_terms(a, me);
+    if (!row) return null;
+    const job = db.jobs.find((j) => j.id === a._job);
+    Object.assign(row, {
+      customer_id: job.customer_id, driver_id: job.driver_id, truck_registration: "AEX 1234", truck_capacity_m3: 15,
+      material: job.custom_material || job.material, quantity_m3: job.quantity_m3,
+      pickup_address: job.pickup_address ?? null, delivery_address: job.delivery_address, preferred_date: job.preferred_date ?? null,
+      agreed_date: a._agreed_date || null, loading_by: a._loading_by || null, offloading_by: a._offloading_by || null,
+      collection_instructions: a._collection_instructions || null, content_hash: "simulated".padEnd(64, "0"), // stand-in value, not a real hash
+    });
+    return row;
+  },
+  job_agreement_in_force: (a) => {
+    const row = [...(db.job_agreements ?? [])].filter((r) => r.job_id === a._job && r.status === "accepted").sort((x, y) => y.version - x.version)[0];
+    if (!row) return { agreement_id: null };
+    const job = db.jobs.find((j) => j.id === a._job);
+    const changed = row.content_hash && Number(row.quantity_m3) !== Number(job.quantity_m3) ? ["quantity_m3"] : [];
+    return { agreement_id: row.id, version: row.version, recorded_details: !!row.content_hash, changed_since_agreed: changed };
+  },
+  // 0184 stand-in: sample signals for the admin Trust screen (no real data).
+  admin_trust_signals: () => [
+    { signal: "shared_phone", detail: "2 accounts use the same phone number (ending 567)", user_ids: ["00000000-0000-4000-8000-0000000000c1", "00000000-0000-4000-8000-0000000000d2"], job_ids: null, seen: 2 },
+    { signal: "repeated_pair_30_days", detail: "4 completed jobs between the same customer and driver in the last 30 days", user_ids: null, job_ids: ["00000000-0000-4000-8000-00000000a001"], seen: 4 },
+  ],
   accept_job_agreement: (a, me) => {
     const row = (db.job_agreements ?? []).find((r) => r.id === a._agreement);
     const job = row && db.jobs.find((j) => j.id === row.job_id);

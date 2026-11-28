@@ -1,3 +1,4 @@
+import { JobJourneyDetails } from "@/components/booking/JobJourneyDetails";
 import { SupplyConfirmationCard } from "@/components/SupplyConfirmationCard";
 import { DISPUTE_OPTIONS, disputeOption, disputeReason, MIN_DISPUTE_EXPLANATION, type DisputeSide } from "@/lib/dispute-options";
 import { useLaunchSwitches } from "@/lib/launch-switches";
@@ -96,6 +97,7 @@ import {
 import { OfferCard } from "@/components/redesign/OfferCard";
 import { truckFactsLine } from "@/lib/truck-facts";
 import { AgreementCard } from "@/components/AgreementCard";
+import { JobStageReports } from "@/components/evidence/JobStageReports";
 import { DriverComplianceBadges } from "@/components/compliance/DriverComplianceBadges";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import {
@@ -267,6 +269,8 @@ function JobDetail() {
   const { userId, is } = useAuth();
   const qc = useQueryClient();
   const nav = useNavigate();
+  // Before any early return (hooks must run in the same order on every render).
+  const escrowSwitch = useLaunchSwitches().escrowEnabled;
 
   const {
     data: job,
@@ -511,7 +515,7 @@ function JobDetail() {
       .then((res) => {
         if (res.credited > 0) {
           qc.invalidateQueries({ queryKey: ["escrow-payment", id] });
-          toast.success("Payment confirmed — held safely until delivery is confirmed.");
+          toast.success("Payment confirmed by Paynow.");
         }
       })
       .catch(() => {});
@@ -862,21 +866,26 @@ function JobDetail() {
                   {escrowPaid ? (
                     <p className="text-sm text-muted-foreground">
                       {isOwner
-                        ? "Payment received and held safely. It'll be released to the driver once you confirm delivery."
-                        : "The customer has paid. Funds are held and will be released to your wallet once delivery is confirmed — or automatically after 72 hours."}
+                        ? "Paynow confirmed this payment. It is released to the driver when you confirm delivery."
+                        : "The customer paid through Con Z Pay. Contact Con Z support about this payment; Con Z Pay is not used for new jobs."}
                     </p>
                   ) : isOwner ? (
                     <>
-                      <p className="text-sm text-muted-foreground">
-                        This job is set up to pay through Con Z Pay. Pay now — we'll hold the money until you confirm delivery.
-                      </p>
-                      <Button onClick={payEscrow} disabled={payingEscrow} className="w-full">
-                        {payingEscrow ? <Loader2 className="w-4 h-4 animate-spin" /> : `Pay ${money(Number(job.final_price ?? job.budget))} now`}
-                      </Button>
+                      {escrowSwitch ? (
+                        <Button onClick={payEscrow} disabled={payingEscrow} className="w-full">
+                          {payingEscrow ? <Loader2 className="w-4 h-4 animate-spin" /> : `Pay ${money(Number(job.final_price ?? job.budget))} through Con Z Pay`}
+                        </Button>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          This job was set up for Con Z Pay, which is not available. Agree with the driver to pay them directly instead.
+                        </p>
+                      )}
                     </>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Waiting for the customer to pay into Con Z Pay. Once they do, the money is held for you and released when they confirm delivery with their PIN.
+                      {escrowSwitch
+                        ? "Waiting for the customer to pay through Con Z Pay."
+                        : "This job was set up for Con Z Pay, which is not available. Agree payment with the customer directly."}
                     </p>
                   )}
                 </div>
@@ -1577,6 +1586,8 @@ function BidForm({
               Customer offered <strong className="text-cz-text">{usd(budget)}</strong>
               {job.preferred_date ? <span className="text-cz-muted"> · wanted {job.preferred_date}</span> : null}
             </div>
+            {/* 0183: booking type, truck needed, preferred time, load details (masked for unselected drivers). */}
+            <JobJourneyDetails job={job} />
             {job.notes && <p className="border-t border-cz-border pt-2 text-sm text-cz-muted">{job.notes}</p>}
           </CzCard>
         )}
@@ -1643,7 +1654,7 @@ function BidForm({
         {fee != null && (
           <div className="space-y-1 text-[13px] leading-relaxed text-cz-muted" data-testid="fee-explainer">
             <p>
-              {job?.pricing_basis === "transport_only"
+              {job?.pricing_basis === "transport_only" || job?.pricing_basis === "transport_request"
                   ? `Con Z keeps ${pctLabel} of your total agreed price for this job. It is reserved from your commission credit when the customer accepts and charged when the job is completed.`
                   : `Con Z keeps ${pctLabel} of your full offer price, material and transport included. It is reserved from your commission credit when the customer accepts, charged once when the delivery is verified, and returned if the job is cancelled.`}
             </p>
@@ -2986,6 +2997,7 @@ function JobSummaryCard({ job, id = "tour-job-header" }: { job: any; id?: string
         <span className="text-[13px] text-cz-muted">Customer offered {usd(Number(job.budget))}</span>
       </div>
       <RouteStops pickupLabel={job.pickup_address || "Supplier pickup point"} dropLabel={job.delivery_address} />
+      <JobJourneyDetails job={job} />
       <EstimatedDelivery job={job} />
       {(job.preferred_date || job.notes) && (
         <div className="border-t border-cz-border pt-2.5 text-sm text-cz-muted space-y-1">
@@ -3072,7 +3084,7 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
           </div>
           {ctx.isEscrow &&
             (ctx.escrowPaid ? (
-              <StatusPill tone="green" icon={<ShieldCheck className="w-3.5 h-3.5" />}>Payment secured</StatusPill>
+              <StatusPill tone="green" icon={<ShieldCheck className="w-3.5 h-3.5" />}>Paid through Con Z Pay</StatusPill>
             ) : (
               <StatusPill tone="amber">Awaiting payment</StatusPill>
             ))}
@@ -3228,7 +3240,19 @@ function DriverActiveJob({ ctx }: { ctx: JobScreenCtx }) {
 
         <ContactCard ctx={ctx} role="customer" subtitle={`${mat} · ${Number(job.quantity_m3)} m³`} />
         {readyOffline && <ReadyOfflineChip />}
+        {job.job_kind && (
+          <CzCard>
+            <JobJourneyDetails job={job} />
+          </CzCard>
+        )}
         <AgreementCard jobId={id} jobStatus={job.status} userId={ctx.userId} customerId={job.customer_id} />
+        <JobStageReports
+          jobId={id}
+          jobStatus={String(job.status)}
+          role="driver"
+          hasPickupPhoto={!!job.pickup_photo_url}
+          completedAt={job.completed_at ?? null}
+        />
         {/* 0179: deposits and balances are recorded while the job is active, not only at the end. */}
         {job.payment_method === "direct" && (
           <DirectPaymentPanel jobId={id} role="driver" agreedPrice={Number(job.final_price ?? job.budget ?? 0)} jobStatus={String(job.status)} />
@@ -3395,11 +3419,13 @@ function CustomerJobScreen({ ctx }: { ctx: JobScreenCtx }) {
   // at, exactly like the old page which showed tracking and the pay button
   // together.
   const [skipPay, setSkipPay] = useState(false);
+  const launch = useLaunchSwitches();
   if (job.status === "cancelled") return <CancelledScreen ctx={ctx} backTo="/jobs" />;
   if (job.status === "open") return <CustomerOffers ctx={ctx} />;
   if (job.status === "completed") return <CustomerDelivered ctx={ctx} />;
-  if (ctx.isEscrow && !ctx.escrowPaid && !skipPay) return <CustomerPay ctx={ctx} onViewTracking={() => setSkipPay(true)} />;
-  return <CustomerTrack ctx={ctx} onPay={skipPay ? () => setSkipPay(false) : undefined} />;
+  // Con Z Pay is switched off (launch switch): never offer a payment the platform will refuse.
+  if (ctx.isEscrow && !ctx.escrowPaid && !skipPay && launch.escrowEnabled) return <CustomerPay ctx={ctx} onViewTracking={() => setSkipPay(true)} />;
+  return <CustomerTrack ctx={ctx} onPay={skipPay && launch.escrowEnabled ? () => setSkipPay(false) : undefined} />;
 }
 
 /** C3 · Driver offers. */
@@ -3749,10 +3775,10 @@ function CustomerPay({ ctx, onViewTracking }: { ctx: JobScreenCtx; onViewTrackin
       <footer className="sticky bottom-0 z-20 space-y-2.5 border-t border-cz-border bg-cz-surface px-5 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))]">
         <div id="tour-next-steps">
           <CzButton onClick={ctx.payEscrow} disabled={ctx.payingEscrow}>
-            {ctx.payingEscrow ? <Loader2 className="w-5 h-5 animate-spin" /> : `Pay ${usd2(total)} with Paynow`}
+            {ctx.payingEscrow ? <Loader2 className="w-5 h-5 animate-spin" /> : `Pay ${usd2(total)} through Con Z Pay`}
           </CzButton>
         </div>
-        <p className="text-center text-xs text-cz-faint">Secured by Paynow · All amounts in USD</p>
+        <p className="text-center text-xs text-cz-faint">Payment page run by Paynow · All amounts in USD</p>
         <div className="grid grid-cols-2 gap-2.5">
           <CzButton kind="ghost" size="sm" onClick={onViewTracking}>View tracking</CzButton>
           {ctx.showCancel ? (
@@ -3969,11 +3995,16 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
           {onPay && (
             <HintBox tone="warn" icon={<ShieldCheck className="w-4 h-4" />}>
               <div className="space-y-2">
-                <div>This job is set up to pay through Con Z Pay. Pay now — we'll hold the money until delivery is confirmed.</div>
+                <div>This job is set up to pay through Con Z Pay.</div>
                 <button type="button" onClick={onPay} className="font-bold underline underline-offset-2">
-                  Pay {usd2(Number(job.final_price ?? job.budget))} now
+                  Pay {usd2(Number(job.final_price ?? job.budget))} through Con Z Pay
                 </button>
               </div>
+            </HintBox>
+          )}
+          {!onPay && ctx.isEscrow && !ctx.escrowPaid && (
+            <HintBox tone="warn" icon={<ShieldCheck className="w-4 h-4" />}>
+              <div>This job was set up for Con Z Pay, which is not available. Agree with the driver to pay them directly instead.</div>
             </HintBox>
           )}
 
@@ -4040,8 +4071,20 @@ function CustomerTrack({ ctx, onPay }: { ctx: JobScreenCtx; onPay?: () => void }
         )}
         <SupplyConfirmationCard job={job} viewer="customer" />
         <ContactCard ctx={ctx} role="driver" subtitle={d.bid?.truck_reg ? `Truck ${d.bid.truck_reg} · ${mat}` : mat} />
+        {job.job_kind && (
+          <CzCard>
+            <JobJourneyDetails job={job} />
+          </CzCard>
+        )}
         {job.driver_id && <DriverComplianceBadges driverId={job.driver_id} />}
         <AgreementCard jobId={id} jobStatus={job.status} userId={ctx.userId} customerId={job.customer_id} />
+        <JobStageReports
+          jobId={id}
+          jobStatus={String(job.status)}
+          role="customer"
+          hasPickupPhoto={!!job.pickup_photo_url}
+          completedAt={job.completed_at ?? null}
+        />
         {job.payment_method === "direct" && (
           <DirectPaymentPanel jobId={id} role="customer" agreedPrice={Number(job.final_price ?? job.budget ?? 0)} jobStatus={String(job.status)} />
         )}

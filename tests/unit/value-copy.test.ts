@@ -18,7 +18,12 @@ describe("customer and driver wording stays honest", () => {
   const banned: [RegExp, string][] = [
     [/guarantee/i, "no guarantees"],
     [/lowest price|cheapest|best price/i, "no lowest-price claim"],
-    [/transport[- ]only/i, "transport-only booking is not built; do not advertise it"],
+    // The booking screen offers "Transport only" as the customer's first choice (0183, booking-journey.test.ts);
+    // the other pages still do not advertise it.
+    [
+      /transport[- ]only/i,
+      "transport-only booking is offered on the booking screen only; do not advertise it elsewhere",
+    ],
     [
       /bid first|assigned automatically to|auto-?assign/i,
       "an invited driver gets no priority and no automatic assignment",
@@ -36,8 +41,12 @@ describe("customer and driver wording stays honest", () => {
     ],
     [/always commission-free/i, "only the first completed job has no commission"],
   ];
+  const allowedIn: Record<string, string[]> = {
+    "src/routes/_authenticated/customer.book.tsx": [String(/transport[- ]only/i)],
+  };
   for (const f of FILES) {
     for (const [re, why] of banned) {
+      if (allowedIn[f]?.includes(String(re))) continue;
       it(`${f}: ${why}`, () => {
         // help.tsx explains that nothing is assigned automatically; that sentence is allowed.
         // Source comments and honest negations ("not guaranteed") are not claims.
@@ -53,12 +62,10 @@ describe("customer and driver wording stays honest", () => {
 
   it("states the commission base and the first-job rule to drivers", () => {
     const home = text("src/routes/index.tsx");
-    expect(home).toMatch(
-      /7% commission on the total agreed price, including materials and\s+transport/,
-    );
+    expect(home).toMatch(/7% commission on the total agreed job value/);
     expect(home).toMatch(/first\s+completed job is commission-free/);
     expect(text("src/routes/_authenticated/wallet.tsx")).toMatch(
-      /7% of the full job price, materials and transport/,
+      /7% of the total agreed job value: the delivery price when the driver only delivers, or materials and delivery together/,
     );
   });
 
