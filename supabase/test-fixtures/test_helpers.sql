@@ -134,6 +134,9 @@ create or replace function tests.enable_launch_features()
 returns void language sql as $$
   update public.system_settings set value = 'true'::jsonb where key in ('escrow_enabled', 'withdrawals_enabled');
   update public.system_settings set value = '100000'::jsonb where key = 'max_wallet_balance';
+  -- 0190: payment results credit only in LIVE mode (default off). Tests of the live payment paths opt in here.
+  insert into public.system_settings (key, value) values ('paynow_mode', '"live"'::jsonb)
+  on conflict (key) do update set value = excluded.value;
 $$;
 
 -- An open job. 'custom' material is not price-enforced, which is the

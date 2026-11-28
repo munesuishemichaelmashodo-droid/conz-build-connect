@@ -285,3 +285,27 @@ export async function initiatePaynowTransaction(args: {
   }
   return { ok: true, browserUrl: parsed["browserurl"], pollUrl: parsed["pollurl"] };
 }
+
+// ---- 0190: payment mode (OFF / TEST / LIVE), read on the server, fail closed ------------------------------------
+export type PaynowMode = "off" | "test" | "live";
+
+/** The mode as the database reports it (public.paynow_mode()). Any error or unexpected value means "off". */
+export async function readPaynowMode(db: {
+  rpc: (fn: string) => PromiseLike<{ data: unknown; error: unknown }>;
+}): Promise<PaynowMode> {
+  try {
+    const { data, error } = await db.rpc("paynow_mode");
+    if (error) return "off";
+    return data === "live" || data === "test" ? data : "off";
+  } catch {
+    return "off";
+  }
+}
+
+/** What a payment start does in each mode. Only LIVE ever calls Paynow. */
+export function paynowStartDecision(
+  mode: PaynowMode,
+): { start: true } | { start: false; error: "payments_off" | "paynow_test_mode" } {
+  if (mode === "live") return { start: true };
+  return { start: false, error: mode === "test" ? "paynow_test_mode" : "payments_off" };
+}

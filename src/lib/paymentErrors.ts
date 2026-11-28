@@ -21,6 +21,9 @@ export const NETWORK_ERROR_MESSAGE =
 
 const PAYNOW_CODES: Record<string, string> = {
   paynow_not_configured: "Online payments are unavailable right now. Please contact support.",
+  payments_off: "Online top-ups are not open yet. Nothing was charged.",
+  paynow_test_mode:
+    "Test mode: this was a simulated top-up. No payment was started, nothing was charged and no credit was added.",
   paynow_timeout: "Paynow took too long to respond. Nothing was charged. Please try again.",
   paynow_unreachable: "We couldn't reach Paynow. Nothing was charged. Please try again shortly.",
   paynow_rejected: "Paynow declined to start this payment. Nothing was charged.",
