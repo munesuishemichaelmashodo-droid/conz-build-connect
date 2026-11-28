@@ -24,6 +24,7 @@ import {
   PackageSearch,
   Briefcase,
   Sparkles,
+  ShieldQuestion,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -96,6 +97,7 @@ const TABS: Tab[] = [
   { to: "/admin/verifications", label: "Verify", icon: ShieldCheck, group: "People" },
   { to: "/admin/disputes", label: "Disputes", icon: Gavel, group: "People" },
   { to: "/admin/reports", label: "Reports", icon: MessageSquareWarning, group: "People" },
+  { to: "/admin/trust", label: "Trust", icon: ShieldQuestion, group: "People" },
   { to: "/admin/referrals", label: "Referrals", icon: Gift, group: "People" },
   { to: "/admin/points", label: "Points", icon: Sparkles, group: "People" },
   { to: "/admin/sourcing", label: "Sourcing", icon: PackageSearch, group: "Supply" },

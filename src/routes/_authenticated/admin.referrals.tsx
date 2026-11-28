@@ -5,8 +5,18 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { StatusBadge, EmptyState } from "@/components/ui-bits";
-import { money } from "@/lib/domain";
-import { Gift, Search as SearchIcon, AlertTriangle, Check, X, Snowflake, Unlock, ArrowUpRight } from "lucide-react";
+import {
+  Gift,
+  Search as SearchIcon,
+  AlertTriangle,
+  Check,
+  X,
+  Snowflake,
+  Unlock,
+  ArrowUpRight,
+} from "lucide-react";
+import { ReferralMetricsCard } from "@/components/admin/ReferralMetricsCard";
+import { ReferralAttributionForm } from "@/components/admin/ReferralAttributionForm";
 import { toast } from "sonner";
 import { isMfaRequiredError, readableRpcError, STEP_UP_ACTION_LABEL, startStepUp } from "@/lib/mfa";
 import { cn } from "@/lib/utils";
@@ -25,7 +35,6 @@ type ReferralAdminRow = {
   referred_role: string;
   verification_status: string;
   reward_status: string;
-  reward_amount: number | null;
   reward_release_at: string | null;
   fraud_flag: boolean;
   fraud_reason: string | null;
@@ -33,6 +42,16 @@ type ReferralAdminRow = {
   created_at: string;
   referrer?: { full_name: string; email: string | null } | null;
   referred?: { full_name: string; email: string | null } | null;
+};
+
+const FILTER_LABEL: Record<Filter, string> = {
+  all: "All",
+  pending: "Waiting",
+  hold: "In check",
+  released: "Counted",
+  rejected: "Did not count",
+  frozen: "Frozen",
+  fraud: "Flagged",
 };
 
 const STATUS_TONE: Record<string, string> = {
@@ -67,7 +86,7 @@ function AdminReferrals() {
       let q = supabase
         .from("referrals")
         .select(
-          "id,referrer_id,referred_id,referral_code,referred_role,verification_status,reward_status,reward_amount,reward_release_at,fraud_flag,fraud_reason,admin_notes,created_at"
+          "id,referrer_id,referred_id,referral_code,referred_role,verification_status,reward_status,reward_release_at,fraud_flag,fraud_reason,admin_notes,created_at",
         )
         .order("created_at", { ascending: false })
         .limit(100);
@@ -106,11 +125,25 @@ function AdminReferrals() {
     );
   });
 
-  const act = async (row: ReferralAdminRow, action: "approve" | "reject" | "freeze" | "unfreeze" | "release") => {
-    if (action === "release" && !isSuper) return toast.error("Only super admins can force-release a reward");
+  const act = async (
+    row: ReferralAdminRow,
+    action: "approve" | "reject" | "freeze" | "unfreeze" | "release",
+  ) => {
+    if (action === "release" && !isSuper)
+      return toast.error("Only super admins can count a referral early");
     let notes: string | null = null;
-    if (["reject", "freeze"].includes(action)) {
-      notes = window.prompt(`Reason for ${action === "reject" ? "rejecting" : "freezing"} this referral reward:`);
+    const needsReason =
+      action === "reject" || action === "freeze" || (action === "approve" && row.fraud_flag);
+    if (needsReason) {
+      const question =
+        action === "reject"
+          ? row.reward_status === "released"
+            ? "Why is this counted referral being withdrawn? (at least 5 characters; the referrer sees this reason)"
+            : "Why does this referral not count? (at least 5 characters; the referrer sees this reason)"
+          : action === "freeze"
+            ? "Why is this referral being frozen for review? (at least 5 characters)"
+            : "Why is the fraud flag being cleared? (at least 5 characters)";
+      notes = window.prompt(question);
       if (!notes?.trim()) return;
     }
     setBusyId(row.id);
@@ -121,7 +154,7 @@ function AdminReferrals() {
     });
     setBusyId(null);
     if (error) {
-      // Releasing a reward credits a wallet: super admin + MFA (0085).
+      // Counting a referral early: super admin + a fresh step-up.
       if (isMfaRequiredError(error)) {
         return toast.error(readableRpcError(error), {
           action: { label: STEP_UP_ACTION_LABEL, onClick: () => void startStepUp() },
@@ -138,14 +171,32 @@ function AdminReferrals() {
 
   return (
     <div className="space-y-4">
+      {isSuper && <ReferralAttributionForm />}
       <div className="grid grid-cols-2 gap-3">
         <StatCard label="Total referrals" value={String(stats?.total_referrals ?? "…")} />
-        <StatCard label="Pending / hold" value={String(stats?.pending_rewards ?? "…")} tone="text-warning" />
-        <StatCard label="Released" value={String(stats?.released_rewards ?? "…")} tone="text-success" />
-        <StatCard label="Paid out" value={money(stats?.total_released_amount ?? 0)} tone="text-success" />
-        <StatCard label="Rejected" value={String(stats?.rejected_rewards ?? "…")} />
-        <StatCard label="Fraud alerts" value={String(stats?.fraud_alerts ?? "…")} tone="text-destructive" />
+        <StatCard
+          label="Waiting / in check"
+          value={String(stats?.pending_rewards ?? "…")}
+          tone="text-warning"
+        />
+        <StatCard
+          label="Counted"
+          value={String(stats?.released_rewards ?? "…")}
+          tone="text-success"
+        />
+        <StatCard label="Did not count" value={String(stats?.rejected_rewards ?? "…")} />
+        <StatCard
+          label="Fraud alerts"
+          value={String(stats?.fraud_alerts ?? "…")}
+          tone="text-destructive"
+        />
       </div>
+      <p className="text-[11px] text-muted-foreground">
+        Referrals give recognition only. No referral pays money or credit; old amounts stay in the
+        records as history.
+      </p>
+
+      <ReferralMetricsCard />
 
       <div className="relative">
         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -159,25 +210,33 @@ function AdminReferrals() {
 
       <div className="-mx-4 px-4 overflow-x-auto">
         <div className="flex gap-2 min-w-max pb-1">
-          {(["all", "pending", "hold", "released", "rejected", "frozen", "fraud"] as Filter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={cn(
-                "min-h-11 rounded-full border px-3 py-1.5 text-xs font-semibold",
-                filter === f ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]" : "bg-card text-muted-foreground"
-              )}
-            >
-              {sentence(f)}
-            </button>
-          ))}
+          {(["all", "pending", "hold", "released", "rejected", "frozen", "fraud"] as Filter[]).map(
+            (f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={cn(
+                  "min-h-11 rounded-full border px-3 py-1.5 text-xs font-semibold",
+                  filter === f
+                    ? "border-foreground bg-muted text-foreground shadow-[inset_0_0_0_1px_var(--cz-text)]"
+                    : "bg-card text-muted-foreground",
+                )}
+              >
+                {FILTER_LABEL[f]}
+              </button>
+            ),
+          )}
         </div>
       </div>
 
       {listQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : !rows.length ? (
-        <EmptyState icon={Gift} title="No referrals found" hint="Try a different filter or search term." />
+        <EmptyState
+          icon={Gift}
+          title="No referrals found"
+          hint="Try a different filter or search term."
+        />
       ) : (
         <div className="space-y-2">
           {rows.map((r) => (
@@ -185,16 +244,20 @@ function AdminReferrals() {
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold truncate">
-                    {r.referrer?.full_name ?? "Unknown"} <span className="text-muted-foreground font-normal">referred</span>{" "}
+                    {r.referrer?.full_name ?? "Unknown"}{" "}
+                    <span className="text-muted-foreground font-normal">referred</span>{" "}
                     {r.referred?.full_name ?? "Unknown"}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    {r.referral_code} · {r.referred_role} · {new Date(r.created_at).toLocaleDateString()}
+                    {r.referral_code} · {r.referred_role} ·{" "}
+                    {new Date(r.created_at).toLocaleDateString()}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  {r.reward_amount != null && <p className="text-sm font-semibold">{money(r.reward_amount)}</p>}
-                  <StatusBadge label={r.reward_status} className={STATUS_TONE[r.reward_status]} />
+                  <StatusBadge
+                    label={FILTER_LABEL[r.reward_status as Filter] ?? sentence(r.reward_status)}
+                    className={STATUS_TONE[r.reward_status]}
+                  />
                 </div>
               </div>
 
@@ -209,20 +272,59 @@ function AdminReferrals() {
               )}
 
               <div className="flex flex-wrap gap-1.5">
+                {r.reward_status === "released" && (
+                  <ActionBtn
+                    icon={X}
+                    label="Withdraw (fraud found)"
+                    onClick={() => act(r, "reject")}
+                    busy={busyId === r.id}
+                    tone="destructive"
+                  />
+                )}
                 {r.reward_status !== "released" && r.reward_status !== "rejected" && (
                   <>
                     {r.fraud_flag ? (
-                      <ActionBtn icon={Check} label="Approve" onClick={() => act(r, "approve")} busy={busyId === r.id} tone="success" />
+                      <ActionBtn
+                        icon={Check}
+                        label="Clear flag"
+                        onClick={() => act(r, "approve")}
+                        busy={busyId === r.id}
+                        tone="success"
+                      />
                     ) : null}
-                    <ActionBtn icon={X} label="Reject" onClick={() => act(r, "reject")} busy={busyId === r.id} tone="destructive" />
+                    <ActionBtn
+                      icon={X}
+                      label="Reject"
+                      onClick={() => act(r, "reject")}
+                      busy={busyId === r.id}
+                      tone="destructive"
+                    />
                     {r.reward_status === "frozen" ? (
-                      <ActionBtn icon={Unlock} label="Unfreeze" onClick={() => act(r, "unfreeze")} busy={busyId === r.id} />
+                      <ActionBtn
+                        icon={Unlock}
+                        label="Unfreeze"
+                        onClick={() => act(r, "unfreeze")}
+                        busy={busyId === r.id}
+                      />
                     ) : (
-                      <ActionBtn icon={Snowflake} label="Freeze" onClick={() => act(r, "freeze")} busy={busyId === r.id} />
+                      <ActionBtn
+                        icon={Snowflake}
+                        label="Freeze"
+                        onClick={() => act(r, "freeze")}
+                        busy={busyId === r.id}
+                      />
                     )}
-                    {isSuper && r.reward_amount != null && (
-                      <ActionBtn icon={ArrowUpRight} label="Force release" onClick={() => act(r, "release")} busy={busyId === r.id} tone="success" />
-                    )}
+                    {isSuper &&
+                      !r.fraud_flag &&
+                      (r.reward_status === "hold" || r.reward_status === "approved") && (
+                        <ActionBtn
+                          icon={ArrowUpRight}
+                          label="Count now"
+                          onClick={() => act(r, "release")}
+                          busy={busyId === r.id}
+                          tone="success"
+                        />
+                      )}
                   </>
                 )}
               </div>
@@ -263,8 +365,9 @@ function ActionBtn({
       className={cn(
         "flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold disabled:opacity-50",
         tone === "success" && "bg-success/15 text-success border-success/30 hover:bg-success/25",
-        tone === "destructive" && "bg-destructive/15 text-destructive border-destructive/30 hover:bg-destructive/25",
-        !tone && "hover:bg-muted"
+        tone === "destructive" &&
+          "bg-destructive/15 text-destructive border-destructive/30 hover:bg-destructive/25",
+        !tone && "hover:bg-muted",
       )}
     >
       <Icon className="w-3 h-3" /> {label}

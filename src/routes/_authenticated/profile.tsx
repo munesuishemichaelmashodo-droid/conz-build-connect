@@ -15,6 +15,7 @@ import { Loader2, ShieldCheck, Truck, KeyRound, Camera, Image as ImageIcon, Aler
 import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
 import { AddTruckForm } from "@/components/AddTruckForm";
 import { PointsCard } from "@/components/PointsCard";
+import { ReferralRecognitionCard } from "@/components/ReferralRecognitionCard";
 import { deleteMyAccount } from "@/lib/account-deletion";
 import { driverStatus, REVIEW_TARGET_TEXT } from "@/lib/driver-onboarding";
 import { rpcFailure } from "@/lib/rpc-result";
@@ -210,6 +211,7 @@ function ProfilePage() {
         )}
 
 
+        <ReferralRecognitionCard />
         <PointsCard />
 
         <Collapsible title="Login security"><SetPasswordCard /></Collapsible>

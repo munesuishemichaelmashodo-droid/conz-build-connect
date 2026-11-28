@@ -3,6 +3,7 @@ import { Loader2, ShieldCheck, Star } from "lucide-react";
 import { StatusStamp } from "@/components/ds";
 import type { CustomerCard } from "@/components/redesign/rpc";
 import { materialLabel } from "@/lib/domain";
+import { feedJourneyTag } from "@/lib/booking-journey";
 import { cn } from "@/lib/utils";
 import { distanceLabel, jobDistance, type DriverFix } from "@/lib/jobDistance";
 import {
@@ -29,6 +30,9 @@ export type FeedJob = {
   pickup_lng?: number | null;
   delivery_lat?: number | null;
   delivery_lng?: number | null;
+  /** 0183: booking type and truck needed (safe for drivers who have not been selected). */
+  job_kind?: string | null;
+  truck_requirement?: string | null;
 };
 
 // One small tag per fact about the load, wrapping on narrow screens.
@@ -137,6 +141,11 @@ export function FeedJobCard({
           </span>
         </div>
         <ul className="flex flex-wrap gap-1.5" aria-label="About this load">
+          {feedJourneyTag(job.job_kind, job.truck_requirement) && (
+            <li className={cn(FACT, "font-semibold text-cz-text")} data-testid="journey-tag">
+              {feedJourneyTag(job.job_kind, job.truck_requirement)}
+            </li>
+          )}
           {escrow ? (
             <li className={cn(FACT, "bg-cz-green-tint font-semibold text-cz-green-text")}>
               <ShieldCheck aria-hidden className="h-3.5 w-3.5" /> Con Z Pay job

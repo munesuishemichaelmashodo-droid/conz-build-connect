@@ -1,3 +1,4 @@
+import { clearPendingReferral, readPendingReferral } from "@/lib/pending-referral";
 import { keepIfFailed } from "@/lib/auth-guard";
 import { clearDeviceData } from "@/lib/sign-out";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
@@ -64,9 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // A Google sign-up stores this flag just before the redirect when the
       // Terms box was ticked; keep it until activation succeeds.
       const termsAccepted = readPendingTermsAcceptance();
+      const referralCode = readPendingReferral();
       try {
-        await activate({ data: { termsAccepted } });
+        await activate({ data: { termsAccepted, referralCode } });
         if (termsAccepted) clearPendingTermsAcceptance();
+        if (referralCode) clearPendingReferral();
       } catch (error) {
         console.error("Account activation failed", error);
       }
