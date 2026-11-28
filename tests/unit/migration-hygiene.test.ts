@@ -24,6 +24,9 @@ const ALLOWED_DROPS: Record<string, string[]> = {
   "20261124130000_0173_provider_post_payout_recovery.sql": [
     "drop constraint if exists platform_ledger_account_check",
   ],
+  "20261126150000_0183_booking_journeys.sql": [
+    "drop constraint if exists jobs_pricing_basis_check",
+  ],
 };
 
 const root = join(__dirname, "..", "..", "supabase");

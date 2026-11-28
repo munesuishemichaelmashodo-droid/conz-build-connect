@@ -66,42 +66,42 @@ function TermsPage() {
 
           <Section title="5. Account Responsibilities">
             <ul className="list-disc pl-5 space-y-1">
-              <li>You are responsible for maintaining the confidentiality of your login credentials and withdrawal PIN.</li>
+              <li>You are responsible for maintaining the confidentiality of your login credentials.</li>
               <li>You are responsible for all activity that occurs under your account.</li>
               <li>You must provide accurate, current information and keep it updated.</li>
             </ul>
           </Section>
 
-          <Section title="6. Commission and Wallet">
+          <Section title="6. Commission and Commission Credit">
             <p>
               Registering, verification, browsing jobs and sending offers are free for Drivers. Con Z
-              charges a flat platform commission of <b>7%</b> of{" "}
-              {transportOn
-                ? "the total agreed price for the job, including materials and transport where the job includes them"
-                : "the full job price, including materials and transport"}
-              . When a Customer selects a Driver, Con Z reserves the
-              commission for that job from the Driver's wallet credit. The reservation is confirmed
+              charges a flat platform commission of <b>7%</b> of the total agreed job value: the
+              delivery price when the Driver only delivers, or materials and delivery together when the
+              Driver also supplies the materials (for example $300 + $100 = $400, commission $28). When a Customer selects a Driver, Con Z reserves the
+              commission for that job from the Driver's Commission Credit. The reservation is confirmed
               against the job, it is not a fee for browsing or offering, and it is released if the job
               is cancelled before the load is collected. The commission is earned when the delivery
               is verified (see section 8).{" "}
               {promo.enabled ? promoCreditTerms(promo.amount) : null}
             </p>
             <p>
-              Wallet top-ups, balances and withdrawals are governed by the in-app Wallet and its
-              security controls (including the withdrawal PIN and lockout logic). Money reserved for
-              commission cannot be withdrawn. Top-up and withdrawal methods may be limited or
-              unavailable while the Platform is launching, and are shown in the Wallet when open.
+              Commission Credit is bought by Drivers in the app and can only be used to pay Con Z
+              commission. It is not a wallet for customer fares, it cannot be withdrawn or
+              transferred to another Driver, and it cannot be used to pay for materials or for
+              transport. Customers never pay Con Z: they pay the Driver directly, and Con Z does not
+              collect, hold or guarantee that payment. Top-up methods may be limited while the
+              Platform is launching and are shown in the app when open.
             </p>
           </Section>
 
           <Section title="7. Payments Between Customer and Driver">
             <p>
-              Unless the app shows that the Customer is paying through Con Z at checkout, the
-              Customer pays the Driver directly for the materials and delivery. In that case
-              Con Z does not receive, hold or guarantee the Customer's money, is not an escrow
-              provider, and does not guarantee any refund. Any deposit or advance payment is agreed
-              directly between the Customer and the Driver, and Con Z is not responsible for it. If a
-              payment through Con Z is offered, the terms shown at that checkout apply as well.
+              The Customer pays the Driver directly for the delivery (and for any materials the
+              Driver supplies), using the method they agree. Con Z does not receive, hold, distribute
+              or guarantee the Customer's money, is not an escrow provider, and does not guarantee any
+              refund. Any deposit or advance payment is agreed directly between the Customer and the
+              Driver. Con Z records what each of them reports about a payment, which can help if there
+              is a dispute, but a record is not proof that a payment was made.
             </p>
           </Section>
 
@@ -152,9 +152,12 @@ function TermsPage() {
             <p>
               Disagreements between Customers and Drivers (including cancellations, cargo damage, and
               service quality) must first be raised through the in-app dispute system. Con Z will
-              review submissions and may issue strikes, restrictions, or refunds through the wallet
-              at its reasonable discretion, in line with the strike and restriction policy already
-              enforced by the platform.
+              review submissions and may issue strikes or restrictions, or waive the commission
+              charged on the disputed job and return it to the Driver's Commission Credit, at its
+              reasonable discretion and in line with the strike and restriction policy enforced by the
+              platform. Con Z does not refund customer fares, because Con Z never receives them; a
+              dispute about a fare is between the Customer and the Driver, and Con Z keeps the
+              records of what each reported.
             </p>
           </Section>
 

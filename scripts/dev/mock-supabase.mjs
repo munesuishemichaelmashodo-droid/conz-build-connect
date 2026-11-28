@@ -533,6 +533,11 @@ const rpc = {
     });
     return row;
   },
+  // 0184 stand-in: sample signals for the admin Trust screen (no real data).
+  admin_trust_signals: () => [
+    { signal: "shared_phone", detail: "2 accounts use the same phone number (ending 567)", user_ids: ["00000000-0000-4000-8000-0000000000c1", "00000000-0000-4000-8000-0000000000d2"], job_ids: null, seen: 2 },
+    { signal: "repeated_pair_30_days", detail: "4 completed jobs between the same customer and driver in the last 30 days", user_ids: null, job_ids: ["00000000-0000-4000-8000-00000000a001"], seen: 4 },
+  ],
   accept_job_agreement: (a, me) => {
     const row = (db.job_agreements ?? []).find((r) => r.id === a._agreement);
     const job = row && db.jobs.find((j) => j.id === row.job_id);

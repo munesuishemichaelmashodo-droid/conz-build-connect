@@ -72,7 +72,7 @@ const SECTIONS: FaqSection[] = [
       },
       {
         q: "How does Con Z earn money?",
-        a: "Con Z charges the driver a 7% commission on the agreed job value (materials and transport together). For a $400 job that is $28. Customers pay nothing extra to Con Z.",
+        a: "Con Z charges the driver a 7% commission on the total agreed job value: the delivery price when the driver only delivers, or materials and delivery together when the driver supplies the materials. For a $400 job that is $28. Customers pay nothing extra to Con Z.",
       },
       {
         q: "Drivers: what is ConZ Commission Credit?",
