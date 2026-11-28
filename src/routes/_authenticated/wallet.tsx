@@ -421,8 +421,9 @@ function WalletPage() {
         </dl>
         {promo > 0 && (
           <p className="mt-3 relative rounded-xl bg-white/5 px-3 py-2 text-xs text-white/85">
-            Promotional commission credit: <b>{money(promo)}</b>. It pays ConZ commission before
-            your own money is used. It is not cash and cannot be withdrawn or transferred.
+            Promotional allowance: <b>{money(promo)}</b>. It pays the ConZ commission on your first
+            completed job before your own credit is used; anything it does not use then expires. It
+            is not cash and cannot be withdrawn or transferred.
           </p>
         )}
 
@@ -433,7 +434,7 @@ function WalletPage() {
         </div>
 
         <p className="text-xs text-white/75 mt-4 relative">
-          {commissionCopy("Prepaid credit used only to pay Con Z's commission: 7% of the full job price, materials and transport included.", transportOn)}{" "}
+          {commissionCopy("Prepaid credit used only to pay Con Z's commission: 7% of the total agreed job value: the delivery price when the driver only delivers, or materials and delivery together when the driver also supplies the materials.", transportOn)}{" "}
           It is not your earnings: customers pay you directly. It cannot be withdrawn or transferred. You can hold up to{" "}
           {money(launch.maxWalletBalance)} in credit.
         </p>

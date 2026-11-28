@@ -15,6 +15,7 @@ import type { TrailMark } from "@/components/RouteTrailMap";
 const RouteTrailMap = lazy(() => import("@/components/RouteTrailMap"));
 import { ChatImage, ChatAudio } from "@/components/ChatMedia";
 import { DisputePayments } from "@/components/DisputePayments";
+import { EvidenceRecordSummary } from "@/components/evidence/EvidenceRecordSummary";
 
 type EvidenceRow = {
   id?: string;
@@ -172,6 +173,7 @@ export function DisputeEvidence({ jobId }: { jobId: string }) {
 
       {open && (
         <div className="pt-2 space-y-2">
+          <EvidenceRecordSummary jobId={jobId} />
           {isLoading ? (
             <p className="text-xs text-muted-foreground">Loading evidence…</p>
           ) : isError ? (

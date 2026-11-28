@@ -1,3 +1,4 @@
+import { readPendingReferral, rememberPendingReferral } from "@/lib/pending-referral";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
@@ -98,7 +99,11 @@ function AuthPage() {
   const [localPhone, setLocalPhone] = useState("");
   const phone = `${countryDialCode}${localPhone.replace(/\D/g, "")}`;
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [referralCode, setReferralCode] = useState((ref ?? "").toUpperCase());
+  const [referralCode, setReferralCode] = useState((ref ?? readPendingReferral() ?? "").toUpperCase());
+  // Keep a referral link's code through a Google sign-up (it leaves the app and comes back).
+  useEffect(() => {
+    if (ref) rememberPendingReferral(ref);
+  }, [ref]);
 
   const supabaseUrl =
     (import.meta as unknown as { env: Record<string, string | undefined> }).env

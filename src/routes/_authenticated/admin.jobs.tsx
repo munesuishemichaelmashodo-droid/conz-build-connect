@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { JobEvidenceVault } from "@/components/evidence/JobEvidenceVault";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Briefcase, Search as SearchIcon } from "lucide-react";
@@ -144,6 +145,7 @@ function AdminJobs() {
                     {formatAge(age)} ago
                   </p>
                 </Link>
+                <JobEvidenceVault jobId={r.id} />
               </li>
             );
           })}

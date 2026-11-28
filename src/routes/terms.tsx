@@ -31,16 +31,14 @@ function TermsPage() {
         <header className="mt-6 mb-8">
           <div className="text-xs text-muted-foreground">Con Z Build Connect</div>
           <h1 className="font-display font-bold text-3xl tracking-tight">Terms and Conditions</h1>
-          <p className="text-xs text-muted-foreground mt-2">Last updated: 3 November 2026</p>
+          <p className="text-xs text-muted-foreground mt-2">Last updated: 27 November 2026</p>
         </header>
 
         <div className="prose prose-sm dark:prose-invert max-w-none space-y-6">
           <Section title="1. About Con Z Build Connect">
             <p>
               Con Z Build Connect ("Con Z") is operated by Navysky Innovations (Private) Limited, a company
-              registered in Zimbabwe (company number 145174A02102026; ZIMRA tax identification
-              number (TIN) 2002683072) with its registered
-              office at 12705 Timire Park, Ruwa. It operates a construction
+              registered in Zimbabwe (company number 145174A02102026). It operates a construction
               logistics marketplace that connects customers requiring bulk material
               deliveries with independent tipper truck drivers ("Drivers").
             </p>
@@ -68,49 +66,53 @@ function TermsPage() {
 
           <Section title="5. Account Responsibilities">
             <ul className="list-disc pl-5 space-y-1">
-              <li>You are responsible for maintaining the confidentiality of your login credentials and withdrawal PIN.</li>
+              <li>You are responsible for maintaining the confidentiality of your login credentials.</li>
               <li>You are responsible for all activity that occurs under your account.</li>
               <li>You must provide accurate, current information and keep it updated.</li>
             </ul>
           </Section>
 
-          <Section title="6. Commission and Wallet">
+          <Section title="6. Commission and Commission Credit">
             <p>
               Registering, verification, browsing jobs and sending offers are free for Drivers. Con Z
-              charges a flat platform commission of <b>7%</b> of{" "}
-              {transportOn
-                ? "the total agreed price for the job, including materials and transport where the job includes them"
-                : "the full job price, including materials and transport"}
-              . When a Customer selects a Driver, Con Z reserves the
-              commission for that job from the Driver's wallet credit. The reservation is confirmed
+              charges a flat platform commission of <b>7%</b> of the total agreed job value: the
+              delivery price when the Driver only delivers, or materials and delivery together when the
+              Driver also supplies the materials (for example $300 + $100 = $400, commission $28). When a Customer selects a Driver, Con Z reserves the
+              commission for that job from the Driver's Commission Credit. The reservation is confirmed
               against the job, it is not a fee for browsing or offering, and it is released if the job
               is cancelled before the load is collected. The commission is earned when the delivery
               is verified (see section 8).{" "}
               {promo.enabled ? promoCreditTerms(promo.amount) : null}
             </p>
             <p>
-              Wallet top-ups, balances and withdrawals are governed by the in-app Wallet and its
-              security controls (including the withdrawal PIN and lockout logic). Money reserved for
-              commission cannot be withdrawn. Top-up and withdrawal methods may be limited or
-              unavailable while the Platform is launching, and are shown in the Wallet when open.
+              Commission Credit is bought by Drivers in the app and can only be used to pay Con Z
+              commission. It is not a wallet for customer fares, it cannot be withdrawn or
+              transferred to another Driver, and it cannot be used to pay for materials or for
+              transport. Customers never pay Con Z: they pay the Driver directly, and Con Z does not
+              collect, hold or guarantee that payment. Top-up methods may be limited while the
+              Platform is launching and are shown in the app when open. The one exception to
+              &quot;cannot be withdrawn&quot;: if a Driver closes their account, Con Z refunds the
+              unused Commission Credit the Driver bought, once no job, dispute or amount owed is
+              open, by sending it to the mobile money or bank account the Driver gives and recording
+              the transaction reference. Promotional credit is never refunded or paid out.
             </p>
           </Section>
 
           <Section title="7. Payments Between Customer and Driver">
             <p>
-              Unless the app shows that the Customer is paying through Con Z at checkout, the
-              Customer pays the Driver directly for the materials and delivery. In that case
-              Con Z does not receive, hold or guarantee the Customer's money, is not an escrow
-              provider, and does not guarantee any refund. Any deposit or advance payment is agreed
-              directly between the Customer and the Driver, and Con Z is not responsible for it. If a
-              payment through Con Z is offered, the terms shown at that checkout apply as well.
+              The Customer pays the Driver directly for the delivery (and for any materials the
+              Driver supplies), using the method they agree. Con Z does not receive, hold, distribute
+              or guarantee the Customer's money, is not an escrow provider, and does not guarantee any
+              refund. Any deposit or advance payment is agreed directly between the Customer and the
+              Driver. Con Z records what each of them reports about a payment, which can help if there
+              is a dispute, but a record is not proof that a payment was made.
             </p>
           </Section>
 
           <Section title="8. Delivery Verification">
             <p>
               A delivery counts as complete only after the Driver uploads a delivery photo and the
-              Customer's one-time delivery code is entered. Commission, referral rewards and points
+              Customer's one-time delivery code is entered. Commission, referral recognition and points
               are based on verified deliveries, not on a Driver marking a job complete.
             </p>
           </Section>
@@ -138,12 +140,15 @@ function TermsPage() {
           <Section title="11. Ratings, Referrals and Points">
             <p>
               Customers and Drivers may rate each other after a delivery; ratings must be honest.
-              Referral rewards are paid only for qualifying activity (such as a referred person's
-              verified completed delivery), once, and Con Z may withhold or reverse rewards obtained
-              by self-referral, duplicate accounts or other abuse. If Con Z points are offered, they
+              Referrals give recognition only: they never pay money, wallet or commission credit,
+              discounts, or priority for jobs. An invitation counts once the invited customer
+              completes their first genuine delivery, or the invited driver is verified and completes
+              five genuine deliveries. Con Z may refuse or withdraw recognition obtained by
+              self-referral, duplicate accounts or other abuse, and records the reason. If Con Z
+              points are offered, they
               are rewards with no cash value, cannot be transferred or withdrawn, do not change any
               price or commission, and may be adjusted or reversed by Con Z where awarded in error or
-              by abuse. Reward values and eligibility may change.
+              by abuse.
             </p>
           </Section>
 
@@ -151,9 +156,12 @@ function TermsPage() {
             <p>
               Disagreements between Customers and Drivers (including cancellations, cargo damage, and
               service quality) must first be raised through the in-app dispute system. Con Z will
-              review submissions and may issue strikes, restrictions, or refunds through the wallet
-              at its reasonable discretion, in line with the strike and restriction policy already
-              enforced by the platform.
+              review submissions and may issue strikes or restrictions, or waive the commission
+              charged on the disputed job and return it to the Driver's Commission Credit, at its
+              reasonable discretion and in line with the strike and restriction policy enforced by the
+              platform. Con Z does not refund customer fares, because Con Z never receives them; a
+              dispute about a fare is between the Customer and the Driver, and Con Z keeps the
+              records of what each reported.
             </p>
           </Section>
 
@@ -162,7 +170,8 @@ function TermsPage() {
               Con Z may suspend, restrict, or terminate any account for breach of these Terms,
               accumulated strikes under the cancellation and dispute policy, safety concerns, or
               suspected fraud. You may also close your own account at any time; commissions and
-              obligations accrued before closure remain payable.
+              obligations accrued before closure remain payable, and unused purchased Commission
+              Credit is refunded as described in section 6.
             </p>
           </Section>
 

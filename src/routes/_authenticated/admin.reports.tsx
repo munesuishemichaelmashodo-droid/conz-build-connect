@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { AdminCasePanel } from "@/components/cases/AdminCasePanel";
 import { sentence } from "@/lib/status-stamp";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -221,6 +222,7 @@ function ReportCard({ r, onUpdate }: { r: any; onUpdate: (id: string, patch: Rep
           </div>
         </div>
       </div>
+      <AdminCasePanel reportId={r.id} />
     </div>
   );
 }

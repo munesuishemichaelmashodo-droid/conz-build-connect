@@ -1,4 +1,5 @@
 import { clearDeviceData } from "@/lib/sign-out";
+import { DriverComplianceCard } from "@/components/compliance/DriverComplianceCard";
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
@@ -15,7 +16,9 @@ import { Loader2, ShieldCheck, Truck, KeyRound, Camera, Image as ImageIcon, Aler
 import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
 import { AddTruckForm } from "@/components/AddTruckForm";
 import { PointsCard } from "@/components/PointsCard";
+import { ReferralRecognitionCard } from "@/components/ReferralRecognitionCard";
 import { deleteMyAccount } from "@/lib/account-deletion";
+import { ClosureRefundCard } from "@/components/ClosureRefundCard";
 import { driverStatus, REVIEW_TARGET_TEXT } from "@/lib/driver-onboarding";
 import { rpcFailure } from "@/lib/rpc-result";
 import {
@@ -154,6 +157,13 @@ function ProfilePage() {
               {status.kind === "reverify_submitted" && <p className="text-[11px] text-muted-foreground">{REVIEW_TARGET_TEXT}</p>}
             </div>
 
+            {userId && (
+              <DriverComplianceCard
+                userId={userId}
+                truckId={(trucks?.[0] as { id?: string } | undefined)?.id ?? null}
+              />
+            )}
+
             {needsSelfieOnly && (
               <p className="text-xs text-muted-foreground">Only your selfie is needed for this check. Your ID, licence and truck photos stay as they are.</p>
             )}
@@ -210,6 +220,7 @@ function ProfilePage() {
         )}
 
 
+        <ReferralRecognitionCard />
         <PointsCard />
 
         <Collapsible title="Login security"><SetPasswordCard /></Collapsible>
@@ -318,6 +329,7 @@ function DocUpload({ field, label, hint, cameraFacing = "environment", userId, c
 }
 
 function DeleteAccountCard() {
+  const { userId } = useAuth();
   const [open, setOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -350,6 +362,7 @@ function DeleteAccountCard() {
         Permanently removes your personal info (name, phone, email, ID documents) and blocks this account from
         ever logging in again. This cannot be undone.
       </p>
+      {userId && <ClosureRefundCard userId={userId} />}
       <Button variant="outline" className="w-full border-destructive text-destructive hover:bg-destructive/10" onClick={() => setOpen(true)}>
         Delete my account
       </Button>

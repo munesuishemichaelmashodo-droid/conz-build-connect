@@ -102,20 +102,23 @@ LED=$(Q -c "select count(*) from public.wallet_transactions where user_id='$DRV2
 [ "$SET" = 1 ] && [ "$ALR" = 9 ] && [ "$LED" = 1 ] && [ "$(echo "$B0 - $B1" | bc)" = 28.00 ] && ok "S7 10 parallel confirmations -> 1 settlement, 9 already-complete, commission 28.00 charged once" || bad "S7 settled=$SET already=$ALR ledger=$LED delta=$(echo "$B0 - $B1" | bc)"
 rm -f /tmp/cc_s7_*.out
 
-# ---- S8: first-job-free race. A newly verified driver, 2 jobs confirmed in parallel -> exactly ONE is free ---------
-DRV3=$(Q -c "select tests.create_driver('cc_drv3_$N',100,false)")
-J1=$(Q -c "select tests.create_job('$CUST',400)"); J2=$(Q -c "select tests.create_job('$CUST',400)")
-BA=$(Q -c "select tests.create_bid('$J1','$DRV3',400)"); BB=$(Q -c "select tests.create_bid('$J2','$DRV3',400)")
-Q -c "begin; select tests.login_as('$CUST'); select public.accept_bid('$BA'); select public.accept_bid('$BB'); commit;" >/dev/null
-P1=$(Q -c "select tests.deliver('$J1')"); P2=$(Q -c "select tests.deliver('$J2')")
-B0=$(Q -c "select balance from public.wallets where user_id='$DRV3'")
-Q -c "begin; select tests.login_as('$CUST'); select public.complete_job('$J1','$P1'); commit;" >/tmp/cc_s8_a.out 2>&1 &
-Q -c "begin; select tests.login_as('$CUST'); select public.complete_job('$J2','$P2'); commit;" >/tmp/cc_s8_b.out 2>&1 &
-wait
-B1=$(Q -c "select balance from public.wallets where user_id='$DRV3'")
-DONE=$(Q -c "select count(*) from public.jobs where id in ('$J1','$J2') and status='completed'")
-LED=$(Q -c "select count(*) filter (where amount = 0) || ',' || count(*) filter (where amount = -28) from public.wallet_transactions where user_id='$DRV3' and type='commission'")
-[ "$DONE" = 2 ] && [ "$LED" = "1,1" ] && [ "$(echo "$B0 - $B1" | bc)" = 28.00 ] && ok "S8 2 parallel first-job completions -> both complete, exactly one commission-free, other charged 7% (28.00)" || bad "S8 completed=$DONE ledger=$LED delta=$(echo "$B0 - $B1" | bc)"
+# ---- S8: $20 first-job allowance (0189; replaces the retired first-job-free race). A driver with the allowance and
+# $50 credit, ONE $400 job ($28 commission) confirmed 10 times in parallel -> settles once, $20 promo + $8 credit,
+# nothing left to expire, at most one expiry line.
+Q -c "update public.system_settings set value='true'::jsonb where key='promo_credit_enabled'" >/dev/null
+DRV3=$(Q -c "select tests.create_driver('cc_drv3_$N',50,true)")
+Q -c "insert into public.promo_credit_ledger (user_id, amount, kind, note) values ('$DRV3', 20, 'grant', 'race test'); update public.wallets set promo_balance = 20 where user_id = '$DRV3'" >/dev/null
+J1=$(Q -c "select tests.create_job('$CUST',400)"); BA=$(Q -c "select tests.create_bid('$J1','$DRV3',400)")
+Q -c "begin; select tests.login_as('$CUST'); select public.accept_bid('$BA'); commit;" >/dev/null
+P1=$(Q -c "select tests.deliver('$J1')")
+for i in $(seq 1 10); do
+  Q -c "begin; select tests.login_as('$CUST'); select coalesce(public.complete_job('$J1','$P1')->>'already','settled'); commit;" >/tmp/cc_s8_$i.out 2>&1 &
+done; wait
+SET=$(cat /tmp/cc_s8_*.out | grep -c '^settled$')
+W=$(Q -c "select balance || ',' || promo_balance || ',' || held from public.wallets where user_id='$DRV3'")
+EXP=$(Q -c "select count(*) from public.promo_credit_ledger where user_id='$DRV3' and kind='expire'")
+REV=$(Q -c "select coalesce(-sum(amount),0) from public.platform_ledger where job_id='$J1' and account='platform_revenue'")
+[ "$SET" = 1 ] && [ "$W" = "42.00,0.00,0.00" ] && [ "$EXP" = 0 ] && [ "$REV" = 28.00 ] && ok "S8 10 parallel first-job confirmations -> 1 settlement, \$20 allowance + \$8 credit, no expiry line, revenue 28.00 once" || bad "S8 settled=$SET wallet=$W expiries=$EXP revenue=$REV"
 rm -f /tmp/cc_s8_*.out
 
 # ---- S9: double-claim. Two drivers hold bids on ONE open job; accept both bids in parallel -> exactly one assignment ---------
