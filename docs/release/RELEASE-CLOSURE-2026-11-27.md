@@ -26,6 +26,9 @@ has been merged, deployed or applied to production. "Tested" means local or CI, 
 PR. #166 contains #160's commits, so #160 merges first.
 
 **Merge order:** #160 → #152 → #153 → #154 → #156 → #157 → #158 → #159 → #161 → #162 → #163 → #164 → #165 → #166.
+
+**Status 28/11:** everything above is merged and its migrations are live and recorded, except **#162 / 0190, on hold** until Paynow
+replies (owner decision). #163-#166 do not depend on #162; they were released ahead of it.
 Each merge to `main` deploys to production (Vercel). Known conflicts as later PRs merge (keep both sides):
 - `supabase/maintenance/20261124_MIGRATION_STATUS.md` (#153, #154): keep every row.
 - `scripts/dev/mock-supabase.mjs` (#157, #158): keep both blocks; the 0186 `job_agreement_in_force` stand-in must end

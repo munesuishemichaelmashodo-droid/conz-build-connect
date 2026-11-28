@@ -25,7 +25,7 @@ Company: Navysky Innovations (Private) Limited, company no. 145174A02102026 (as 
 ## 5. Paynow company verification (integration ID 26052)
 Paynow's stated requirements: company letter requesting verified merchant status; director's ID; proof of a bank account in the company's name; company logo.
 
-Prepared in the app: payments now fail closed (#162, 0190): mode `off` / `test` / `live`, BuySafe-held payments are never credited until Paid/Delivered, and LIVE is set only by a super admin with a step-up and reason.
+Prepared but NOT released (PR #162 and migration 0190 are on hold until Paynow replies; Paynow top-ups keep working as before until then): once merged, payments fail closed: mode `off` / `test` / `live`, BuySafe-held payments are never credited until Paid/Delivered, and LIVE is set only by a super admin with a step-up and reason.
 
 Open questions for Paynow (written answers needed):
 1. Can the existing individual merchant profile be converted to the company, keeping integration ID 26052?
