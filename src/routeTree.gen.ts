@@ -49,6 +49,7 @@ import { Route as AuthenticatedAdminSearchRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
 import { Route as AuthenticatedAdminSourcingRouteImport } from './routes/_authenticated/admin.sourcing'
 import { Route as AuthenticatedAdminSupplyCoverageRouteImport } from './routes/_authenticated/admin.supply-coverage'
+import { Route as AuthenticatedAdminTrustRouteImport } from './routes/_authenticated/admin.trust'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedAdminVerificationsRouteImport } from './routes/_authenticated/admin.verifications'
 import { Route as AuthenticatedChatJobIdRouteImport } from './routes/_authenticated/chat.$jobId'
@@ -274,6 +275,11 @@ const AuthenticatedAdminSupplyCoverageRoute =
     path: '/supply-coverage',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminTrustRoute = AuthenticatedAdminTrustRouteImport.update({
+  id: '/trust',
+  path: '/trust',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -380,6 +386,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/admin/sourcing': typeof AuthenticatedAdminSourcingRoute
   '/admin/supply-coverage': typeof AuthenticatedAdminSupplyCoverageRoute
+  '/admin/trust': typeof AuthenticatedAdminTrustRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/verifications': typeof AuthenticatedAdminVerificationsRoute
   '/chat/$jobId': typeof AuthenticatedChatJobIdRoute
@@ -431,6 +438,7 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/admin/sourcing': typeof AuthenticatedAdminSourcingRoute
   '/admin/supply-coverage': typeof AuthenticatedAdminSupplyCoverageRoute
+  '/admin/trust': typeof AuthenticatedAdminTrustRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/verifications': typeof AuthenticatedAdminVerificationsRoute
   '/chat/$jobId': typeof AuthenticatedChatJobIdRoute
@@ -486,6 +494,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/_authenticated/admin/sourcing': typeof AuthenticatedAdminSourcingRoute
   '/_authenticated/admin/supply-coverage': typeof AuthenticatedAdminSupplyCoverageRoute
+  '/_authenticated/admin/trust': typeof AuthenticatedAdminTrustRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/admin/verifications': typeof AuthenticatedAdminVerificationsRoute
   '/_authenticated/chat/$jobId': typeof AuthenticatedChatJobIdRoute
@@ -541,6 +550,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/sourcing'
     | '/admin/supply-coverage'
+    | '/admin/trust'
     | '/admin/users'
     | '/admin/verifications'
     | '/chat/$jobId'
@@ -592,6 +602,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/sourcing'
     | '/admin/supply-coverage'
+    | '/admin/trust'
     | '/admin/users'
     | '/admin/verifications'
     | '/chat/$jobId'
@@ -646,6 +657,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/settings'
     | '/_authenticated/admin/sourcing'
     | '/_authenticated/admin/supply-coverage'
+    | '/_authenticated/admin/trust'
     | '/_authenticated/admin/users'
     | '/_authenticated/admin/verifications'
     | '/_authenticated/chat/$jobId'
@@ -963,6 +975,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSupplyCoverageRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/trust': {
+      id: '/_authenticated/admin/trust'
+      path: '/trust'
+      fullPath: '/admin/trust'
+      preLoaderRoute: typeof AuthenticatedAdminTrustRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/users': {
       id: '/_authenticated/admin/users'
       path: '/users'
@@ -1064,6 +1083,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
   AuthenticatedAdminSourcingRoute: typeof AuthenticatedAdminSourcingRoute
   AuthenticatedAdminSupplyCoverageRoute: typeof AuthenticatedAdminSupplyCoverageRoute
+  AuthenticatedAdminTrustRoute: typeof AuthenticatedAdminTrustRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedAdminVerificationsRoute: typeof AuthenticatedAdminVerificationsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
@@ -1083,6 +1103,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
   AuthenticatedAdminSourcingRoute: AuthenticatedAdminSourcingRoute,
   AuthenticatedAdminSupplyCoverageRoute: AuthenticatedAdminSupplyCoverageRoute,
+  AuthenticatedAdminTrustRoute: AuthenticatedAdminTrustRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedAdminVerificationsRoute: AuthenticatedAdminVerificationsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
