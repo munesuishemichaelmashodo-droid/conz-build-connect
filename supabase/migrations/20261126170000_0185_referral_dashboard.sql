@@ -2,7 +2,8 @@
 -- 0185: referral dashboard, recognition that can be withdrawn, share tracking and admin metrics.
 -- Builds on 0181 (referrals carry no money). Apply 0181 first.
 --
---   * Milestones (1/5/10/25/50 recognised referrals) follow the referrals they rest on. When a recognised
+--   * Milestones (1/5/10/25/50 recognised referrals), kept SEPARATELY for the customer programme (people who invite
+--     customers) and the driver programme (people who invite drivers), follow the referrals they rest on. When a recognised
 --     referral is later rejected (fraud established), any milestone the person no longer reaches is marked
 --     revoked (revoked_at, revoked_reason); it is never deleted. If they reach it again, it is reinstated.
 --     A trigger keeps this in step for every path (scheduled run, admin early recognition, admin correction).
@@ -21,18 +22,37 @@
 -- No DROP, no DELETE, no money, no settings written. Recovery (forward-safe): supabase/rollbacks/20261126170000_0185_rollback.sql.
 -- -----------------------------------------------------------------------------
 
--- 1. Milestones can be revoked, never deleted -------------------------------------------------------------
-alter table public.referral_milestones_achieved add column if not exists revoked_at timestamptz;
-alter table public.referral_milestones_achieved add column if not exists revoked_reason text;
+-- 1. Milestones per programme, revocable, never deleted --------------------------------------------------
+-- Owner rule 28/11/2026: customer referrals (inviting customers) and driver referrals (inviting drivers) keep
+-- separate progress and milestones. The old referral_milestones_achieved table (key: person + milestone, so one
+-- shared count) stays as locked history (production: 0 rows); milestones are now kept here.
+create table if not exists public.referral_programme_milestones (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  programme text not null check (programme in ('customer', 'driver')),
+  milestone integer not null check (milestone > 0),
+  achieved_at timestamptz not null default now(),
+  revoked_at timestamptz,
+  revoked_reason text,
+  primary key (user_id, programme, milestone)
+);
+alter table public.referral_programme_milestones enable row level security;
+revoke all on public.referral_programme_milestones from public, anon, authenticated;
+grant select on public.referral_programme_milestones to authenticated;
+grant all on public.referral_programme_milestones to service_role;
+create policy "Own or admin read programme milestones" on public.referral_programme_milestones
+  for select to authenticated
+  using (user_id = auth.uid() or public.has_role(auth.uid(), 'admin') or public.has_role(auth.uid(), 'super_admin'));
 revoke insert, update, delete, truncate on public.referral_milestones_achieved from anon, authenticated;
 revoke select on public.referral_milestones_achieved from anon;
 
 create or replace function public.sync_referral_milestones(_user uuid)
 returns void language plpgsql security definer set search_path to 'public' as $$
 declare
+  _prog text;
+  _label text;
   _count int;
   _m int;
-  _row public.referral_milestones_achieved;
+  _row public.referral_programme_milestones;
   _milestones jsonb;
 begin
   if _user is null then return; end if;
@@ -41,45 +61,57 @@ begin
   select coalesce(value->'milestones', '[1,5,10,25,50]'::jsonb) into _milestones
     from public.system_settings where key = 'referral_rewards';
   _milestones := coalesce(_milestones, '[1,5,10,25,50]'::jsonb);
-  select count(*) into _count from public.referrals where referrer_id = _user and reward_status = 'released';
-
-  for _m in select jsonb_array_elements_text(_milestones)::int loop
-    select * into _row from public.referral_milestones_achieved where user_id = _user and milestone = _m for update;
-    if _count >= _m then
-      if _row.user_id is null then
-        insert into public.referral_milestones_achieved (user_id, milestone) values (_user, _m);
+  foreach _prog in array array['customer', 'driver'] loop
+    _label := case _prog when 'customer' then 'customer' else 'driver' end;
+    select count(*) into _count from public.referrals
+     where referrer_id = _user and referred_role = _prog and reward_status = 'released';
+    for _m in select jsonb_array_elements_text(_milestones)::int loop
+      select * into _row from public.referral_programme_milestones
+       where user_id = _user and programme = _prog and milestone = _m for update;
+      if _count >= _m then
+        if _row.user_id is null then
+          insert into public.referral_programme_milestones (user_id, programme, milestone) values (_user, _prog, _m);
+          insert into public.notifications(user_id, type, title, body)
+          values (_user, 'referral_milestone', format('%s recognised %s referrals', _m, _label),
+                  format('You have %s recognised %s referrals on Con Z. Thank you for helping more people use Con Z.', _m, _label));
+        elsif _row.revoked_at is not null then
+          update public.referral_programme_milestones set revoked_at = null, revoked_reason = null
+           where user_id = _user and programme = _prog and milestone = _m;
+        end if;
+      elsif _row.user_id is not null and _row.revoked_at is null then
+        update public.referral_programme_milestones
+           set revoked_at = now(), revoked_reason = 'A referral it counted was not recognised after review.'
+         where user_id = _user and programme = _prog and milestone = _m;
         insert into public.notifications(user_id, type, title, body)
-        values (_user, 'referral_milestone', format('%s recognised referrals', _m),
-                format('You have %s recognised referrals on Con Z. Thank you for helping more people get deliveries.', _m));
-      elsif _row.revoked_at is not null then
-        update public.referral_milestones_achieved set revoked_at = null, revoked_reason = null
-         where user_id = _user and milestone = _m;
+        values (_user, 'referral_milestone_revoked', format('%s recognised %s referrals: withdrawn', _m, _label),
+                'A referral was not recognised after review, so this milestone no longer applies.');
       end if;
-    elsif _row.user_id is not null and _row.revoked_at is null then
-      update public.referral_milestones_achieved
-         set revoked_at = now(), revoked_reason = 'A referral it counted was not recognised after review.'
-       where user_id = _user and milestone = _m;
-      insert into public.notifications(user_id, type, title, body)
-      values (_user, 'referral_milestone_revoked', format('%s recognised referrals: withdrawn', _m),
-              'A referral was not recognised after review, so this milestone no longer applies.');
-    end if;
+    end loop;
   end loop;
 end $$;
 revoke all on function public.sync_referral_milestones(uuid) from public, anon, authenticated;
-
 create or replace function public.tg_referral_status_sync_milestones()
 returns trigger language plpgsql security definer set search_path to 'public' as $$
 begin
-  if (old.reward_status = 'released') is distinct from (new.reward_status = 'released') then
+  if (old.reward_status = 'released') is distinct from (new.reward_status = 'released')
+     or old.referrer_id is distinct from new.referrer_id then
     perform public.sync_referral_milestones(new.referrer_id);
+    if old.referrer_id is distinct from new.referrer_id then
+      perform public.sync_referral_milestones(old.referrer_id);
+    end if;
   end if;
   return null;
 end $$;
 revoke all on function public.tg_referral_status_sync_milestones() from public, anon, authenticated;
 create or replace trigger trg_referral_status_sync_milestones
-  after update of reward_status on public.referrals
+  after update of reward_status, referrer_id on public.referrals
   for each row execute function public.tg_referral_status_sync_milestones();
-
+-- Anyone already recognised (none in production) gets their per-programme milestones now.
+do $$ declare _u uuid; begin
+  for _u in select distinct referrer_id from public.referrals where reward_status = 'released' loop
+    perform public.sync_referral_milestones(_u);
+  end loop;
+end $$;
 -- 2. Claiming a code: new accounts only, one claim per account ---------------------------------------------
 CREATE OR REPLACE FUNCTION public.record_referral(_code text, _referred_role text DEFAULT 'customer'::text, _device_fingerprint text DEFAULT NULL::text)
  RETURNS referrals
@@ -323,7 +355,7 @@ begin
       'flagged', (select count(*) from public.referrals where fraud_flag and created_at >= _since),
       'frozen', (select count(*) from public.referrals where reward_status = 'frozen' and created_at >= _since),
       'rejected', (select count(*) from public.referrals where reward_status = 'rejected' and created_at >= _since),
-      'milestones_revoked', (select count(*) from public.referral_milestones_achieved where revoked_at >= _since)),
+      'milestones_revoked', (select count(*) from public.referral_programme_milestones where revoked_at >= _since)),
     'partner_benefits', jsonb_build_object('approved', 0, 'cost', 0,
       'note', 'No partner benefits are approved. Referrals give recognition only.'),
     'areas', coalesce((
@@ -346,3 +378,63 @@ begin
 end $$;
 revoke all on function public.admin_referral_metrics(int) from public, anon;
 grant execute on function public.admin_referral_metrics(int) to authenticated;
+
+-- 6. Attribution corrections (owner rule 28/11/2026: an audited way to settle "I joined with X's invitation") ----
+-- Super admin with a fresh step-up, never one of the people involved, with a reason. Only while the referral has
+-- not been recognised, only for an account that is still new (same 14-day / no completed job rule as a claim, so a
+-- recognised history can never be moved), never self-referral. It cannot recognise, qualify or pay anything: the
+-- referral starts again at "pending" and qualifies through the normal rules.
+create or replace function public.admin_set_referral_attribution(_referred_id uuid, _referrer_code text, _reason text)
+returns public.referrals language plpgsql security definer set search_path to 'public' as $$
+declare
+  _referrer uuid;
+  _why text := nullif(btrim(coalesce(_reason, '')), '');
+  _old public.referrals;
+  _row public.referrals;
+  _created timestamptz;
+  _role text;
+begin
+  if not public.has_role(auth.uid(), 'super_admin') then
+    raise exception 'Only a super admin can correct a referral.' using errcode = '42501';
+  end if;
+  perform public.require_aal2();
+  if _why is null or length(_why) < 10 then
+    raise exception 'Give the reason (at least 10 characters).' using errcode = '22023';
+  end if;
+  select id into _referrer from public.profiles where referral_code = upper(btrim(coalesce(_referrer_code, '')));
+  if _referrer is null then raise exception 'Referral code not found.' using errcode = 'P0002'; end if;
+  if _referrer = _referred_id then raise exception 'An account cannot refer itself.' using errcode = '22023'; end if;
+  if auth.uid() in (_referrer, _referred_id) then
+    raise exception 'You cannot correct a referral you are part of.' using errcode = '42501';
+  end if;
+  select created_at into _created from auth.users where id = _referred_id;
+  if _created is null then raise exception 'Account not found.' using errcode = 'P0002'; end if;
+  if _created < now() - interval '14 days'
+     or exists (select 1 from public.jobs j where j.status = 'completed' and (j.customer_id = _referred_id or j.driver_id = _referred_id)) then
+    raise exception 'Only a new account (14 days, no completed job) can have its referral corrected.' using errcode = '22023';
+  end if;
+  select * into _old from public.referrals where referred_id = _referred_id for update;
+  if found and _old.reward_status in ('released', 'approved') then
+    raise exception 'A recognised or approved referral cannot be moved.' using errcode = '22023';
+  end if;
+  _role := case when public.has_role(_referred_id, 'driver') then 'driver' else 'customer' end;
+  if _old.id is null then
+    insert into public.referrals (referrer_id, referred_id, referral_code, referred_role, hold_period_days)
+    values (_referrer, _referred_id, upper(btrim(_referrer_code)), _role, 7)
+    returning * into _row;
+  else
+    update public.referrals
+       set referrer_id = _referrer, referral_code = upper(btrim(_referrer_code)),
+           verification_status = 'pending', reward_status = 'pending', reward_release_at = null
+     where id = _old.id returning * into _row;
+  end if;
+  perform public.log_admin_action('referral_attribution_set',
+    jsonb_build_object('referred_id', _referred_id, 'new_referrer', _referrer, 'previous_referrer', _old.referrer_id),
+    _why, _row.id, _referred_id);
+  insert into public.notifications(user_id, type, title, body)
+  values (_referrer, 'referral_joined', 'Someone joined with your invitation',
+          'Con Z recorded that a new account joined with your invitation. You can follow their progress on your Invite page.');
+  return _row;
+end $$;
+revoke all on function public.admin_set_referral_attribution(uuid, text, text) from public, anon;
+grant execute on function public.admin_set_referral_attribution(uuid, text, text) to authenticated;

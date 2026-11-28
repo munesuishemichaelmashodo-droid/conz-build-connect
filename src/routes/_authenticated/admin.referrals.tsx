@@ -16,6 +16,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { ReferralMetricsCard } from "@/components/admin/ReferralMetricsCard";
+import { ReferralAttributionForm } from "@/components/admin/ReferralAttributionForm";
 import { toast } from "sonner";
 import { isMfaRequiredError, readableRpcError, STEP_UP_ACTION_LABEL, startStepUp } from "@/lib/mfa";
 import { cn } from "@/lib/utils";
@@ -170,6 +171,7 @@ function AdminReferrals() {
 
   return (
     <div className="space-y-4">
+      {isSuper && <ReferralAttributionForm />}
       <div className="grid grid-cols-2 gap-3">
         <StatCard label="Total referrals" value={String(stats?.total_referrals ?? "…")} />
         <StatCard

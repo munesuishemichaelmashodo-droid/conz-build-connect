@@ -118,7 +118,7 @@ select public.process_referral_lifecycle();
 select public.process_referral_lifecycle();
 select tests.as_owner();
 select is((select reward_status from public.referrals where referrer_id = current_setting('t.rdrv')::uuid), 'released', '25: recognised after the check');
-select is((select count(*)::int from public.referral_milestones_achieved where user_id = current_setting('t.rdrv')::uuid and milestone = 1 and revoked_at is null), 1,
+select is((select count(*)::int from public.referral_programme_milestones where user_id = current_setting('t.rdrv')::uuid and milestone = 1 and revoked_at is null), 1,
           '26: the first milestone is earned once');
 select is((select count(*)::int from public.notifications where user_id = current_setting('t.rdrv')::uuid and type = 'referral_milestone'), 1,
           '27: two runs give one milestone notice');
@@ -130,14 +130,14 @@ select lives_ok(format($$select public.admin_referral_action(%L, 'reject', 'Same
                        (select id from public.referrals where referrer_id = current_setting('t.rdrv')::uuid)),
                 '29: an admin rejects a recognised referral after finding fraud');
 select tests.as_owner();
-select ok((select revoked_at is not null and revoked_reason is not null from public.referral_milestones_achieved
+select ok((select revoked_at is not null and revoked_reason is not null from public.referral_programme_milestones
             where user_id = current_setting('t.rdrv')::uuid and milestone = 1), '30: the milestone is marked withdrawn, with a reason');
-select is((select count(*)::int from public.referral_milestones_achieved where user_id = current_setting('t.rdrv')::uuid), 1,
+select is((select count(*)::int from public.referral_programme_milestones where user_id = current_setting('t.rdrv')::uuid), 1,
           '31: and is kept, not deleted');
 select is((select count(*)::int from public.admin_audit_log where action = 'referral_reject'), 1, '32: the decision is in the audit log');
 select tests.login_as(current_setting('t.rdrv')::uuid);
 select is((select stage from public.my_referral_progress()), 'not_recognised', '33: the inviter sees it was not recognised');
-select throws_ok($$update public.referral_milestones_achieved set revoked_at = null$$, '42501', null, '34: nobody can un-withdraw a milestone directly');
+select throws_ok($$update public.referral_programme_milestones set revoked_at = null$$, '42501', null, '34: nobody can un-withdraw a milestone directly');
 
 -- ============================================================ E. shares
 select tests.login_as(current_setting('t.ref')::uuid);

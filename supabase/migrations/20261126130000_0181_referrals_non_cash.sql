@@ -122,18 +122,7 @@ BEGIN
     INSERT INTO public.notifications(user_id, type, title, body)
     VALUES (r.referrer_id, 'referral_recognised', 'Referral recognised',
             'Your referral is now recognised and counts towards your referral milestones. Thank you for helping Con Z grow.');
-
-    SELECT count(*) INTO _count FROM public.referrals WHERE referrer_id = r.referrer_id AND reward_status = 'released';
-    FOR _milestone IN SELECT jsonb_array_elements_text(COALESCE(_settings->'milestones', '[1,5,10,25,50]'::jsonb))::int LOOP
-      IF _count >= _milestone AND NOT EXISTS (
-        SELECT 1 FROM public.referral_milestones_achieved WHERE user_id = r.referrer_id AND milestone = _milestone
-      ) THEN
-        INSERT INTO public.referral_milestones_achieved (user_id, milestone) VALUES (r.referrer_id, _milestone);
-        INSERT INTO public.notifications(user_id, type, title, body)
-        VALUES (r.referrer_id, 'referral_milestone', format('%s recognised referrals', _milestone),
-                format('You have %s recognised referrals on Con Z.', _milestone));
-      END IF;
-    END LOOP;
+    -- Milestones are kept per programme (customer / driver) by 0185's trigger on this status change.
   END LOOP;
 END $function$;
 revoke all on function public.process_referral_lifecycle() from public, anon, authenticated;

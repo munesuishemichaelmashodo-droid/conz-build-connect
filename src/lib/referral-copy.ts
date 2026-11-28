@@ -19,6 +19,18 @@ export type ReferralProgressRow = {
 
 export const MILESTONES = [1, 5, 10, 25, 50] as const;
 
+/** Customer and driver referrals are separate programmes with separate milestones (0185). */
+export const PROGRAMME_TITLE: Record<InviteRole, string> = {
+  customer: "Customer referrals: your recognition",
+  driver: "Driver referrals: your recognition",
+};
+export const PROGRAMME_FIRST_STEP: Record<InviteRole, string> = {
+  customer:
+    "Your first milestone appears when a customer you invited completes their first delivery and the short check passes.",
+  driver:
+    "Your first milestone appears when a driver you invited is verified, completes five deliveries and the short check passes.",
+};
+
 export const CHECK_DAYS = 7;
 
 type RoleCopy = {

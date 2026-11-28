@@ -11,3 +11,6 @@
 revoke execute on function public.my_referral_progress() from authenticated;
 revoke execute on function public.record_referral_share(text) from authenticated;
 revoke execute on function public.admin_referral_metrics(int) from authenticated;
+
+-- 28/11: the attribution correction is closed again (the per-programme milestone rows stay as history).
+revoke execute on function public.admin_set_referral_attribution(uuid, text, text) from authenticated;

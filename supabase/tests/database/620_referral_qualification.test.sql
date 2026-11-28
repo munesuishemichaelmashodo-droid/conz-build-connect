@@ -99,7 +99,7 @@ select is((select count(*)::int from public.wallet_transactions where type = 're
   'no referral wallet transaction exists after processing');
 select is((select count(*)::int from public.referrals where reward_transaction_id is not null or referred_credit_transaction_id is not null), 0,
   'no referral points at a wallet transaction');
-select is((select count(*)::int from public.referral_milestones_achieved where user_id = current_setting('t.ref')::uuid), 1,
+select is((select count(*)::int from public.referral_programme_milestones where user_id = current_setting('t.ref')::uuid), 1,
   'the 1-referral milestone is recorded once (5 is not reached)');
 select is((select count(*)::int from public.notifications where user_id = current_setting('t.ref')::uuid and type = 'referral_recognised'), 4,
   'one recognition notice per referral');

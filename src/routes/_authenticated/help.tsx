@@ -67,6 +67,10 @@ const SECTIONS: FaqSection[] = [
         a: "Message the driver in the job chat first. If the payment details change unexpectedly, someone asks you to pay a different person or outside the agreement, or the driver will not confirm money you sent, report it from the job page. Admins can see the agreement, both payment statements, the chat and the delivery evidence.",
       },
       {
+        q: "How do invitations (referrals) work?",
+        a: "Open Invite to get your own link and code, and send it on WhatsApp or any other app. Customer invitations count once the person you invited completes their first delivery on Con Z. Driver invitations count once the driver you invited is verified and has completed five deliveries. After a short check you get recognition: milestones at 1, 5, 10, 25 and 50 counted invitations, kept separately for customers and drivers you invited, and shown on your profile. Recognition is not money, Commission Credit or a discount, and it does not change which jobs anyone is offered.",
+      },
+      {
         q: "How does Con Z earn money?",
         a: "Con Z charges the driver a 7% commission on the agreed job value (materials and transport together). For a $400 job that is $28. Customers pay nothing extra to Con Z.",
       },

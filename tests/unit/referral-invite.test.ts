@@ -180,3 +180,41 @@ describe("referral recovery scripts never bring money back", () => {
     expect(t).not.toMatch(/Referral rewards are paid|referral rewards/i);
   });
 });
+
+describe("pending referral survives leaving the app (28/11)", () => {
+  it("is kept for 30 days on this device, then forgotten", async () => {
+    const store = new Map<string, string>();
+    const fake = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    };
+    Object.assign(globalThis, { localStorage: fake, sessionStorage: { ...fake } });
+    const m = await import("@/lib/pending-referral");
+    const t0 = Date.UTC(2026, 10, 28);
+    m.rememberPendingReferral(" conz12 ", t0);
+    expect(m.readPendingReferral(t0 + 29 * 86_400_000)).toBe("CONZ12");
+    expect(m.readPendingReferral(t0 + 31 * 86_400_000)).toBeNull();
+    m.clearPendingReferral();
+    expect(m.readPendingReferral(t0)).toBeNull();
+  });
+  it("ignores anything that is not a code", async () => {
+    const m = await import("@/lib/pending-referral");
+    expect(m.normaliseReferralCode("<script>")).toBeNull();
+    expect(m.normaliseReferralCode("ab")).toBeNull();
+  });
+});
+
+describe("customer and driver programmes are separate (0185, 28/11)", () => {
+  it("explains each programme's rule and promises no money", async () => {
+    const c = await import("@/lib/referral-copy");
+    expect(c.PROGRAMME_FIRST_STEP.customer).toMatch(/first delivery/);
+    expect(c.PROGRAMME_FIRST_STEP.driver).toMatch(/verified, completes five deliveries/);
+    for (const t of [
+      ...Object.values(c.PROGRAMME_TITLE),
+      ...Object.values(c.PROGRAMME_FIRST_STEP),
+    ]) {
+      expect(t).not.toMatch(/\$|cash|money|credit|discount|priority|earn/i);
+    }
+  });
+});

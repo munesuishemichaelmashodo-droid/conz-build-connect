@@ -20,6 +20,8 @@ import { isNativePlatform } from "@/lib/native-push";
 import {
   INVITE_COPY,
   MILESTONES,
+  PROGRAMME_FIRST_STEP,
+  PROGRAMME_TITLE,
   RULES,
   STAGE_LABEL,
   invitedLabel,
@@ -44,7 +46,12 @@ type Rpc = (
 const callRpc = (name: string, args?: Record<string, unknown>) =>
   (supabase.rpc as unknown as Rpc)(name, args);
 
-type MilestoneRow = { milestone: number; achieved_at: string; revoked_at: string | null };
+type MilestoneRow = {
+  programme: InviteRole;
+  milestone: number;
+  achieved_at: string;
+  revoked_at: string | null;
+};
 type ShareChannel = "whatsapp" | "share_sheet" | "copy_link" | "copy_code";
 
 const STAGE_TONE: Record<string, string> = {
@@ -75,8 +82,8 @@ function InvitePage() {
     enabled: !!userId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("referral_milestones_achieved")
-        .select("*")
+        .from("referral_programme_milestones" as never)
+        .select("programme,milestone,achieved_at,revoked_at")
         .eq("user_id", userId as string);
       if (error) throw error;
       return (data ?? []) as unknown as MilestoneRow[];
@@ -85,13 +92,15 @@ function InvitePage() {
 
   const rows = progressQuery.data ?? [];
   const milestones = milestonesQuery.data ?? [];
-  const earned = new Set(milestones.filter((m) => !m.revoked_at).map((m) => m.milestone));
-  const withdrawn = new Set(milestones.filter((m) => m.revoked_at).map((m) => m.milestone));
   const counted = rows.filter((r) => r.stage === "recognised").length;
   const inProgress = rows.filter(
     (r) => r.stage === "in_progress" || r.stage === "qualified",
   ).length;
-  const next = nextMilestone(counted);
+  // Customer and driver referrals keep separate progress and milestones (0185). Show the person's own
+  // programme first, and the other one only when they have invited someone into it.
+  const programmes: InviteRole[] = (role === "driver" ? ["driver", "customer"] : ["customer", "driver"]).filter(
+    (p, i) => i === 0 || rows.some((r) => r.invited_as === p) || milestones.some((m) => m.programme === p),
+  ) as InviteRole[];
 
   const code = profile?.referral_code ?? null;
   const link = code ? inviteLink(window.location.origin, code) : "";
@@ -275,57 +284,10 @@ function InvitePage() {
           )}
         </section>
 
-        {/* Recognition */}
-        <section
-          className="rounded-xl border bg-card p-4 space-y-3"
-          aria-labelledby="recognition-title"
-        >
-          <div className="flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-cz-amber-text" aria-hidden />
-            <h3 id="recognition-title" className="font-semibold text-sm">
-              Your recognition
-            </h3>
-          </div>
-          <ul className="grid grid-cols-5 gap-1.5">
-            {MILESTONES.map((m) => (
-              <li
-                key={m}
-                className={cn(
-                  "flex flex-col items-center gap-1 rounded-lg border py-2 text-[11px] font-semibold",
-                  earned.has(m)
-                    ? "border-primary bg-primary/10 text-cz-amber-text"
-                    : "text-muted-foreground",
-                )}
-                aria-label={`${milestoneLabel(m)}: ${earned.has(m) ? "earned" : withdrawn.has(m) ? "withdrawn" : "not yet"}`}
-              >
-                <Trophy
-                  className={cn(
-                    "w-4 h-4",
-                    earned.has(m) ? "text-cz-amber-text" : "text-muted-foreground/40",
-                  )}
-                  aria-hidden
-                />
-                {m}
-              </li>
-            ))}
-          </ul>
-          <p className="text-xs text-muted-foreground">
-            {counted === 0
-              ? "Your first milestone appears when one of your invitations counts."
-              : next
-                ? `${counted} counted. ${next - counted} more to reach ${next}.`
-                : "You have reached every milestone. Thank you for helping Con Z grow."}
-          </p>
-          {withdrawn.size > 0 && (
-            <p className="text-xs text-muted-foreground">
-              A milestone was withdrawn because an invitation it counted did not meet the rules
-              after review.
-            </p>
-          )}
-          <p className="text-[11px] text-muted-foreground">
-            Only you can see this. It is separate from ratings and driver levels.
-          </p>
-        </section>
+        {/* Recognition, one card per programme */}
+        {programmes.map((p) => (
+          <ProgrammeRecognition key={p} programme={p} rows={rows} milestones={milestones} />
+        ))}
 
         {/* Rules */}
         <section className="rounded-xl border bg-card p-4 space-y-2" aria-labelledby="rules-title">
@@ -363,5 +325,76 @@ function ListCard({ title, items }: { title: string; items: string[] }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+function ProgrammeRecognition({
+  programme,
+  rows,
+  milestones,
+}: {
+  programme: InviteRole;
+  rows: ReferralProgressRow[];
+  milestones: MilestoneRow[];
+}) {
+  const mine = milestones.filter((m) => m.programme === programme);
+  const earned = new Set(mine.filter((m) => !m.revoked_at).map((m) => m.milestone));
+  const withdrawn = new Set(mine.filter((m) => m.revoked_at).map((m) => m.milestone));
+  const counted = rows.filter((r) => r.invited_as === programme && r.stage === "recognised").length;
+  const next = nextMilestone(counted);
+  const titleId = `recognition-title-${programme}`;
+  return (
+    <section
+      className="rounded-xl border bg-card p-4 space-y-3"
+      aria-labelledby={titleId}
+      data-testid={`recognition-${programme}`}
+    >
+      <div className="flex items-center gap-2">
+        <Trophy className="w-4 h-4 text-cz-amber-text" aria-hidden />
+        <h3 id={titleId} className="font-semibold text-sm">
+          {PROGRAMME_TITLE[programme]}
+        </h3>
+      </div>
+      <ul className="grid grid-cols-5 gap-1.5">
+        {MILESTONES.map((m) => (
+          <li
+            key={m}
+            className={cn(
+              "flex flex-col items-center gap-1 rounded-lg border py-2 text-[11px] font-semibold",
+              earned.has(m)
+                ? "border-primary bg-primary/10 text-cz-amber-text"
+                : "text-muted-foreground",
+            )}
+            aria-label={`${milestoneLabel(m)}: ${earned.has(m) ? "earned" : withdrawn.has(m) ? "withdrawn" : "not yet"}`}
+          >
+            <Trophy
+              className={cn(
+                "w-4 h-4",
+                earned.has(m) ? "text-cz-amber-text" : "text-muted-foreground/40",
+              )}
+              aria-hidden
+            />
+            {m}
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-muted-foreground">
+        {counted === 0
+          ? PROGRAMME_FIRST_STEP[programme]
+          : next
+            ? `${counted} counted. ${next - counted} more to reach ${next}.`
+            : "You have reached every milestone. Thank you for helping Con Z grow."}
+      </p>
+      {withdrawn.size > 0 && (
+        <p className="text-xs text-muted-foreground">
+          A milestone was withdrawn because an invitation it counted did not meet the rules after
+          review.
+        </p>
+      )}
+      <p className="text-[11px] text-muted-foreground">
+        Recognition only: it is not money, credit or a discount, and it does not change which jobs
+        you are offered.
+      </p>
+    </section>
   );
 }
