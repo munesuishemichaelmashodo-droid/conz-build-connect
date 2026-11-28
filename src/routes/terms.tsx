@@ -90,7 +90,11 @@ function TermsPage() {
               transferred to another Driver, and it cannot be used to pay for materials or for
               transport. Customers never pay Con Z: they pay the Driver directly, and Con Z does not
               collect, hold or guarantee that payment. Top-up methods may be limited while the
-              Platform is launching and are shown in the app when open.
+              Platform is launching and are shown in the app when open. The one exception to
+              &quot;cannot be withdrawn&quot;: if a Driver closes their account, Con Z refunds the
+              unused Commission Credit the Driver bought, once no job, dispute or amount owed is
+              open, by sending it to the mobile money or bank account the Driver gives and recording
+              the transaction reference. Promotional credit is never refunded or paid out.
             </p>
           </Section>
 
@@ -166,7 +170,8 @@ function TermsPage() {
               Con Z may suspend, restrict, or terminate any account for breach of these Terms,
               accumulated strikes under the cancellation and dispute policy, safety concerns, or
               suspected fraud. You may also close your own account at any time; commissions and
-              obligations accrued before closure remain payable.
+              obligations accrued before closure remain payable, and unused purchased Commission
+              Credit is refunded as described in section 6.
             </p>
           </Section>
 

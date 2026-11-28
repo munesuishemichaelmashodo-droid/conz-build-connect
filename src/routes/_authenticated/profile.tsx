@@ -18,6 +18,7 @@ import { AddTruckForm } from "@/components/AddTruckForm";
 import { PointsCard } from "@/components/PointsCard";
 import { ReferralRecognitionCard } from "@/components/ReferralRecognitionCard";
 import { deleteMyAccount } from "@/lib/account-deletion";
+import { ClosureRefundCard } from "@/components/ClosureRefundCard";
 import { driverStatus, REVIEW_TARGET_TEXT } from "@/lib/driver-onboarding";
 import { rpcFailure } from "@/lib/rpc-result";
 import {
@@ -328,6 +329,7 @@ function DocUpload({ field, label, hint, cameraFacing = "environment", userId, c
 }
 
 function DeleteAccountCard() {
+  const { userId } = useAuth();
   const [open, setOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -360,6 +362,7 @@ function DeleteAccountCard() {
         Permanently removes your personal info (name, phone, email, ID documents) and blocks this account from
         ever logging in again. This cannot be undone.
       </p>
+      {userId && <ClosureRefundCard userId={userId} />}
       <Button variant="outline" className="w-full border-destructive text-destructive hover:bg-destructive/10" onClick={() => setOpen(true)}>
         Delete my account
       </Button>
