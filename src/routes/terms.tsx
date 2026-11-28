@@ -108,7 +108,7 @@ function TermsPage() {
           <Section title="8. Delivery Verification">
             <p>
               A delivery counts as complete only after the Driver uploads a delivery photo and the
-              Customer's one-time delivery code is entered. Commission, referral rewards and points
+              Customer's one-time delivery code is entered. Commission, referral recognition and points
               are based on verified deliveries, not on a Driver marking a job complete.
             </p>
           </Section>
@@ -136,12 +136,15 @@ function TermsPage() {
           <Section title="11. Ratings, Referrals and Points">
             <p>
               Customers and Drivers may rate each other after a delivery; ratings must be honest.
-              Referral rewards are paid only for qualifying activity (such as a referred person's
-              verified completed delivery), once, and Con Z may withhold or reverse rewards obtained
-              by self-referral, duplicate accounts or other abuse. If Con Z points are offered, they
+              Referrals give recognition only: they never pay money, wallet or commission credit,
+              discounts, or priority for jobs. An invitation counts once the invited customer
+              completes their first genuine delivery, or the invited driver is verified and completes
+              five genuine deliveries. Con Z may refuse or withdraw recognition obtained by
+              self-referral, duplicate accounts or other abuse, and records the reason. If Con Z
+              points are offered, they
               are rewards with no cash value, cannot be transferred or withdrawn, do not change any
               price or commission, and may be adjusted or reversed by Con Z where awarded in error or
-              by abuse. Reward values and eligibility may change.
+              by abuse.
             </p>
           </Section>
 

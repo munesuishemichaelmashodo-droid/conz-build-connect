@@ -74,9 +74,10 @@ const db = {
     phone: u.phone || null,
     avatar_url: null,
     status: "active",
-    referral_code: null,
+    referral_code: u.id === ID.customer ? "TAPIWA7" : u.id === ID.driver ? "FARAI42" : null,
     created_at: u.created_at,
   })),
+  referral_milestones_achieved: [{ user_id: ID.driver, milestone: 1, achieved_at: hoursAgo(300), revoked_at: null, revoked_reason: null }],
   user_roles: [
     { user_id: ID.customer, role: "customer" },
     { user_id: ID.driver, role: "driver" },
@@ -409,6 +410,36 @@ function mockStageEvent(row, actor, action, amount, method, reference) {
 }
 
 const rpc = {
+  // 0185 Invite page: progress only, no names or ids of the people invited.
+  my_referral_progress: (_a, me) =>
+    me?.id === ID.driver
+      ? [
+          { ref_key: "a1", invited_as: "driver", joined_month: "2026-10-01", stage: "recognised", verified: true, jobs_done: 5, jobs_needed: 5, recognised_on: "2026-11-12" },
+          { ref_key: "a2", invited_as: "driver", joined_month: "2026-11-01", stage: "in_progress", verified: true, jobs_done: 3, jobs_needed: 5, recognised_on: null },
+          { ref_key: "a3", invited_as: "customer", joined_month: "2026-11-01", stage: "qualified", verified: null, jobs_done: 1, jobs_needed: 1, recognised_on: null },
+        ]
+      : me?.id === ID.customer
+        ? [{ ref_key: "b1", invited_as: "customer", joined_month: "2026-11-01", stage: "in_progress", verified: null, jobs_done: 0, jobs_needed: 1, recognised_on: null }]
+        : [],
+  record_referral_share: () => true,
+  admin_referral_metrics: () => ({
+    window_days: 90,
+    shares: { total: 14, people_sharing: 5, by_channel: { whatsapp: 9, copy_link: 4, share_sheet: 1 } },
+    signups: { customers: 3, drivers: 2 },
+    customers_first_delivery: 2, drivers_verified: 2, drivers_five_jobs: 1, recognised: 1,
+    repeat_customers: 1, repeat_bookings: 2,
+    retention: [
+      { role: "customer", day: 30, eligible: 2, active: 1 }, { role: "customer", day: 60, eligible: 0, active: 0 },
+      { role: "customer", day: 90, eligible: 0, active: 0 }, { role: "driver", day: 30, eligible: 1, active: 1 },
+      { role: "driver", day: 60, eligible: 0, active: 0 }, { role: "driver", day: 90, eligible: 0, active: 0 },
+    ],
+    review: { flagged: 1, frozen: 0, rejected: 0, milestones_revoked: 0 },
+    partner_benefits: { approved: 0, cost: 0, note: "No partner benefits are approved. Referrals give recognition only." },
+    areas: [
+      { area: "Chitungwiza", posted: 9, with_offer: 7, completed: 5, no_offer: 2, from_referred_customers: 1 },
+      { area: "Other areas", posted: 4, with_offer: 4, completed: 3, no_offer: 0, from_referred_customers: 0 },
+    ],
+  }),
   job_payment_plan: (a) => {
     const job = db.jobs.find((j) => j.id === a._job);
     const fare = Number(job?.final_price ?? job?.budget ?? 0);
