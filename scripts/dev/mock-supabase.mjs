@@ -533,6 +533,27 @@ const rpc = {
     });
     return row;
   },
+  // 0186 stand-in: 0179 plus handling, with the job's details recorded on the version.
+  propose_job_agreement_full: (a, me) => {
+    const row = rpc.propose_job_agreement_terms(a, me);
+    if (!row) return null;
+    const job = db.jobs.find((j) => j.id === a._job);
+    Object.assign(row, {
+      customer_id: job.customer_id, driver_id: job.driver_id, truck_registration: "AEX 1234", truck_capacity_m3: 15,
+      material: job.custom_material || job.material, quantity_m3: job.quantity_m3,
+      pickup_address: job.pickup_address ?? null, delivery_address: job.delivery_address, preferred_date: job.preferred_date ?? null,
+      agreed_date: a._agreed_date || null, loading_by: a._loading_by || null, offloading_by: a._offloading_by || null,
+      collection_instructions: a._collection_instructions || null, content_hash: "simulated".padEnd(64, "0"), // stand-in value, not a real hash
+    });
+    return row;
+  },
+  job_agreement_in_force: (a) => {
+    const row = [...(db.job_agreements ?? [])].filter((r) => r.job_id === a._job && r.status === "accepted").sort((x, y) => y.version - x.version)[0];
+    if (!row) return { agreement_id: null };
+    const job = db.jobs.find((j) => j.id === a._job);
+    const changed = row.content_hash && Number(row.quantity_m3) !== Number(job.quantity_m3) ? ["quantity_m3"] : [];
+    return { agreement_id: row.id, version: row.version, recorded_details: !!row.content_hash, changed_since_agreed: changed };
+  },
   // 0184 stand-in: sample signals for the admin Trust screen (no real data).
   admin_trust_signals: () => [
     { signal: "shared_phone", detail: "2 accounts use the same phone number (ending 567)", user_ids: ["00000000-0000-4000-8000-0000000000c1", "00000000-0000-4000-8000-0000000000d2"], job_ids: null, seen: 2 },
