@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { AppRole } from "@/lib/domain";
 import { resolveTermsAcceptance } from "@/lib/auth-flow";
+import { normaliseReferralCode } from "@/lib/pending-referral";
 
 type SessionUser = {
   id: string;
@@ -14,12 +15,20 @@ type SessionUser = {
 // sign-up where the Terms box was ticked before the redirect. It can only
 // ever record acceptance on the caller's own profile, and never overwrites
 // an earlier acceptance.
-function parseActivateInput(input: unknown): { termsAccepted: boolean } {
+function parseActivateInput(input: unknown): {
+  termsAccepted: boolean;
+  referralCode: string | null;
+} {
   const termsAccepted =
     typeof input === "object" &&
     input !== null &&
     (input as { termsAccepted?: unknown }).termsAccepted === true;
-  return { termsAccepted };
+  // A referral code kept through a Google sign-up (pending-referral.ts), with the same shape check.
+  const raw =
+    typeof input === "object" && input !== null
+      ? (input as { referralCode?: unknown }).referralCode
+      : null;
+  return { termsAccepted, referralCode: normaliseReferralCode(raw) };
 }
 
 export const activateAccount = createServerFn({ method: "POST" })
@@ -124,7 +133,10 @@ export const activateAccount = createServerFn({ method: "POST" })
 
     // First-time activation with a referral code: redeem it. Non-fatal on failure
     // (bad/expired code, self-referral, already redeemed) — signup must not be blocked.
-    const referralCode = typeof meta.referral_code === "string" ? meta.referral_code.trim() : "";
+    // Email sign-ups carry it in the sign-up metadata; Google sign-ups pass it from the tab (first activation only).
+    const referralCode =
+      (typeof meta.referral_code === "string" ? meta.referral_code.trim() : "") ||
+      (data.referralCode ?? "");
     if (existingRoles.size === 0 && referralCode) {
       try {
         await context.supabase.rpc("record_referral", {

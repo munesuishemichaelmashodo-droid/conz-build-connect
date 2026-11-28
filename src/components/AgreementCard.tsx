@@ -7,6 +7,10 @@ import { Input } from "@/components/ui/input";
 import {
   agreedMethod,
   DEPOSIT_DUES,
+  LOADING_BY,
+  OFFLOADING_BY,
+  changedDetailLabels,
+  recordedDetails,
   PAYMENT_METHODS,
   PAYMENT_TIMINGS,
   agreementView,
@@ -61,6 +65,11 @@ export function AgreementCard({
   const [recipientAccount, setRecipientAccount] = useState("");
   const [instructions, setInstructions] = useState("");
   const [cancelTerms, setCancelTerms] = useState("");
+  // 0186: handling and the agreed date.
+  const [loadingBy, setLoadingBy] = useState("");
+  const [offloadingBy, setOffloadingBy] = useState("");
+  const [collectionNotes, setCollectionNotes] = useState("");
+  const [agreedDate, setAgreedDate] = useState("");
 
   const { data: rows, isError } = useQuery({
     queryKey: ["job-agreements", jobId],
@@ -89,6 +98,17 @@ export function AgreementCard({
     },
   });
 
+  // 0186: which agreed details of the job changed since both confirmed (empty before 0186 or when nothing changed).
+  const { data: inForce } = useQuery({
+    queryKey: ["job-agreement-in-force", jobId, rows?.length ?? 0],
+    enabled: !!userId && (rows?.length ?? 0) > 0,
+    queryFn: async () => {
+      const { data, error } = await call("job_agreement_in_force", { _job: jobId });
+      if (error) return null;
+      return data as { agreement_id: string | null; changed_since_agreed?: string[] } | null;
+    },
+  });
+
   // Quiet when the feature is not available yet (older database) or the job is not assigned.
   if (isError || !["accepted", "in_progress"].includes(jobStatus)) {
     const done = currentAgreement(rows);
@@ -101,7 +121,11 @@ export function AgreementCard({
   const view = agreementView(current, userId);
   const detailChanges = view === "needs_my_answer" ? paymentDetailChanges(rows) : [];
   const open = ["accepted", "in_progress"].includes(jobStatus);
-  const refresh = () => qc.invalidateQueries({ queryKey: ["job-agreements", jobId] });
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["job-agreements", jobId] });
+    qc.invalidateQueries({ queryKey: ["job-agreement-in-force", jobId] });
+  };
+  const changedSinceAgreed = changedDetailLabels(inForce?.changed_since_agreed ?? []);
 
   // A change starts from the version in force, so one edit never silently clears the deposit or who to pay.
   const startEditing = (from: JobAgreement | null) => {
@@ -119,6 +143,10 @@ export function AgreementCard({
       setRecipientAccount(from.recipient_account ?? "");
       setInstructions(from.payment_instructions ?? "");
       setCancelTerms(from.cancellation_terms ?? "");
+      setLoadingBy(from.loading_by ?? "");
+      setOffloadingBy(from.offloading_by ?? "");
+      setCollectionNotes(from.collection_instructions ?? "");
+      setAgreedDate(from.agreed_date ?? "");
     }
     setEditing(true);
   };
@@ -154,8 +182,7 @@ export function AgreementCard({
       _exclusions: exc,
     };
     const ok = "Sent. The other person will be asked to confirm.";
-    setBusy(true);
-    const terms = await call("propose_job_agreement_terms", {
+    const termsArgs = {
       ...base,
       _deposit_due: (Number(deposit) || 0) > 0 ? depositDue : null,
       _deposit_reason: depositReason,
@@ -163,7 +190,24 @@ export function AgreementCard({
       _recipient_account: recipientAccount,
       _payment_instructions: instructions,
       _cancellation_terms: cancelTerms,
+    };
+    setBusy(true);
+    let terms = await call("propose_job_agreement_full", {
+      ...termsArgs,
+      _loading_by: loadingBy || null,
+      _offloading_by: offloadingBy || null,
+      _collection_instructions: collectionNotes,
+      _agreed_date: agreedDate || null,
     });
+    // Before 0186 is applied: the 0179 function (no handling details).
+    if (
+      terms.error &&
+      /propose_job_agreement_full|function .* does not exist|schema cache/i.test(
+        terms.error.message,
+      )
+    ) {
+      terms = await call("propose_job_agreement_terms", termsArgs);
+    }
     setBusy(false);
     // Before 0179 is applied the function does not exist: use the 0163 one (no payment details).
     if (
@@ -219,8 +263,35 @@ export function AgreementCard({
         </div>
       )}
 
+      {changedSinceAgreed.length > 0 && !editing && (
+        <div
+          role="alert"
+          className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-[13px]"
+          data-testid="agreement-job-changed"
+        >
+          <p className="font-semibold">Job details changed after you both agreed</p>
+          <p>
+            {changedSinceAgreed.join(", ")} changed. Propose the agreement again so you both confirm
+            the same details.
+          </p>
+        </div>
+      )}
+
       {current && !editing && (
         <div className="space-y-1.5 text-sm">
+          {recordedDetails(current).length > 0 && (
+            <dl
+              className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg bg-muted/40 p-2.5 text-[13px]"
+              data-testid="agreement-recorded"
+            >
+              {recordedDetails(current).map((d) => (
+                <div key={d.label} className="contents">
+                  <dt className="text-cz-muted">{d.label}</dt>
+                  <dd className="min-w-0 break-words">{d.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
           <p className="text-xs font-semibold text-cz-muted">{paymentPlanLabel(current)}</p>
           <p>{payLine(current)}</p>
           {current.deposit_reason && (
@@ -428,6 +499,49 @@ export function AgreementCard({
             />
           </label>
           <label className="block text-sm">
+            Who loads the truck
+            <select
+              value={loadingBy}
+              onChange={(e) => setLoadingBy(e.target.value)}
+              className="mt-1 h-10 w-full rounded-md border bg-background px-2"
+            >
+              <option value="">Not agreed yet</option>
+              {LOADING_BY.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm">
+            Who offloads
+            <select
+              value={offloadingBy}
+              onChange={(e) => setOffloadingBy(e.target.value)}
+              className="mt-1 h-10 w-full rounded-md border bg-background px-2"
+            >
+              <option value="">Not agreed yet</option>
+              {OFFLOADING_BY.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm">
+            Collection instructions (optional)
+            <Input
+              value={collectionNotes}
+              onChange={(e) => setCollectionNotes(e.target.value)}
+              maxLength={500}
+              placeholder="e.g. ask for the yard manager at the gate"
+            />
+          </label>
+          <label className="block text-sm">
+            Delivery date
+            <Input type="date" value={agreedDate} onChange={(e) => setAgreedDate(e.target.value)} />
+          </label>
+          <label className="block text-sm">
             Pickup time
             <Input
               value={pickup}
@@ -472,7 +586,9 @@ export function AgreementCard({
             </Button>
           </div>
           <p className="text-xs text-cz-muted">
-            Chosen: {methodLabel(method).toLowerCase()}, {timingLabel(timing).toLowerCase()}.
+            Chosen: {methodLabel(method).toLowerCase()}, {timingLabel(timing).toLowerCase()}. The
+            truck, load and addresses are copied from the job when you send this, and each version
+            is kept.
           </p>
         </div>
       )}

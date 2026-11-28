@@ -3,52 +3,77 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
-import { StatusBadge, EmptyState } from "@/components/ui-bits";
-import { money } from "@/lib/domain";
-import { Gift, Copy, Share2, Users, Clock, CheckCircle2, Trophy, MessageCircle } from "lucide-react";
+import { EmptyState } from "@/components/ui-bits";
+import {
+  Copy,
+  Share2,
+  Users,
+  Trophy,
+  MessageCircle,
+  CheckCircle2,
+  Info,
+  UserPlus,
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { isNativePlatform } from "@/lib/native-push";
+import {
+  INVITE_COPY,
+  MILESTONES,
+  PROGRAMME_FIRST_STEP,
+  PROGRAMME_TITLE,
+  RULES,
+  STAGE_LABEL,
+  invitedLabel,
+  inviteLink,
+  milestoneLabel,
+  monthLabel,
+  nextMilestone,
+  progressFraction,
+  progressLine,
+  type InviteRole,
+  type ReferralProgressRow,
+} from "@/lib/referral-copy";
 
 export const Route = createFileRoute("/_authenticated/refer")({
-  component: ReferPage,
+  component: InvitePage,
 });
 
-const MILESTONES = [1, 5, 10, 25, 50];
+type Rpc = (
+  name: string,
+  args?: Record<string, unknown>,
+) => Promise<{ data: unknown; error: { message: string } | null }>;
+const callRpc = (name: string, args?: Record<string, unknown>) =>
+  (supabase.rpc as unknown as Rpc)(name, args);
 
-type ReferralRow = {
-  id: string;
-  referred_id: string;
-  referred_role: string;
-  verification_status: string;
-  reward_status: string;
-  reward_amount: number | null;
-  created_at: string;
+type MilestoneRow = {
+  programme: InviteRole;
+  milestone: number;
+  achieved_at: string;
+  revoked_at: string | null;
+};
+type ShareChannel = "whatsapp" | "share_sheet" | "copy_link" | "copy_code";
+
+const STAGE_TONE: Record<string, string> = {
+  in_progress: "bg-muted text-muted-foreground border-border",
+  qualified: "bg-warning/15 text-warning border-warning/30",
+  recognised: "bg-success/15 text-success border-success/30",
+  not_recognised: "bg-muted text-muted-foreground border-border",
+  being_checked: "bg-muted text-muted-foreground border-border",
 };
 
-const REWARD_STATUS_TONE: Record<string, string> = {
-  pending: "bg-muted text-muted-foreground border-border",
-  hold: "bg-warning/15 text-warning border-warning/30",
-  approved: "bg-secondary/15 text-secondary-foreground border-secondary/30",
-  released: "bg-success/15 text-success border-success/30",
-  rejected: "bg-destructive/15 text-destructive border-destructive/30",
-  frozen: "bg-destructive/15 text-destructive border-destructive/30",
-};
+function InvitePage() {
+  const { profile, userId, is } = useAuth();
+  const role: InviteRole = is("driver") ? "driver" : "customer";
+  const copyText = INVITE_COPY[role];
 
-function ReferPage() {
-  const { profile, userId } = useAuth();
-
-  const referralsQuery = useQuery({
-    queryKey: ["my-referrals", userId],
+  const progressQuery = useQuery({
+    queryKey: ["my-referral-progress", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("referrals")
-        .select("id,referred_id,referred_role,verification_status,reward_status,reward_amount,created_at")
-        .eq("referrer_id", userId as string)
-        .order("created_at", { ascending: false });
+      const { data, error } = await callRpc("my_referral_progress");
       if (error) throw error;
-      return (data ?? []) as ReferralRow[];
+      return (data ?? []) as ReferralProgressRow[];
     },
   });
 
@@ -57,197 +82,319 @@ function ReferPage() {
     enabled: !!userId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("referral_milestones_achieved")
-        .select("milestone")
+        .from("referral_programme_milestones" as never)
+        .select("programme,milestone,achieved_at,revoked_at")
         .eq("user_id", userId as string);
       if (error) throw error;
-      return new Set((data ?? []).map((r) => r.milestone));
+      return (data ?? []) as unknown as MilestoneRow[];
     },
   });
 
-  const referrals = referralsQuery.data ?? [];
-  const achieved = milestonesQuery.data ?? new Set<number>();
+  const rows = progressQuery.data ?? [];
+  const milestones = milestonesQuery.data ?? [];
+  const counted = rows.filter((r) => r.stage === "recognised").length;
+  const inProgress = rows.filter(
+    (r) => r.stage === "in_progress" || r.stage === "qualified",
+  ).length;
+  // Customer and driver referrals keep separate progress and milestones (0185). Show the person's own
+  // programme first, and the other one only when they have invited someone into it.
+  const programmes: InviteRole[] = (role === "driver" ? ["driver", "customer"] : ["customer", "driver"]).filter(
+    (p, i) => i === 0 || rows.some((r) => r.invited_as === p) || milestones.some((m) => m.programme === p),
+  ) as InviteRole[];
 
-  const releasedCount = referrals.filter((r) => r.reward_status === "released").length;
-  const pendingCount = referrals.filter((r) => ["pending", "hold", "approved"].includes(r.reward_status)).length;
-  const earnedTotal = referrals
-    .filter((r) => r.reward_status === "released")
-    .reduce((sum, r) => sum + (r.reward_amount ?? 0), 0);
-  const pendingTotal = referrals
-    .filter((r) => ["hold", "approved"].includes(r.reward_status))
-    .reduce((sum, r) => sum + (r.reward_amount ?? 0), 0);
+  const code = profile?.referral_code ?? null;
+  const link = code ? inviteLink(window.location.origin, code) : "";
 
-  const code = profile?.referral_code;
-  const link = code ? `${window.location.origin}/auth?mode=register&ref=${code}` : "";
+  const logShare = (channel: ShareChannel) => {
+    // Counting only: a failed count never stops the share.
+    void callRpc("record_referral_share", { _channel: channel }).catch(() => undefined);
+  };
 
-  const copy = async (text: string, label: string) => {
+  const copy = async (text: string, label: string, channel: ShareChannel) => {
     try {
       await navigator.clipboard.writeText(text);
       toast.success(`${label} copied`);
+      logShare(channel);
     } catch {
-      toast.error("Couldn't copy — copy it manually");
+      toast.error("Couldn't copy. Press and hold to copy it instead.");
     }
   };
 
   const shareWhatsapp = async () => {
-    const msg = `Join Con Z Connect and get materials delivered fast! Use my referral code ${code} when you sign up: ${link}`;
-    const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
-    // window.open(url, "_blank") doesn't reliably work inside the native
-    // Capacitor WebView (no multi-window support enabled by default, so it
-    // silently no-ops) — same issue and same fix as the OAuth flow in
-    // auth.tsx. Browser.open() works correctly on native (opens WhatsApp
-    // directly via the system) and falls back to a normal new tab on web.
+    if (!link) return;
+    const url = `https://wa.me/?text=${encodeURIComponent(copyText.share(link))}`;
+    logShare("whatsapp");
+    // window.open is ignored inside the Android WebView; Browser.open hands the link to WhatsApp there
+    // and opens a normal tab on the web.
     const { Browser } = await import("@capacitor/browser");
     await Browser.open({ url });
   };
 
-  const shareGeneric = async () => {
-    if (!code) return;
+  const shareSheet = async () => {
+    if (!link) return;
+    const text = copyText.share(link);
     if (isNativePlatform()) {
       try {
         const { Share } = await import("@capacitor/share");
-        await Share.share({ title: "Join Con Z Connect", text: `Use my referral code ${code}`, url: link, dialogTitle: "Share referral link" });
+        await Share.share({ title: "Join Con Z", text, dialogTitle: "Send your invitation" });
+        logShare("share_sheet");
         return;
       } catch {
-        // fall through to copy
+        /* cancelled: fall back to copying */
       }
     } else if (navigator.share) {
       try {
-        await navigator.share({ title: "Join Con Z Connect", text: `Use my referral code ${code}`, url: link });
+        await navigator.share({ title: "Join Con Z", text });
+        logShare("share_sheet");
         return;
       } catch {
-        /* user cancelled */
+        return; // the person closed the share sheet
       }
     }
-    copy(link, "Referral link");
+    void copy(link, "Invitation link", "copy_link");
   };
 
-  const nextMilestone = MILESTONES.find((m) => !achieved.has(m)) ?? null;
-  const prevMilestone = [...MILESTONES].reverse().find((m) => achieved.has(m)) ?? 0;
-  const progressPct = nextMilestone
-    ? Math.min(100, ((releasedCount - prevMilestone) / (nextMilestone - prevMilestone)) * 100)
-    : 100;
-
   return (
-    <AppShell title="Refer & Earn">
+    <AppShell title="Invite">
       <div className="space-y-5">
-        {/* Referral code card */}
-        <div className="rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground p-5 shadow-lift relative overflow-hidden">
-          <Gift className="absolute -right-3 -bottom-3 w-24 h-24 opacity-15" />
-          <p className="text-xs opacity-80 font-semibold">Your referral code</p>
-          <p className="font-display font-black text-3xl tracking-wide mt-1">{code ?? "…"}</p>
-          <p className="text-sm opacity-90 mt-2">
-            Share it with friends. You earn when they complete their first job — they get a bonus too.
-          </p>
-          <div className="grid grid-cols-2 gap-2 mt-4">
-            <button
-              onClick={() => code && copy(code, "Referral code")}
-              className="flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-white/15 hover:bg-white/25 py-2 text-sm font-semibold"
-            >
-              <Copy className="w-4 h-4" /> Copy code
-            </button>
-            <button
-              onClick={shareGeneric}
-              className="flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-white/15 hover:bg-white/25 py-2 text-sm font-semibold"
-            >
-              <Share2 className="w-4 h-4" /> Share link
-            </button>
-          </div>
-          <button
-            onClick={shareWhatsapp}
-            className="w-full mt-2 flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-[#25D366] text-black py-2 text-sm font-semibold"
-          >
-            <MessageCircle className="w-4 h-4" /> Share on WhatsApp
-          </button>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard icon={Users} label="Total referrals" value={String(referrals.length)} />
-          <StatCard icon={Clock} label="Pending" value={String(pendingCount)} />
-          <StatCard icon={CheckCircle2} label="Earned" value={money(earnedTotal)} tone="text-success" />
-          <StatCard icon={Gift} label="Pending value" value={money(pendingTotal)} tone="text-warning" />
-        </div>
-
-        {/* Milestones */}
-        <div className="rounded-xl border bg-card p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Trophy className="w-4 h-4 text-cz-amber-text" />
-            <h3 className="font-semibold text-sm">Milestones</h3>
-          </div>
-          <div className="flex gap-2 mb-3">
-            {MILESTONES.map((m) => (
-              <div
-                key={m}
-                className={cn(
-                  "flex-1 flex flex-col items-center gap-1 rounded-lg border py-2 text-[11px] font-semibold",
-                  achieved.has(m) ? "border-primary bg-primary/10 text-cz-amber-text" : "text-muted-foreground"
-                )}
-              >
-                <Trophy className={cn("w-4 h-4", achieved.has(m) ? "text-cz-amber-text" : "text-muted-foreground/40")} />
-                {m}
-              </div>
-            ))}
-          </div>
-          <div className="h-2 rounded-full bg-muted overflow-hidden">
-            <div className="h-full bg-primary transition-all" style={{ width: `${progressPct}%` }} />
-          </div>
-          <p className="text-[11px] text-muted-foreground mt-1.5">
-            {nextMilestone
-              ? `${releasedCount}/${nextMilestone} released referrals to your next badge`
-              : "You've hit every milestone — ambassador status unlocked!"}
-          </p>
-        </div>
-
-        {/* History */}
-        <div className="space-y-2">
-          <h3 className="font-semibold text-sm">Referral history</h3>
-          {referralsQuery.isLoading ? (
-            <p className="text-xs text-muted-foreground">Loading…</p>
-          ) : !referrals.length ? (
-            <EmptyState icon={Gift} title="No referrals yet" hint="Share your code above to start earning." />
-          ) : (
-            <div className="space-y-2">
-              {referrals.map((r) => (
-                <div key={r.id} className="rounded-xl border bg-card p-3 flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold capitalize">{r.referred_role} referral</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Joined {new Date(r.created_at).toLocaleDateString()} · {r.verification_status}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    {r.reward_amount != null && (
-                      <p className="text-sm font-semibold">{money(r.reward_amount)}</p>
-                    )}
-                    <StatusBadge label={r.reward_status} className={REWARD_STATUS_TONE[r.reward_status]} />
-                  </div>
-                </div>
-              ))}
+        {/* Invitation card */}
+        <section
+          className="rounded-2xl border bg-card p-5 shadow-sm space-y-4"
+          aria-labelledby="invite-title"
+        >
+          <div className="flex items-start gap-3">
+            <div className="rounded-full bg-primary/15 p-2.5 text-cz-amber-text">
+              <UserPlus className="w-5 h-5" aria-hidden />
             </div>
+            <div>
+              <h2 id="invite-title" className="font-display font-bold text-lg leading-tight">
+                {copyText.title}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">{copyText.lead}</p>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground mb-1">Your invitation link</p>
+            <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2">
+              <span className="min-w-0 flex-1 truncate text-sm" data-testid="invite-link">
+                {link || "Preparing your link…"}
+              </span>
+              <button
+                onClick={() => link && copy(link, "Invitation link", "copy_link")}
+                disabled={!link}
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-muted disabled:opacity-50"
+                aria-label="Copy invitation link"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={shareWhatsapp}
+              disabled={!link}
+              className="col-span-2 flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-[#25D366] text-black py-2 text-sm font-semibold disabled:opacity-50"
+            >
+              <MessageCircle className="w-4 h-4" aria-hidden /> Send on WhatsApp
+            </button>
+            <button
+              onClick={shareSheet}
+              disabled={!link}
+              className="flex min-h-11 items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-semibold hover:bg-muted disabled:opacity-50"
+            >
+              <Share2 className="w-4 h-4" aria-hidden /> Share
+            </button>
+            <button
+              onClick={() => code && copy(code, "Invitation code", "copy_code")}
+              disabled={!code}
+              className="flex min-h-11 items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-semibold hover:bg-muted disabled:opacity-50"
+            >
+              <Copy className="w-4 h-4" aria-hidden /> Code {code ?? ""}
+            </button>
+          </div>
+        </section>
+
+        {/* Why and what they get */}
+        <section className="grid gap-3 sm:grid-cols-2">
+          <ListCard title="Why invite them" items={copyText.why} />
+          <ListCard title="What they get" items={copyText.theyGet} />
+        </section>
+
+        {/* Invitations and their progress */}
+        <section className="space-y-2" aria-labelledby="progress-title">
+          <div className="flex items-end justify-between gap-2">
+            <h3 id="progress-title" className="font-semibold text-sm">
+              Your invitations
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              {rows.length} joined · {inProgress} on their way · {counted} counted
+            </p>
+          </div>
+          {progressQuery.isLoading ? (
+            <p className="text-xs text-muted-foreground">Loading…</p>
+          ) : progressQuery.isError ? (
+            <p className="text-xs text-muted-foreground">
+              Your invitations could not be loaded. Check your signal and try again.
+            </p>
+          ) : !rows.length ? (
+            <EmptyState
+              icon={Users}
+              title="No one has joined with your link yet"
+              hint="When someone joins, you will see how far they have got here."
+            />
+          ) : (
+            <ul className="space-y-2">
+              {rows.map((r) => (
+                <li key={r.ref_key} className="rounded-xl border bg-card p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold">{invitedLabel(r.invited_as)}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Joined {monthLabel(r.joined_month)}
+                      </p>
+                    </div>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+                        STAGE_TONE[r.stage] ?? STAGE_TONE.in_progress,
+                      )}
+                    >
+                      {STAGE_LABEL[r.stage] ?? r.stage}
+                    </span>
+                  </div>
+                  <div
+                    className="h-1.5 rounded-full bg-muted overflow-hidden"
+                    role="progressbar"
+                    aria-label={`${invitedLabel(r.invited_as)} progress`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round(progressFraction(r) * 100)}
+                  >
+                    <div
+                      className="h-full bg-primary"
+                      style={{ width: `${progressFraction(r) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{progressLine(r)}</p>
+                </li>
+              ))}
+            </ul>
           )}
-        </div>
+        </section>
+
+        {/* Recognition, one card per programme */}
+        {programmes.map((p) => (
+          <ProgrammeRecognition key={p} programme={p} rows={rows} milestones={milestones} />
+        ))}
+
+        {/* Rules */}
+        <section className="rounded-xl border bg-card p-4 space-y-2" aria-labelledby="rules-title">
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 text-muted-foreground" aria-hidden />
+            <h3 id="rules-title" className="font-semibold text-sm">
+              How invitations count
+            </h3>
+          </div>
+          <p className="text-sm">{copyText.counts}</p>
+          <ul className="space-y-1.5">
+            {RULES.map((rule) => (
+              <li key={rule} className="flex gap-2 text-xs text-muted-foreground">
+                <span aria-hidden>•</span>
+                <span>{rule}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
       </div>
     </AppShell>
   );
 }
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: typeof Users;
-  label: string;
-  value: string;
-  tone?: string;
-}) {
+function ListCard({ title, items }: { title: string; items: string[] }) {
   return (
-    <div className="rounded-xl border bg-card p-3">
-      <Icon className={cn("w-4 h-4 mb-1", tone ?? "text-muted-foreground")} />
-      <p className={cn("font-display font-bold text-lg", tone)}>{value}</p>
-      <p className="text-[11px] text-muted-foreground">{label}</p>
+    <div className="rounded-xl border bg-card p-4">
+      <h3 className="font-semibold text-sm mb-2">{title}</h3>
+      <ul className="space-y-2">
+        {items.map((t) => (
+          <li key={t} className="flex gap-2 text-sm">
+            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-success" aria-hidden />
+            <span>{t}</span>
+          </li>
+        ))}
+      </ul>
     </div>
+  );
+}
+
+function ProgrammeRecognition({
+  programme,
+  rows,
+  milestones,
+}: {
+  programme: InviteRole;
+  rows: ReferralProgressRow[];
+  milestones: MilestoneRow[];
+}) {
+  const mine = milestones.filter((m) => m.programme === programme);
+  const earned = new Set(mine.filter((m) => !m.revoked_at).map((m) => m.milestone));
+  const withdrawn = new Set(mine.filter((m) => m.revoked_at).map((m) => m.milestone));
+  const counted = rows.filter((r) => r.invited_as === programme && r.stage === "recognised").length;
+  const next = nextMilestone(counted);
+  const titleId = `recognition-title-${programme}`;
+  return (
+    <section
+      className="rounded-xl border bg-card p-4 space-y-3"
+      aria-labelledby={titleId}
+      data-testid={`recognition-${programme}`}
+    >
+      <div className="flex items-center gap-2">
+        <Trophy className="w-4 h-4 text-cz-amber-text" aria-hidden />
+        <h3 id={titleId} className="font-semibold text-sm">
+          {PROGRAMME_TITLE[programme]}
+        </h3>
+      </div>
+      <ul className="grid grid-cols-5 gap-1.5">
+        {MILESTONES.map((m) => (
+          <li
+            key={m}
+            className={cn(
+              "flex flex-col items-center gap-1 rounded-lg border py-2 text-[11px] font-semibold",
+              earned.has(m)
+                ? "border-primary bg-primary/10 text-cz-amber-text"
+                : "text-muted-foreground",
+            )}
+            aria-label={`${milestoneLabel(m)}: ${earned.has(m) ? "earned" : withdrawn.has(m) ? "withdrawn" : "not yet"}`}
+          >
+            <Trophy
+              className={cn(
+                "w-4 h-4",
+                earned.has(m) ? "text-cz-amber-text" : "text-muted-foreground/40",
+              )}
+              aria-hidden
+            />
+            {m}
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-muted-foreground">
+        {counted === 0
+          ? PROGRAMME_FIRST_STEP[programme]
+          : next
+            ? `${counted} counted. ${next - counted} more to reach ${next}.`
+            : "You have reached every milestone. Thank you for helping Con Z grow."}
+      </p>
+      {withdrawn.size > 0 && (
+        <p className="text-xs text-muted-foreground">
+          A milestone was withdrawn because an invitation it counted did not meet the rules after
+          review.
+        </p>
+      )}
+      <p className="text-[11px] text-muted-foreground">
+        Recognition only: it is not money, credit or a discount, and it does not change which jobs
+        you are offered.
+      </p>
+    </section>
   );
 }
